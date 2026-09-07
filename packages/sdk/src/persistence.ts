@@ -39,11 +39,6 @@ export {
   loadJsonl,
   readJsonlIds,
 } from "./internal/persistence/jsonl.js";
-export { PersistenceSchema } from "./internal/persistence/persistence-schema.js";
-export {
-  classifySessionArtifact,
-  type SessionArtifact,
-} from "./internal/persistence/session-artifacts.js";
 // SE40 — native session transcript (Claude-shaped `.jsonl`, theokit-native). The
 // on-disk session format IS this shape. `encodeProjectDir` + `transcriptPath` are
 // the path helpers a consumer reuses to locate a session file under
@@ -74,6 +69,23 @@ export {
 //
 // Measured on `@theokit/agents` 4.x against 5.0.1: 29 unit tests failing from this one cause, seen
 // from four angles (listing, protection, GC, deletion).
+// #598 — the ENUMERATION. Every helper below maps forward; none listed, so two independent consumers
+// rebuilt the listing in opposite directions and both derived the id from the filename. One of them
+// shipped a garbage collector that classified the live session as an orphan.
+//
+// It reports where each id came from rather than returning a bare string, because an id that is
+// sometimes read and sometimes inferred is the same defect one layer up — see the module docblock.
+export {
+  type ListSessionsOptions,
+  listSessions,
+  type SessionIdSource,
+  type SessionListing,
+} from "./internal/persistence/list-sessions.js";
+export { PersistenceSchema } from "./internal/persistence/persistence-schema.js";
+export {
+  classifySessionArtifact,
+  type SessionArtifact,
+} from "./internal/persistence/session-artifacts.js";
 export {
   encodeProjectDir,
   legacyTranscriptPath,

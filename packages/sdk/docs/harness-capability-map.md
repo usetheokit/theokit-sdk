@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1200 export(s) across 46 entry point(s).
+1204 export(s) across 46 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1202,6 +1202,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `isCorruptionError` | function | True when an open error indicates an unreadable / corrupt database file. |
 | `JsonlParseError` | class | Raised when a JSONL line is not valid JSON or is not a JSON object.  |
 | `legacyTranscriptPath` | function | The path this session used BEFORE #400 made transcript filenames UUIDs.  |
+| `listSessions` | function | Every session transcript under `<baseDir>/projects/<encoded-cwd>/`, with the id read from inside each file.  |
+| `ListSessionsOptions` | interface | Options for {@link listSessions } . |
 | `LiveSessionError` | class | M81 — the target is a protected session (live pointer / most-recent transcript / active entry).  |
 | `LiveTranscriptError` | class | M81 — the target is a protected session (live pointer / most-recent transcript / active entry).  |
 | `loadJsonl` | function | Parse a JSONL file into rows.  |
@@ -1217,6 +1219,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SessionArtifact` | type | The kinds of file this SDK leaves in a project's transcript directory.  |
 | `SessionBusyError` | class | M81 — another process already holds the writer lease for this session.  |
 | `sessionHasWriter` | function | Does the session have a writer **right now**?  |
+| `SessionIdSource` | type | How the `id` on a {@link SessionListing } was obtained. |
+| `SessionListing` | interface | One session found on disk. |
 | `sessionUuidFor` | function | The transcript filename for an agent id — always a UUID.  |
 | `SessionWriterLease` | interface | A held writer lease.  |
 | `TranscriptBlock` | type | A content block inside {@link TranscriptMessage } . |
