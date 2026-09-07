@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { loadHookConfig } from "../src/internal/runtime/hooks/hooks-source.js";
 import { removeTempDirRobustSync } from "./helpers/temp-workspace.js";
 
@@ -111,5 +111,95 @@ describe("hooks declared under .claude", () => {
   // or "no hooks" would have become an error rather than an empty config.
   it("test_a_project_with_no_hooks_file_anywhere_loads_an_empty_config", async () => {
     expect(await loadHookConfig(cwd, CLAUDE_CODE)).toEqual({});
+  });
+});
+
+/**
+ * #613 — the events this runtime does NOT fire are refused by name, and that refusal is asserted
+ * rather than only described.
+ *
+ * `CLAUDE_CODE_EVENT_MAP` maps four of the CLI's events; `SessionStart`, `SubagentStop`,
+ * `PreCompact`, `Notification` and `SessionEnd` have no firing point here and are skipped with a
+ * warn. The docblock at the top of this file has said so since the compat work landed — and prose
+ * was not enough. Two independent readers spent hours in 2026-09 concluding that a `SessionStart`
+ * hook was silently broken, and one of them (me) filed a defect against this package for it. The
+ * behaviour was correct and documented; what was missing was an executable answer for anyone who
+ * greps before they read.
+ *
+ * The second case is the one that carries the claim. Without it, "SessionStart produced no hook" is
+ * indistinguishable from "the file was never read" — which is exactly the ambiguity that made the
+ * original investigation go wrong. Both events live in ONE file, so the control and the subject
+ * share every variable except the event name.
+ */
+describe("a hook declared for an event this runtime does not fire", () => {
+  let cwd: string;
+
+  beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), "cc-hooks-unmapped-"));
+    onTestFinished(() => {
+      removeTempDirRobustSync(cwd);
+    });
+  });
+
+  const writeBoth = (): void => {
+    mkdirSync(join(cwd, ".claude"), { recursive: true });
+    writeFileSync(
+      join(cwd, ".claude", "settings.json"),
+      JSON.stringify({
+        hooks: {
+          SessionStart: [{ hooks: [{ type: "command", command: "echo on-session-start" }] }],
+          PreToolUse: [{ hooks: [{ type: "command", command: "echo on-pre-tool-use" }] }],
+        },
+      }),
+    );
+  };
+
+  it("test_an_unmapped_event_contributes_no_hook", async () => {
+    writeBoth();
+    const config = await loadHookConfig(cwd, CLAUDE_CODE);
+    expect(JSON.stringify(config)).not.toContain("echo on-session-start");
+  });
+
+  it("test_CONTROL_a_mapped_event_in_the_same_file_is_loaded", async () => {
+    writeBoth();
+    const config = await loadHookConfig(cwd, CLAUDE_CODE);
+    expect(JSON.stringify(config)).toContain("echo on-pre-tool-use");
+  });
+
+  /**
+   * `SessionEnd`, not `SessionStart`, and the difference is not cosmetic. `warnOnce` dedupes per
+   * process per event, so a test that reused `SessionStart` would pass or fail depending on whether
+   * a sibling above it had already consumed the key — an order-dependent test, which
+   * `rules/testing.md § 3` forbids. Giving this case its own unmapped event makes it independent,
+   * and incidentally proves the refusal is a rule about the map rather than a special case for one
+   * event name.
+   */
+  it("test_the_refusal_names_the_event_and_the_events_that_are_supported", async () => {
+    const written: string[] = [];
+    const spy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation((chunk: string | Uint8Array): boolean => {
+        written.push(String(chunk));
+        return true;
+      });
+    try {
+      mkdirSync(join(cwd, ".claude"), { recursive: true });
+      writeFileSync(
+        join(cwd, ".claude", "settings.json"),
+        JSON.stringify({
+          hooks: {
+            SessionEnd: [{ hooks: [{ type: "command", command: "echo on-session-end" }] }],
+          },
+        }),
+      );
+      await loadHookConfig(cwd, CLAUDE_CODE);
+    } finally {
+      spy.mockRestore();
+    }
+    const warn = written.join("");
+    expect(warn).toContain("SessionEnd");
+    expect(warn).toContain("is not fired by the SDK runtime");
+    // The supported set is quoted back, so an operator can fix the file without reading our source.
+    expect(warn).toContain("PreToolUse");
   });
 });

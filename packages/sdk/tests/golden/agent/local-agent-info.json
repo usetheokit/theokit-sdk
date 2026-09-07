@@ -1,7 +1,7 @@
 {
   "agentId": "agent-<id>",
   "name": "Contract Local Agent",
-  "summary": "Local contract fixture",
+  "summary": "Local agent",
   "lastModified": "<timestamp>",
   "status": "finished",
   "createdAt": "<timestamp>",

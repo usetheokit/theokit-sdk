@@ -28,7 +28,13 @@ export function registerLocalAgent(args: {
     agentId: args.agentId,
     runtime: "local",
     name: args.options.name,
-    summary: "Local contract fixture",
+    // #611 — a runtime label, not a fixture name. `SDKAgentInfo.summary` is `@public` and required,
+    // `AgentOptions` has no `summary` for a consumer to override, and this line was unconditional —
+    // so "Local contract fixture" was the only value the field could hold for a local agent, and it
+    // was measured reaching a user's session record on disk. The cloud sibling already guards its
+    // own fixture string behind `isFixtureMode()`; there is no local equivalent to port, so the
+    // local branch simply takes the non-fixture value.
+    summary: "Local agent",
     model: args.model,
     createdAt: Date.now(),
     lastModified: Date.now(),
