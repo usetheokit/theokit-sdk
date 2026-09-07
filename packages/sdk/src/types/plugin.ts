@@ -46,6 +46,8 @@ import type { ProviderProfile } from "./provider-profile.js";
  *   `on_session_end`, `post_assistant_reply`) is fire-and-forget: the return value is DISCARDED. A
  *   policy that needs to change a tool result belongs on `transform_tool_result` — put it on
  *   `post_tool_call` and it quietly degrades to observation.
+ * - `on_session_start` / `on_session_end` fire once per **run**, not once per agent lifetime — see
+ *   {@link SessionLifecycleContext}. Build an agent per turn and they fire on every message.
  *
  * Failure is asymmetric too. A fire-and-forget or transform handler that throws is caught, logged to
  * stderr, and the run continues. A `pre_tool_call` handler that throws is NOT caught by the hook
@@ -138,7 +140,24 @@ export interface LlmCallContext {
   iteration?: number;
 }
 
-/** #65 — context for the `on_session_start` / `on_session_end` hooks. @public */
+/**
+ * #65 — context for the `on_session_start` / `on_session_end` hooks.
+ *
+ * **These fire once per RUN, not once per agent lifetime**, and the `runId` on this very context is
+ * the tell: it changes every time they fire. "Session" here means one pass through the agent loop.
+ *
+ * The distinction is invisible to an application that creates an agent once and sends many messages
+ * — there, per-run and per-session coincide. It is decisive for one that builds an agent **per
+ * turn**: `on_session_start` then fires on every message, which is the opposite of what a handler
+ * named for a session start usually assumes.
+ *
+ * Stated here because it was not stated anywhere a consumer could read it. The only accurate
+ * sentence lived in an internal comment at the firing site, and in 2026-09 that cost two people
+ * hours and produced a defect report filed against this package for behaviour that is correct.
+ * `test_on_session_start_fires_once_per_run_and_again_on_the_next_run` now pins it.
+ *
+ * @public
+ */
 export interface SessionLifecycleContext {
   agentId: string;
   runId: string;
