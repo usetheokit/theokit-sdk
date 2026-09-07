@@ -1,5 +1,35 @@
 # Changelog
 
+## 5.3.2
+
+### Patch Changes
+
+- [#619](https://github.com/usetheokit/theokit-sdk/pull/619) [`3f80bba`](https://github.com/usetheokit/theokit-sdk/commit/3f80bbaf0e7b1a6e7cd81a08f63aba243e1a0f18) Thanks [@usetheodev](https://github.com/usetheodev)! - A wrongly-shaped `hooks` block is refused with the shape that would work
+  
+  `hooks: expected an object at "hooks" in <path>` named the validator's expectation and nothing an operator could act on. It now carries the accepted shape:
+  
+  ```
+  hooks: expected an object at "hooks" in <path> — hooks are keyed by event,
+  e.g. { "hooks": { "PreToolUse": [ { "hooks": [ { "type": "command", "command": "…" } ] } ] } }
+  ```
+  
+  Measured on a consumer in 2026-09. A flat `hooks` array in a `.theokit/settings.json` made this loader throw on **every turn** — and the file parsed perfectly for the product that had written it. `.theokit/` is this package's filebase, so what failed was an independent read of a path another product had started using, and the collision was one of **shape**, not of location. With only the diagnosis to go on, the operator looked in the wrong file.
+  
+  Two tests ship with it: the refusal names the shape, and a control proves the shape it names is accepted. Without the control, "the error mentions `keyed by event`" would say nothing about whether that advice is correct.
+
+- [#619](https://github.com/usetheokit/theokit-sdk/pull/619) [`a75059c`](https://github.com/usetheokit/theokit-sdk/commit/a75059cb496e4655e571a703c937e4e71ff670d8) Thanks [@usetheodev](https://github.com/usetheodev)! - Document that `on_session_start` / `on_session_end` fire once per **run** ([#613](https://github.com/usetheokit/theokit-sdk/issues/613) follow-up)
+  
+  Docs and a test only; no behaviour change.
+  
+  `SessionLifecycleContext` is named for a session and carries a `runId` that changes on every firing. The hooks fire once per pass through the agent loop — which is per-message for any application that builds its agent per turn. Nothing a consumer could read said so: the only accurate sentence was an internal comment at the firing site (`loop.ts`, *"fires once per run"*).
+  
+  That gap was measured. In 2026-09 it cost two sessions several hours and produced a defect filed against this package for behaviour that is correct; the real answer turned out to be an architectural mismatch in a consumer that constructs an agent per turn, where "once per run" is not what a `SessionStart` handler assumes.
+  
+  Two changes:
+  
+  - The cadence is now stated on `SessionLifecycleContext` and in the `HookName` docblock, where a consumer meets the hook.
+  - `test_on_session_start_fires_once_per_run_and_again_on_the_next_run` pins it across two runs. The existing integration case could not: it collects into a `Set`, so a hook firing twice and a hook firing once are indistinguishable there by construction.
+
 ## 5.3.1
 
 ### Patch Changes
