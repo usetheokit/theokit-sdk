@@ -362,9 +362,17 @@ function commonAgentInfo(agent: RegisteredAgent, fallbackSummary: string) {
   };
 }
 
+/**
+ * #611 — the fallback is a runtime label too.
+ *
+ * While `registerLocalAgent` wrote a fixture name unconditionally, this fallback could never be
+ * observed: only a record with no `summary` at all reaches it. That is what made the pair dangerous
+ * — two sites carrying one literal, and fixing the reachable one would have left this ready to
+ * reintroduce the string for any legacy or foreign record.
+ */
 function toLocalAgentInfo(agent: RegisteredAgent): SDKAgentInfo {
   return {
-    ...commonAgentInfo(agent, "Local contract fixture"),
+    ...commonAgentInfo(agent, "Local agent"),
     runtime: "local",
     ...(agent.cwd !== undefined ? { cwd: agent.cwd } : {}),
   };
@@ -372,7 +380,10 @@ function toLocalAgentInfo(agent: RegisteredAgent): SDKAgentInfo {
 
 function toCloudAgentInfo(agent: RegisteredAgent): SDKAgentInfo {
   return {
-    ...commonAgentInfo(agent, "Cloud contract fixture"),
+    // Same fallback, same reason (#611). The cloud REGISTRATION already guards its fixture string
+    // behind `isFixtureMode()`, so this line only answers for a record that carries no summary —
+    // and a fixture name is the wrong answer for that record whichever runtime it came from.
+    ...commonAgentInfo(agent, "Cloud agent"),
     archived: agent.archived,
     runtime: "cloud",
     env: { type: "cloud" },
