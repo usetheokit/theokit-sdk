@@ -79,10 +79,10 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `handoff_target_required` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:111` |
 | `hitl_timeout` | domain | HitlTimeoutError | `packages/sdk/src/internal/runtime/tools/hitl-middleware.ts:42` +1 |
 | `hook_denied` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent.ts:454` |
-| `hooks_invalid_command` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:272` |
+| `hooks_invalid_command` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:295` |
 | `hooks_json_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:190` +2 |
 | `hooks_read_error` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:181` |
-| `hooks_unsupported_type` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:266` |
+| `hooks_unsupported_type` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:289` |
 | `interactive_unavailable` | domain | InteractiveUnavailableError | `packages/sdk/src/interactive/types.ts:28` +1 |
 | `INTERNAL_SERVER_ERROR` | domain | — | `packages/sdk/src/server/errors-envelope.ts:100` |
 | `invalid_argument` | domain | TheokitAgentError | `packages/sdk/src/compaction.ts:79` |

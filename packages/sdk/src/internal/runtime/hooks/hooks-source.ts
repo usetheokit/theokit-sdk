@@ -195,15 +195,38 @@ async function readHookFile(jsonPath: string): Promise<HookConfig> {
   return parseClaudeCodeConfig(parsed, jsonPath);
 }
 
-/** Narrow an unknown to a record, or throw a typed config error. */
-function asRecord(value: unknown, path: string, where: string): Record<string, unknown> {
+/**
+ * Narrow an unknown to a record, or throw a typed config error.
+ *
+ * `hint` names the shape that WOULD be accepted, and exists because the message without it names
+ * only the validator's expectation. Measured on a consumer in 2026-09: a flat `hooks` array in a
+ * `.theokit/settings.json` made this throw on every turn, and `expected an object at "hooks"` gave
+ * the operator nothing to act on — the file parses fine for the product that wrote it, and it is
+ * this independent read of the same path that fails. An error on a refusal path should carry the
+ * fix, not the diagnosis.
+ */
+function asRecord(
+  value: unknown,
+  path: string,
+  where: string,
+  hint?: string,
+): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new ConfigurationError(`hooks: expected an object at ${where} in ${path}`, {
-      code: "hooks_json_invalid",
-    });
+    throw new ConfigurationError(
+      `hooks: expected an object at ${where} in ${path}${hint === undefined ? "" : ` — ${hint}`}`,
+      { code: "hooks_json_invalid" },
+    );
   }
   return value as Record<string, unknown>;
 }
+
+/**
+ * The shape this loader accepts, quoted back on the one refusal an operator is most likely to hit:
+ * `hooks` keyed by event, each event an array of matcher groups.
+ */
+const HOOKS_SHAPE_HINT =
+  'hooks are keyed by event, e.g. { "hooks": { "PreToolUse": [ { "hooks": ' +
+  '[ { "type": "command", "command": "…" } ] } ] } }';
 
 /** Narrow an unknown to an array, or throw a typed config error. */
 function asArray(value: unknown, path: string, where: string): unknown[] {
@@ -224,7 +247,7 @@ function asArray(value: unknown, path: string, where: string): unknown[] {
 function parseClaudeCodeConfig(raw: unknown, path: string): HookConfig {
   const root = asRecord(raw, path, "the root");
   if (root.hooks === undefined) return {};
-  const hooksRec = asRecord(root.hooks, path, `"hooks"`);
+  const hooksRec = asRecord(root.hooks, path, `"hooks"`, HOOKS_SHAPE_HINT);
   const grouped: Partial<Record<HookEvent, HookCommand[]>> = {};
 
   for (const [ccEvent, groups] of Object.entries(hooksRec)) {

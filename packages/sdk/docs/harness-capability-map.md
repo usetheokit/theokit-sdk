@@ -357,7 +357,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `Security` | class | Public security namespace (T2.1, ADR D68).  |
 | `SecurityFloorInput` | interface | The vocabulary, the layer names, and the values to resolve.  |
 | `SendOptions` | interface | Per-send overrides and callbacks.  |
-| `SessionLifecycleContext` | interface | #65 — context for the `on_session_start` / `on_session_end` hooks. |
+| `SessionLifecycleContext` | interface | #65 — context for the `on_session_start` / `on_session_end` hooks.  |
 | `SessionMessage` | interface | One turn of a session.  |
 | `SessionMessagePart` | type | One structured element of a {@link SessionMessage } .  |
 | `SessionRecord` | interface | One transcript record — a single line of the session JSONL file, and the unit the pluggable `SessionStore` seam reads and writes.  |

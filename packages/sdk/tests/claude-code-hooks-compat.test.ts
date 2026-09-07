@@ -203,3 +203,44 @@ describe("a hook declared for an event this runtime does not fire", () => {
     expect(warn).toContain("PreToolUse");
   });
 });
+
+/**
+ * The refusal on a wrongly-shaped `hooks` carries the shape that would work.
+ *
+ * Measured on a consumer in 2026-09: a flat `hooks` array in a `.theokit/settings.json` made this
+ * loader throw on **every turn**, and `expected an object at "hooks"` named the validator rather
+ * than the fix. The file parsed fine for the product that wrote it — `.theokit/` is this package's
+ * filebase, so this is an independent read of a path another product had started using, and the
+ * collision is one of SHAPE rather than of location. An error on a refusal path should carry what
+ * to do; the diagnosis alone sent an operator looking in the wrong file.
+ */
+describe("a wrongly-shaped hooks block", () => {
+  let cwd: string;
+
+  beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), "cc-hooks-shape-"));
+    onTestFinished(() => {
+      removeTempDirRobustSync(cwd);
+    });
+  });
+
+  it("test_the_refusal_names_the_shape_that_would_be_accepted", async () => {
+    mkdirSync(join(cwd, ".theokit"), { recursive: true });
+    writeFileSync(
+      join(cwd, ".theokit", "hooks.json"),
+      JSON.stringify({ hooks: [{ event: "preToolUse", command: "echo flat" }] }),
+    );
+    await expect(loadHookConfig(cwd, [])).rejects.toThrow(/keyed by event/);
+  });
+
+  it("test_CONTROL_the_shape_it_names_is_accepted", async () => {
+    mkdirSync(join(cwd, ".theokit"), { recursive: true });
+    writeFileSync(
+      join(cwd, ".theokit", "hooks.json"),
+      JSON.stringify({
+        hooks: { PreToolUse: [{ hooks: [{ type: "command", command: "echo nested" }] }] },
+      }),
+    );
+    expect(JSON.stringify(await loadHookConfig(cwd, []))).toContain("echo nested");
+  });
+});
