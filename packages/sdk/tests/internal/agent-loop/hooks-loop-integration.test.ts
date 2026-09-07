@@ -310,4 +310,34 @@ describe("SendOptions-mapped loop knobs are honored end-to-end (#58/#57)", () =>
     expect(content).toContain("untrusted-tool-output");
     expect(content).toContain("SECRET plan");
   });
+
+  /**
+   * The CADENCE, which nothing asserted until now: `on_session_start` fires once per RUN, not once
+   * per agent lifetime.
+   *
+   * The distinction is invisible while an application creates one agent and sends many messages —
+   * and decisive for one that builds an agent per turn, where "once per run" means "on every
+   * message". A consumer measured exactly that confusion in 2026-09: `on_session_start` reads as a
+   * session-lifetime event, its context type is even called `SessionLifecycleContext`, and the only
+   * statement of when it actually fires lived in an internal comment at the firing site, where no
+   * consumer can see it. Hours went into it and a defect was filed against the wrong package.
+   *
+   * The sibling case above cannot catch this: it collects into a `Set`, so multiplicity is discarded
+   * by construction — a hook firing twice, or never after the first run, reads identically there.
+   * This one counts, across two runs, which is the smallest shape that can tell the three apart.
+   *
+   * Counting happens OUTSIDE the hook for the reason the `post_tool_call` note above records: a
+   * failing `expect` inside a fire-and-forget handler is swallowed by the dispatcher.
+   */
+  it("test_on_session_start_fires_once_per_run_and_again_on_the_next_run", async () => {
+    const starts: string[] = [];
+    const mgr = new PluginManager();
+    await mgr.initialize([pluginOn("on_session_start", () => starts.push("start"))]);
+
+    await runAgentLoop(baseInputs(toolThenEndLlm(), { pluginManager: mgr }));
+    expect(starts, "one run must fire it exactly once").toHaveLength(1);
+
+    await runAgentLoop(baseInputs(toolThenEndLlm(), { pluginManager: mgr }));
+    expect(starts, "a second run fires it again — this is per-run, not per-agent").toHaveLength(2);
+  });
 });
