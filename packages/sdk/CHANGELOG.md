@@ -1,5 +1,78 @@
 # Changelog
 
+## 5.3.1
+
+### Patch Changes
+
+- [#614](https://github.com/usetheokit/theokit-sdk/pull/614) [`20794ef`](https://github.com/usetheokit/theokit-sdk/commit/20794efffa012edf200a3409abc53b988960e7af) Thanks [@usetheodev](https://github.com/usetheodev)! - `Agent.delete` removes the entry from the persisted registry ([#612](https://github.com/usetheokit/theokit-sdk/issues/612))
+  
+  It did not. The method was a no-op against `registry.json` whenever the agent was not already in the
+  calling process's memory — which is every agent in a freshly started process, so every CLI
+  invocation:
+  
+  ```ts
+  static async delete(agentId: string, _options: AgentOperationOptions = {}): Promise<void> {
+    removeRegisteredAgent(agentId);   // Map is empty → returns false → no save scheduled
+    await flushRegistrySaves();       // flushes an empty queue
+  }
+  ```
+  
+  `Agent.delete` returns `Promise<void>` and throws nothing when it removed nothing, so a caller had no
+  way to notice. Measured downstream as a `sessions delete` that reported success and exited 0 while
+  the session stayed in the listing — the transcript really was removed, leaving a registry entry
+  pointing at a file that no longer existed.
+  
+  **What makes this an omission rather than a design:** every neighbouring mutator already hydrates.
+  `Agent.rename` and `Agent.archive` reach `getRegisteredAgentOrThrow`, which loads from disk on a
+  miss; `delete` was the only one that never did.
+  
+  `options.cwd` is now read instead of being defaulted away — it is declared on
+  `AgentOperationOptions` and the parameter was `_options`. Hydrating `process.cwd()` unconditionally
+  would repeat B-115 (a documented option that compiles and does nothing) on the one path whose job is
+  to remove data.
+  
+  **Deliberately unchanged:** deleting an unknown id still resolves rather than throwing. Matching
+  `rename`'s `UnknownAgentError` is defensible, but it is a breaking change for callers that delete
+  idempotently, and an entry and its transcript can legitimately outlive one another in both
+  directions. A persistence fix should not smuggle in an API break.
+  
+  Consumers that already called `Agent.delete` and observed the entry surviving will now see it
+  removed. Nothing that behaved correctly before changes.
+
+- [#614](https://github.com/usetheokit/theokit-sdk/pull/614) [`52d31d9`](https://github.com/usetheokit/theokit-sdk/commit/52d31d903fa5ddd3236db7f628f943e7e8ceae58) Thanks [@usetheodev](https://github.com/usetheodev)! - A local agent's public `summary` is a runtime label, not a fixture name ([#611](https://github.com/usetheokit/theokit-sdk/issues/611))
+  
+  `SDKAgentInfo.summary` is `@public` and required, returned by `Agent.list()` and `Agent.get()`.
+  `registerLocalAgent` assigned it unconditionally:
+  
+  ```ts
+  summary: "Local contract fixture",
+  ```
+  
+  So that string was the **only** value the field could hold for a local agent, and `AgentOptions`
+  exposes no `summary` for a consumer to override it. It was found on a real user's session record on
+  disk, written through a consumer by a real turn — nothing about the run was a fixture.
+  
+  The cloud sibling faces the same requirement and guards it, which is what makes this an omission
+  rather than a decision:
+  
+  ```ts
+  summary: this.isFixtureMode() ? "Cloud contract fixture" : "Cloud agent",
+  ```
+  
+  `isFixtureMode()` keys off a `theo_test_*` key with no configured base URL — it describes whether
+  the *remote* is stubbed, so there is no local equivalent to port. The local branch therefore takes
+  the cloud branch's non-fixture value: **`"Local agent"`**.
+  
+  The `toLocalAgentInfo` / `toCloudAgentInfo` **fallbacks** carried the same two literals and move
+  with it. That pair is the reason this was worth fixing carefully rather than quickly: while the
+  registration wrote a fixture name unconditionally, the fallback could never be observed, so fixing
+  only the reachable site would have left the string ready to reappear for any record that arrives
+  without a summary.
+  
+  Consumers rendering `summary` will see `Local agent` where they previously saw
+  `Local contract fixture`. Nothing reads the value programmatically in this package; a consumer that
+  matched on the old string was matching on a placeholder.
+
 ## 5.3.0
 
 ### Minor Changes
