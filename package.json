@@ -72,7 +72,7 @@
     "@stryker-mutator/core": "10",
     "@stryker-mutator/vitest-runner": "10",
     "@theokit/sdk": "workspace:*",
-    "@types/node": "^22.10.0",
+    "@types/node": "^26.4.1",
     "@vitest/coverage-v8": "^4.1.8",
     "dependency-cruiser": "^16.10.0",
     "jscpd": "^4.0.5",
@@ -83,7 +83,7 @@
     "tsup": "^8.5.0",
     "tsx": "^4.19.0",
     "turbo": "2.10.12",
-    "typescript": "^5.8.0",
+    "typescript": "^7.0.2",
     "vite": "^7.3.6",
     "vitest": "^4.1.8"
   },
