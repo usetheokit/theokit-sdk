@@ -563,6 +563,68 @@ running prereleases from a branch other than the default branch"*, because other
   `.changeset/pre/` reactivates, and the stable sections inherit empty. Read `changeset status`
   before the cut — that is what caught the accidental `6.0.0`.
 
+## A blocked consumer gets a snapshot, not a wait
+
+When you land a fix that some consumer is blocked on, **cut a snapshot at the merge instead of
+waiting for the release**. Say the version; they measure the same day.
+
+This is not a new idea here — `5.1.0-compat-581-20260905211819` was measured against days before
+`5.1.0` reached `latest`. What was missing was writing down that it is *the path*, rather than what
+happens when somebody remembers.
+
+**The reason is not their convenience, it is yours.** The release path is merge → Version PR →
+publish, three runs in series, and only after all three does anyone find out whether what you
+published works. A snapshot moves that answer to before the publish. Measured on 2026-09-06: three
+consumer issues sat blocked while exactly that sequence ran, and the fix that shipped in 5.2.0 had a
+defect a consumer found within the hour — a defect a snapshot measurement would have caught before
+`latest` moved.
+
+### Two things this convention depends on, and both were broken until recently
+
+**The snapshot version must sort ABOVE the release it is cut from.** `changeset version --snapshot`
+defaults to a `0.0.0-` base, and semver compares `major.minor.patch` before it looks at a prerelease
+suffix — so every snapshot this repository published sorted *below* every real release. A consumer
+with a version floor read it as older and silently disabled the very feature the snapshot existed to
+deliver:
+
+```
+`compatSources` was declared, but @theokit/sdk@0.0.0-compat-580-… does not know that option and
+will ignore it. It landed in 5.0.0.
+```
+
+`snapshot.useCalculatedVersion: true` in `.changeset/config.json` is what makes the convention
+possible at all. Do not remove it without reading that paragraph again.
+
+**Confirm the snapshot in the registry before naming it.** The workflow going green is not the same
+statement as "your consumer can install this". Registry metadata registers minutes before the tarball
+propagates — measured, a version absent 3.5 minutes after a *successful* publish, present at ~135
+seconds after that. Concluding "publish failed" in that window leads to republishing a version that
+already exists, and an npm version is immutable.
+
+### The rules that keep it from becoming a shortcut
+
+1. **A snapshot pin never reaches `develop`.** It is measurement scaffolding. A snapshot can be
+   unpublished, and a versioned file pointing at one is a build that breaks later for a reason nobody
+   will connect to this.
+2. **Measuring against a snapshot does not close an issue.** It proves the fix works. `in-develop`
+   and the close still wait for `latest` — *fixed* and *installable* are different claims.
+3. **Bump the pin BEFORE running any check.** Otherwise the check measures the old tree and reports
+   `blocked` with complete accuracy about the wrong thing.
+4. **Return the result, including the failure.** It is the only thing the snapshot buys.
+
+### Why not link the sibling checkout
+
+Because under changesets the `version` field only moves at release. A linked checkout can carry a fix
+in `HEAD` while its `package.json` still says the previous version — so a check reads the right code
+and reports the wrong version, confidently. Measured on 2026-09-06: the tree said `5.1.0` while HEAD
+already carried what shipped as `5.2.0`.
+
+A string like `5.1.0-compat-581-<timestamp>` cannot be mistaken for anything else. That is the
+property worth paying for.
+
+Convention proposed by the `theocode` session, which measured the three linking routes and rejected
+all of them before proposing this one.
+
 ## Quality gates
 
 The push is gated locally by `.githooks/pre-push`, and again in CI. Every gate is one tool, and the rule is **fix the code, not the threshold**:
