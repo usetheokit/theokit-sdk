@@ -29,6 +29,16 @@ export interface HookCommand {
   /** Optional timeout in ms; defaults to 30s. */
   timeoutMs?: number;
   /**
+   * #637 — the event key as the config file spelled it (`PreToolUse`), for the approval gate.
+   *
+   * Declared here AND in `hooks-source.ts`, because this interface has two independent copies —
+   * the same duplication `types/hooks.ts` records for `HookEvent`. Adding the field to one only
+   * would break at the assignment boundary in one direction and pass silently in the other.
+   * Consolidating the pair is a separate change with its own blast radius, per the decision
+   * recorded at the head of `types/hooks.ts`.
+   */
+  sourceEvent: string;
+  /**
    * The config file this command was declared in.
    *
    * Carried so the executor can supply the runtime contract the declaring DIALECT presumes — a
@@ -127,11 +137,20 @@ export class HooksExecutor {
    *
    * No gate means no refusal, which is what every consumer gets today.
    */
-  private async refusedByConsumer(command: HookCommand, payload: HookPayload): Promise<boolean> {
+  private async refusedByConsumer(
+    command: HookCommand,
+    payload: HookPayload,
+    timeoutMs: number,
+  ): Promise<boolean> {
     if (this.gate?.approve === undefined) return false;
     const request: HookApprovalRequest = {
       command: command.command,
       event: payload.event,
+      // #637 — the EFFECTIVE timeout, passed in rather than recomputed here, so the number the
+      // consumer is shown and the number `spawnAndCollect` enforces are the same expression.
+      // Recomputing would be one line and would be the place they later diverge.
+      timeoutMs,
+      sourceEvent: command.sourceEvent,
       ...(command.sourcePath === undefined ? {} : { sourcePath: command.sourcePath }),
       ...(command.matcher === undefined ? {} : { matcher: command.matcher }),
     };
@@ -139,12 +158,14 @@ export class HooksExecutor {
   }
 
   private async executeOne(command: HookCommand, payload: HookPayload): Promise<HookDecision> {
+    // Resolved BEFORE the gate, because #637 shows the consumer the timeout that will actually be
+    // applied, and `spawnAndCollect` below is handed this same binding.
+    const timeoutMs = command.timeoutMs ?? 30_000;
     // A refused hook resolves to `allow`, NOT to `deny`. `preRun` and `preToolUse` decisions can
     // block the operation they attach to, so treating "not approved" as a denial would make an
     // unapproved hook worse than an absent one — the consumer asked for the COMMAND not to run, not
     // for the work to stop. A refused hook is treated as if it were not configured.
-    if (await this.refusedByConsumer(command, payload)) return { decision: "allow" };
-    const timeoutMs = command.timeoutMs ?? 30_000;
+    if (await this.refusedByConsumer(command, payload, timeoutMs)) return { decision: "allow" };
     // #522 — a command imported from a foreign dialect runs under the contract that dialect
     // presumes. Claude Code's docs tell hook authors to reach project files through
     // `$CLAUDE_PROJECT_DIR`, so a command written the documented way expanded to a leading `/`
