@@ -621,6 +621,16 @@ Hooks are file-based only. There is no programmatic hook callback — hooks are 
 - **Local.** Add `.theokit/hooks.json` to the repo passed as `local.cwd`, or `~/.theokit/hooks.json` for user-level hooks.
 - **Cloud.** Commit `.theokit/hooks.json` and its scripts to the repo passed in `cloud.repos`.
 
+Three files are read from each config root, and **merged** — `hooks.json`, `settings.json` and
+`settings.local.json`. The last two are read from `.theokit/` too, not only from `.claude/`.
+
+That matters if another product keeps its own configuration in `.theokit/`: this is the SDK's
+filebase, so a `hooks` key in a `.theokit/settings.json` is read and validated **here**, against the
+shape above, whatever else wrote the file. A shape this loader cannot parse fails the run. Measured
+on a consumer in 2026-09, which had documented a `hooks` array of its own and hit a refusal on every
+turn — the file parsed perfectly for the product that wrote it, and the collision was one of shape,
+not of location.
+
 ## Cron jobs
 
 Schedule agent runs on a cron expression. Two runtimes:
