@@ -636,11 +636,30 @@ export class Agent {
   }
 
   /**
-   * Permanently delete a cloud agent.
+   * Permanently delete a registered agent — local or cloud.
+   *
+   * Backport of #612 (fixed on the 5.x line in `5.3.1`). This HYDRATES before removing, and until it
+   * did the method was a no-op against the persisted registry whenever the agent was not already in
+   * this process's memory. Which is every agent in a freshly started process: `removeRegisteredAgent`
+   * only schedules a save when the entry was in the Map, so `agents.delete()` returned `false`,
+   * nothing was scheduled, and `flushRegistrySaves()` flushed an empty queue. The entry survived and
+   * this returned normally, so a caller had no way to notice.
+   *
+   * Every neighbouring mutator already did this — `rename` and `archive` reach
+   * `getRegisteredAgentOrThrow`, which hydrates on a miss. `delete` was the only one that did not.
+   *
+   * `options.cwd` is read rather than defaulted away: it is declared on `AgentOperationOptions`, and
+   * hydrating `process.cwd()` unconditionally is an option that compiles and does nothing, on the one
+   * path that is supposed to remove data.
+   *
+   * Deleting an unknown id still resolves rather than throwing, deliberately — matching 5.x. It is a
+   * breaking change for callers that delete idempotently, and an entry and its transcript can
+   * legitimately outlive one another in both directions.
    *
    * @public
    */
-  static async delete(agentId: string, _options: AgentOperationOptions = {}): Promise<void> {
+  static async delete(agentId: string, options: AgentOperationOptions = {}): Promise<void> {
+    await hydrateRegistryFromDisk(options.cwd ?? process.cwd());
     removeRegisteredAgent(agentId);
     await flushRegistrySaves();
   }
