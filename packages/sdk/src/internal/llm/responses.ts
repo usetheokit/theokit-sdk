@@ -120,7 +120,7 @@ function messageToInputItems(
         items.push({
           type: "function_call_output",
           call_id: part.toolUseId,
-          output: toStringToolResultContent(part.content, "openai-responses"),
+          output: toStringToolResultContent(part.content, "openai-responses", part.toolUseId),
         });
       }
     }

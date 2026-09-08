@@ -331,7 +331,7 @@ function toOllamaMessages(message: LlmMessage): OllamaChatMessage[] {
         out.push({
           role: "tool",
           // SE7 — string-only tool role: text blocks flatten; image fails fast.
-          content: toStringToolResultContent(part.content, "ollama"),
+          content: toStringToolResultContent(part.content, "ollama", part.toolUseId),
           tool_name: part.toolUseId,
         });
       }

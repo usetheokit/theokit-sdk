@@ -16,6 +16,7 @@ const KNOWN_LOCAL_OPTION_KEYS: ReadonlySet<string> = new Set([
   "cwd",
   "settingSources",
   "compatSources",
+  "hooks",
   "sandboxOptions",
   "sessionDir",
   "baseDir",
