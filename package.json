@@ -38,7 +38,7 @@
     "changeset": "changeset",
     "version-packages": "changeset version",
     "start": "pnpm run build",
-    "release": "pnpm run build && node tools/check-publish-no-workspace.mjs && pnpm run validate:published-imports && changeset publish",
+    "release": "pnpm run build && node tools/check-publish-no-workspace.mjs && pnpm run validate:published-imports && changeset publish --tag v4-lts",
     "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
     "quality:dead-internal": "node tools/check-internal-deadcode.mjs",
     "verify:refs": "node tools/verify-release-refs.mjs",

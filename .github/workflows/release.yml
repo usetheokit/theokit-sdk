@@ -226,6 +226,24 @@ jobs:
           # Moving to action v2 means first migrating the CLI to 3.x across twelve published
           # packages. That is a release-tooling migration with its own blast radius and belongs in
           # its own change, not bundled into a pipeline hardening commit.
+          # ── Why `release` on THIS branch carries `--tag v4-lts` ──────────────
+          #
+          # `changeset publish` with no `--tag` publishes to `latest`. On a maintenance
+          # branch that is a whole-major regression for every fresh install, and it is not
+          # hypothetical: publishing 4.63.5 moved `latest` from 5.3.3 back to 4.63.5 on
+          # 2026-09-07. Nobody noticed from inside the release — it exits 0, the tags push,
+          # the GitHub release appears. It was found by reading `npm view dist-tags`, and it
+          # only stopped being true because the 5.4.0 release happened to publish after.
+          #
+          # The tag lives in the `release` script rather than here so that a LOCAL `pnpm
+          # release` on this branch cannot move `latest` either. Putting it in the workflow
+          # would guard the path releases normally take and leave the path a human takes
+          # when the workflow is down — which is the same split that left the B-111 guard
+          # local-only above.
+          #
+          # Consumers on a semver range (`@theokit/sdk@^4`, `@4`) are unaffected: a range
+          # resolves against published versions, not against a dist-tag. `@v4-lts` is for
+          # anyone who wants to name the maintenance line without a range.
           publish: pnpm release
           version: pnpm changeset version
         env:
