@@ -44,6 +44,16 @@ export interface HookCommand {
   matcher?: string;
   timeoutMs?: number;
   /**
+   * #637 — the event key as written in the config file (`PreToolUse`), carried so the approval
+   * gate can report the vocabulary the consumer's stored fingerprint was taken against.
+   *
+   * REQUIRED, not optional: `parseClaudeCodeCommand` is the only producer of a `HookCommand` in
+   * this package, so every command has one. An optional field would hand every reader a fallback
+   * branch for a case that cannot occur — and if an in-memory producer is added later, required is
+   * what forces it to supply a value instead of inheriting a silent `undefined`.
+   */
+  sourceEvent: string;
+  /**
    * The config file this command was declared in.
    *
    * Carried so the executor can supply the runtime contract the declaring DIALECT presumes — a
@@ -296,7 +306,7 @@ function parseClaudeCodeCommand(
       code: "hooks_invalid_command",
     });
   }
-  const hc: HookCommand = { command: cmd.command };
+  const hc: HookCommand = { command: cmd.command, sourceEvent: ccEvent };
   if (matcher !== undefined) hc.matcher = matcher;
   if (typeof cmd.timeout === "number" && cmd.timeout > 0) {
     hc.timeoutMs = Math.round(cmd.timeout * 1000);

@@ -36,6 +36,28 @@ export interface HookApprovalRequest {
   readonly event: HookEvent;
   readonly sourcePath?: string;
   readonly matcher?: string;
+  /**
+   * #637 — the timeout the runtime WILL apply, in milliseconds, default already resolved.
+   *
+   * A config that omits `timeout` still runs under one (30s). Reporting `undefined` there would
+   * make a consumer reimplement this package's default in order to compute the same fingerprint,
+   * and a default duplicated across a boundary is a default that drifts.
+   */
+  readonly timeoutMs: number;
+  /**
+   * #637 — the event key exactly as the config file spelled it (`PreToolUse`), which is NOT
+   * `event` (`preToolUse`).
+   *
+   * A consumer's approval is taken against the file it showed the user, so its stored fingerprint
+   * is over the file's vocabulary. Without this the two sides hash different strings and no hook
+   * can ever be approved — only refused. The literal key rather than a published mapping table,
+   * because a mapping is a second thing to keep in step with the first.
+   *
+   * `string` and not a union of the keys this SDK currently recognises: the vocabulary belongs to
+   * whichever dialect declared the hook, so narrowing it would make adding a dialect a breaking
+   * change to this public type. A consumer hashes it; it does not need to switch on it.
+   */
+  readonly sourceEvent: string;
 }
 
 /**
