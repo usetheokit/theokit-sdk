@@ -17,7 +17,10 @@ import { loadHookConfig } from "./hooks-source.js";
  * @internal
  */
 
-export type HookEvent = "preRun" | "postRun" | "preToolUse" | "postToolUse" | "stop";
+// Declared in `types/hooks.ts` (a leaf) and re-exported here so the pair has ONE definition.
+export type { HookApprovalGate, HookApprovalRequest, HookEvent } from "../../../types/hooks.js";
+
+import type { HookApprovalGate, HookApprovalRequest, HookEvent } from "../../../types/hooks.js";
 
 export interface HookCommand {
   command: string;
@@ -68,6 +71,8 @@ export class HooksExecutor {
     private readonly cwd: string,
     /** Declared foreign dialects (#524). Empty reads `.theokit/` only. */
     private readonly compatSources: readonly CompatSourceDeclaration[] = [],
+    /** #631 — the consumer's chance to refuse a command before it is spawned. */
+    private readonly gate: HookApprovalGate | undefined = undefined,
   ) {}
 
   async initialize(settingSourcesIncludeProject: boolean): Promise<void> {
@@ -113,7 +118,32 @@ export class HooksExecutor {
     });
   }
 
+  /**
+   * #631 — the consumer's gate, consulted at the ONLY point a hook is spawned.
+   *
+   * Here and not at the caller on purpose: a check anywhere else could be reached around by a
+   * second execution path later, and this one cannot — `spawnAndCollect` is called for a hook from
+   * exactly one place.
+   *
+   * No gate means no refusal, which is what every consumer gets today.
+   */
+  private async refusedByConsumer(command: HookCommand, payload: HookPayload): Promise<boolean> {
+    if (this.gate?.approve === undefined) return false;
+    const request: HookApprovalRequest = {
+      command: command.command,
+      event: payload.event,
+      ...(command.sourcePath === undefined ? {} : { sourcePath: command.sourcePath }),
+      ...(command.matcher === undefined ? {} : { matcher: command.matcher }),
+    };
+    return !(await this.gate.approve(request));
+  }
+
   private async executeOne(command: HookCommand, payload: HookPayload): Promise<HookDecision> {
+    // A refused hook resolves to `allow`, NOT to `deny`. `preRun` and `preToolUse` decisions can
+    // block the operation they attach to, so treating "not approved" as a denial would make an
+    // unapproved hook worse than an absent one — the consumer asked for the COMMAND not to run, not
+    // for the work to stop. A refused hook is treated as if it were not configured.
+    if (await this.refusedByConsumer(command, payload)) return { decision: "allow" };
     const timeoutMs = command.timeoutMs ?? 30_000;
     // #522 — a command imported from a foreign dialect runs under the contract that dialect
     // presumes. Claude Code's docs tell hook authors to reach project files through
@@ -130,31 +160,45 @@ export class HooksExecutor {
       timeoutMs,
       stdin: JSON.stringify(payload),
     });
-    if (result.timedOut) {
-      return { decision: "deny", reason: `Hook timed out after ${timeoutMs}ms` };
-    }
+    const failure = this.decisionFromFailure(result, command, env, timeoutMs);
+    return failure ?? parseDecisionFromStdout(result.stdout);
+  }
+
+  /**
+   * A run that did not succeed, turned into a decision. `undefined` when it did.
+   *
+   * Extracted from `executeOne` when the approval gate pushed that function past the complexity
+   * gate. The seam is not arbitrary — every branch here answers one question, "the command did not
+   * run cleanly, so what does this hook decide?", and none of them knows how the command was
+   * spawned.
+   */
+  private decisionFromFailure(
+    result: Awaited<ReturnType<typeof spawnAndCollect>>,
+    command: HookCommand,
+    env: Record<string, string>,
+    timeoutMs: number,
+  ): HookDecision | undefined {
+    if (result.timedOut) return { decision: "deny", reason: `Hook timed out after ${timeoutMs}ms` };
     if (result.spawnError !== undefined) {
       return { decision: "deny", reason: `Hook spawn failed: ${result.spawnError.message}` };
     }
-    if (result.exitCode !== 0) {
-      const stderr = result.stderr.trim();
-      const base = stderr.length > 0 ? stderr : `Hook exited with code ${result.exitCode}`;
-      // #522 — a failure whose cause is an undefined variable says so. `sh` expanded it to the empty
-      // string and the error surfaced as a path, so the reader went looking for a file that was
-      // present all along. Appended rather than replacing: the shell's own message is still the
-      // evidence, and this names what the shell had no way to mention.
-      const missing = undefinedVariablesIn(command.command, env);
-      if (missing.length === 0) return { decision: "deny", reason: base };
-      return {
-        decision: "deny",
-        reason:
-          `${base} — this hook came from ${command.sourcePath ?? "an unrecorded source"} and uses ` +
-          `${missing.map((n) => `$${n}`).join(", ")}, which nothing defines here. A variable this ` +
-          "runtime does not supply expands to the empty string, so the error above names a path " +
-          "rather than the cause.",
-      };
-    }
-    return parseDecisionFromStdout(result.stdout);
+    if (result.exitCode === 0) return undefined;
+    const stderr = result.stderr.trim();
+    const base = stderr.length > 0 ? stderr : `Hook exited with code ${result.exitCode}`;
+    // #522 — a failure whose cause is an undefined variable says so. `sh` expanded it to the empty
+    // string and the error surfaced as a path, so the reader went looking for a file that was
+    // present all along. Appended rather than replacing: the shell's own message is still the
+    // evidence, and this names what the shell had no way to mention.
+    const missing = undefinedVariablesIn(command.command, env);
+    if (missing.length === 0) return { decision: "deny", reason: base };
+    return {
+      decision: "deny",
+      reason:
+        `${base} — this hook came from ${command.sourcePath ?? "an unrecorded source"} and uses ` +
+        `${missing.map((n) => `$${n}`).join(", ")}, which nothing defines here. A variable this ` +
+        "runtime does not supply expands to the empty string, so the error above names a path " +
+        "rather than the cause.",
+    };
   }
 }
 

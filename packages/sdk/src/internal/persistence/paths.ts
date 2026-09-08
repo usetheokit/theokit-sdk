@@ -117,10 +117,50 @@ export function projectConfigRoots(
   sources: readonly CompatSourceDeclaration[],
   surface: CompatSurface,
 ): string[] {
+  const own = nativeAdmitsSurface(sources, surface) ? [theokitConfigRoot(cwd)] : [];
   return [
-    theokitConfigRoot(cwd),
-    ...adaptersForSurface(sources, surface).map((adapter) => join(cwd, adapter.dirName)),
+    ...own,
+    ...adaptersForSurface(foreignOnly(sources), surface).map((a) => join(cwd, a.dirName)),
   ];
+}
+
+/** The kind a consumer names to declare THIS package's own root. */
+const NATIVE_KIND = "theokit";
+
+/**
+ * #631 — whether the native root contributes `surface`.
+ *
+ * Undeclared means every surface, which is what this function returned unconditionally before and
+ * is what every existing caller gets. A consumer that names the kind is opting into the same
+ * per-surface contract a foreign dialect already has, and the defaults match on purpose: a bare
+ * string admits everything, an object admits exactly what its `import` lists. Two vocabularies that
+ * look identical and disagree about the default would be worse than one.
+ *
+ * The asymmetry this closes had a measured cost. `hookConfigCandidates` reads `settings.json` from
+ * every root, so a consumer keeping its own configuration in `.theokit/settings.json` had that
+ * file's `hooks` key executed by this package, and `settingSources` gave it no way to decline: it
+ * grants a foreign dialect per SOURCE, not per surface, so dropping `claude-code` to avoid its
+ * hooks would also drop its skills, agents and rules.
+ */
+function nativeAdmitsSurface(
+  sources: readonly CompatSourceDeclaration[],
+  surface: CompatSurface,
+): boolean {
+  const declared = sources.filter((s) => (typeof s === "string" ? s : s.kind) === NATIVE_KIND);
+  if (declared.length === 0) return true;
+  return declared.some((s) => (typeof s === "string" ? true : (s.import ?? []).includes(surface)));
+}
+
+/**
+ * The native declaration is consumed here and must not reach `adaptersForSurface`, which resolves
+ * kinds to FOREIGN adapters. It would be dropped there as unrecognised — harmlessly, today — but
+ * relying on that would make this behaviour depend on another function failing to find something,
+ * which is the kind of coupling that breaks the moment an adapter of that name is added.
+ */
+function foreignOnly(
+  sources: readonly CompatSourceDeclaration[],
+): readonly CompatSourceDeclaration[] {
+  return sources.filter((s) => (typeof s === "string" ? s : s.kind) !== NATIVE_KIND);
 }
 
 /**

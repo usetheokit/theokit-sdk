@@ -49,7 +49,7 @@ function userOrToolMessages(message: LlmMessage): Array<Record<string, unknown>>
         tool_call_id: part.toolUseId,
         // SE7 — this wire's tool role is string-only: text blocks flatten; an
         // image block fails fast (ConfigurationError).
-        content: toStringToolResultContent(part.content, "openai"),
+        content: toStringToolResultContent(part.content, "openai", part.toolUseId),
       });
     }
   }

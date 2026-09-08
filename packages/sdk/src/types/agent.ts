@@ -5,6 +5,7 @@
  */
 import type { BudgetTracker } from "./budget-tracker.js";
 import type { ContextSettings } from "./context.js";
+import type { HookApprovalGate } from "./hooks.js";
 import type { McpServerConfig } from "./mcp.js";
 import type { MemoryProvider } from "./memory-provider.js";
 import type { PluginsSettings, ProviderRoutingSettings } from "./providers.js";
@@ -64,7 +65,7 @@ export type SettingSource = "project" | "user" | "team" | "mdm" | "plugins" | "a
  *
  * @public
  */
-export type CompatSource = "claude-code" | CompatSourceAdapter;
+export type CompatSource = "claude-code" | "theokit" | CompatSourceAdapter;
 
 /**
  * A surface a foreign configuration source may be admitted to.
@@ -96,7 +97,17 @@ export type CompatSurface = "hooks" | "plugins" | "skills" | "subagents";
  * @public
  */
 export interface CompatSourceAdapter {
-  readonly kind: "claude-code";
+  /**
+   * `"theokit"` names THIS package's own root (#631), in the same vocabulary a foreign dialect
+   * uses. Until it was accepted here, `.theokit/` contributed every surface unconditionally while a
+   * foreign one could declare which surfaces it wanted — an asymmetry with a measured cost: a
+   * consumer keeping its own configuration in `.theokit/settings.json` had that file's `hooks` key
+   * executed by this package, and `settingSources` gave it no way to decline, because it grants per
+   * SOURCE and not per surface.
+   *
+   * Declaring nothing keeps today's behaviour exactly: the native root contributes everything.
+   */
+  readonly kind: "claude-code" | "theokit";
   readonly import?: readonly CompatSurface[];
 }
 
@@ -166,6 +177,18 @@ export interface LocalOptions {
    * wrote for this runtime.
    */
   compatSources?: CompatSource[];
+  /**
+   * #631 — the consumer's chance to refuse a hook command before this package spawns it.
+   *
+   * Absent means run, which is what every consumer gets today. It is consulted at the single point
+   * a hook is executed, for every root — including a foreign dialect's, which is the case
+   * {@link CompatSourceAdapter} cannot reach: a consumer that wants `.claude/`'s skills, agents and
+   * rules cannot decline only its hooks, because `settingSources` grants per source.
+   *
+   * A refused hook resolves as if it were not configured. It does NOT deny the operation the hook
+   * attached to — the consumer asked for the command not to run, not for the work to stop.
+   */
+  hooks?: HookApprovalGate;
   sandboxOptions?: { enabled: boolean };
   /**
    * Directory for the native Claude-shaped session transcript

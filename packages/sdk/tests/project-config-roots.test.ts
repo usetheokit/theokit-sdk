@@ -51,3 +51,70 @@ describe("projectConfigRoots", () => {
     ]);
   });
 });
+
+/**
+ * #631 — the native root can decline a surface, in the vocabulary foreign roots already use.
+ *
+ * Until now `theokitConfigRoot(cwd)` was prepended unconditionally: a foreign dialect could declare
+ * WHICH surfaces it contributes (`{ kind, import }`), and the SDK's own root could declare nothing.
+ * It contributed every surface, always.
+ *
+ * That asymmetry had a measured cost. `hookConfigCandidates` reads `settings.json` from every root,
+ * so a consumer keeping its own configuration in `.theokit/settings.json` had its `hooks` key
+ * executed by THIS package — with no approval gate — and, when that consumer also ran them, twice.
+ * Measured by `usetheoai-lab/TheoCode`: unapproved fired once, approved fired twice.
+ *
+ * The consumer could not opt out. `settingSources` grants a foreign dialect per SOURCE, not per
+ * surface, so dropping `claude-code` to avoid its hooks would also drop its skills, agents and
+ * rules — which are the reason an adopter can use this SDK without migrating anything.
+ *
+ * The declaration reuses `{ kind, import }` rather than inventing an option, and it rides on
+ * `compatSources`, which already reaches all four surfaces. No new parameter is threaded anywhere.
+ *
+ * Deliberately NOT included: renaming the directory. `theokitConfigRoot` is also the DATA root —
+ * `agent-registry-store.ts` builds `registry.json`'s path from it directly, without passing through
+ * here — so a `dirName` override would move persisted state. Different change, different blast
+ * radius, its own migration question.
+ */
+describe("projectConfigRoots — the native root's own declaration", () => {
+  const SURFACES = ["hooks", "plugins", "skills", "subagents"] as const;
+  const own = join("/work", ".theokit");
+
+  it("test_absent_declaration_contributes_every_surface", () => {
+    for (const surface of SURFACES) {
+      expect(projectConfigRoots("/work", [], surface), surface).toEqual([own]);
+    }
+  });
+
+  it("test_a_declared_surface_is_contributed", () => {
+    const sources = [{ kind: "theokit", import: ["skills"] }];
+    expect(projectConfigRoots("/work", sources, "skills")).toEqual([own]);
+  });
+
+  it("test_an_undeclared_surface_is_not", () => {
+    const sources = [{ kind: "theokit", import: ["skills"] }];
+    expect(projectConfigRoots("/work", sources, "hooks")).toEqual([]);
+  });
+
+  /**
+   * The bare string admits everything, matching `adaptersForSurface`'s own rule for foreign kinds.
+   * Two vocabularies that look the same and differ in the default would be worse than one.
+   */
+  it("test_a_bare_string_declaration_admits_every_surface", () => {
+    for (const surface of SURFACES) {
+      expect(projectConfigRoots("/work", ["theokit"], surface), surface).toEqual([own]);
+    }
+  });
+
+  /**
+   * CONTROL. Without it, "hooks returned []" cannot be told from "the whole function stopped
+   * returning roots" — the native declaration must narrow ITSELF and leave foreign roots alone.
+   */
+  it("test_CONTROL_a_foreign_root_is_unaffected_by_the_native_declaration", () => {
+    const sources = [
+      { kind: "theokit", import: ["skills"] },
+      { kind: "claude-code", import: ["hooks"] },
+    ];
+    expect(projectConfigRoots("/work", sources, "hooks")).toEqual([join("/work", ".claude")]);
+  });
+});

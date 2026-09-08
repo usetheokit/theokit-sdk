@@ -194,7 +194,7 @@ export class LocalAgent implements SDKAgent {
     // #524 — the flip is silent from inside the repository: the hook file is there, executable, and
     // not running. Reported here, once per workspace, on the interceptable channel.
     reportUndeclaredSources(this.workspaceCwd, compatSources);
-    this.hooksExecutor = new HooksExecutor(this.workspaceCwd, compatSources);
+    this.hooksExecutor = new HooksExecutor(this.workspaceCwd, compatSources, options.local?.hooks);
     this.defaultMemoryProviderForLoop = createLocalAgentMemoryProvider({
       agentOptions: options,
       workspaceCwd: this.workspaceCwd,
