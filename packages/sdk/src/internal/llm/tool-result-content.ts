@@ -42,11 +42,24 @@ export function toBlockToolResultContent(
 export function toStringToolResultContent(
   content: string | ToolResultContentBlock[],
   providerName: string,
+  toolUseId?: string,
 ): string {
   if (typeof content === "string") return content;
   if (content.some((block) => block.type === "image")) {
+    // #629 — the message was accurate and unhelpful. It named the surface ("in tool results") and
+    // left the reader to work out that a tool had run at all: the person who hit it had attached an
+    // image and asked about it, never asked for a tool, and had no way to connect the two.
+    //
+    // `toolUseId` and not the tool's NAME, deliberately. `LlmToolResultPart` carries the id only —
+    // the name lives on the matching `LlmToolCallPart` in an earlier message, and the four sites
+    // that construct a tool result do not have it either. The id is the correlation key that IS
+    // here, it is what a reader can find in a transcript, and it does not pretend to be a name.
     throw new ConfigurationError(
-      `provider "${providerName}" does not support image content in tool results`,
+      `provider "${providerName}" does not support image content in tool results` +
+        (toolUseId === undefined
+          ? ""
+          : ` — the result of tool call ${toolUseId} carried an image`) +
+        `, and this wire carries tool results as text only`,
     );
   }
   return content
