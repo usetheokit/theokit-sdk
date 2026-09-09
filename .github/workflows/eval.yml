@@ -59,6 +59,10 @@ jobs:
       - name: Guard — OPENROUTER_API_KEY present
         id: guard
         env:
+          # zizmor: ignore[secrets-outside-env] -- an environment cannot help here. This workflow runs on
+          # push to BOTH main and develop, so a deployment branch policy narrow enough to be worth adding
+          # would block one of them. The secret already travels the safe way, through `env:`, and the
+          # guard step handles its absence by skipping the real-LLM suites rather than failing.
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           if [ -z "$OPENROUTER_API_KEY" ]; then
@@ -71,5 +75,9 @@ jobs:
       - name: Run eval suites (assertEval gates)
         if: steps.guard.outputs.have_key == 'true'
         env:
+          # zizmor: ignore[secrets-outside-env] -- an environment cannot help here. This workflow runs on
+          # push to BOTH main and develop, so a deployment branch policy narrow enough to be worth adding
+          # would block one of them. The secret already travels the safe way, through `env:`, and the
+          # guard step handles its absence by skipping the real-LLM suites rather than failing.
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: pnpm eval
