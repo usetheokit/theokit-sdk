@@ -60,7 +60,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read  # Read the tree; the publishing job below declares its own wider scope.
+  contents: read # Read the tree; the publishing job below declares its own wider scope.
 
 jobs:
   # The last line, for the path that reached a release without passing through a pull request.
@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: read  # Read the tree; the publishing job below declares its own wider scope.
+      contents: read # Read the tree; the publishing job below declares its own wider scope.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -100,9 +100,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
-      contents: write  # Commit the version bump and push the tag.
-      pull-requests: write  # Open and update the "Version Packages" pull request.
-      id-token: write  # OIDC for npm trusted publishing. This is what replaces NPM_TOKEN.
+      contents: write # Commit the version bump and push the tag.
+      pull-requests: write # Open and update the "Version Packages" pull request.
+      id-token: write # OIDC for npm trusted publishing. This is what replaces NPM_TOKEN.
     steps:
       # Mint a short-lived token from the `theokit-release` GitHub App. GitHub does not start
       # workflow runs from GITHUB_TOKEN-authored events, so a Version Packages pull request
