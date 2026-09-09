@@ -23,7 +23,7 @@ on:
     - cron: "0 8 * * 1"
 
 permissions:
-  contents: read
+  contents: read # Check out the tree to be scanned; nothing here writes to it.
 
 concurrency:
   group: codeql-${{ github.ref }}
@@ -35,9 +35,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
-      contents: read
-      security-events: write
-      actions: read
+      contents: read # Check out the tree to be scanned; nothing here writes to it.
+      security-events: write # The only write, and the reason the job exists: upload the SARIF.
+      actions: read # CodeQL reads workflow run metadata to scope the analysis.
     strategy:
       fail-fast: false
       matrix:
