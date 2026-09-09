@@ -25,7 +25,7 @@ on:
 # grants itself exactly what it needs, so a blanket read at the top only widens the
 # default for anything added later without anyone re-reading this line.
 permissions:
-  contents: read
+  contents: read  # Read the repository OpenSSF Scorecard grades.
 
 concurrency:
   group: scorecard-${{ github.ref }}
@@ -41,7 +41,7 @@ jobs:
       security-events: write
       # Read the workflow run history the dangerous-workflow checks reason about.
       actions: read
-      contents: read
+      contents: read  # Read the repository OpenSSF Scorecard grades.
       # Mint the OIDC token that publishes the result to the public dashboard.
       id-token: write
     steps:
