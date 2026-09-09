@@ -12,7 +12,7 @@
     "@theokit/sdk": "workspace:*",
     "@theokit/sdk-memory": "workspace:*",
     "typescript": "^5.7.2",
-    "vitest": "^4.1.8",
+    "vitest": "^5.0.0",
     "better-sqlite3": "^12.10.0",
     "@types/better-sqlite3": "^7.6.13"
   }
