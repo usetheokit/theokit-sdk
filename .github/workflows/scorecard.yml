@@ -37,13 +37,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      # Upload the SARIF result to code scanning.
-      security-events: write
-      # Read the workflow run history the dangerous-workflow checks reason about.
-      actions: read
+      security-events: write  # Upload the SARIF result to code scanning.
+      actions: read  # Read the workflow run history the dangerous-workflow checks reason about.
       contents: read  # Read the repository OpenSSF Scorecard grades.
-      # Mint the OIDC token that publishes the result to the public dashboard.
-      id-token: write
+      id-token: write  # Mint the OIDC token that publishes the result to the public dashboard.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
