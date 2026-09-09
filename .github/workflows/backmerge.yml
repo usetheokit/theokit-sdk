@@ -23,11 +23,11 @@ on:
 # widening anything the job it has can do. Narrowing it changes no behaviour today; it stops the
 # next job added to this file from silently inheriting a write token nobody chose to give it.
 permissions:
-  contents: read  # Read both branches to compute what the back-merge would carry.
+  contents: read # Read both branches to compute what the back-merge would carry.
 
 jobs:
   backmerge:
     uses: usetheokit/shared-workflows/.github/workflows/backmerge.yml@v1 # zizmor: ignore[unpinned-uses]
     permissions:
-      contents: read  # Read both branches to compute what the back-merge would carry.
-      pull-requests: write  # Open the back-merge pull request. The only write this workflow performs.
+      contents: read # Read both branches to compute what the back-merge would carry.
+      pull-requests: write # Open the back-merge pull request. The only write this workflow performs.
