@@ -34,11 +34,19 @@ describe("adapterForConfigPath", () => {
     expect(adapterForConfigPath("/w/.codex/config.toml")).toBeUndefined();
   });
 
-  it("gives the native source no runtime contract, and Claude Code exactly one variable", () => {
-    // Native hooks are written against THIS runtime and inherit it; supplying anything would be
-    // inventing a contract nobody wrote. And only CLAUDE_PROJECT_DIR is supplied — a value this SDK
-    // would have to invent for `$CLAUDE_PLUGIN_ROOT` sends a script somewhere real and wrong.
-    expect(NATIVE_SOURCE.runtimeEnv("/w")).toEqual({});
+  it("gives each dialect a project directory under its own name, and nothing else", () => {
+    // This used to assert `{}` for the native source, on the reasoning that native hooks "are
+    // written against THIS runtime and inherit it". That is true of the runtime's BEHAVIOUR and not
+    // of a project PATH: nothing in the inherited environment says where the project is, so a
+    // native hook had to depend on the process cwd — the exact dependency #522 removed for the
+    // foreign side. Fixing one dialect and leaving the other different was the half-fix.
+    //
+    // The SPELLINGS differ on purpose: a ported script reaches for the name its own docs use.
+    //
+    // What is unchanged is the refusal to invent: a value this SDK would have to make up for
+    // `$CLAUDE_PLUGIN_ROOT` sends a script somewhere real and wrong, where an unset one fails
+    // loudly.
+    expect(NATIVE_SOURCE.runtimeEnv("/w")).toEqual({ THEOKIT_PROJECT_DIR: "/w" });
     expect(CLAUDE_CODE_SOURCE.runtimeEnv("/w")).toEqual({ CLAUDE_PROJECT_DIR: "/w" });
   });
 });

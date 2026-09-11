@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1204 export(s) across 46 entry point(s).
+1212 export(s) across 46 entry point(s).
 
 ## `@theokit/acp`
 
@@ -200,6 +200,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `InteractionUpdate` | type | Lowest-level raw update from a run.  |
 | `InvalidateCacheOptions` | interface | Options for {@link SDKAgent.invalidateCache } . |
 | `InvalidTaskIdError` | class | Thrown when a user-supplied task ID violates the grammar `^[a-z0-9][a-z0-9_-]*$` (D368) OR starts with a reserved adapter prefix (`wf-` / `b-` / `cron-`, EC-5). |
+| `isInside` | function | Whether `child` is inside `parent`.  |
 | `isTransientError` | function | Is this error transient (worth retrying)?  |
 | `isValidTaskId` | function | Validates a task ID against the public grammar + reserved prefixes.  |
 | `JobQueue` | class | An in-process queue of background jobs with status tracking, cancellation, and an optional concurrency bound.  |
@@ -218,6 +219,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `LiveSessionReason` | type | Why the destruction was refused. |
 | `loadProjectEnv` | function | Read the project's `.env` into `env`, then restore every {@link SOVEREIGN_ENV_KEYS } entry to the value it had BEFORE the load — including restoring it to absent.  |
 | `LocalOptions` | interface | Local agent configuration.  |
+| `ManagedSettings` | interface | What an operator may impose.  |
+| `managedSettingsPathFor` | function | Where the platform keeps its managed settings.  |
 | `McpAuthConfig` | interface | OAuth-style auth bundle for HTTP/SSE MCP servers. |
 | `McpHttpServerConfig` | type | HTTP or SSE MCP server. |
 | `McpOAuthConfig` | interface | OAuth 2.1 PKCE flow descriptor.  |
@@ -257,10 +260,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `normalizeUsage` | function | Convert a provider's raw `usage` object into the SDK's canonical `TokenUsage`.  |
 | `OTelSpan` | interface | The subset of the OpenTelemetry `Span` API this SDK calls.  |
 | `OutputProcessorContext` | interface | Context passed to {@link Processor.processOutput } . |
+| `parsePermissionRules` | function | Parse a rule set into engine rules, DENY first.  |
 | `PartialToolCallUpdate` | interface | Tool call arguments streaming in incrementally. |
 | `PermissionAction` | type | `PermissionEngine` — first-match permission rules for tool invocations.  |
 | `PermissionEngine` | class | Ordered first-match permission rules for tool invocations — the policy object you hand to `PermissionPlugin.create()` to have it enforced.  |
 | `PermissionEngineOptions` | interface | Options for {@link PermissionEngine } . |
+| `PermissionFloorContext` | interface | Where the floor is anchored.  |
+| `permissionFloorReason` | function | Why this call may not be approved, or `undefined` when the floor has no objection.  |
 | `PermissionGate` | type | SE1 — the enriched `canUseTool` gate (the Anthropic-parity shape).  |
 | `PermissionGateContext` | interface | SE1 — context passed to the {@link PermissionGate } .  |
 | `PermissionGateDecision` | type | SE1 — the resolution of an `"ask"` verdict by the host gate.  |
@@ -268,6 +274,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `PermissionPlugin` | class | SE36 — `PermissionPlugin.create` replaces `createPermissionPlugin` (ADR 0015). |
 | `PermissionPluginOptions` | interface | Options for {@link createPermissionPlugin } . |
 | `PermissionRule` | interface | One entry in a {@link PermissionEngine } 's ordered rule list.  |
+| `PermissionRuleSet` | interface | A policy as an operator writes it: three lists of rule strings. |
 | `PersonalityPreset` | interface | Resolved personality preset surfaced via {@link SDKAgent.usePersonality } (Hermes #26, ADRs D160-D169).  |
 | `planReaping` | function | Sort artifacts into keep, reap, and undetermined — and delete nothing.  |
 | `Plugin` | type | SE36 — `Plugin.create` replaces `definePlugin` (ADR 0015).  |
@@ -293,6 +300,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ProviderTransform` | interface | M41 — the one OPTIONAL behavior seam on a provider profile.  |
 | `ProviderTransformContext` | interface | M41 (agent-builder provider framework) — the context a provider's `transform` receives per request.  |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
+| `readManagedSettings` | function | Read the deployed policy, or `{}` when none is.  |
 | `readSessionMessages` | function | Read the messages a session already contains, for a surface that needs to re-render it.  |
 | `ReadSessionMessagesOptions` | interface | Which session to read, in the terms a host already has. |
 | `ReapableArtifact` | interface | One artifact the caller is considering deleting, described well enough to decide about.  |

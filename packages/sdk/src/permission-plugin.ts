@@ -12,6 +12,7 @@
 import { definePlugin } from "./internal/plugins/index.js";
 import type { Plugin, PreToolCallDecision } from "./internal/plugins/types.js";
 import type { PermissionEngine, PermissionMode } from "./permission-engine.js";
+import { permissionFloorReason } from "./permission-floors.js";
 
 /**
  * SE1 — context passed to the {@link PermissionGate}. Intentionally minimal for
@@ -126,6 +127,18 @@ function createPermissionPlugin(
         // via the pre_tool_call context) wins over the plugin's construction-time
         // default. `default` when neither is set.
         const mode: PermissionMode = permissionMode ?? opts.mode ?? "default";
+        // The FLOOR, first — before the engine, before the gate, before the mode is even consulted.
+        //
+        // Its docblock claims it sits above every rule and every mode. Until this call existed that
+        // was a sentence rather than a tier: `permission-floors.ts` was imported by `index.ts` and
+        // by nothing else, so the guarantee held exactly as far as a consumer's memory to invoke it.
+        // Checking it here is what makes the claim true, and checking it FIRST is what makes it a
+        // floor rather than one more rule in a list somebody can reorder.
+        //
+        // `bypassPermissions` does not reach it either, deliberately: a mode that skips the floor is
+        // a mode that can write into `.claude/` and change the policy that was supposed to bound it.
+        const floor = permissionFloorReason(name, args, {});
+        if (floor !== undefined) return { block: true, message: floor };
         // #55 — args gate rules on the command/args, not just the tool name.
         // SE1 — the mode adjusts the verdict (bypass/plan/acceptEdits); an explicit
         // `deny` rule is immune to every auto-approve mode.

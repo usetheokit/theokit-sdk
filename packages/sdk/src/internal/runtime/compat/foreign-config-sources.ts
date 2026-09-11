@@ -61,19 +61,32 @@ export interface ConfigSourceAdapter {
   /** The project-relative directory the dialect keeps its configuration in. */
   readonly dirName: string;
   /**
-   * Variables the dialect's own runtime defines for commands it executes.
+   * Variables the dialect's own runtime defines for commands it executes, under the dialect's own
+   * documented spellings.
    *
-   * Empty for the native source: a `.theokit/` hook is written against THIS runtime and inherits it
-   * already. Non-empty is what makes a foreign command runnable rather than silently broken.
+   * Every dialect gets a project-directory variable, because none of them can locate a
+   * project-relative script without one — the inherited environment says where the PROCESS is, and
+   * a hook that has to depend on the process cwd is the dependency #522 removed for the foreign
+   * side. Fixing one dialect and leaving the other different was the half-fix.
+   *
+   * The SPELLINGS differ on purpose: a ported script reaches for the name its own docs use, and a
+   * native one for this runtime's.
    */
   runtimeEnv(cwd: string): Record<string, string>;
 }
 
-/** The native source. Always read, never opted into, always first for precedence. */
+/**
+ * The native source. Always read, never opted into, always first for precedence.
+ *
+ * `THEOKIT_PROJECT_DIR` is the native counterpart of `CLAUDE_PROJECT_DIR` below. This used to be
+ * `{}`, on the reasoning that a `.theokit/` hook "is written against THIS runtime and inherits it
+ * already" — true of the runtime's BEHAVIOUR and not of a project PATH. Nothing in the inherited
+ * environment says where the project is, so a native hook had to depend on the process cwd.
+ */
 export const NATIVE_SOURCE: ConfigSourceAdapter = {
   kind: "theokit",
   dirName: THEOKIT_DIR_LITERAL,
-  runtimeEnv: () => ({}),
+  runtimeEnv: (cwd) => ({ THEOKIT_PROJECT_DIR: cwd }),
 };
 
 /**

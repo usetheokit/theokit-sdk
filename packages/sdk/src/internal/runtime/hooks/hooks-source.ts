@@ -8,9 +8,14 @@
  *
  * Consumed by `hooks-executor.ts` (runtime dispatch).
  *
- * Config shape (identical to Claude Code's `settings.json` hooks):
+ * Config SHAPE is Claude Code's `settings.json` hooks:
  *   { "hooks": { "PreToolUse": [ { "matcher": "shell",
  *       "hooks": [ { "type": "command", "command": "…", "timeout": 30 } ] } ] } }
+ *
+ * The shape, not the event COVERAGE. Four of the thirty-three documented events are fired by this
+ * runtime — see {@link CLAUDE_CODE_EVENT_MAP} for which, why the rest are refused rather than
+ * mapped, and the order in which they should be added. An event outside the set is reported to the
+ * operator rather than skipped in silence.
  *
  * @internal
  */
@@ -19,7 +24,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ConfigurationError } from "../../../errors.js";
-import { diag } from "../../diagnostics.js";
+import { diag, diagFailure } from "../../diagnostics.js";
 import { projectConfigRoots, theokitConfigRoot } from "../../persistence/paths.js";
 import type { CompatSourceDeclaration } from "../compat/foreign-config-sources.js";
 
@@ -27,12 +32,35 @@ import type { CompatSourceDeclaration } from "../compat/foreign-config-sources.j
 export type HookEvent = "preRun" | "postRun" | "preToolUse" | "postToolUse" | "stop";
 
 /**
- * Claude Code event name → the SDK firing event. Only events the runtime
- * genuinely emits are mapped; a Claude Code event with no SDK firing point
- * (SessionStart / SubagentStop / PreCompact / Notification / SessionEnd) is
- * skipped with a warn rather than silently accepted (it would never run).
+ * The Claude Code event names this runtime actually FIRES, and the internal event each becomes.
+ *
+ * Exported so the supported set is stated rather than implied. It used to be private, and the
+ * docblock above claimed a shape "identical to Claude Code's `settings.json` hooks" while accepting
+ * four of the thirty-three documented events — a claim nothing could contradict.
+ *
+ * A Claude Code event with no firing point here — `SessionStart`, `SubagentStop`, `PreCompact`,
+ * `Notification`, `SessionEnd` among them — is skipped with a report rather than silently accepted,
+ * because it would never run.
+ *
+ * ## Why this map is not simply grown
+ *
+ * Mapping a name the runtime does not fire is strictly WORSE than refusing it. An operator declaring
+ * `PreCompact` today gets a report saying it will not fire; with the name mapped they would get
+ * silence and a guard that never runs — a declared veto that does not exist. The map grows when the
+ * seam exists, one event at a time.
+ *
+ * ## Priority, when it does grow
+ *
+ * The blocking events first. An unwired veto loses a CAPABILITY; an unwired observer loses a
+ * SIGNAL. Thirteen of the sixteen the spec marks "Can block? Yes" are unwired, and
+ * `tests/internal/runtime/hooks/the-supported-event-set-is-stated.test.ts` lists them in the order
+ * they should be taken, so the next person does not re-derive which is which.
+ *
+ * `postRun` is reachable through this SDK's own config and has no entry here on purpose: it fires
+ * per RUN, and no documented Claude Code event means that. `SessionEnd` is the near miss, and a
+ * session is not a run.
  */
-const CLAUDE_CODE_EVENT_MAP: Readonly<Record<string, HookEvent>> = {
+export const CLAUDE_CODE_EVENT_MAP: Readonly<Record<string, HookEvent>> = {
   PreToolUse: "preToolUse",
   PostToolUse: "postToolUse",
   UserPromptSubmit: "preRun",
@@ -84,6 +112,30 @@ export function warnOnce(key: string, message: string): void {
   if (warned.has(key)) return;
   warned.add(key);
   diag(`${message}\n`);
+}
+
+/**
+ * A warn-once that is NOT dropped when the host installed no diagnostics sink.
+ *
+ * `diag` is silent by default and that is right for chatter — a library must not assume the host's
+ * stderr is a free-form log, because in a TUI it is the render surface. A configuration the operator
+ * WROTE and this runtime will not honour is not chatter. `diagFailure`'s own docblock records the
+ * precedent, `theokit-sdk#189`: an MCP server failed to start, the only report went to `diag()`, the
+ * embedding UI never read it, and "the user saw an agent with missing tools and no reason given".
+ *
+ * A dropped hook is that shape with a sharper edge, because the missing thing is a guard: the
+ * operator declared a refusal, it silently does not exist, and nothing distinguishes that from a
+ * refusal that ran and approved.
+ *
+ * The asymmetry that decides it is quoted from the same place: a corrupted frame is visible and
+ * recoverable, while a silently dropped failure is neither.
+ *
+ * @internal
+ */
+export function warnFailureOnce(key: string, message: string): void {
+  if (warned.has(key)) return;
+  warned.add(key);
+  diagFailure(`${message}\n`);
 }
 
 /** Reset for tests; not exported via barrel. @internal */
@@ -263,7 +315,9 @@ function parseClaudeCodeConfig(raw: unknown, path: string): HookConfig {
   for (const [ccEvent, groups] of Object.entries(hooksRec)) {
     const event = CLAUDE_CODE_EVENT_MAP[ccEvent];
     if (event === undefined) {
-      warnOnce(
+      // The operator wrote this event and it will not fire. Reported through the channel that
+      // survives an absent sink — see `warnFailureOnce`.
+      warnFailureOnce(
         `hooks-event-${ccEvent}`,
         `[theokit-sdk] hooks: event "${ccEvent}" is not fired by the SDK runtime (supported: ${Object.keys(CLAUDE_CODE_EVENT_MAP).join(", ")}) — skipping`,
       );
@@ -287,6 +341,53 @@ function flattenEventGroups(groups: unknown, path: string, ccEvent: string): Hoo
   return commands;
 }
 
+/**
+ * Fields a Claude Code hook entry may declare that this runtime does not implement.
+ *
+ * Listed rather than lumped into "unknown" because the two are different facts to the operator
+ * reading the error: a typo is theirs to fix, and a field written for another runtime is a tree
+ * that was never going to work here. The same split is made for subagent frontmatter, for the same
+ * reason — an operator migrating a `.claude/` tree learned one key per round trip otherwise.
+ *
+ * `if` is the one that made refusal the right answer rather than a warning. Dropped, it fails OPEN:
+ * a deny hook narrowed to one dangerous command shape silently becomes a deny hook over every call
+ * of that tool. Every other field in this set loses a convenience; this one inverts the intent.
+ */
+const UNIMPLEMENTED_CLAUDE_CODE_HOOK_FIELDS = new Set([
+  "if",
+  "args",
+  "statusMessage",
+  "once",
+  "async",
+  "asyncRewake",
+  "shell",
+]);
+
+/** What `parseClaudeCodeCommand` reads. Anything else is refused. */
+const ACCEPTED_HOOK_FIELDS = new Set(["type", "command", "timeout"]);
+
+/**
+ * Refuse a hook entry that declares a field this parser does not read.
+ *
+ * The parser used to take `type`, `command` and `timeout` and discard the rest in silence, while
+ * `packages/agents` — reading the same file one layer up — already refused an unknown key loudly
+ * through a `.strict()` schema. Two layers disagreeing about whether a field is an error is bad on
+ * its own; the permissive one being the layer that actually runs the hook is the defect.
+ */
+function rejectUnreadHookFields(cmd: Record<string, unknown>, path: string, ccEvent: string): void {
+  for (const key of Object.keys(cmd)) {
+    if (ACCEPTED_HOOK_FIELDS.has(key)) continue;
+    const origin = UNIMPLEMENTED_CLAUDE_CODE_HOOK_FIELDS.has(key)
+      ? ` — "${key}" is a Claude Code hook field that this runtime does not implement. The same ` +
+        `applies to: ${[...UNIMPLEMENTED_CLAUDE_CODE_HOOK_FIELDS].filter((f) => f !== key).join(", ")}`
+      : "";
+    throw new ConfigurationError(
+      `hooks.${ccEvent}: unsupported field "${key}" (accepted: ${[...ACCEPTED_HOOK_FIELDS].join(", ")}) in ${path}${origin}`,
+      { code: "hooks_unsupported_field" },
+    );
+  }
+}
+
 /** One `{ type:"command", command, timeout? }` entry → an internal HookCommand. */
 function parseClaudeCodeCommand(
   raw: unknown,
@@ -306,6 +407,9 @@ function parseClaudeCodeCommand(
       code: "hooks_invalid_command",
     });
   }
+  // After the type/command checks, so a `{ type: "http", url }` entry still fails for its own
+  // reason rather than for its `url`.
+  rejectUnreadHookFields(cmd, path, ccEvent);
   const hc: HookCommand = { command: cmd.command, sourceEvent: ccEvent };
   if (matcher !== undefined) hc.matcher = matcher;
   if (typeof cmd.timeout === "number" && cmd.timeout > 0) {
