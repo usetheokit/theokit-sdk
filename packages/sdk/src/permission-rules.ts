@@ -160,12 +160,6 @@ function hostOf(value: string): string | undefined {
 }
 
 /**
- * A path glob: `*` within one segment, `**` across any depth, `?` one character.
- *
- * Built from the literal, never taken from it — every metacharacter outside the three is escaped, so
- * a policy line cannot smuggle a regular expression into the matcher.
- */
-/**
  * One glob character as its regex, and how many extra characters it consumed.
  *
  * Split from the loop because the loop was a switch with three nested lookaheads and reached a
@@ -184,6 +178,12 @@ function translateGlobChar(glob: string, i: number): { pattern: string; consumed
   return { pattern: ".*", consumed: glob[i + 2] === "/" ? 2 : 1 };
 }
 
+/**
+ * A path glob: `*` within one segment, `**` across any depth, `?` one character.
+ *
+ * Built from the literal, never taken from it — every metacharacter outside the three is escaped, so
+ * a policy line cannot smuggle a regular expression into the matcher.
+ */
 function globToRegExp(glob: string): RegExp {
   let out = "";
   for (let i = 0; i < glob.length; i += 1) {

@@ -32,17 +32,15 @@ import type { CompatSourceDeclaration } from "../compat/foreign-config-sources.j
 export type HookEvent = "preRun" | "postRun" | "preToolUse" | "postToolUse" | "stop";
 
 /**
- * Claude Code event name → the SDK firing event. Only events the runtime
- * genuinely emits are mapped; a Claude Code event with no SDK firing point
- * (SessionStart / SubagentStop / PreCompact / Notification / SessionEnd) is
- * skipped with a warn rather than silently accepted (it would never run).
- */
-/**
  * The Claude Code event names this runtime actually FIRES, and the internal event each becomes.
  *
  * Exported so the supported set is stated rather than implied. It used to be private, and the
  * docblock above claimed a shape "identical to Claude Code's `settings.json` hooks" while accepting
  * four of the thirty-three documented events — a claim nothing could contradict.
+ *
+ * A Claude Code event with no firing point here — `SessionStart`, `SubagentStop`, `PreCompact`,
+ * `Notification`, `SessionEnd` among them — is skipped with a report rather than silently accepted,
+ * because it would never run.
  *
  * ## Why this map is not simply grown
  *
