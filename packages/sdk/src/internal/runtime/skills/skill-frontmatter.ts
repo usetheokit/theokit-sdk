@@ -33,6 +33,24 @@ export interface SkillFrontmatter {
   description: string;
   category?: string;
   dependencies?: string[];
+  /**
+   * `disable-model-invocation: true` — the model is not told this skill exists.
+   *
+   * The SDK owns this boundary: a skill reaches the model through exactly one place,
+   * `buildSystemPromptContext`, so the declaration is enforceable here. It is a DISCLOSURE rule,
+   * not an execution rule — `skills.get(name)` still resolves it, because a caller naming a skill
+   * has already made the decision the field exists to keep away from the model.
+   */
+  disableModelInvocation?: boolean;
+  /**
+   * `user-invocable: false` — carried, deliberately not enforced here.
+   *
+   * This SDK has no user-facing invocation surface for skills; there is no slash command. Reading
+   * `agent.skills.list()` as "the user" would be a guess — a host may call it to build a picker or
+   * to introspect, and the two want opposite answers. So the declaration travels to the host that
+   * does know, instead of being discarded (the defect) or enforced against an invented boundary.
+   */
+  userInvocable?: boolean;
 }
 
 /**
@@ -44,10 +62,11 @@ export interface SkillFrontmatter {
  * @internal
  */
 export function parseSkillFrontmatter(raw: string, fallbackName: string): SkillFrontmatter {
-  const fields = extractAndParseFrontmatter(raw, fallbackName);
+  const parsed = extractAndParseFrontmatter(raw, fallbackName);
+  const fields = toStringFields(parsed);
   const name = resolveName(fields, fallbackName);
   ensureRequiredFields(fields, name);
-  return buildFrontmatter(fields, name);
+  return buildFrontmatter(fields, parsed, name);
 }
 
 /**
@@ -60,7 +79,10 @@ export function stripSkillFrontmatter(raw: string): string {
   return (match === null ? raw : raw.slice(match[0].length)).trim();
 }
 
-function extractAndParseFrontmatter(raw: string, fallbackName: string): StringFields {
+function extractAndParseFrontmatter(
+  raw: string,
+  fallbackName: string,
+): Record<string, FrontmatterValue | undefined> {
   const match = /^---\s*\n([\s\S]*?)\n---\s*\n/.exec(raw);
   if (match === null) {
     throw new ConfigurationError(`Skill ${fallbackName} is missing frontmatter`, {
@@ -71,7 +93,7 @@ function extractAndParseFrontmatter(raw: string, fallbackName: string): StringFi
   // EC-5: guard against syntactically invalid frontmatter so the loader
   // surfaces schema_invalid rather than crashing.
   try {
-    return toStringFields(parseSimpleYaml(frontmatter));
+    return parseSimpleYaml(frontmatter);
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message : String(cause);
     throw new ConfigurationError(
@@ -97,7 +119,11 @@ function ensureRequiredFields(fields: StringFields, name: string): void {
   }
 }
 
-function buildFrontmatter(fields: StringFields, name: string): SkillFrontmatter {
+function buildFrontmatter(
+  fields: StringFields,
+  parsed: Record<string, FrontmatterValue | undefined>,
+  name: string,
+): SkillFrontmatter {
   const description = fields.description;
   if (description === undefined) {
     // ensureRequiredFields already threw; this is unreachable but satisfies TS
@@ -107,7 +133,39 @@ function buildFrontmatter(fields: StringFields, name: string): SkillFrontmatter 
   if (hasContent(fields.category)) result.category = fields.category;
   const deps = parseDependencies(fields.dependencies);
   if (deps !== undefined) result.dependencies = deps;
+  const disable = readAuthorizationFlag(parsed, "disable-model-invocation", name);
+  if (disable !== undefined) result.disableModelInvocation = disable;
+  const invocable = readAuthorizationFlag(parsed, "user-invocable", name);
+  if (invocable !== undefined) result.userInvocable = invocable;
   return result;
+}
+
+/**
+ * Read one boolean authorization flag, refusing a value this parser cannot represent.
+ *
+ * Unknown frontmatter keys are ignored here for forward compatibility, and that is right for
+ * metadata. It is wrong for these two: the simple-YAML dialect coerces only the literals `true`
+ * and `false`, so `disable-model-invocation: yes` — a valid YAML boolean — arrives as the STRING
+ * `"yes"`, compares unequal to `true`, and the skill is disclosed to the model. The author wrote a
+ * restriction and got the default.
+ *
+ * A restriction that fails open is worse than one that is absent, because the author stops looking.
+ * So the value is refused and named, and the run stops on the line that caused it.
+ */
+function readAuthorizationFlag(
+  parsed: Record<string, FrontmatterValue | undefined>,
+  key: string,
+  name: string,
+): boolean | undefined {
+  const value = parsed[key];
+  if (value === undefined) return undefined;
+  if (typeof value === "boolean") return value;
+  throw new ConfigurationError(
+    `Skill ${name}: "${key}" must be true or false (got ${JSON.stringify(value)}) — ` +
+      `this dialect reads only the literals \`true\` and \`false\`, and a value it cannot read ` +
+      `would leave the skill disclosed`,
+    { code: "schema_invalid" },
+  );
 }
 
 function parseDependencies(raw: string | undefined): string[] | undefined {

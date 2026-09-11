@@ -148,6 +148,34 @@ function parseSubagentMarkdown(
   return { name, definition };
 }
 
+/**
+ * Frontmatter keys that Claude Code documents for a subagent and this runtime does not accept.
+ *
+ * Not an allow-list — every one of these still fails the load. It exists so the FAILURE can say
+ * which kind of unknown it met. A user migrating a `.claude/agents/` tree used to learn one key per
+ * round trip: fix `memory`, meet `permissionMode`, fix that, meet `maxTurns` — with nothing saying
+ * the set was finite or that the tree was simply written for another runtime.
+ *
+ * The distinction this file already draws for `INERT_CLAUDE_CODE_FIELDS` is the same one: "the
+ * difference between 'we know this one and it does nothing' and 'we have never heard of this' — two
+ * facts a bare allow-everything would collapse into one." This is the third fact beside them —
+ * "another runtime's field" — and it changes only the message, never the verdict.
+ */
+const KNOWN_CLAUDE_CODE_FIELDS = new Set([
+  "disallowedTools",
+  "permissionMode",
+  "maxTurns",
+  "skills",
+  "memory",
+  "background",
+  "effort",
+  "isolation",
+  "initialPrompt",
+  "hooks",
+  "experimental",
+  "mcpServers",
+]);
+
 function rejectUnknownFields(
   fields: Record<string, FrontmatterValue | undefined>,
   filename: string,
@@ -155,8 +183,14 @@ function rejectUnknownFields(
   for (const key of Object.keys(fields)) {
     if (INERT_CLAUDE_CODE_FIELDS.has(key)) continue;
     if (!ACCEPTED_FIELDS.has(key)) {
+      const siblings = [...KNOWN_CLAUDE_CODE_FIELDS].filter((f) => f !== key);
+      const origin = KNOWN_CLAUDE_CODE_FIELDS.has(key)
+        ? ` — "${key}" is a Claude Code subagent field that this runtime does not support. ` +
+          `The same applies to: ${siblings.join(", ")}. Removing them one at a time will meet each ` +
+          `in turn; the tree is written for another runtime`
+        : "";
       throw new ConfigurationError(
-        `Subagent ${filename}: unknown frontmatter field "${key}" (accepted: ${[...ACCEPTED_FIELDS].join(", ")})`,
+        `Subagent ${filename}: unknown frontmatter field "${key}" (accepted: ${[...ACCEPTED_FIELDS].join(", ")})${origin}`,
         { code: "subagent_unknown_field" },
       );
     }
