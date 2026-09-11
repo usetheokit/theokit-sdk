@@ -136,3 +136,41 @@ describe("a floor survives every allow rule", () => {
     ).toBeDefined();
   });
 });
+
+/**
+ * B-068 — the read side has no floor, and this pins that it is a DECISION rather than a gap nobody
+ * noticed.
+ *
+ * The write floor refuses `.ssh` under every allow rule. A READ of the same path is refused by
+ * nothing, because there is no read-side tier at all: reads are governed by the rule language and by
+ * nothing above it. That asymmetry is invisible from the module — `PROTECTED_SEGMENTS` reads like a
+ * list of paths that are protected, and it is only half that.
+ *
+ * If a read fence is ever added, this file goes red and the docblock above `WRITING_TOOLS` must be
+ * rewritten in the same commit. That is the point: the claim and the behaviour cannot drift apart
+ * quietly, which is how "we decided not to" becomes "we forgot to" without anyone editing a word.
+ */
+describe("the read side has no floor, deliberately", () => {
+  it("refuses a WRITE into .ssh and does not refuse a READ of the same path", () => {
+    const target = { file_path: "/home/someone/.ssh/id_rsa" };
+
+    expect(
+      permissionFloorReason("Write", target),
+      "the write floor stopped protecting .ssh",
+    ).toBeDefined();
+
+    expect(
+      permissionFloorReason("Read", target),
+      "a read floor appeared — update the WRITING_TOOLS docblock, which states there is none",
+    ).toBeUndefined();
+  });
+
+  it("has no additionalDirectories concept to widen a fence that does not exist", () => {
+    // The reference's key presupposes a fence. Asserting the absence keeps the reasoning attached to
+    // something executable instead of to a paragraph nobody re-reads.
+    expect(
+      permissionFloorReason("Read", { path: "/etc/passwd" }),
+      "reads outside the working directory are not fenced, so there is nothing to widen",
+    ).toBeUndefined();
+  });
+});

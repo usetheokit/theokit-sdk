@@ -73,7 +73,37 @@ const PROTECTED_FILES: readonly string[] = [
   ".netrc",
 ];
 
-/** Tools whose call WRITES. A read of a protected path is not the tier's concern. */
+/**
+ * Tools whose call WRITES. The floor is a write-side tier, and there is no read-side equivalent.
+ *
+ * ## What governs a READ, stated because the asymmetry is invisible from here (B-068)
+ *
+ * Reads are governed by the RULE LANGUAGE and by nothing above it. `Read(path:./.env)` works, and
+ * deny-before-allow ordering means a deny cannot be overtaken by a broader allow — but every one of
+ * those rules has to be WRITTEN. Nothing is refused by default, and no allow rule is refused either:
+ * `Read` on its own grants reading any path the process can open, including `~/.ssh/id_rsa`.
+ *
+ * Writes have two tiers; reads have one. A reader who finds this module and sees `PROTECTED_SEGMENTS`
+ * will reasonably assume the names in it are protected, and half of that is true: `.ssh` cannot be
+ * WRITTEN through any rule, and can be READ through an ordinary allow.
+ *
+ * ## `additionalDirectories` does not exist here
+ *
+ * The reference's concept is an operator WIDENING what an agent may read beyond its working
+ * directory — which presupposes a fence to widen. There is no fence, so there is nothing to widen,
+ * and the absence of the key reads as permissive rather than as unimplemented. Measured 2026-09-11:
+ * zero occurrences in this package and zero in `@theokit/agents`.
+ *
+ * ## Why a fence was not added here
+ *
+ * Not because it is unwanted. A read fence is a security boundary, and this tier is the wrong size
+ * for one: `permissionFloorReason` sees a tool name and an argument map, and a fence that matched on
+ * those alone would miss every read that reaches the filesystem by another route — a shell command,
+ * a plugin, an MCP server. The SDK already confines shell reads through `SandboxMode` in
+ * `sandbox/`, and a second containment vocabulary at this layer would leave two answers to "may this
+ * be read" that disagree at the edges. Closing it properly means deciding which layer owns the
+ * boundary, which is a measured decision and not a docblock.
+ */
 const WRITING_TOOLS = /^(write|edit|apply_?patch|multi_?edit|notebook_?edit|create)/i;
 
 /** Argument names that carry a path. Same declared set the rule language uses. */
