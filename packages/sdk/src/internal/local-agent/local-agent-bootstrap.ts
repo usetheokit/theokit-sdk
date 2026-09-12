@@ -67,6 +67,11 @@ function buildContext(args: BootstrapArgs, out: BootstrappedSubmanagers): void {
     args.workspaceCwd,
     args.options.context,
     args.settingSourcesIncludeProject,
+    // #652 — the same declaration `buildSkills` and `buildPlugins` already pass. Omitting it here
+    // is what let a foreign root's instructions into the system prompt while its skills, subagents,
+    // hooks and plugins were correctly withheld: four surfaces failing closed and a fifth nobody
+    // had wired to the gate.
+    resolveCompatSources(args.options, args.workspaceCwd),
   );
 }
 
