@@ -158,6 +158,7 @@ export type { CompatSurface };
  * rejecting an entry that is not a surface, which is both directions at once.
  */
 const COMPAT_SURFACES = [
+  "context",
   "hooks",
   "plugins",
   "skills",
@@ -362,8 +363,8 @@ export function reportUndeclaredSources(
     // Nothing here can fix that. If a host ever gains a way to say "I am withholding this too",
     // this is the line where that belongs.
     diagFailure(
-      `[theokit] ${adapter.dirName}/ is present but not declared, so its hooks, skills, subagents ` +
-        `and plugins are ignored. To read it, add ` +
+      `[theokit] ${adapter.dirName}/ is present but not declared, so its hooks, skills, subagents, ` +
+        `plugins and rules are ignored. To read it, add ` +
         `{"compat":{"adapters":["${adapter.kind}"]}} to .theokit/config.json — or, if you embed ` +
         `this SDK, pass local: { compatSources: ["${adapter.kind}"] } ` +
         `(usetheokit/theokit-sdk#524).\n`,

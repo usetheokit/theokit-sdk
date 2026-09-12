@@ -65,6 +65,80 @@ export interface DiscoverySpec {
   readonly parser: DiscoveryParser;
   /** Whether to follow `@path` import directives (CLAUDE.md / GEMINI.md). */
   readonly followImports: boolean;
+  /**
+   * The `CompatSource` kind whose grant gates this file — the name a consumer writes in
+   * `local.compatSources` to receive it.
+   *
+   * Absent means UNGATED, and that covers two different situations which the field deliberately does
+   * not distinguish, because the gate treats them identically:
+   *
+   * 1. **Native.** theokit's own roots. Declaring theokit is what running theokit means, so there is
+   *    no separate grant to ask for.
+   * 2. **A repo-root instruction file.** `AGENTS.md`, `GEMINI.md`, `CLAUDE.md` and
+   *    `.cursor/rules/*.mdc` are every bit as foreign as `.claude/` is, and every one of them puts
+   *    a cloned repository's prose into the system prompt. They are ungated anyway, for a reason
+   *    that is a limit rather than a judgement: `adaptersFor` registers ONE foreign adapter,
+   *    `claude-code`, so `compatSources` has no spelling that admits `agents`, `gemini` or
+   *    `cursor`. Labelling them would gate them on a grant nobody can write, making three formats
+   *    permanently unreachable — a silent loss of capability with no way to restore it, which is a
+   *    worse defect than the one being fixed and the exact shape this codebase already paid for in
+   *    usetheokit/theokit-sdk#524.
+   *
+   *    `CLAUDE.md` is ungated for the adjacent reason, and this one IS a judgement: the grant gates
+   *    the foreign ROOT — the `.claude/` directory whose hooks, skills, subagents and plugins
+   *    already require it — and `CLAUDE.md` does not live there. It sits at the repository root
+   *    beside the other three, is widely used as a generic agent-instructions file by projects that
+   *    have no `.claude/` at all, and gating it would take it from them.
+   *
+   *    So this field closes the door the grant vocabulary already has a key for, and leaves three
+   *    named. Whether a repo-root instruction file should require an opt-in at all is a product
+   *    decision affecting every consumer, not a bug fix, and it is tracked separately — writing it
+   *    down is the point, because an undocumented gap reads as an oversight.
+   *
+   * Optional because this interface is `@public` and under semver: a caller passing its own array
+   * keeps working, and its specs read as ungated — the behaviour they had before this field existed.
+   *
+   * On the SPEC rather than as a condition at the call site, because the table MIXES dialects.
+   * Adding one is adding a row, not editing a branch somebody else has to find.
+   */
+  readonly dialect?: string;
+}
+
+/**
+ * The specs a consumer's declared compat sources admit.
+ *
+ * The half that turns {@link DiscoverySpec.dialect} from a label into a gate. A field nobody consults
+ * is a control that is declared, exported, documented and wired to nothing — which is the failure
+ * this whole change exists to close, and it would be a poor joke to reproduce it here.
+ *
+ * Three rules, and each is a decision rather than a convenience:
+ *
+ * - **A spec with no `dialect` is always admitted.** Absent means native, and a caller's own array
+ *   predates this field: filtering it by a question it never answered would remove content nobody
+ *   asked to remove.
+ * - **`undefined` sources admit everything.** That is every consumer before this field existed. This
+ *   is the back-compatibility floor and the reason the change is a minor rather than a breaking one.
+ * - **A declared list admits only the dialects it names.** This is the fix: a consumer who grants
+ *   `theokit` for its own roots and never declares `claude-code` stops receiving that repository's
+ *   `.claude/rules/*.md` in its prompt.
+ *
+ * `@internal`, deliberately. The docblock claimed `@public — re-exported from
+ * '@theokit/sdk/context'` and the barrel exported no such name: a reach asserted and not given,
+ * which is the defect this whole change is about, committed in the fix for it. A consumer building
+ * its own `specs` array does not need this function — it passes `declaredCompatKinds` to
+ * `runDiscovery` and gets the same filtering, through a public option on a public interface. So the
+ * honest correction is to narrow the claim rather than widen the surface.
+ *
+ * @internal — exported from the module so the gate is testable at its boundary rather than only
+ * through a whole agent, and not re-exported from any public entry point.
+ */
+export function admittedSpecs(
+  specs: ReadonlyArray<DiscoverySpec>,
+  declaredKinds: ReadonlyArray<string> | undefined,
+): ReadonlyArray<DiscoverySpec> {
+  if (declaredKinds === undefined) return specs;
+  const granted = new Set(declaredKinds);
+  return specs.filter((spec) => spec.dialect === undefined || granted.has(spec.dialect));
 }
 
 /**
@@ -140,6 +214,7 @@ export const DEFAULT_DISCOVERY_SPECS: ReadonlyArray<DiscoverySpec> = [
     // 46, 48 or 49 is unaffected. A consumer that had chosen 47 now collides — that is the cost of
     // an eighth default, paid once and recorded here rather than discovered later.
     id: "claude-rules",
+    dialect: "claude-code",
     pattern: ".claude/rules/*.md",
     scope: "globbed",
     parser: "rules-frontmatter",
