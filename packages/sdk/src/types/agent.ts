@@ -75,9 +75,14 @@ export type CompatSource = "claude-code" | "theokit" | CompatSourceAdapter;
  * Reusing the skills you already wrote for another product is a reasonable thing to want, and it is
  * not a reason to hand that product's directory the right to run commands.
  *
+ * `context` is the foreign root's INSTRUCTIONS — `.claude/rules/*.md`. Same risk class as `skills`:
+ * text a cloned repository wrote, entering the system prompt as if the consumer had written it. It
+ * was missing until usetheokit/theokit-sdk#652, so the four surfaces above failed closed while this
+ * one was admitted by a path that consulted no grant at all.
+ *
  * @public
  */
-export type CompatSurface = "hooks" | "plugins" | "skills" | "subagents";
+export type CompatSurface = "context" | "hooks" | "plugins" | "skills" | "subagents";
 
 /**
  * A foreign source admitted to named surfaces only.

@@ -98,6 +98,33 @@ export function projectMemoryDir(cwd: string): MemoryRoot {
  * TRANSCRIPTS ARE THE TRAP, and the reason this went unnoticed: the CLI keys THOSE by `cwd`, and
  * `encodeProjectDir` is right for them. One encoder for two axes made the two indistinguishable in
  * the code. The encoder is still shared — the path it is given is not.
+ *
+ * ## What is READ here and what is not IMPLEMENTED (B-054)
+ *
+ * This reads the directory the Claude Code CLI writes its auto-memory into. It does not implement
+ * the CLI's auto-memory BEHAVIOUR: `autoMemoryEnabled`, `autoMemoryDirectory`,
+ * `CLAUDE_CODE_DISABLE_AUTO_MEMORY`, `cleanupPeriodDays` and the documented 200-line / 25 KB read
+ * cap have no counterpart — measured 0 files across this package and `@theokit/agents`.
+ *
+ * Interop in one direction is the decision, not an oversight: a memory the CLI recorded stays
+ * visible, and this runtime does not start writing into a store another product owns the lifecycle
+ * of. A `cleanupPeriodDays` implemented here would delete files the CLI expects to find.
+ *
+ * `CLAUDE_CONFIG_DIR` is honoured HERE and nowhere else, and that is the whole of its scope in this
+ * runtime: it names the CLI's home so this reader finds the right directory. It does not relocate a
+ * user-level configuration root of this product's own, because there is none to relocate — the
+ * config roots resolved elsewhere are PROJECT-relative.
+ *
+ * ## The filename collision, stated at one of its two ends
+ *
+ * `MEMORY.md` names two different contracts. The CLI's is a plain file under the directory above,
+ * capped and swept by the CLI. This SDK's is the durable-memory subsystem — a SQLite+FTS5 store
+ * under `.theokit/memory/` with `memory_search` / `memory_get` tools, no index cap, and a different
+ * directory entirely.
+ *
+ * Same filename, different directory, different semantics. A parity checklist that greps for
+ * `MEMORY.md` finds one and concludes the other exists — the third name in this backlog to collide
+ * that way, and the reason the statement lives at both ends rather than in a changelog.
  */
 export function claudeProjectMemoryDir(cwd: string): MemoryRoot {
   const home = process.env.CLAUDE_CONFIG_DIR?.trim();

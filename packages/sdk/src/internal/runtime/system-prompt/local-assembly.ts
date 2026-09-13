@@ -84,7 +84,17 @@ export async function buildSystemPromptContext(
     agentId: inputs.agentId,
     cwd: inputs.workspaceCwd,
     model: inputs.model,
-    skills: skills.map((skill) => ({ name: skill.name, description: skill.description })),
+    // This is the ONLY place the model learns which skills exist, which is what makes
+    // `disable-model-invocation` enforceable rather than decorative. The scaffold had been writing
+    // authorization frontmatter that the parser discarded, so the default was disclose-all.
+    //
+    // A disclosure rule, not an execution rule: `skills.get(name)` still resolves a hidden skill,
+    // because a caller naming one has already made the decision this field keeps away from the
+    // model. Widening it to execution would break the case the field is FOR — a side-effecting
+    // skill a human may run and the model may not propose.
+    skills: skills
+      .filter((skill) => skill.disableModelInvocation !== true)
+      .map((skill) => ({ name: skill.name, description: skill.description })),
     userMessage: userText,
     memory: memoryFacts.map((fact) => ({ text: fact.text })),
   };

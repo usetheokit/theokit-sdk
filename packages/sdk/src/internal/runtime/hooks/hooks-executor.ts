@@ -1,7 +1,8 @@
 import type { CompatSourceDeclaration } from "../compat/foreign-config-sources.js";
 import { adapterForConfigPath, undefinedVariablesIn } from "../compat/foreign-config-sources.js";
+import { readManagedSettings } from "../compat/managed-settings.js";
 import { spawnAndCollect } from "../lifecycle/spawn-collect.js";
-import { loadHookConfig } from "./hooks-source.js";
+import { loadHookConfig, warnFailureOnce } from "./hooks-source.js";
 
 /**
  * Real file-based hook executor. Reads `.theokit/hooks.json` from the
@@ -18,7 +19,11 @@ import { loadHookConfig } from "./hooks-source.js";
  */
 
 // Declared in `types/hooks.ts` (a leaf) and re-exported here so the pair has ONE definition.
-export type { HookApprovalGate, HookApprovalRequest, HookEvent } from "../../../types/hooks.js";
+export type {
+  HookApprovalGate,
+  HookApprovalRequest,
+  HookEvent,
+} from "../../../types/hooks.js";
 
 import type { HookApprovalGate, HookApprovalRequest, HookEvent } from "../../../types/hooks.js";
 
@@ -83,9 +88,32 @@ export class HooksExecutor {
     private readonly compatSources: readonly CompatSourceDeclaration[] = [],
     /** #631 — the consumer's chance to refuse a command before it is spawned. */
     private readonly gate: HookApprovalGate | undefined = undefined,
+    /**
+     * B-026 — the operator tier. `managedSettingsRoot` exists so the precedence rule is testable;
+     * production passes nothing and the platform path is resolved.
+     */
+    private readonly policy: { readonly managedSettingsRoot?: string } = {},
   ) {}
 
   async initialize(settingSourcesIncludeProject: boolean): Promise<void> {
+    // B-026 — the OPERATOR's policy, read before anything the project declared and unaffected by
+    // `settingSourcesIncludeProject`: that flag is the programmer choosing whether to read the
+    // project's files, and a tier a lower layer can switch off is not a tier.
+    //
+    // A veto, not a merge. `disableAllHooks` does not lose to a project file that sets it `false`,
+    // because the whole point of the tier is that the layer below cannot reach it.
+    if (readManagedSettings(this.policy.managedSettingsRoot).disableAllHooks === true) {
+      // Loud, once. A hook that does not run looks identical to a hook that ran and approved, which
+      // is why this is the first control lifted into the tier — and why its absence is announced
+      // rather than left for someone to infer from behaviour.
+      warnFailureOnce(
+        "hooks-disabled-by-policy",
+        "[theokit-sdk] hooks: an operator policy (managed-settings.json) declares " +
+          "disableAllHooks — NO hook will run, including any this project declared.",
+      );
+      this.config = {};
+      return;
+    }
     if (!settingSourcesIncludeProject) {
       this.config = {};
       return;
@@ -179,7 +207,7 @@ export class HooksExecutor {
       cwd: this.cwd,
       ...(Object.keys(env).length > 0 ? { env } : {}),
       timeoutMs,
-      stdin: JSON.stringify(payload),
+      stdin: JSON.stringify(stdinPayloadFor(payload, command, this.cwd)),
     });
     const failure = this.decisionFromFailure(result, command, env, timeoutMs);
     return failure ?? parseDecisionFromStdout(result.stdout);
@@ -199,9 +227,16 @@ export class HooksExecutor {
     env: Record<string, string>,
     timeoutMs: number,
   ): HookDecision | undefined {
-    if (result.timedOut) return { decision: "deny", reason: `Hook timed out after ${timeoutMs}ms` };
+    if (result.timedOut)
+      return {
+        decision: "deny",
+        reason: `Hook timed out after ${timeoutMs}ms`,
+      };
     if (result.spawnError !== undefined) {
-      return { decision: "deny", reason: `Hook spawn failed: ${result.spawnError.message}` };
+      return {
+        decision: "deny",
+        reason: `Hook spawn failed: ${result.spawnError.message}`,
+      };
     }
     if (result.exitCode === 0) return undefined;
     const stderr = result.stderr.trim();
@@ -224,6 +259,39 @@ export class HooksExecutor {
 }
 
 /**
+ * The payload a hook reads on stdin: this runtime's field names, plus the documented ones.
+ *
+ * A script ported from Claude Code reads `tool_name`, `tool_input`, `tool_response`,
+ * `hook_event_name` and `cwd`. It used to get `undefined` for every one — and RUN, deciding on
+ * nothing while looking like a working guard. That is worse than a script that fails: the operator's
+ * evidence that the guard works is identical either way.
+ *
+ * ADDED BESIDE, never instead. Both dialects execute through this one path, so renaming would break
+ * every native script to fix the ported ones.
+ *
+ * Only what this runtime knows. `session_id`, `transcript_path`, `permission_mode` and `prompt_id`
+ * stay absent because their values would have to be invented — and a script that branches on an
+ * invented session id branches on a lie, which is the same trade `CLAUDE_PLUGIN_ROOT` is refused on
+ * one module over. `hook_event_name` carries the spelling the config used (`PreToolUse`), which is
+ * what a ported script compares against; a native hook that never declared one simply has no such
+ * field.
+ */
+function stdinPayloadFor(
+  payload: HookPayload,
+  command: HookCommand,
+  cwd: string,
+): Record<string, unknown> {
+  return {
+    ...payload,
+    cwd,
+    ...(command.sourceEvent === undefined ? {} : { hook_event_name: command.sourceEvent }),
+    ...(payload.tool === undefined ? {} : { tool_name: payload.tool }),
+    ...(payload.input === undefined ? {} : { tool_input: payload.input }),
+    ...(payload.output === undefined ? {} : { tool_response: payload.output }),
+  };
+}
+
+/**
  * The variables the dialect that declared this command defines for it.
  *
  * `{}` for a native command, for one with no recorded origin, and for a path under no registered
@@ -234,23 +302,96 @@ function runtimeEnvFor(sourcePath: string | undefined, cwd: string): Record<stri
   return adapterForConfigPath(sourcePath)?.runtimeEnv(cwd) ?? {};
 }
 
+/**
+ * The decision a hook printed, in whichever dialect it printed it.
+ *
+ * THREE spellings mean deny, and reading only one of them was a fail-open. `hooks-source.ts`
+ * advertises a config shape "identical to Claude Code's `settings.json` hooks", so a consumer writes
+ * the guard THAT documentation specifies — a nested `hookSpecificOutput.permissionDecision` — and
+ * this function used to read only a top-level `decision`. The nested shape has no top-level
+ * `decision` at all, so it fell past every branch to the final `return { decision: "allow" }`. The
+ * JSON parsed, nothing warned, and the tool call proceeded.
+ *
+ * The direction is what made it expensive. A missing hook EVENT is discoverable: the user sees
+ * nothing happen and goes looking. A veto that silently does not fire is indistinguishable from a
+ * veto that fired and approved, so the operator's evidence that their guard works is the same
+ * either way.
+ *
+ * Pinned by `tests/internal/runtime/hooks/documented-deny-shape-is-honoured.test.ts`, whose hooks
+ * all `exit 0` — a non-zero exit already denies via {@link HooksExecutor.decisionFromFailure}, which
+ * would pass those tests for the wrong reason and leave this function untested.
+ *
+ * What is deliberately NOT changed: an unrecognised shape still resolves to `allow`. Making it deny
+ * would refuse every hook that prints diagnostics and happens to emit JSON, which is a behaviour
+ * change with its own blast radius and belongs to its own measurement. The three documented denials
+ * are unambiguous; that one is not.
+ */
+interface PrintedDecision {
+  decision?: string;
+  reason?: string;
+  feedback?: string;
+  hookSpecificOutput?: { permissionDecision?: string; permissionDecisionReason?: string };
+}
+
 function parseDecisionFromStdout(stdout: string): HookDecision {
   const trimmed = stdout.trim();
   if (trimmed.length === 0) return { decision: "allow" };
+  let parsed: PrintedDecision;
   try {
-    const parsed = JSON.parse(trimmed) as Partial<HookDecision> & {
-      decision?: string;
-    };
-    if (parsed.decision === "deny" || parsed.decision === "feedback") {
-      const result: HookDecision = { decision: parsed.decision };
-      if (parsed.reason !== undefined) result.reason = parsed.reason;
-      if (parsed.feedback !== undefined) result.feedback = parsed.feedback;
-      return result;
-    }
-    if (parsed.decision === "allow") return { decision: "allow" };
+    // `Omit` on `decision`, not an intersection with it. `Partial<HookDecision> & {decision?: string}`
+    // collapses to the NARROWER member, so comparing against "block" became a type error ("no
+    // overlap") — for a value that arrives from `JSON.parse` and can be any string at all. The type
+    // was right about the declared shape and wrong about what a hook actually prints.
+    parsed = JSON.parse(trimmed) as PrintedDecision;
   } catch {
     // Treat unparseable stdout as feedback rather than failure.
     return { decision: "feedback", feedback: trimmed };
   }
-  return { decision: "allow" };
+  // The documented shape first: it is the one a reader of the Claude Code docs will emit.
+  return nestedDecision(parsed) ?? flatDecision(parsed) ?? { decision: "allow" };
+}
+
+/**
+ * The shape the Claude Code documentation instructs a hook to print.
+ *
+ * Reading only the flat `decision` was a fail-open: the nested form has no top-level `decision` at
+ * all, so it fell past every branch to the final `allow`. The JSON parsed, nothing warned, and the
+ * tool call proceeded.
+ *
+ * `ask` has no counterpart in this runtime's binary vocabulary, and collapsing it to `allow` would be
+ * the same fail-open one value over. Deny is the honest projection: the hook asked for a decision
+ * this runtime cannot put to anyone.
+ */
+function nestedDecision(parsed: PrintedDecision): HookDecision | undefined {
+  const nested = parsed.hookSpecificOutput;
+  if (nested?.permissionDecision === "allow") return { decision: "allow" };
+  if (nested?.permissionDecision !== "deny" && nested?.permissionDecision !== "ask") {
+    return undefined;
+  }
+  const result: HookDecision = { decision: "deny" };
+  if (nested.permissionDecisionReason !== undefined) {
+    result.reason = nested.permissionDecisionReason;
+  }
+  return result;
+}
+
+/**
+ * This runtime's own spelling, plus `block` — Claude Code's deprecated-but-still-documented spelling
+ * of the same refusal.
+ *
+ * `undefined` for an unrecognised shape, which the caller resolves to `allow`. Deliberately NOT
+ * changed: making it deny would refuse every hook that prints diagnostics and happens to emit JSON,
+ * which is a behaviour change with its own blast radius. The three documented denials are
+ * unambiguous; that one is not.
+ */
+function flatDecision(parsed: PrintedDecision): HookDecision | undefined {
+  if (parsed.decision === "allow") return { decision: "allow" };
+  if (parsed.decision !== "deny" && parsed.decision !== "block" && parsed.decision !== "feedback") {
+    return undefined;
+  }
+  const result: HookDecision =
+    parsed.decision === "feedback" ? { decision: "feedback" } : { decision: "deny" };
+  if (parsed.reason !== undefined) result.reason = parsed.reason;
+  if (parsed.feedback !== undefined) result.feedback = parsed.feedback;
+  return result;
 }

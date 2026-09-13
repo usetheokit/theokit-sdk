@@ -21,6 +21,10 @@ export interface Skill {
   source: string;
   category?: string;
   dependencies?: string[];
+  /** `disable-model-invocation: true` — the model is never told this skill exists. */
+  disableModelInvocation?: boolean;
+  /** `user-invocable: false` — carried for a host that has a picker; this SDK has no such surface. */
+  userInvocable?: boolean;
 }
 
 /**
@@ -127,6 +131,13 @@ function tryParseSkill(
     };
     if (frontmatter.category !== undefined) skill.category = frontmatter.category;
     if (frontmatter.dependencies !== undefined) skill.dependencies = frontmatter.dependencies;
+    // The authorization flags travel with the record. Dropping them here would reproduce the defect
+    // one layer down: the parser would read the declaration and the discovery result would not
+    // carry it, which is indistinguishable from never having parsed it.
+    if (frontmatter.disableModelInvocation !== undefined) {
+      skill.disableModelInvocation = frontmatter.disableModelInvocation;
+    }
+    if (frontmatter.userInvocable !== undefined) skill.userInvocable = frontmatter.userInvocable;
     return skill;
   } catch (cause) {
     if (cause instanceof ConfigurationError) {

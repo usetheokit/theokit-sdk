@@ -18,6 +18,7 @@ import { dirname, relative } from "node:path";
 
 import type { AggregatorSource } from "./context-aggregator.js";
 import {
+  admittedSpecs,
   DEFAULT_DISCOVERY_SPECS,
   type DiscoverySpec,
   findGitRoot,
@@ -50,6 +51,20 @@ export interface DiscoveryRunnerOptions {
   readonly maxBytesPerFile: number;
   /** Optional override of the default registry. */
   readonly specs?: ReadonlyArray<DiscoverySpec>;
+  /**
+   * The foreign dialects the consumer granted the `context` surface to — the output of
+   * `adaptersForSurface(compatSources, "context")`, mapped to `.kind`.
+   *
+   * Left unset, every spec runs, which is what every caller before usetheokit/theokit-sdk#652 got.
+   * Set, it filters specs carrying a {@link DiscoverySpec.dialect} the list does not name — so an
+   * empty array is a real value meaning "no foreign dialect granted", NOT the same as absent.
+   *
+   * That distinction is the whole option. `resolveCompatSources` returns `[]` for a consumer who
+   * declared nothing, and collapsing `[]` into `undefined` here would restore the defect: a
+   * repository's `.claude/rules/*.md` entering the system prompt of a consumer who never asked for
+   * that dialect.
+   */
+  readonly declaredCompatKinds?: ReadonlyArray<string>;
   /** Cursor MDC: file paths the LLM has touched this turn (EC-I: empty at send-time). */
   readonly touchedFiles?: ReadonlyArray<string>;
   /** When true, skip `theokit-context` spec — caller already handles the legacy path. */
@@ -96,7 +111,7 @@ export interface DiscoveryRunnerOptions {
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: per-spec dispatch ladder + cross-spec dedup is a flat orchestrator; splitting would obscure the priority-merge invariant.
 export async function runDiscovery(opts: DiscoveryRunnerOptions): Promise<AggregatorSource[]> {
   const gitRoot = findGitRoot(opts.cwd);
-  const specs = opts.specs ?? DEFAULT_DISCOVERY_SPECS;
+  const specs = admittedSpecs(opts.specs ?? DEFAULT_DISCOVERY_SPECS, opts.declaredCompatKinds);
   const out: AggregatorSource[] = [];
   const seenReal = new Set<string>();
 

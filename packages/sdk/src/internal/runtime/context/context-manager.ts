@@ -13,6 +13,10 @@ import type {
 import { loadMarkdownEntities } from "../../persistence/markdown-config-loader.js";
 import { theokitConfigRoot } from "../../persistence/paths.js";
 import { insideRoot } from "../../security/path-containment.js";
+import {
+  adaptersForSurface,
+  type CompatSourceDeclaration,
+} from "../compat/foreign-config-sources.js";
 import { warnOnce } from "../hooks/hooks-source.js";
 import {
   type AggregatorSource,
@@ -61,11 +65,34 @@ export class FileContextManager implements SDKContextManager {
    */
   private lastScope: ReadonlyArray<string> = [];
 
+  /**
+   * @param compatSources - What the consumer declared in `local.compatSources` (or
+   * `.theokit/config.json`), as `resolveCompatSources` resolved it. `undefined` means the caller
+   * did not thread the declaration through at all and every dialect runs — the pre-#652 behaviour,
+   * kept so an internal caller constructing this directly does not silently lose content. An empty
+   * ARRAY is different and is the fix: it means the consumer declared no foreign dialect, so
+   * `.claude/rules/*.md` does not reach the prompt.
+   */
   constructor(
     private readonly cwd: string,
     private readonly settings: ContextSettings,
     private readonly settingSourcesIncludeProject: boolean,
+    private readonly compatSources?: readonly CompatSourceDeclaration[],
   ) {}
+
+  /**
+   * The dialect kinds granted the `context` surface, or `undefined` when nothing was declared to
+   * this instance.
+   *
+   * Routed through `adaptersForSurface` rather than reading `.kind` off the declarations, so the
+   * three fail-closed rules #524 established govern this surface identically to the other four: a
+   * bare string admits everything, an object with no `import` admits nothing, and an unrecognised
+   * surface name narrows rather than widens.
+   */
+  private grantedContextDialects(): ReadonlyArray<string> | undefined {
+    if (this.compatSources === undefined) return undefined;
+    return adaptersForSurface(this.compatSources, "context").map((a) => a.kind);
+  }
 
   async initialize(): Promise<void> {
     // `context.manager: "file"` is itself an opt-in for project-level context
@@ -107,11 +134,16 @@ export class FileContextManager implements SDKContextManager {
     // newly-discovered sources.
     const maxBytesPerFile = this.settings.maxBytesPerFile ?? DEFAULT_MAX_BYTES_PER_FILE;
     const maxBytesTotal = this.settings.maxBytesTotal ?? DEFAULT_MAX_BYTES_TOTAL;
+    const granted = this.grantedContextDialects();
     const discovered = await runDiscovery({
       cwd: this.cwd,
       maxBytesPerFile,
       skipLegacyTheokitContext: true,
       touchedFiles,
+      // #652 — the grant this path never consulted. Without it, a consumer who enabled project
+      // scope for its OWN `.theokit/` also received a cloned repository's `.claude/rules/*.md`,
+      // through a door the hooks/skills/subagents/plugins gate does not cover.
+      ...(granted === undefined ? {} : { declaredCompatKinds: granted }),
     });
 
     // An excluded source must NOT be resurrected here. `loadSources` marks a source `excluded` when

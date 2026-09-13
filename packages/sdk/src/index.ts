@@ -179,6 +179,23 @@ export type {
   ProviderTransform,
   ProviderTransformContext,
 } from "./internal/providers/types.js";
+/**
+ * The OPERATOR tier (B-026/B-065).
+ *
+ * Crosses the barrel so a HOST can read the policy the runtime enforces rather than guessing at it —
+ * showing which restrictions are in force, or refusing to start under one it cannot satisfy.
+ *
+ * It does NOT make this the only reader. `@theokit/agents` ships from a separate repository against a
+ * PUBLISHED version of this package, so a symbol added here is not importable there until it is
+ * released; it carries its own reader of the same file, and that file's docblock says why. One
+ * FORMAT — Claude Code's path and key names — is the contract that must not drift. Two readers that
+ * release independently is a consequence of the repository boundary, not a design.
+ */
+export {
+  type ManagedSettings,
+  managedSettingsPathFor,
+  readManagedSettings,
+} from "./internal/runtime/compat/managed-settings.js";
 // M42 — auth subsystem (credential store + OAuth engine) is exposed at the dedicated `@theokit/sdk/auth`
 // sub-entry (DTS built via tsc), NOT on this barrel: rollup-plugin-dts cannot bundle those modules into the
 // main `.d.ts` (same isolation the SDK uses for messages / subscription / sanitize). See `src/auth/index.ts`.
@@ -263,6 +280,17 @@ export {
   type PermissionMode,
   type PermissionRule,
 } from "./permission-engine.js";
+/**
+ * B-039 / B-040 — the two tiers no permission rule and no mode can reach.
+ *
+ * Exported because a caller that dispatches tools must be able to consult them: a floor nobody can
+ * call is the opt-in guard these items exist to replace.
+ */
+export {
+  isInside,
+  type PermissionFloorContext,
+  permissionFloorReason,
+} from "./permission-floors.js";
 // M7-5: PermissionEngine -> plugin veto exemplar. SE1: mode layer + canUseTool gate.
 export {
   type PermissionGate,
@@ -271,6 +299,14 @@ export {
   PermissionPlugin,
   type PermissionPluginOptions,
 } from "./permission-plugin.js";
+/**
+ * B-058 — the permission rule LANGUAGE, so a policy is data an operator ships rather than a function
+ * somebody compiled in.
+ */
+export {
+  type PermissionRuleSet,
+  parsePermissionRules,
+} from "./permission-rules.js";
 export {
   loadProjectEnv,
   SOVEREIGN_ENV_KEYS,
