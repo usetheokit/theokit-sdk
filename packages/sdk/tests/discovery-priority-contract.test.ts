@@ -45,6 +45,16 @@ describe("B-127 — the published priorities are a contract", () => {
       // rather than discovered, same as claude-rules above.
       ["THEO.md.root", 55],
       ["THEO.md", 60],
+      // The tenth, eleventh and twelfth (B-023) — the private `*.local.md` chain. NO NUMBER ABOVE
+      // MOVED, which is the promise this case exists to keep. They sit above every public spec
+      // because a correction has to be composed after the rule it corrects, and they keep the
+      // public chain's relative order among themselves so both halves read the same way.
+      //
+      // A consumer who had chosen 70, 75 or 80 collides, and that cost is recorded here rather than
+      // discovered, same as claude-rules at 47 and THEO.md.root at 55.
+      ["AGENTS.local.md", 70],
+      ["CLAUDE.local.md", 75],
+      ["THEO.local.md", 80],
     ]);
   });
 

@@ -260,6 +260,63 @@ export const DEFAULT_DISCOVERY_SPECS: ReadonlyArray<DiscoverySpec> = [
     followImports: false,
     priority: 60,
   },
+
+  // ── The private chain (B-023) ───────────────────────────────────────────────────────────────
+  //
+  // `*.local.md` is the gitignored companion where an operator keeps the standing corrections too
+  // personal or too situational to commit. Nothing read it: measured 2026-09-12, a grep for the four
+  // `.local` spellings returned 0 files across this package's source, against a control of 23 for
+  // `CLAUDE.md`. The file exists, it is named the documented way, and the agent behaves exactly as
+  // it would if the operator had written nothing.
+  //
+  // ORDER. They sit ABOVE every public spec because a correction has to be composed after the rule
+  // it corrects, and they keep the public chain's relative order among themselves (AGENTS, CLAUDE,
+  // THEO) so the two halves read the same way.
+  //
+  // THE COST OF THAT, stated rather than discovered later: `applyAggregateCap` fills the budget in
+  // ascending priority, so the HIGHEST numbers are the first dropped when the total cap is reached.
+  // Placing the private chain last therefore makes it the first to go under pressure. The
+  // alternative — a low number, to protect it — would compose the operator's refinement BEFORE the
+  // general rule, which inverts its meaning and is the defect this item is about. The existing table
+  // already accepts that trade: `.theokit/THEO.md`, the project's most specific instructions, is at
+  // 60 and is equally droppable. This follows the convention rather than inventing an exception.
+  //
+  // WHY THESE THREE AND NOT SIX. A private companion pairs with a public file THIS seam reads, and
+  // the documented convention is THEO / AGENTS / CLAUDE. `GEMINI.local.md` and a private
+  // `.cursor/rules` are not part of it, and inventing them would publish a convention nobody writes.
+  // Note the rule lands differently in `@theokit/agents`' `DEFAULT_FILE_NAMES`, which has no
+  // `CLAUDE.md` and therefore gets no `CLAUDE.local.md` — same rule, two seams, stated at both ends.
+  //
+  // UNGATED, like the public repo-root files beside them. `CLAUDE.local.md` is a repo-root file, not
+  // a `.claude/` one, so it follows `CLAUDE.md` rather than `claude-rules` — see `dialect`'s
+  // docblock for why the grant gates the foreign ROOT and not the files beside it.
+  {
+    id: "AGENTS.local.md",
+    pattern: "AGENTS.local.md",
+    scope: "git-root-walk",
+    parser: "plain-markdown",
+    followImports: false,
+    priority: 70,
+  },
+  {
+    id: "CLAUDE.local.md",
+    pattern: "CLAUDE.local.md",
+    scope: "git-root-walk",
+    parser: "plain-markdown",
+    // Mirrors `CLAUDE.md`, which follows imports. A private file that could not `@import` while its
+    // public sibling can would be a difference nobody declared.
+    followImports: true,
+    priority: 75,
+  },
+  {
+    id: "THEO.local.md",
+    pattern: "THEO.local.md",
+    scope: "git-root-walk",
+    parser: "plain-markdown",
+    // Mirrors `THEO.md.root`, which follows imports.
+    followImports: true,
+    priority: 80,
+  },
 ];
 
 const SAFE_FILENAME = /^[a-zA-Z0-9_.\-/*]+$/;

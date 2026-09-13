@@ -131,8 +131,8 @@ describe("context-discovery (T1.1)", () => {
   // 8 -> 9 when THEO.md.root joined the array (#531): THEO.md was the only sibling that could
   // not live at the project root, and the fix ADDS a spec rather than moving the existing one, so
   // the count and the id list both grow by one instead of a name changing in place.
-  it("DEFAULT_DISCOVERY_SPECS contains 9 entries", () => {
-    expect(DEFAULT_DISCOVERY_SPECS.length).toBe(9);
+  it("DEFAULT_DISCOVERY_SPECS contains 12 entries", () => {
+    expect(DEFAULT_DISCOVERY_SPECS.length).toBe(12);
     const ids = DEFAULT_DISCOVERY_SPECS.map((s) => s.id);
     expect(ids).toEqual([
       "AGENTS.md",
@@ -144,6 +144,12 @@ describe("context-discovery (T1.1)", () => {
       "theokit-context",
       "THEO.md.root",
       "THEO.md",
+      // B-023 — the private `*.local.md` chain, last so a correction is composed after the rule it
+      // corrects. The count is written out rather than derived on purpose: a test that recomputed it
+      // would agree with any addition, which is the opposite of what this case is for.
+      "AGENTS.local.md",
+      "CLAUDE.local.md",
+      "THEO.local.md",
     ]);
   });
 
