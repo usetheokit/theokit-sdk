@@ -76,18 +76,97 @@ function plainText(content: unknown): string | undefined {
 }
 
 /**
+ * What a pre-compaction handler is told, and what it is given to bail out with.
+ *
+ * `trigger` is READ from the compaction that is happening, never inferred from the call site: the
+ * inference would be right today and silently wrong the first time a third caller appears.
+ *
+ * @public
+ */
+export interface PreCompactContext {
+  /** The messages about to be summarised — what the handler gets a last look at. */
+  readonly messages: readonly CompressibleMessage[];
+  /** `manual` when a person asked, `auto` when a usage threshold did. */
+  readonly trigger: "manual" | "auto";
+  /** Aborted when the bound fires, so a long handler can stop rather than be merely ignored. */
+  readonly signal: AbortSignal;
+}
+
+/** @public */
+export type PreCompactHandler = (ctx: PreCompactContext) => void | Promise<void>;
+
+/**
+ * The bound, in milliseconds, when the caller does not choose one.
+ *
+ * Same value as `@theokit/agents`' `withPreCompaction`, because B-082's requirement is the same
+ * contract as B-002 and not a second one.
+ */
+export const DEFAULT_PRE_COMPACT_TIMEOUT_MS = 30_000;
+
+/**
+ * Run the handler with a bound, and REPORT rather than throw.
+ *
+ * Compaction proceeds whatever the handler does. That is the load-bearing half of the contract: a
+ * hook that could block would turn a consumer's bug into a runtime that cannot reclaim its context,
+ * and a runtime that cannot compact eventually cannot run at all.
+ *
+ * The signal is aborted BEFORE the bound rejects, so a handler watching it can stop rather than be
+ * abandoned in the background still holding whatever it was holding.
+ */
+async function runPreCompactBounded(
+  handler: PreCompactHandler,
+  ctx: Omit<PreCompactContext, "signal">,
+  timeoutMs: number,
+  onError: ((error: unknown) => void) | undefined,
+): Promise<void> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      Promise.resolve(handler({ ...ctx, signal: controller.signal })),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new Error(`pre-compaction handler exceeded ${timeoutMs}ms and was abandoned`));
+        }, timeoutMs);
+      }),
+    ]);
+  } catch (error) {
+    onError?.(error);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+/**
  * Compact one session transcript: summarize the reconstructed history, then append (append-only)
  * a `compact_boundary` + the replacement chain (recent user messages verbatim + marker'd summary).
  *
  * @throws whatever `summarize` throws — with the transcript guaranteed untouched.
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: pre-existing (M50) — flagged only because this file was touched by an unrelated one-line M56 change; refactor tracked separately.
+// Pre-existing (M50). B-082 moved this suppression back onto the function it covers: inserting the
+// seam types above it stranded the directive on an interface that never needed one, which Biome
+// reported as unused while the real target went unguarded. The directive must be the LAST comment
+// line before its target — the same adjacency rule an eslint-disable follows, learned twice today.
+// The seam is extracted into `runPreCompactBounded` rather than inlined, so it adds no branches.
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: see the paragraph above
 export async function compactSessionTranscript(opts: {
   store: SessionStore;
   loc: CompactLocation;
   sessionId: string;
   trigger: "manual" | "auto";
   summarize: (messages: readonly CompressibleMessage[]) => Promise<string>;
+  /**
+   * Work to run before the transcript is rewritten, on the path the caller actually took.
+   *
+   * Absent, nothing is entered and the path is byte-identical to before B-082 — asserted by a test
+   * rather than left as an inference.
+   */
+  onPreCompact?: PreCompactHandler;
+  /** Where a handler's failure or timeout is reported. Compaction proceeds either way. */
+  onPreCompactError?: (error: unknown) => void;
+  /** Overrides {@link DEFAULT_PRE_COMPACT_TIMEOUT_MS}. */
+  preCompactTimeoutMs?: number;
 }): Promise<CompactResult> {
   const prior = await opts.store.readRecords(opts.loc.agentId);
   const history = reconstructMessages(prior);
@@ -103,6 +182,18 @@ export async function compactSessionTranscript(opts: {
     }
   }
   const preTokens = estimateTokens(compressible.map((m) => m.content).join("\n"));
+
+  // B-082: the seam, placed after the compressible set is built and before anything is written.
+  // The handler sees exactly what will be summarised — the same thing `withPreCompaction` hands its
+  // handler on the agents-layer path, which is what keeps one contract instead of two.
+  if (opts.onPreCompact !== undefined) {
+    await runPreCompactBounded(
+      opts.onPreCompact,
+      { messages: compressible, trigger: opts.trigger },
+      opts.preCompactTimeoutMs ?? DEFAULT_PRE_COMPACT_TIMEOUT_MS,
+      opts.onPreCompactError,
+    );
+  }
 
   // Summarize FIRST — a throwing summarizer must leave the transcript untouched (fail-safe).
   const summaryBody = await opts.summarize(compressible);

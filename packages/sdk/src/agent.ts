@@ -476,6 +476,17 @@ export class Agent {
       summarize?: (
         messages: readonly import("./compaction.js").CompressibleMessage[],
       ) => Promise<string>;
+      /**
+       * B-082 — work to run before the transcript is rewritten, on THIS path.
+       *
+       * `/compact` reaches here, and before this option the seam existed only on the agents-layer
+       * strategy, which this path never touches. The handler is awaited, bounded, and its failure is
+       * reported without stopping compaction — the same contract `withPreCompaction` carries, not a
+       * second one.
+       */
+      onPreCompact?: import("./internal/session/compact-session.js").PreCompactHandler;
+      onPreCompactError?: (error: unknown) => void;
+      preCompactTimeoutMs?: number;
     } = {},
   ): Promise<import("./internal/session/compact-session.js").CompactResult> {
     const reg = await requireLocalAgent(agentId, "compact");
@@ -497,6 +508,13 @@ export class Agent {
             agentModel: model,
             ...(reg.options.apiKey !== undefined ? { apiKey: reg.options.apiKey } : {}),
           }),
+        ...(options.onPreCompact !== undefined ? { onPreCompact: options.onPreCompact } : {}),
+        ...(options.onPreCompactError !== undefined
+          ? { onPreCompactError: options.onPreCompactError }
+          : {}),
+        ...(options.preCompactTimeoutMs !== undefined
+          ? { preCompactTimeoutMs: options.preCompactTimeoutMs }
+          : {}),
       }),
     );
   }

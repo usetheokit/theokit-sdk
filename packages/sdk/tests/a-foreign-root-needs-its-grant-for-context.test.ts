@@ -8,6 +8,7 @@ import type { CompatSourceDeclaration } from "../src/internal/runtime/compat/for
 import {
   admittedSpecs,
   DEFAULT_DISCOVERY_SPECS,
+  withheldSpecs,
 } from "../src/internal/runtime/context/context-discovery.js";
 import { FileContextManager } from "../src/internal/runtime/context/context-manager.js";
 import { removeTempDirRobustSync } from "./helpers/temp-workspace.js";
@@ -32,13 +33,24 @@ import { removeTempDirRobustSync } from "./helpers/temp-workspace.js";
  * and the reason an `if` at the call site would have been the wrong shape. Adding the member makes
  * the question askable, and `assertCompatSurfacesExhaustive` forces the runtime list to pair with it.
  *
- * ## What this deliberately does NOT gate, and why the scope is the honest one
+ * ## What this deliberately did NOT gate — and why that changed in B-081
  *
- * `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` and `.cursor/rules/*.mdc` stay ungated. `adaptersFor`
- * registers ONE foreign adapter, so `compatSources` has no spelling that admits `agents`, `gemini`
- * or `cursor`: labelling them would gate them on a grant nobody can write and make three formats
- * permanently unreachable. The grant gates the foreign ROOT, and the repo-root files do not live
- * there. That is stated in `DiscoverySpec.dialect`'s docblock rather than left to be inferred.
+ * This file used to assert that `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` and `.cursor/rules/*.mdc` stay
+ * UNGATED, for a reason that was correct when it was written: `compatSources` had no spelling
+ * admitting `agents`, `gemini` or `cursor`, so labelling them would have gated three formats on a
+ * grant nobody could write and made them permanently unreachable. Gating them then would have been
+ * worse than the gap.
+ *
+ * **B-081 removed the premise rather than overruling the conclusion.** The vocabulary landed first
+ * — `CompatSource` went from two literals to five — and only then were the four files gated. The
+ * order is the whole point, and `every gated format has a spelling that restores it` in
+ * `internal/runtime/repo-root-instructions-are-gated.test.ts` is the invariant that keeps it: it
+ * fails the moment a spec is gated on a token the union does not carry.
+ *
+ * The reviewer decided the product question on 2026-09-14, `CLAUDE.md` included and not
+ * special-cased — the argument for keeping it ungated (projects with no `.claude/` use it
+ * generically) was weighed and rejected. So the assertions below now read the other way, and this
+ * paragraph records what they used to say so the change is legible rather than looking like drift.
  */
 describe("only what a grant can actually govern carries a dialect", () => {
   const byId = new Map(DEFAULT_DISCOVERY_SPECS.map((s) => [s.id, s]));
@@ -48,14 +60,22 @@ describe("only what a grant can actually govern carries a dialect", () => {
     expect(byId.get("claude-rules")?.dialect).toBe("claude-code");
   });
 
-  it("leaves every other spec unlabelled, including the repo-root instruction files", () => {
+  it("gates every repo-root instruction file, each on a grant a consumer can write", () => {
     // Asserted per id rather than in aggregate: a count would still pass if the wrong spec were the
     // labelled one, and "which file requires a grant" is exactly the fact under test.
-    for (const id of ["CLAUDE.md", "AGENTS.md", "GEMINI.md", "cursor-rules"]) {
+    //
+    // Each expects its OWN grant, not merely "some grant". One token covering all four would force
+    // a consumer who wants AGENTS.md to also admit .cursor/rules/*.mdc — the opposite of an opt-in.
+    for (const [id, grant] of [
+      ["CLAUDE.md", "claude-code"],
+      ["AGENTS.md", "agents"],
+      ["GEMINI.md", "gemini"],
+      ["cursor-rules", "cursor"],
+    ] as const) {
       expect(
         byId.get(id)?.dialect,
-        `${id} is gated on a grant; three of these four have no spelling in compatSources, and CLAUDE.md is used by projects with no .claude/ at all`,
-      ).toBeUndefined();
+        `${id} puts somebody else's text in our system prompt; B-081 decided it needs an opt-in`,
+      ).toBe(grant);
     }
     expect(byId.get("theokit-rules")?.dialect, "the native root needs no grant").toBeUndefined();
   });
@@ -77,8 +97,25 @@ describe("the label is consulted, not merely carried", () => {
     expect(has(admitted, "theokit-rules"), "native content must survive").toBe(true);
     expect(
       has(admitted, "AGENTS.md"),
-      "no grant can express this one, so gating it would strand it",
-    ).toBe(true);
+      "B-081 built the `agents` grant, so gating this no longer strands it — and a consumer who declares nothing must now receive it, loudly, not silently",
+    ).toBe(false);
+  });
+
+  it("names every file it withheld, so the loss is legible", () => {
+    // The other half of the decision. Gating the four means a consumer who declares nothing goes
+    // from four files in the prompt to none, and a silent drop is the failure this line of work
+    // exists to remove: they cannot tell "not granted" from "not present" by any experiment.
+    const withheld = withheldSpecs(DEFAULT_DISCOVERY_SPECS, []);
+    const patterns = withheld.map((w) => w.pattern);
+    for (const p of ["AGENTS.md", "GEMINI.md", "CLAUDE.md", ".cursor/rules/*.mdc"]) {
+      expect(patterns, `${p} was withheld without being named`).toContain(p);
+    }
+    for (const entry of withheld) {
+      expect(
+        entry.grant,
+        `'${entry.id}' is withheld with no grant that would restore it`,
+      ).toBeTruthy();
+    }
   });
 
   it("admits them once the dialect is granted", () => {
