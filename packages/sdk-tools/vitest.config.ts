@@ -18,6 +18,14 @@ export default defineConfig({
       //
       // A declared path nothing writes is the failure this repository keeps finding under other
       // names: the gate reads as configured and reports absence as zero.
+      //
+      // This block is NECESSARY AND NOT SUFFICIENT, and saying so here is the point — the commit
+      // that added it did not. `ci.yml` runs `pnpm quality:coverage`, which is
+      // `pnpm --filter=@theokit/sdk exec vitest run --coverage`: one package. So the runner still
+      // never executes this package's coverage pass, and SonarCloud still receives nothing for it.
+      // What changes is that a LOCAL `vitest run --coverage` now writes the file the gate names, so
+      // the remaining gap is one decision (what `quality:coverage` should run) rather than two.
+      // Tracked in usetheokit/theokit-sdk#665.
       reporter: ["text", "lcov", "html"],
     },
   },
