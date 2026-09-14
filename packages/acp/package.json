@@ -57,7 +57,7 @@
     "@theokit/sdk": "workspace:*",
     "tsup": "^8.5.0",
     "typescript": "^5.8.0",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.11"
   },
   "bin": {
     "theokit-acp": "./bin/theokit-acp.mjs"
