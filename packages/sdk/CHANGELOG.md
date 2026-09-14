@@ -1,5 +1,606 @@
 # Changelog
 
+## 5.6.0
+
+### Minor Changes
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`0aca2bf`](https://github.com/usetheokit/theokit-sdk/commit/0aca2bfd8bca0aa57f9929f0121c1bdf2159fc92) Thanks [@usetheodev](https://github.com/usetheodev)! - Two tiers no permission rule and no mode can reach: protected paths and critical paths.
+  
+  Measured: `protectedPath` returned 0 files here and 0 in the dist; `criticalPath` the same, against a
+  control of 31/72 on the word `hooks`.
+  
+  **Protected paths** are the circuit breaker that stops an agent editing its own configuration, the
+  git hooks or the shell rc files — `.git`, `.claude`, `.theokit`, `.ssh`, `.gnupg`, `.envrc`,
+  `.npmrc`, `.mcp.json`, `.pre-commit-config.yaml`, `.netrc`. An `allow`-broad setup wrote all of them
+  freely and the operator had no way to express the exception, because the concept was absent.
+  
+  **Critical paths** are destructive operations on `/`, the home directory, the working directory and
+  its parents. The nearest analogue was `catastrophicShellReason` in `@theokit/sdk-tools`, reached
+  through an opt-in `denyCatastrophicCommands()` — and **an opt-in guard is not a floor**. The whole
+  point of this tier is that nothing overrides it; a function a consumer may forget to call makes the
+  guarantee a convention.
+  
+  **Why a floor and not a deny rule.** A deny rule is ordered, and order is defeasible: it can be
+  shadowed by a broader rule above it, reordered, or simply not shipped. The floor is consulted before
+  any verdict is honoured and no rule can reach it. Each test pairs the refusal with an explicit allow
+  rule for the same call, because the point is not that the operation is refused — it is that the rule
+  loses.
+  
+  **Substitutions are refused, not expanded.** The spec names `$(...)` and `"$VAR"/*`, and in both the
+  dangerous argument is not in the text being matched. Expanding would mean running the substitution,
+  and a floor that executes its input to decide whether the input is safe has the problem backwards.
+  
+  **Segment-aware, never prefix-matching.** `/workspace-other` starts with `/work` as a string and is a
+  different directory; `.gitignore` contains `.git` and is a file projects edit routinely. A floor that
+  could not tell them apart would refuse ordinary work while claiming to protect something else.
+  
+  The refusal **names the path and says which tier refused**, so it is not mistaken for a permissions
+  misconfiguration — an operator who reads "denied" goes looking at their rules and finds nothing wrong
+  with them.
+  
+  **Reads are not gated**, deliberately: the tier is about writes and destruction, and refusing reads
+  would stop an agent inspecting the repository it was pointed at.
+  
+  Stated rather than implied: this is **not a shell parser**. It recognises the destructive shapes the
+  spec names, on the arguments it names, and a determined obfuscation gets past it — `rm` reached
+  through a variable holding the command name, for instance. A floor described as complete would be
+  trusted as complete.
+
+- [#660](https://github.com/usetheokit/theokit-sdk/pull/660) [`612da2f`](https://github.com/usetheokit/theokit-sdk/commit/612da2fcb96ce498973aeb60e05650e32f7c4216) Thanks [@usetheodev](https://github.com/usetheodev)! - A foreign root's rules now need the grant that already gates everything else in that directory.
+  
+  `FileContextManager.initialize()` gated project-level context on
+  `settingSourcesIncludeProject || settings.manager === "file"` and consulted no foreign-dialect
+  grant. `compatSources` appeared nowhere under `src/internal/runtime/context/`. So a consumer who
+  enabled project scope for its OWN `.theokit/` and deliberately never declared `claude-code` still
+  received a cloned repository's `.claude/rules/*.md` in its system prompt — while the same
+  directory's hooks, skills, subagents and plugins were correctly withheld. Four surfaces failing
+  closed, and a fifth nobody had wired to the gate ([#652](https://github.com/usetheokit/theokit-sdk/issues/652)).
+  
+  The root cause was not a missing `if`. `CompatSurface` was `"hooks" | "plugins" | "skills" |
+  "subagents"`: there was no member for instructions, so no grant could govern them and the gate had
+  nothing to consult. `"context"` is now a surface like the others, paired to its runtime list by the
+  existing compile-time exhaustiveness guard, and each discovery spec names the dialect whose grant
+  gates it. Adding a dialect is adding a row.
+  
+  **This is a behaviour change, and the note is here rather than buried.** A consumer who declared no
+  compat source stops receiving `.claude/rules/*.md`. It is released as a minor because it aligns one
+  surface with the four that already fail closed, because the loss is announced at runtime by the
+  undeclared-source warning (which now names rules alongside the others), and because there is an
+  explicit way back: `compatSources: ["claude-code"]`, or `{ kind: "claude-code", import: ["context"] }`
+  for that surface alone. A reader who weighs the removal differently should say so before the cut.
+  
+  **Release ordering, measured rather than assumed.** This gate must ship AFTER its consumers have a
+  name to grant. `@theokit/agents@13.4.0` — the version `TheoCode` resolves today — declares
+  `CompatSurface = 'commands' | 'hooks' | 'plugins' | 'skills' | 'subagents'`, with no `context`, and
+  `TheoCode` passes exactly that list as its narrowed `import`. Cutting this release first would take
+  `.claude/rules` from it silently, with no word it could write to ask for them back. The order is:
+  `@theokit/agents` publishes the vocabulary, consumers declare `context`, then this.
+  
+  **What is deliberately NOT gated**, because an undocumented gap reads as an oversight:
+  `AGENTS.md`, `GEMINI.md` and `.cursor/rules/*.mdc` are every bit as foreign, and `adaptersFor`
+  registers no adapter for any of them — so `compatSources` has no spelling that admits one, and
+  gating them would strand three formats with no way to restore them. `CLAUDE.md` is left ungated by
+  judgement rather than by limit: the grant gates the foreign ROOT, that file sits at the repository
+  root beside the other three, and projects with no `.claude/` at all use it as a generic
+  agent-instructions file. Whether a repo-root instruction file should require an opt-in is a product
+  decision affecting every consumer, not a bug fix.
+
+- [#661](https://github.com/usetheokit/theokit-sdk/pull/661) [`f94d92c`](https://github.com/usetheokit/theokit-sdk/commit/f94d92c396c20c6f7ebeb7572894eb8c9cbb8b0a) Thanks [@usetheodev](https://github.com/usetheodev)! - `AGENTS.local.md`, `CLAUDE.local.md` and `THEO.local.md` are discovered, and composed last.
+  
+  The gitignored companion is where an operator keeps the standing corrections too personal or too
+  situational to commit. Nothing discovered it. Measured 2026-09-12: a grep for the four `.local`
+  spellings returned **0 files** across this package's source, against a control of 23 for
+  `CLAUDE.md`. The failure is the silent kind — the file exists, it is named the documented way,
+  nothing loads it, and nothing complains, so the agent behaves exactly as it would if the operator
+  had written nothing.
+  
+  **Order, and the cost of it, stated rather than discovered later.** The three specs sit above every
+  public one (priorities 70/75/80) because a correction has to be composed after the rule it corrects,
+  and they keep the public chain's relative order among themselves so both halves read the same way.
+  `applyAggregateCap` fills the budget in ascending priority, so the highest numbers are the first
+  dropped when the total cap is reached — placing the private chain last therefore makes it the first
+  to go under pressure. The alternative, a low number to protect it, would compose the operator's
+  refinement *before* the general rule and invert its meaning, which is the defect this closes. The
+  table already accepts that trade: `.theokit/THEO.md`, the most specific public file, sits at 60 and
+  is equally droppable.
+  
+  **Three and not six.** A private companion pairs with a public file this seam reads, and the
+  documented convention is THEO / AGENTS / CLAUDE. `GEMINI.local.md` and a private `.cursor/rules` are
+  not part of it, and inventing them would publish a convention nobody writes.
+  
+  **Ungated**, like the repo-root files beside them. `CLAUDE.local.md` sits at the repository root
+  rather than inside `.claude/`, so it follows `CLAUDE.md` and not `claude-rules` — the grant added in
+  [#652](https://github.com/usetheokit/theokit-sdk/issues/652) gates the foreign *root*, not the files beside it.
+  
+  The chains stay independent: a private file never replaces its public sibling. One falling back to
+  the other is the trap, where adding a `THEO.md` would silently orphan an existing `AGENTS.local.md`.
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`0aca2bf`](https://github.com/usetheokit/theokit-sdk/commit/0aca2bfd8bca0aa57f9929f0121c1bdf2159fc92) Thanks [@usetheodev](https://github.com/usetheodev)! - An organisation can impose policy on an agent. `managed-settings.json` is read, and the project cannot switch it off.
+  
+  Measured: `grep -rl managed-settings` returned 0 here, 0 in the 4.52.1 dist and 0 in the 5.5.0 dist,
+  against a control of 31 files for `hooks`. Claude Code defines the file as settings a user "cannot
+  override, except for limited exceptions". An organisation that deployed one got it dropped in
+  silence, while the same file was enforced by the tool it was written for.
+  
+  **This was not an incomplete feature — it was an ignored security control**, and the failure
+  direction is permit.
+  
+  The decision behind it is recorded in `packages/agents/README.md` § "Who decides policy": an
+  operator who did not write the code CAN impose policy on it. Hooks, MCP servers, permissions and
+  skill execution were each a value the *programmer* passed at build time — defensible for a framework,
+  indefensible for anything an organisation deploys, because the person answerable for what an agent
+  may do on a machine had no way to say so.
+  
+  Precedence, highest first: `managed-settings.json` → the project's `settings.json` →
+  `defineAgent({ … })`.
+  
+  **The first control lifted is `disableAllHooks`**, because its absence is the hardest to notice: a
+  hook that does not run looks identical to a hook that ran and approved. It is a **veto, not a
+  merge** — a project file setting `disableAllHooks: false` loses, since a tier the layer below can
+  switch off is not a tier. It is also checked before `settingSourcesIncludeProject`, which is the
+  programmer choosing whether to read the project's files at all.
+  
+  **Unknown keys are reported, never carried.** An organisation writing `forceModel` into the policy
+  and getting silence would conclude the model is forced; carrying the key through would spread that
+  belief downstream. The reports go through `diagFailure`, not `diag` — `diag` returns immediately when
+  no sink is installed, and most consumers never install one, so a policy channel using it would be
+  silent by default about the one thing this tier exists to make certain.
+  
+  `readManagedSettings` and `ManagedSettings` cross the barrel so a HOST can read the policy the
+  runtime enforces instead of guessing at it. This is not the only reader: `@theokit/agents` ships from
+  a separate repository against a *published* version of this package, so it carries its own reader of
+  the same file. One FORMAT is the contract; two readers that release independently is a consequence of
+  the repository boundary.
+  
+  Platform paths are Claude Code's own (`/etc/claude-code/`, `/Library/Application Support/ClaudeCode/`,
+  `%PROGRAMDATA%\ClaudeCode\`), so an organisation that already deployed a policy does not have to
+  deploy a second copy under a different name.
+  
+  `permissionMode` and `permissions` join `disableAllHooks` and `disableSkillShellExecution` as keys an
+  operator may impose. `plan` is the one the posture key exists for — an explore-only run where edits
+  are structurally refused; a plan-mode *tool* already existed and it is something the model may call,
+  and the difference is who decides. A posture outside the four is reported and ignored: `"readonly"`
+  is what somebody writes when they mean `plan`, and applying it by shape would enforce a posture
+  nobody defined while dropping it silently would leave them believing edits are refused.
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`0aca2bf`](https://github.com/usetheokit/theokit-sdk/commit/0aca2bfd8bca0aa57f9929f0121c1bdf2159fc92) Thanks [@usetheodev](https://github.com/usetheodev)! - A permission policy can be data an operator ships, reviews and diffs. It could only be a compiled-in function.
+  
+  Measured: `allowedTools` and `disallowedTools` returned 0 files in the agents layer, and the closest
+  facility was `CommandPolicy = (command: string) => string | null` — a code predicate. The spec's rule
+  language had no counterpart: `Bash(` 0/0, `domain:` 1/0 and that one in prose.
+  
+  The consequence is not a missing convenience. Every policy was a function, so it could not be
+  audited, diffed, reviewed in a pull request, or varied per environment — and `Read(./.env)`, the
+  spec's own paste-ready secret-exclusion example, could not be expressed at all.
+  
+  **The grammar is decided as a whole**, one shape with a self-describing specifier:
+  
+  | Written | Matches |
+  |---|---|
+  | `Bash` | every call to `Bash` |
+  | `Bash(npm run test:*)` | the argument starts with `npm run test:` |
+  | `Bash(npm audit)` | the argument equals `npm audit` — not a prefix |
+  | `Read(path:./.env)` | the argument, read as a path, matches the glob |
+  | `WebFetch(domain:example.com)` | the argument's HOST equals `example.com` |
+  
+  The specifier says how to read itself. Per-tool magic — knowing that `Read` means a path — cannot
+  work where the consumer brings their own tools: a rule naming a tool this SDK has never heard of must
+  still be readable.
+  
+  **A domain matches the HOST, never a substring.** `example.com.evil.test` is a different host, and a
+  substring match here would be an open redirect in policy form.
+  
+  **A path glob is anchored at both ends.** Unanchored fails in both directions — a file outside the
+  protected tree matches because the pattern appears in its path, and a file inside escapes by having
+  anything appended. It is built from the literal with every other metacharacter escaped, so a policy
+  line cannot smuggle a regular expression into the matcher.
+  
+  **Deny is emitted first**, then `ask`, then `allow`. The engine is first-match, so emission order *is*
+  precedence — and a narrow deny must survive a broad allow, or `Read` plus `Read(path:./.env)` would
+  read the secret the second line exists to protect.
+  
+  **The engine is untouched.** A specifier becomes one rule per conventional argument name
+  (`command`, `file_path`, `path`, `url`, `query`) rather than a matcher that inspects the whole call:
+  `ArgMatcher` receives a single value, and `#argsMatch` fails a matcher whose argument is absent — an
+  invariant with its own history ([#367](https://github.com/usetheokit/theokit-sdk/issues/367), where a predicate invoked with `undefined` widened an allow
+  rule written to narrow). Widening that to add a grammar would trade a tested invariant for a parser.
+  
+  **The limit is stated, not guessed around.** A tool whose argument is named something else cannot be
+  narrowed by specifier. "Read whichever argument is the only string" was the alternative and is worse:
+  a rule would match an argument the operator never named, widening an allow rule exactly as often as
+  it narrows a deny one. A bare tool name always works and matches every call.
+  
+  A rule this grammar cannot read is **refused**, not dropped. A policy line an operator wrote and the
+  runtime silently ignored is the belief-in-an-absent-protection this tier exists to remove.
+  
+  **B-038 is decided by this change rather than inherited by it.** The engine is first-match over an
+  array while the format groups by category, so a ported file listing `allow` above `deny` for the same
+  tool would silently invert and the narrower deny would never be reached. The decision is that the
+  LOADER reorders, not that the engine gains category evaluation: the array semantics are what every
+  existing consumer already built rules against, and changing how it walks them would move ground under
+  code nobody asked to change. A fixture writing `allow` first pins it.
+  
+  **A rule written in the documented MCP spelling now matches.** The reference names an MCP tool
+  `mcp__server__tool` with a double underscore; this runtime names the same tool
+  `mcp_server_tool`, single, because the name is sanitised for the provider. Every permission rule an
+  operator copied from the documentation missed its target **silently** — the deny read as configured
+  and the tool ran.
+  
+  Normalised in the RULE, never in the runtime name: the runtime spelling is what the model sees and
+  what the provider validates, and changing it would break every rule already written against it and
+  every consumer matching it, to fix a mismatch that costs one substitution at parse time. Scoped to
+  the `mcp__` prefix rather than rewriting every double underscore, because a tool outside MCP is
+  entitled to one in its own name.
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`ddb9306`](https://github.com/usetheokit/theokit-sdk/commit/ddb930614c55e1aab2f970e148c8c7be46c8f104) Thanks [@usetheodev](https://github.com/usetheodev)! - The protected-path and critical-path floors now fire from the runtime, before the permission engine
+  and before the consumer's `canUseTool` gate.
+  
+  They did not. `permission-floors.ts` was imported by `src/index.ts` and by nothing else, so a tier
+  whose own documentation says it sits "above every permission rule and every mode" was consulted only
+  if a consumer remembered to call `permissionFloorReason` themselves. A guarantee that depends on
+  being remembered is as strong as the memory, which is the failure this slice was written to remove.
+  
+  `permission-plugin.ts` — the `pre_tool_call` decision point — now asks the floor FIRST. An `allow`
+  rule, an allowing gate and `permissionMode: "bypassPermissions"` together no longer reach a write
+  into `.claude/` or `.theokit/`, nor a destructive operation on a critical root. `bypassPermissions`
+  not reaching the floor is deliberate: a mode that skips it is a mode that can rewrite the policy
+  meant to bound it.
+  
+  The `@theokit/sdk` bundle budget moves 27000 → 28000 gzipped as a direct consequence: the runtime
+  now carries a security tier it did not carry before (27338, 98% of the new ceiling). The headroom is
+  662 bytes, so unintended growth still trips the gate.
+
+### Patch Changes
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`4f0d74a`](https://github.com/usetheokit/theokit-sdk/commit/4f0d74a1056c3ed1d1fa1621d0dae06da95eb46e) Thanks [@usetheodev](https://github.com/usetheodev)! - Block-style YAML lists in frontmatter now parse instead of vanishing.
+  
+  `parseSimpleYaml` is line-oriented: it splits each line on the first `:` and coerces what follows.
+  A continuation line `- item` has no colon, so it was skipped outright, while the key line above it
+  had an empty value and coerced to `undefined`. The key disappeared entirely — a reader saw
+  `paths:` on disk, found no behaviour, and had nothing to grep for.
+  
+  Two things made this worth fixing rather than documenting:
+  
+  - **The file's own docblock recommended the shape it could not read.** Listing the inline form's
+    comma limitation, it advised "Use multi-line lists or reword if you need this." Multi-line lists
+    were the one shape this parser did not support.
+  - **Two parsers in this package disagreed about the same frontmatter.** The sibling
+    `context-yaml-lite.ts` already reads block lists, and its comment records that adding them was a
+    repair rather than a feature. Which loader read a file decided whether its list existed.
+  
+  Blank and `#` lines do not end a list; the first other line does, and the caller resumes there — so
+  the key written after a block list is no longer swallowed by it. A bare `key:` with no items under
+  it still yields `undefined`, which is what a caller's Zod default relies on.
+  
+  The collection and the key/value split moved into `collectBlockList` and `splitEntry`. That is not
+  tidying: inlining the collection put `parseSimpleYaml` at a cognitive complexity of 24 against the
+  repository's limit of 10, measured on the same file path where the pre-change version raised no
+  such diagnostic.
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`4f0d74a`](https://github.com/usetheokit/theokit-sdk/commit/4f0d74a1056c3ed1d1fa1621d0dae06da95eb46e) Thanks [@usetheodev](https://github.com/usetheodev)! - A subagent frontmatter field that belongs to Claude Code now says so, and names its siblings.
+  
+  **The failure itself is unchanged, deliberately.** A file that declares frontmatter and gets it
+  wrong is a broken agent and still fails the load — the reason is recorded a few lines above, where
+  skipping was added only for files with _no_ frontmatter: "a file that HAS frontmatter and gets it
+  wrong is a broken agent and still fails loudly, which is what keeps a typo'd `sandbox` from
+  returning as a silent gate through this door." Isolating the failure per file would hand that risk
+  back.
+  
+  What changes is the diagnosis. A user migrating a `.claude/agents/` tree learned one key per round
+  trip: fix `memory`, meet `permissionMode`, fix that, meet `maxTurns` — with nothing saying the set
+  was finite or that the tree was simply written for another runtime. The error now distinguishes
+  "another runtime's field" from "never heard of this", and lists the other eleven that will behave
+  the same way.
+  
+  That distinction already exists here for `INERT_CLAUDE_CODE_FIELDS`, described as "the difference
+  between 'we know this one and it does nothing' and 'we have never heard of this' — two facts a bare
+  allow-everything would collapse into one." This adds a third fact beside them and changes only the
+  message, never the verdict.
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`820fc9c`](https://github.com/usetheokit/theokit-sdk/commit/820fc9c74e76947f8ef1204bf9fab6e5c1367cb9) Thanks [@usetheodev](https://github.com/usetheodev)! - A hook field this runtime does not implement is now refused instead of dropped in silence.
+  
+  `parseClaudeCodeCommand` read `type`, `command` and `timeout` and discarded everything else on the
+  entry — `if`, `args`, `statusMessage`, `once`, `async`, `asyncRewake`, `shell` — with no error and
+  no warning.
+  
+  **`if` is the field that makes this a defect rather than a missing feature.** For the others the
+  loss is a convenience. For `if` it is the opposite of what the operator wrote: a deny hook narrowed
+  to one dangerous command shape silently becomes a deny hook over *every* call of that tool. The
+  guard still runs, so nothing looks broken; it simply applies where it was told not to.
+  
+  The fix is refusal, not implementation. Implementing `if` means adopting a condition language whose
+  semantics nobody here has decided; refusing the field costs one throw and cannot be wrong about what
+  the operator meant. The direction is what matters — a dropped `if` fails open, a refused `if` fails
+  closed and names the field that stopped the load.
+  
+  `packages/agents`, reading the same file one layer up, already took this side: its `hookSpecSchema`
+  is `.strict()` and refuses an unknown key loudly. Two layers disagreed about whether a field was an
+  error, and the permissive one was the layer that actually ran the hook.
+  
+  The error separates "a Claude Code hook field this runtime does not implement" from "never heard of
+  this", and lists the siblings that will behave the same way — so an operator migrating a `.claude/`
+  tree does not learn one key per round trip. A non-command `type` still fails for its own reason: the
+  new check runs after the existing ones.
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`4f0d74a`](https://github.com/usetheokit/theokit-sdk/commit/4f0d74a1056c3ed1d1fa1621d0dae06da95eb46e) Thanks [@usetheodev](https://github.com/usetheodev)! - `skill_read` can read a skill discovered on disk. It could not, which made the entire on-disk skills surface decorative.
+  
+  `SkillReadTool.create` took `ReadonlyArray<InlineSkill>` — the shape that carries `instructions` on
+  the object. A disk-discovered skill is a `Skill`, whose own declaration says "the skill BODY is never
+  included", so it did not fit through the door at all. The result: a `SKILL.md` was listed by name and
+  description in the `<skills>` block, the model asked to read it, and got back a heading and an empty
+  body — measured, the handler returned `"# Skill: deploy\n\n"`.
+  
+  The instructions under the frontmatter are the skill. Every other skill defect in this backlog is a
+  field inside a file whose body never showed up.
+  
+  `create` now accepts `ReadableSkill` — a skill that carries its body, or one that knows where its
+  body is — and the handler resolves the difference. Passing inline skills is unchanged.
+  
+  **Read when the model asks, not at construction.** Eager reading would turn "this agent knows about
+  twelve skills" into twelve file reads at startup, to answer a question the model usually does not
+  ask. The handler's contract already allowed `Promise<string>`, so laziness cost one `await` and no
+  new API.
+  
+  The handler is deliberately NOT `async`. Marking the whole function async turns the input schema's
+  synchronous throw into a rejected promise, and this module's contract is that malformed input "fails
+  at the trust boundary via the schema". Measured while making this change: two trust-boundary tests
+  went from throwing to returning `undefined`. Only the body read is asynchronous — parse and the
+  not-found answer stay exactly as synchronous as they were.
+  
+  A disk skill's `references/` directory is now read too, for the same reason inline skills already
+  render theirs in full: the two shapes describe the same thing, and one of them arriving empty was the
+  asymmetry. A document that cannot be read is skipped rather than failing the whole read — a skill
+  should not become unreadable because something beside it is.
+  
+  `${CLAUDE_SKILL_DIR}` resolves to the skill's own directory — the reason skills are directories
+  rather than single files. A skill ships scripts and reference documents beside its `SKILL.md`, and
+  without the placeholder the body had no expressible path to them: the skill does not know where it
+  was installed, and neither does its author at the time of writing.
+  
+  Only for a skill read from disk. An inline skill has no directory, so the text is left exactly as
+  written — an honest limit rather than a guess. Leaving it says "this does not apply here"; inventing
+  a path would hand the model a command that fails somewhere plausible.
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`820fc9c`](https://github.com/usetheokit/theokit-sdk/commit/820fc9c74e76947f8ef1204bf9fab6e5c1367cb9) Thanks [@usetheodev](https://github.com/usetheodev)! - A hook emitting the **documented** deny shape is now honoured instead of being read as `allow`.
+  
+  `hooks-source.ts` advertises a config shape "identical to Claude Code's `settings.json` hooks", so a
+  consumer writes the guard that documentation specifies:
+  
+  ```json
+  {
+    "hookSpecificOutput": {
+      "hookEventName": "PreToolUse",
+      "permissionDecision": "deny",
+      "permissionDecisionReason": "…"
+    }
+  }
+  ```
+  
+  `parseDecisionFromStdout` read only a **top-level** `decision` and accepted only
+  `deny` / `feedback` / `allow`. The nested shape has no top-level `decision` at all, so it fell past
+  every branch to the final `return { decision: "allow" }`. The JSON parsed, nothing warned, and the
+  tool call proceeded.
+  
+  Measured against four inputs before the fix: the documented shape → allow; the deprecated-but-
+  documented `{"decision":"block"}` → allow; `Stop` with `block` → allow; only this runtime's own
+  `{"decision":"deny"}` denied.
+  
+  Three spellings mean deny and all three are now read: the nested `permissionDecision`, the
+  deprecated `block`, and the native `deny`. A nested `ask` projects to deny — collapsing it to allow
+  would be the same fail-open one value over, since this runtime has no third state to put the
+  question to.
+  
+  **Deliberately unchanged**: an unrecognised shape still resolves to `allow`. Making it deny would
+  refuse every hook that prints diagnostics and happens to emit JSON — a behaviour change with its own
+  blast radius, and its own measurement. The three documented denials are unambiguous; that case is
+  not.
+  
+  The direction is what made this expensive. A missing hook event is discoverable: the user sees
+  nothing happen and investigates. A veto that silently does not fire is indistinguishable from a veto
+  that fired and approved.
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`820fc9c`](https://github.com/usetheokit/theokit-sdk/commit/820fc9c74e76947f8ef1204bf9fab6e5c1367cb9) Thanks [@usetheodev](https://github.com/usetheodev)! - A hook event the runtime does not fire is now reported even when the host installed no diagnostics
+  sink.
+  
+  The loader maps four Claude Code event names and skips the rest. Skipping is honest — the runtime
+  genuinely does not fire the others — but the notice went through `warnOnce` → `diag`, and `diag` is
+  silent by default. So an operator declaring a `PreCompact` guard got nothing: no hook, no message,
+  and no way to learn either.
+  
+  `diag`'s silence is right for chatter: a library must not assume the host's stderr is a free-form
+  log, because in a TUI it is the render surface. A configuration the operator **wrote** and this
+  runtime will not honour is not chatter. `warnFailureOnce` routes it through `diagFailure`, the
+  channel that already exists for exactly this and whose docblock records the precedent — `[#189](https://github.com/usetheokit/theokit-sdk/issues/189)`,
+  where an MCP server failed to start, the only report went to `diag()`, the embedding UI never read
+  it, and "the user saw an agent with missing tools and no reason given".
+  
+  A dropped hook is that shape with a sharper edge, because the missing thing is a guard: the operator
+  declared a refusal, it silently does not exist, and nothing distinguishes that from a refusal that
+  ran and approved.
+  
+  A sink still takes precedence when one is installed — this only changes what happens when none is.
+  
+  **A note for whoever writes the next test here.** `vitest.setup.ts` installs a stderr-forwarding
+  sink for the duration of every test, so the default path is the one shape this suite never
+  exercises. A test written the obvious way passes before the fix and proves nothing; the one added
+  here removes the sink in `beforeEach` to stand in for a consumer that never called
+  `setDiagnosticsSink`.
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`820fc9c`](https://github.com/usetheokit/theokit-sdk/commit/820fc9c74e76947f8ef1204bf9fab6e5c1367cb9) Thanks [@usetheodev](https://github.com/usetheodev)! - A native hook can locate its own project, and a ported hook script receives the field names it was written against.
+  
+  **The project directory, in both dialects.** `CLAUDE_PROJECT_DIR` was supplied to commands imported
+  from Claude Code ([#522](https://github.com/usetheokit/theokit-sdk/issues/522), after a hook written the documented way expanded to a leading `/` and denied
+  every turn). The native dialect got `{}`, on the reasoning that a `.theokit/` hook "is written
+  against THIS runtime and inherits it already" — true of the runtime's *behaviour*, not of a project
+  *path*. Nothing in the inherited environment says where the project is, so a native hook had to
+  depend on the process cwd: the exact dependency the foreign fix removed. `THEOKIT_PROJECT_DIR` is
+  the native counterpart, under the native spelling, because a ported script reaches for the name its
+  own docs use.
+  
+  **The stdin payload.** It carried this runtime's field names only. A script ported from Claude Code
+  reads `tool_name`, `tool_input`, `tool_response`, `hook_event_name` and `cwd` — it got `undefined`
+  for every one, and **ran**, deciding on nothing while looking like a working guard. That is worse
+  than a script that fails: the operator's evidence that the guard works is identical either way.
+  
+  The documented names are added **beside** the existing ones, never instead. Both dialects execute
+  through one path, so renaming would break every native script to fix the ported ones.
+  
+  Only what this runtime knows. `session_id`, `transcript_path`, `permission_mode` and `prompt_id`
+  stay absent because their values would have to be invented — a script that branches on an invented
+  session id branches on a lie. Same trade as `CLAUDE_PLUGIN_ROOT`, which stays unset for the same
+  reason one module over.
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`4f0d74a`](https://github.com/usetheokit/theokit-sdk/commit/4f0d74a1056c3ed1d1fa1621d0dae06da95eb46e) Thanks [@usetheodev](https://github.com/usetheodev)! - Skill frontmatter's two authorization fields are read instead of discarded, and one of them is now enforced.
+  
+  `buildFrontmatter` kept exactly `name`, `description`, `category` and `dependencies`. `user-invocable`
+  and `disable-model-invocation` survived the YAML parser and were dropped one function later, so a
+  template could declare a restriction the runtime could not honour — and the default is disclose-all.
+  `create-theokit` ships seven skills carrying `user-invocable: false`, and all seven were inert.
+  
+  **`disable-model-invocation: true` is now enforced.** A skill reaches the model through exactly one
+  place — the system-prompt context — so the declaration is a filter there. This is the capability the
+  format names when it says you do not want the model deciding to deploy because the code looks ready:
+  a side-effecting skill a human may run and the model may not propose. It is a **disclosure** rule,
+  not an execution rule — `skills.get(name)` still resolves a hidden skill, because a caller naming one
+  has already made the decision the field exists to keep away from the model. Widening it to execution
+  would break the case the field is for.
+  
+  **`user-invocable: false` is carried, deliberately not enforced here.** This SDK has no user-facing
+  invocation surface for skills; there is no slash command. Reading `agent.skills.list()` as "the user"
+  would be a guess — a host may call it to build a picker or to introspect, and those want opposite
+  answers. The declaration now travels to the host that knows, instead of being thrown away.
+  
+  A value the dialect cannot read is refused rather than ignored. This dialect coerces only the
+  literals `true` and `false`, so `disable-model-invocation: yes` — a valid YAML boolean — arrived as
+  the string `"yes"`, compared unequal to `true`, and the skill was disclosed. The author wrote a
+  restriction and got the default. A restriction that fails open is worse than an absent one, because
+  the author stops looking; the skill is now reported as invalid and excluded, naming the value.
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`429ddff`](https://github.com/usetheokit/theokit-sdk/commit/429ddff2bcfff7ab750257e6dd13de9dd91eb0a8) Thanks [@usetheodev](https://github.com/usetheodev)! - Fixes a ReDoS in the critical-path floor's destructive-command matcher (CodeQL: polynomial regular
+  expression on uncontrolled data).
+  
+  ```
+  /(?:^|[;&|]\s*)\s*(rm|rmdir|shred|mkfs\S*|dd)\s/
+               ^^^  ^^^   adjacent quantifiers over overlapping classes
+                          and an unbounded \S* inside the alternation
+  ```
+  
+  Measured on the inputs CodeQL named: 60 000 spaces after a `;` took **2 094ms**, and 12 000 `&mkfs`
+  repetitions took **600ms** — clean quadratic growth. After the rewrite, 0.36ms and 0.33ms.
+  
+  It mattered because of the commit beside it. While nothing called the floor, a slow matcher was a
+  latent cost; wiring the floor into `permission-plugin.ts` put it in front of **every tool call**, so
+  one crafted argument stalls the agent instead of being refused by it. Making a guard reachable and
+  making its cost matter are the same act.
+  
+  The separator no longer consumes whitespace the following `\s*` already consumes, and the `mkfs`
+  suffix is a bounded dotted variant (`mkfs.ext4`, `mkfs.xfs`, `mkfs.btrfs`) rather than "any run of
+  non-space". Verified identical across thirteen cases spanning every branch.
+  
+  Also documented, because measuring it turned it up: a DEVICE NODE is not a critical path.
+  `mkfs.ext4 /dev/sda` and `dd of=/dev/sda` pass this floor — the tier is about the working directory,
+  the home directory and the filesystem root, and `/dev/sda` is none of them. A reader who sees `mkfs`
+  in the pattern reasonably concludes otherwise, so a test now pins the real behaviour.
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`4f0d74a`](https://github.com/usetheokit/theokit-sdk/commit/4f0d74a1056c3ed1d1fa1621d0dae06da95eb46e) Thanks [@usetheodev](https://github.com/usetheodev)! - The order nested instruction files reach the prompt is pinned, and the one real divergence from the spec is stated.
+  
+  A parity survey reported three defects here. Re-measured by execution, two did not hold:
+  
+  - **`.claude/rules/*.md` is read** — spec `claude-rules`, priority 47. A probe through `runDiscovery`
+    over a temp project returned one source carrying the rule. The original zero-file grep was against
+    a layer that does not do the reading.
+  - **Precedence is not reversed.** `walkUpForFile` returns nearest-first, and that is not what the
+    model sees: `applyAggregateCap` re-sorts by priority and then by absolute path, so a three-level
+    project measured `walk=[DEEP,SUB,ROOT]` and `prompt=[ROOT,SUB,DEEP]` — the spec's root-down order,
+    where the nearer file refines the wider one instead of being buried under it.
+  
+  **The correct behaviour was correct by accident**, which is why this changeset exists. Root-down falls
+  out of a tie-break written for prompt-cache determinism (EC-J), and nothing stated it. Change the
+  tie-break, or name a subdirectory lexically smaller than its parent, and a repository-wide
+  instruction starts being read after the nested one meant to refine it — with nothing to catch it. It
+  is now pinned by a test that also mutation-checks the inverse.
+  
+  **The divergence that is real:** the walk stops at the git root, while the spec continues to every
+  directory above cwd. Kept, with the reason — a `CLAUDE.md` in a home directory or in `/tmp` would
+  silently apply to every repository underneath it, and an instruction file nobody in the project wrote
+  is the one case where finding more is worse than finding less. The operator-home question stays a
+  deliberate, separate decision rather than a side effect of how far a loop runs.
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`3ae3766`](https://github.com/usetheokit/theokit-sdk/commit/3ae37660a5a012968115e3e611155cf74397ec23) Thanks [@usetheodev](https://github.com/usetheodev)! - States, next to the write floor that does exist, that there is no read-side equivalent — and pins it
+  with a test so the claim and the behaviour cannot drift apart.
+  
+  `permissionFloorReason` refuses a WRITE into `.claude/`, `.theokit/`, `.ssh` or `.gnupg` under every
+  allow rule. A READ of the same paths is refused by nothing: reads are governed by the rule language
+  and by nothing above it. `Read(path:./.env)` works and deny-before-allow means a deny cannot be
+  overtaken — but every such rule has to be written, nothing is refused by default, and a bare `Read`
+  allow grants reading any path the process can open.
+  
+  The asymmetry was invisible from the module. `PROTECTED_SEGMENTS` reads like a list of protected
+  paths and is only half that: `.ssh` cannot be written through any rule, and can be read through an
+  ordinary allow.
+  
+  `additionalDirectories` — the reference's key for an operator to WIDEN what an agent may read — has
+  no equivalent, and cannot have one while there is no fence to widen. Measured: zero occurrences in
+  this package and zero in `@theokit/agents`.
+  
+  No fence was added, and not because one is unwanted. `permissionFloorReason` sees a tool name and an
+  argument map; a fence matching on those alone would miss every read that reaches the filesystem
+  another way — a shell command, a plugin, an MCP server. Shell reads are already confined by
+  `SandboxMode`, and a second containment vocabulary here would leave two answers to "may this be
+  read" that disagree at the edges. Deciding which layer owns that boundary is a measured decision,
+  not a docblock.
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`820fc9c`](https://github.com/usetheokit/theokit-sdk/commit/820fc9c74e76947f8ef1204bf9fab6e5c1367cb9) Thanks [@usetheodev](https://github.com/usetheodev)! - The hook loader stops claiming parity it does not have, and states the set it does.
+  
+  The module docblock advertised a config shape "identical to Claude Code's `settings.json` hooks". The
+  SHAPE is identical; the event COVERAGE is four of the thirty-three documented events. Measured by
+  execution — a `hooks.json` declaring all thirty-three, through the shipped loader, yielded
+  `PreToolUse`, `PostToolUse`, `UserPromptSubmit` and `Stop`. Thirteen of the sixteen the spec marks
+  "Can block? Yes" were among the missing.
+  
+  **The map is deliberately not grown.** Mapping a name the runtime does not fire is strictly worse
+  than refusing it: an operator declaring `PreCompact` today gets a report saying it will not fire;
+  with the name mapped they would get silence and a guard that never runs — a declared veto that does
+  not exist. The map grows when the seam exists, one event at a time.
+  
+  `CLAUDE_CODE_EVENT_MAP` is now exported so the supported set is stated rather than implied, and a
+  test derives its expectation from it: adding a seam turns that test red, which is where the docblock
+  claim gets updated with it. The same test lists the fourteen unwired blocking events in priority
+  order — an unwired veto loses a capability, an unwired observer loses a signal — so the next person
+  picking one up does not re-derive which is which.
+  
+  `postRun` has no entry on purpose: it fires per RUN, and no documented Claude Code event means that.
+  `SessionEnd` is the near miss, and a session is not a run.
+
+- [#659](https://github.com/usetheokit/theokit-sdk/pull/659) [`4f0d74a`](https://github.com/usetheokit/theokit-sdk/commit/4f0d74a1056c3ed1d1fa1621d0dae06da95eb46e) Thanks [@usetheodev](https://github.com/usetheodev)! - `MEMORY.md` says, at both ends, which of two contracts it is.
+  
+  The Claude Code CLI's is a plain file under its own home, capped at 200 lines / 25 KB on read and
+  swept on `cleanupPeriodDays`. This SDK's is the durable-memory subsystem — a SQLite+FTS5 store under
+  `.theokit/memory/`, with `memory_search` / `memory_get` tools, no index cap, and a different
+  directory entirely. Same filename, different directory, different semantics.
+  
+  **A parity survey reported `CLAUDE_CONFIG_DIR` as absent; it is not.** Measured across both packages:
+  it is read in `claudeProjectMemoryDir`, which resolves the CLI's memory directory for interop, keyed
+  by git root. The original grep ran only against `@theokit/agents`, where it is genuinely absent, and
+  reported it absent everywhere — the third item in this release whose evidence was measured in the
+  wrong place or under the wrong name.
+  
+  `CLAUDE_CONFIG_DIR`'s scope is now stated: it names the CLI's home so this reader finds the right
+  directory, and it relocates no user-level root of this product's own, because there is none — the
+  config roots resolved elsewhere are project-relative. A blank value is treated as unset rather than
+  as a root, pinned by a test: `CLAUDE_CONFIG_DIR=""` is what an unset shell variable expands to in a
+  wrapper script, and reading it as a root produces `/projects/…`, which exists on no machine and fails
+  silently as "the CLI has no memories here".
+  
+  **What remains unimplemented, and why that is a decision.** `autoMemoryEnabled`,
+  `autoMemoryDirectory`, `CLAUDE_CODE_DISABLE_AUTO_MEMORY`, `cleanupPeriodDays` and the read cap have
+  no counterpart. Interop is one-way on purpose: a memory the CLI recorded stays visible, and this
+  runtime does not write into a store another product owns the lifecycle of. A `cleanupPeriodDays`
+  implemented here would delete files the CLI expects to find.
+  
+  The filename is kept rather than renamed — one of the two is another product's, and renaming it here
+  would break the interop the reader exists for.
+
 ## 5.5.0
 
 ### Minor Changes
