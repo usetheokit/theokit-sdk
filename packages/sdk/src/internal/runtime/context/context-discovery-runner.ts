@@ -15,7 +15,7 @@
 
 import { readFile } from "node:fs/promises";
 import { dirname, relative } from "node:path";
-
+import { warnOnce } from "../hooks/hooks-source.js";
 import type { AggregatorSource } from "./context-aggregator.js";
 import {
   admittedSpecs,
@@ -24,6 +24,7 @@ import {
   findGitRoot,
   walkUpForFile,
   walkUpForGlob,
+  withheldSpecs,
 } from "./context-discovery.js";
 import { resolveImports } from "./context-import-resolver.js";
 import { loadPlainMarkdown } from "./context-loaders.js";
@@ -111,7 +112,25 @@ export interface DiscoveryRunnerOptions {
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: per-spec dispatch ladder + cross-spec dedup is a flat orchestrator; splitting would obscure the priority-merge invariant.
 export async function runDiscovery(opts: DiscoveryRunnerOptions): Promise<AggregatorSource[]> {
   const gitRoot = findGitRoot(opts.cwd);
-  const specs = admittedSpecs(opts.specs ?? DEFAULT_DISCOVERY_SPECS, opts.declaredCompatKinds);
+  const registry = opts.specs ?? DEFAULT_DISCOVERY_SPECS;
+  const specs = admittedSpecs(registry, opts.declaredCompatKinds);
+
+  // The loud half of B-081. Gating the four repo-root instruction files means a consumer who
+  // declares nothing goes from four files in the prompt to none, and a silent drop there is the
+  // failure this whole line of work removes: the operator cannot tell "not granted" from "not
+  // present" by any experiment they can run.
+  //
+  // Each file is NAMED with the grant that restores it, never counted. A count cannot be acted on —
+  // you cannot decide whether to grant a dialect without knowing which file it brings.
+  const withheld = withheldSpecs(registry, opts.declaredCompatKinds);
+  if (withheld.length > 0) {
+    warnOnce(
+      `context-withheld:${withheld.map((w) => w.id).join(",")}`,
+      `[theokit-sdk] not loaded, no grant declared: ${withheld
+        .map((w) => `${w.pattern} (declare '${w.grant}' in compatSources)`)
+        .join("; ")}`,
+    );
+  }
   const out: AggregatorSource[] = [];
   const seenReal = new Set<string>();
 

@@ -154,3 +154,8 @@ reports/
 
 # tsup writes a transient bundled config next to tsup.config.ts
 packages/*/tsup.config.bundled_*.mjs
+
+# Stryker copies these into its sandbox and leaves them behind. They are not ignored by default, so
+# a `git add -A` after any mutation run sweeps them in — and Biome then fails the repo-wide gate on
+# a file nobody wrote. Observed twice on 2026-09-14, the second time blocking a commit.
+stryker-setup-*.js

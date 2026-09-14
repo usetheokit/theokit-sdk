@@ -142,6 +142,39 @@ export function admittedSpecs(
 }
 
 /**
+ * The mirror of {@link admittedSpecs}: the specs a declaration did NOT admit.
+ *
+ * It exists because `runDiscovery`'s own docblock admits the gap it closes — *"a shorter result
+ * than expected means 'nothing qualified', and this function will not tell you which of those it
+ * was"*. After B-081 gates the four repo-root instruction files, a consumer who declares nothing
+ * goes from receiving four files to receiving none, and that has to be legible.
+ *
+ * Returned as a VALUE rather than only logged, because a log line cannot be asserted by a
+ * consumer's test, and this repository does not ship controls that cannot be observed. The loud
+ * half is the `warnOnce` the caller emits from this list.
+ *
+ * Each entry carries the grant that WOULD admit it — being told you lost something, without being
+ * told what would bring it back, is a diagnosis with no remedy.
+ *
+ * `undefined` declaredKinds means "no gate configured", which admits everything and therefore
+ * withholds nothing. That is NOT the same as `[]`, which is a real declaration of no foreign
+ * dialect and withholds every gated spec — the distinction `declaredCompatKinds` already carries,
+ * preserved here rather than re-decided.
+ *
+ * @public — re-exported from `@theokit/sdk/context`, and therefore under semver.
+ */
+export function withheldSpecs(
+  specs: ReadonlyArray<DiscoverySpec>,
+  declaredKinds: ReadonlyArray<string> | undefined,
+): ReadonlyArray<{ readonly id: string; readonly pattern: string; readonly grant: string }> {
+  if (declaredKinds === undefined) return [];
+  const granted = new Set(declaredKinds);
+  return specs
+    .filter((spec) => spec.dialect !== undefined && !granted.has(spec.dialect))
+    .map((spec) => ({ id: spec.id, pattern: spec.pattern, grant: String(spec.dialect) }));
+}
+
+/**
  * The context files theokit looks for out of the box, in the order they are concatenated.
  *
  * Two things follow from the ordering. `AGENTS.md` comes first at priority 10 and `THEO.md` last,
@@ -161,6 +194,7 @@ export function admittedSpecs(
 export const DEFAULT_DISCOVERY_SPECS: ReadonlyArray<DiscoverySpec> = [
   {
     id: "AGENTS.md",
+    dialect: "agents",
     pattern: "AGENTS.md",
     scope: "git-root-walk",
     parser: "plain-markdown",
@@ -169,6 +203,7 @@ export const DEFAULT_DISCOVERY_SPECS: ReadonlyArray<DiscoverySpec> = [
   },
   {
     id: "GEMINI.md",
+    dialect: "gemini",
     pattern: "GEMINI.md",
     scope: "git-root-walk",
     parser: "plain-markdown",
@@ -177,6 +212,7 @@ export const DEFAULT_DISCOVERY_SPECS: ReadonlyArray<DiscoverySpec> = [
   },
   {
     id: "CLAUDE.md",
+    dialect: "claude-code",
     pattern: "CLAUDE.md",
     scope: "git-root-walk",
     parser: "plain-markdown",
@@ -185,6 +221,7 @@ export const DEFAULT_DISCOVERY_SPECS: ReadonlyArray<DiscoverySpec> = [
   },
   {
     id: "cursor-rules",
+    dialect: "cursor",
     pattern: ".cursor/rules/*.mdc",
     scope: "globbed",
     parser: "mdc",
