@@ -29,7 +29,7 @@
     "quality:depcruise": "depcruise --config .dependency-cruiser.cjs packages/sdk/src packages/sdk/tests",
     "quality:loc": "node tools/check-loc.mjs",
     "quality:duplication": "node tools/check-duplication.mjs",
-    "quality:coverage": "pnpm --filter=@theokit/sdk --filter=@theokit/sdk-tools exec vitest run --coverage",
+    "quality:coverage": "pnpm --filter=@theokit/sdk --filter=@theokit/sdk-tools --filter=@theokit/acp --filter=@theokit/cli --filter=@theokit/memory-honcho --filter=@theokit/memory-mem0 --filter=@theokit/memory-supermemory --filter=@theokit/sdk-budget --filter=@theokit/sdk-cache --filter=@theokit/sdk-handoff --filter=@theokit/sdk-memory --filter=@theokit/sdk-pty exec vitest run --coverage",
     "quality:audit": "pnpm audit --prod --audit-level=low && pnpm audit --audit-level=high",
     "quality:cross-cluster": "node tools/check-cross-cluster.mjs",
     "quality:dts-exports": "node tools/check-dts-exports.mjs",
