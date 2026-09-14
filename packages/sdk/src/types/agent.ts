@@ -65,7 +65,30 @@ export type SettingSource = "project" | "user" | "team" | "mdm" | "plugins" | "a
  *
  * @public
  */
-export type CompatSource = "claude-code" | "theokit" | CompatSourceAdapter;
+/*
+ * `agents`, `gemini` and `cursor` were added for B-081, and the ORDER of that work is the point.
+ *
+ * `DEFAULT_DISCOVERY_SPECS` carries four repo-root instruction files whose bodies enter the system
+ * prompt — `AGENTS.md`, `GEMINI.md`, `CLAUDE.md`, `.cursor/rules/*.mdc`. Gating them needs a grant,
+ * and measured 2026-09-14 this union carried only `claude-code` and `theokit`: gating the other
+ * three then would have made three instruction formats PERMANENTLY unreachable, since no spelling
+ * of `compatSources` could restore them. That is worse than leaving them ungated.
+ *
+ * So the vocabulary lands first and the gate second. `test_every_gated_format_has_a_spelling_that_
+ * restores_it` asserts the invariant in both directions and fails the moment a spec is gated on a
+ * token this union does not carry.
+ *
+ * They are separate literals rather than one `foreign` token deliberately: a consumer who wants
+ * `AGENTS.md` must not be forced to also admit `.cursor/rules/*.mdc`, which would be the opposite
+ * of an opt-in.
+ */
+export type CompatSource =
+  | "claude-code"
+  | "theokit"
+  | "agents"
+  | "gemini"
+  | "cursor"
+  | CompatSourceAdapter;
 
 /**
  * A surface a foreign configuration source may be admitted to.
