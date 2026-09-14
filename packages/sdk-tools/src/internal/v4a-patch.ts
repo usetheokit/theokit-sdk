@@ -44,12 +44,40 @@ export class V4APatchError extends Error {
   }
 }
 
+/**
+ * Why the marker was not found, in terms the writer can act on.
+ *
+ * The flat message — `missing '*** Begin Patch'` — is true about the exact match and misleading
+ * about the text: a patch opening with `*** Begin Patch ***` contains that string, so the reader is
+ * sent looking for an absent line while the problem is three characters at the end of a line that is
+ * right there.
+ *
+ * Measured 2026-09-13 on a live run: a model wrote the symmetric form by analogy with the
+ * `*** Add File: …` headers, burned three attempts against this message, and abandoned the step.
+ *
+ * The variant is NOT accepted. V4A is a format other tools also parse, and quietly widening it here
+ * would make a patch this runtime writes unreadable elsewhere — so the error teaches the exact
+ * spelling instead.
+ */
+function missingBeginMessage(lines: readonly string[]): string {
+  const nearMiss = lines.find((l) => {
+    const t = l.trim();
+    return t !== BEGIN && t.startsWith(BEGIN);
+  });
+  if (nearMiss === undefined) return `Invalid patch: missing '${BEGIN}'`;
+  return (
+    `Invalid patch: the opening marker must be exactly '${BEGIN}', and this patch has ` +
+    `'${nearMiss.trim()}'. Drop everything after '${BEGIN}' on that line — the trailing '***' ` +
+    `belongs to no marker in this format.`
+  );
+}
+
 /** Parse a V4A patch string into hunks. Throws {@link V4APatchError} on any structural problem. */
 export function parseV4A(patch: string): V4AHunk[] {
   const lines = patch.split("\n").map((l) => (l.endsWith("\r") ? l.slice(0, -1) : l));
   let i = 0;
   while (i < lines.length && lines[i]!.trim() !== BEGIN) i++;
-  if (i >= lines.length) throw new V4APatchError("Invalid patch: missing '*** Begin Patch'");
+  if (i >= lines.length) throw new V4APatchError(missingBeginMessage(lines));
   i++; // consume Begin Patch
 
   const hunks: V4AHunk[] = [];
