@@ -10,5 +10,12 @@ export default defineConfig({
     environment: "node",
     include: ["tests/**/*.test.ts"],
     pool: "forks",
+    coverage: {
+      // `lcov` is the reporter SonarCloud reads, and `sonar-project.properties` names this package's
+      // `coverage/lcov.info`. Without this block vitest defaults to text/html/clover/json, that file
+      // is never written, and the gate reports the absence as `new_coverage = 0.0` — a number about
+      // a missing file, not about the code. Measured on #664: 94% code arriving at the gate as zero.
+      reporter: ["text", "lcov", "html"],
+    },
   },
 });
