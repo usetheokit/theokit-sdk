@@ -7,6 +7,11 @@ import { loadSubagents } from "../../../../src/internal/runtime/skills/subagents
 import { removeTempDirRobustSync } from "../../../helpers/temp-workspace.js";
 
 /**
+ * `memory:` was this file's example until 2026-09-15, when it stopped being another runtime's field:
+ * `@theokit/agents` owns three memory roots and a reader for them, the loader now CARRIES the
+ * declaration, and a host applies it. The example moved to `permissionMode`, which is still theirs.
+ * What the case tests is unchanged — a foreign key skips its own file and the siblings load.
+ *
  * A subagent carrying Claude Code frontmatter fails the whole directory, and the message names one
  * key while a dozen siblings would do the same.
  *
@@ -59,7 +64,7 @@ describe("a Claude Code frontmatter field names itself", () => {
   it("skips the foreign file and loads its healthy sibling", async () => {
     const dir = agentsDir({
       "ok.md": ok,
-      "ported.md": "---\nname: ported\ndescription: d\nmemory: project\n---\nbody\n",
+      "ported.md": "---\nname: ported\ndescription: d\npermissionMode: acceptEdits\n---\nbody\n",
     });
 
     const loaded = await loadSubagents(dir, true, undefined, []);

@@ -146,6 +146,7 @@ const ACCEPTED_FIELDS = new Set([
   "reasoning_effort",
   "mcp",
   "sandbox",
+  "memory",
 ]);
 
 // Fields the Claude Code CLI writes that carry NO behaviour for this runtime. Accepted and ignored,
@@ -184,6 +185,10 @@ function parseSubagentMarkdown(
   if (tools.length > 0) definition.tools = tools;
   const sandbox = resolveSandbox(fields, filename);
   if (sandbox !== undefined) definition.sandbox = sandbox;
+  // Carried unjudged — see `AgentDefinition.memory`. Which root a scope names, and whether the
+  // name is one at all, is `@theokit/agents`' decision and refusing it twice means two lists.
+  const memory = asString(fields.memory);
+  if (memory !== undefined) definition.memory = memory;
 
   const name = asString(fields.name) ?? filename.replace(/\.md$/, "");
   return { name, definition };
@@ -207,7 +212,6 @@ const KNOWN_CLAUDE_CODE_FIELDS = new Set([
   "permissionMode",
   "maxTurns",
   "skills",
-  "memory",
   "background",
   "effort",
   "isolation",

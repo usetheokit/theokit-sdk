@@ -314,6 +314,18 @@ export interface AgentDefinition {
    * answered it for the other two surfaces.
    */
   source?: string;
+  /**
+   * The memory root this subagent declared, from `memory:` in its frontmatter.
+   *
+   * CARRIED, never acted on here. Resolving it means deciding which of three roots a note lives
+   * under, and those roots differ in who can see it — `@theokit/agents` owns that decision, with
+   * `resolveAgentMemory` and a refusal for any scope it does not recognise. A second copy of that
+   * rule in this package is how the two drift into disagreeing about privacy.
+   *
+   * The value is passed through unjudged for the same reason: a scope a newer `@theokit/agents`
+   * has learned would otherwise be rejected here, by a list nobody remembered to update.
+   */
+  memory?: string;
   model?: ModelSelection | "inherit";
   mcpServers?: Array<string | Record<string, McpServerConfig>>;
   /**

@@ -1,7 +1,7 @@
 // A subagent written for another runtime must not take the directory down with it.
 //
 // Companion to `internal/runtime/skills/a-claude-code-field-names-itself.test.ts`, which carries
-// the decision and the reasoning that preceded it. This file covers the SIBLINGS of `memory:` —
+// the decision and the reasoning that preceded it. This file covers the foreign fields —
 // the rest of `KNOWN_CLAUDE_CODE_FIELDS` — and the control that keeps the change narrow.
 
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -51,7 +51,7 @@ describe("a foreign-runtime field skips its own file, not the directory", () => 
     // and it must not stop the run — the user gets a working session and a diagnostic per file.
     const defs = await withAgents(
       {
-        a: `---\nname: a\ndescription: d\nmemory: project\n---\nb`,
+        a: `---\nname: a\ndescription: d\npermissionMode: acceptEdits\n---\nb`,
         b: `---\nname: b\ndescription: d\nmaxTurns: 2\n---\nb`,
       },
       (cwd) => loadSubagents(cwd, true, undefined),
