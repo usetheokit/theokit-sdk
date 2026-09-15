@@ -64,30 +64,6 @@ async function readProjectSubagents(
   return subagents;
 }
 
-/**
- * Parse an agent file, or return null when it was written for another runtime.
- *
- * A foreign-runtime file is skipped like a file with no frontmatter, and for the same reason the
- * loader already records there: one of them must not stop every agent in the directory from
- * loading. Only `subagent_foreign_runtime_field` takes this door — a misspelling of one of OUR keys
- * carries `subagent_unknown_field` and still propagates, which is what keeps a typo'd `sandbox`
- * from returning as a silent gate.
- */
-function parseOrSkipForeignRuntime(
-  raw: string,
-  filename: string,
-): { name: string; definition: AgentDefinition } | null {
-  try {
-    return parseSubagentMarkdown(raw, filename);
-  } catch (error) {
-    if (error instanceof ConfigurationError && error.code === "subagent_foreign_runtime_field") {
-      diag(`[theokit-sdk] ${filename}: ${error.message} — skipping this agent`);
-      return null;
-    }
-    throw error;
-  }
-}
-
 async function readSubagentsFrom(
   root: string,
   subagents: Record<string, AgentDefinition>,
@@ -109,8 +85,7 @@ async function readSubagentsFrom(
       diag(`[theokit-sdk] ${entry.name} has no frontmatter — not an agent declaration, skipping`);
       continue;
     }
-    const definition = parseOrSkipForeignRuntime(raw, entry.name);
-    if (definition === null) continue;
+    const definition = parseSubagentMarkdown(raw, entry.name);
     if (subagents[definition.name] === undefined) {
       // `path` is computed above to read the file and was then dropped. Keeping it is the whole
       // visibility fix (#524): without it a listing cannot say which root an agent came from.
