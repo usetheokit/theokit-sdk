@@ -16,8 +16,11 @@
  * @public
  */
 
+// The extension point itself. A `define*` helper nobody can import is an extension that cannot be
+// written.
 export {
   type DefineSubscriptionOptions,
+  defineSubscription,
   Subscription,
 } from "./define-subscription.js";
 export { type SubscribeOptions, subscribe } from "./theokit-subscribe.js";

@@ -31,6 +31,7 @@ const DECLARED_SYMBOLS = [
   "resolveContextImports",
   "runDiscovery",
   "shouldActivateRule",
+  "withheldSpecs",
 ] as const;
 
 let root: string;

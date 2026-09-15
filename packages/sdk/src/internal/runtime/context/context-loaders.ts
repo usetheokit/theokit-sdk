@@ -47,7 +47,11 @@ export interface TruncateResult {
  * slicing + TextDecoder with `fatal: true` retry, which adds complexity
  * without value.
  *
- * @public
+ * Deliberately untagged for the public surface. A tag was here and no entry exported it, so the
+ * docblock promised a symbol
+ * nobody could import. Exporting it was the other option and the wrong one: this is a pure
+ * truncation helper whose docblock describes implementation edge cases (EC-C, EC-H), not a
+ * contract — and an export is a semver commitment somebody then has to keep.
  */
 export function truncateWithMarker(content: string, max: number): TruncateResult {
   if (content.length <= max) {
