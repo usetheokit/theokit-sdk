@@ -64,6 +64,46 @@ async function readProjectSubagents(
   return subagents;
 }
 
+/**
+ * Parse an agent file, or return null when it was written for another runtime.
+ *
+ * ## What this changed, and what it deliberately did not
+ *
+ * The failure used to take the whole directory, and that was a decision rather than an oversight:
+ * "a file that HAS frontmatter and gets it wrong is a broken agent and still fails loudly, which is
+ * what keeps a typo'd `sandbox` from returning as a silent gate through this door. Isolating the
+ * failure per file would hand that risk back."
+ *
+ * The risk named there is real and is NOT handed back, because the isolation is narrower than the
+ * one that argument refuses. Only `KNOWN_CLAUDE_CODE_FIELDS` takes this door — the set that already
+ * encodes "this key belongs to another runtime and carries no behaviour here". A misspelling of one
+ * of OUR keys carries `subagent_unknown_field` and still propagates, so `sandboxx` remains fatal
+ * and cannot return as a silent gate. `a-claude-code-field-names-itself.test.ts` pins both halves.
+ *
+ * What moved the decision was the cost, measured in a live TUI on 2026-09-15: one ported
+ * `.claude/agents/*.md` carrying `memory:` stopped every sibling agent from loading and the turn
+ * produced no answer at all — on an agent the task never used. Beside it, on the same prompt and
+ * the same project, another runtime answered normally. The diagnosis fix this file shipped tells a
+ * user which key is foreign; it does not give them back the turn.
+ *
+ * The loader already draws exactly this line for a file with no frontmatter, and for the same
+ * stated reason: one of them must not stop every agent in the directory from loading.
+ */
+function parseOrSkipForeignRuntime(
+  raw: string,
+  filename: string,
+): { name: string; definition: AgentDefinition } | null {
+  try {
+    return parseSubagentMarkdown(raw, filename);
+  } catch (error) {
+    if (error instanceof ConfigurationError && error.code === "subagent_foreign_runtime_field") {
+      diag(`[theokit-sdk] ${filename}: ${error.message} — skipping this agent`);
+      return null;
+    }
+    throw error;
+  }
+}
+
 async function readSubagentsFrom(
   root: string,
   subagents: Record<string, AgentDefinition>,
@@ -85,7 +125,8 @@ async function readSubagentsFrom(
       diag(`[theokit-sdk] ${entry.name} has no frontmatter — not an agent declaration, skipping`);
       continue;
     }
-    const definition = parseSubagentMarkdown(raw, entry.name);
+    const definition = parseOrSkipForeignRuntime(raw, entry.name);
+    if (definition === null) continue;
     if (subagents[definition.name] === undefined) {
       // `path` is computed above to read the file and was then dropped. Keeping it is the whole
       // visibility fix (#524): without it a listing cannot say which root an agent came from.
