@@ -459,7 +459,7 @@ export function shouldCompact(input: ShouldCompactInput): boolean {
 
 export type { CompressionConfig } from "./internal/runtime/compression/compression-config.js";
 export { CompressionModelUnresolvedError } from "./internal/runtime/compression/compression-model-registry.js";
-// Typed errors and their config. A typed error nobody can import is a message string with extra
-// ceremony: `catch (e) { if (e instanceof CompressionFailedError) }` is the entire reason it exists
-// rather than a string comparison, and that line did not compile for any consumer.
-export { CompressionFailedError } from "./internal/runtime/compression/compression-summarizer.js";
+// `CompressionFailedError` is exported from `./errors`, not here: compression-summarizer.ts
+// imports `CompressibleMessage` from THIS module, so exporting from it closes a cycle madge
+// rejects (tests/architecture/no-cycles-at-all.test.ts). The errors entry is where a consumer
+// looks for a typed error anyway.

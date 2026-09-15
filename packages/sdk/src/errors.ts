@@ -674,3 +674,25 @@ export {
   TaskNotFoundError,
   UnsupportedTaskOperationError,
 } from "./task-errors.js";
+
+/**
+ * Compression of a conversation failed. Declared HERE rather than re-exported from the module
+ * that throws it: this file is imported by 45 modules, and a re-export from `internal/` was the
+ * only one in the file — it closed `errors -> summarizer -> compaction -> errors`, which madge
+ * rejects. Every other domain error is declared in this file for the same reason.
+ *
+ * A typed error nobody can import is a message string with extra ceremony:
+ * `catch (e) { if (e instanceof CompressionFailedError) }` is the entire reason it exists rather
+ * than a string comparison, and that line did not compile for any consumer before this export.
+ *
+ * @public
+ */
+export class CompressionFailedError extends TheokitAgentError {
+  override readonly name = "CompressionFailedError";
+
+  constructor(message: string, options: { cause?: unknown } = {}) {
+    // Retryable: both throw sites are about ONE LLM call that failed or came back empty, which is
+    // the transient shape the SDK's retry layer exists for.
+    super(message, { ...options, code: "compression_failed", isRetryable: true });
+  }
+}
