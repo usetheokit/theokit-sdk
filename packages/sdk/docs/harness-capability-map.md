@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1212 export(s) across 46 entry point(s).
+1228 export(s) across 46 entry point(s).
 
 ## `@theokit/acp`
 
@@ -61,6 +61,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ActiveMemoryPassResult` | interface | Result of `MemoryProvider.runActivePass(...)` — what the kernel injects into the LLM call. |
 | `Agent` | class | Static façade for creating and managing Theo agents. |
 | `AgentBuilder` | class | Fluent builder for {@link AgentOptions } .  |
+| `AgentBuilderDeps` | interface | Terminal-method callbacks injected by `Agent.builder()` so that `agent-builder.ts` does NOT need a static import of `Agent` — keeps the dependency graph acyclic (G6).  |
 | `AgentConversationTurn` | interface | Agent turn: user message + assistant/tool/thinking steps. |
 | `AgentDefinition` | interface | Subagent definition.  |
 | `AgentDescription` | interface | theokit#123 — the read-only introspection of a registered agent, returned by `Agent.describe()`.  |
@@ -136,6 +137,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CounterBudgetTrackerOptions` | interface | Options for `createCounterBudgetTracker`. |
 | `createCounterBudgetTracker` | function | Build a fresh tracker.  |
 | `CreateSkillSpec` | interface | Spec accepted by {@link createSkill } . |
+| `createTokenLimiter` | function | SE25 — a processor that caps text to a token budget.  |
+| `createUnicodeNormalizer` | function | SE25 — an input processor that normalizes user text: Unicode NFC (so canonically-equivalent sequences compare equal) plus optional control-char stripping and whitespace collapsing.  |
 | `CredentialInput` | interface | One provider's credential lookup, as the product resolved it.  |
 | `CredentialReport` | interface | A presence-only view of one credential, safe to print, log, or attach to a support bundle.  |
 | `Cron` | class | Static façade for scheduling Theo agent runs on a cron expression. |
@@ -166,6 +169,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `effectiveToolNames` | function | The tool names an agent created with `options` will offer the model, as far as the options can say.  |
 | `emitRunEvent` | function | SE2 — emit a {@link RunEvent } to an optional sink, swallowing any sink error so observability can never break the run (fail-safe, mirrors the EventBus EC-2 contract).  |
 | `EnvOptOut` | interface | A key deliberately left off the environment, with the reason and what would reverse it. |
+| `EnvPolicy` | type | Owner: `sandbox/` (1 of 2 importers).  |
 | `EnvReachabilityAudit` | interface | The two failures, reported separately because they have opposite fixes.  |
 | `EnvReachabilityInput` | interface | The three lists the audit compares: every key the product declares, the subset an environment variable can set, and the documented exemptions.  |
 | `ErrorCode` | type | Finite, machine-readable error codes for provider-originated errors (ADR D66).  |
@@ -177,6 +181,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `extractRawId` | function | Extract the raw provider id from a `MemoryId`, enforcing that the prefix matches `expectedAdapterId`.  |
 | `fn` | function | Build a `FnStep`.  |
 | `foldLayers` | function | Combine `entries` into one record.  |
+| `ForkOptions` | interface | Caller-supplied fork configuration.  |
+| `ForkResult` | interface | Outcome of a fork run. |
 | `GenerateObjectError` | class | Typed error thrown by {@link Agent.generateObject } when the model refuses to call the synthetic `output` tool or when retries are exhausted. |
 | `GenerateObjectOptions` | interface | Options accepted by {@link Agent.generateObject } .  |
 | `GenerateObjectResult` | interface | Successful return from {@link Agent.generateObject } . |
@@ -191,6 +197,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `GoalOptions` | interface | Per-call configuration for `Agent.runUntil`. |
 | `GoalResult` | interface | Return value of the `runUntil` async generator.  |
 | `guardSessionDestruction` | function | Throw unless `sessionId` is safe to destroy. |
+| `HookApprovalGate` | interface | #631 — a consumer's decision point before this package spawns a hook.  |
+| `HookApprovalRequest` | interface | #631 — what the consumer is shown when asked to approve a hook.  |
 | `HookName` | type | The fixed set of points a `"general"` plugin may attach to through `PluginContext.on`.  |
 | `ImageBlock` | interface | SE7 — a base64-encoded image block a tool can hand back as (part of) its result or its `ToolError`.  |
 | `inferApiMode` | function | Guess which usage shape a provider reports, from its name alone.  |
@@ -217,6 +225,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `LiveAgentRegistry` | class | An LRU-plus-idle cache of live `SDKAgent` instances, reached through `Agent.registry`.  |
 | `LiveSessionError` | class | Raised by `guardSessionDestruction` instead of letting a session be destroyed.  |
 | `LiveSessionReason` | type | Why the destruction was refused. |
+| `LlmCallContext` | interface | #65 — context for the `pre_llm_call` / `post_llm_call` hooks. |
 | `loadProjectEnv` | function | Read the project's `.env` into `env`, then restore every {@link SOVEREIGN_ENV_KEYS } entry to the value it had BEFORE the load — including restoring it to absent.  |
 | `LocalOptions` | interface | Local agent configuration.  |
 | `ManagedSettings` | interface | What an operator may impose.  |
@@ -436,6 +445,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ToolCallCompletedUpdate` | interface | Tool call completed. |
 | `ToolCallStartedUpdate` | interface | Tool call started — args committed. |
 | `ToolCallSummary` | interface | M82 — one tool call of the turn, as seen by `transform_tool_result`.  |
+| `ToolContext` | interface | #65 — a 2nd argument passed to a tool handler, carrying the run's cancellation signal (ties into #58) so a cooperative tool can stop when the run is cancelled.  |
 | `ToolContextMessage` | interface | SE12 — a read-only, text-only projection of one turn of the run's conversation, exposed to a tool handler via `ctx.messages`.  |
 | `ToolError` | class | Thrown from a tool `handler` to surface a failure to the model.  |
 | `ToolResult` | interface | Result of a tool invocation.  |
@@ -895,6 +905,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `compactTranscript` | function | Compact a transcript.  |
 | `CompactTranscriptOptions` | interface | Options for {@link compactTranscript } . |
 | `CompressibleMessage` | interface | Minimal message shape for compaction/compression input.  |
+| `CompressionConfig` | interface | Consumer-facing compression options on `Agent.create`. |
+| `CompressionModelUnresolvedError` | class | T2.2 — Typed error thrown when `resolveCompressionModel` cannot find a same-family-cheaper-tier mapping for `agentModel`.  |
 | `CONTEXT_WINDOW_FLOOR` | const | M77 — the floor used ONLY when neither the catalog nor the caller knows the window.  |
 | `CONTEXT_WINDOW_MARGIN` | const | M77 — default safety margin on the context window.  |
 | `ContextWindowMarginError` | class | M77 — the margin is outside `(0, 1]`.  |
@@ -932,6 +944,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ResolveContextImportsOptions` | interface | Options for {@link resolveContextImports } .  |
 | `runDiscovery` | function | Find, read and parse every context file the specs describe, and return them ready for the aggregator.  |
 | `shouldActivateRule` | function | Decide whether a parsed rule applies to this turn, given the files in scope.  |
+| `WithheldSpec` | interface | A spec a declaration did not admit, with the grant that would.  |
+| `withheldSpecs` | function | The mirror of {@link admittedSpecs } : the specs a declaration did NOT admit.  |
 
 ## `@theokit/sdk/cron`
 
@@ -949,6 +963,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AuthenticationError` | class | Invalid API key, not logged in, insufficient permissions. |
 | `BudgetExceededError` | class | Thrown by `Budget` enforcement (ADR D386) when a `mode: "block"` budget would be exceeded by the upcoming LLM call.  |
 | `coerceToKnownAgentRunErrorCode` | function | T1.1 boundary helper — coerce an arbitrary string (typically arriving from a downstream `RunErrorDetail.code` or a deserialized cloud response) into a `KnownAgentRunErrorCode`.  |
+| `CompressionFailedError` | class | Compression of a conversation failed.  |
 | `ConfigurationError` | class | Invalid model, bad request parameters, malformed options. |
 | `CredentialPoolExhaustedError` | class | Thrown when every credential in a per-provider pool is in cooldown and no healthy key is available (ADR D133).  |
 | `ErrorCode` | type | Finite, machine-readable error codes for provider-originated errors (ADR D66).  |
@@ -1376,6 +1391,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
+| `defineSubscription` | function | Define a typed subscription.  |
 | `DefineSubscriptionOptions` | interface | Options accepted by {@link defineSubscription } . |
 | `isTrackedEnvelope` | function | Type guard for {@link TrackedEnvelope } . |
 | `subscribe` | function | Subscribe to a typed subscription.  |
