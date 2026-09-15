@@ -681,6 +681,10 @@ export {
  * only one in the file — it closed `errors -> summarizer -> compaction -> errors`, which madge
  * rejects. Every other domain error is declared in this file for the same reason.
  *
+ * Thrown when the compression LLM call fails or returns an empty / ineffective summary. The
+ * caller catches it and handles the ADR D440 failure mode: WARN, keep the original
+ * conversation, bump the counter.
+ *
  * A typed error nobody can import is a message string with extra ceremony:
  * `catch (e) { if (e instanceof CompressionFailedError) }` is the entire reason it exists rather
  * than a string comparison, and that line did not compile for any consumer before this export.

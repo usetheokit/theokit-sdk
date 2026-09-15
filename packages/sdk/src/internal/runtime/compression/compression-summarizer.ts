@@ -26,14 +26,6 @@ import { CompressionFailedError } from "../../../errors.js";
 export type { CompressibleMessage };
 
 /**
- * Typed error thrown when the compression LLM call fails or returns
- * an empty/ineffective summary. The caller catches and handles per
- * ADR D440 failure mode (WARN + original conversation + counter).
- *
- * @public
- */
-
-/**
  * Build the summarization prompt from a conversation window.
  * The prompt instructs the LLM to produce a concise summary that
  * preserves all facts, decisions, and context needed for the
