@@ -163,7 +163,7 @@ importers:
     devDependencies:
       '@honcho-ai/sdk':
         specifier: ^2.1.1
-        version: 2.1.1
+        version: 2.4.0
       '@theokit/sdk':
         specifier: workspace:*
         version: link:../sdk
@@ -1315,8 +1315,8 @@ packages:
       '@modelcontextprotocol/sdk':
         optional: true
 
-  '@honcho-ai/sdk@2.1.1':
-    resolution: {integrity: sha512-1EgDchnK2bTllhUCNhH1PZbw65fExmTtY2sraqXc1O41o1gY4Rpqrl1XCo+7RfdcZo85N7vl461hqYCouhbR1A==}
+  '@honcho-ai/sdk@2.4.0':
+    resolution: {integrity: sha512-nZE0RJOY3/KhHZdJ9T/fan8Wr26R6Q8s+5GhFpbWwHmnR6680S0r++hoeRpHzcngiU/3cmNQW248pdWpSwU2+Q==}
 
   '@hono/node-server@2.1.1':
     resolution: {integrity: sha512-ELuehkj5VCBdgEw9zs+ivkKwyzzUCSQuE96YmiPvn1ECBoZCczbFXJLeEGMTYjphP6gydh4pHMqEYPVMYUVgQg==}
@@ -6818,9 +6818,9 @@ snapshots:
       - utf-8-validate
     optional: true
 
-  '@honcho-ai/sdk@2.1.1':
+  '@honcho-ai/sdk@2.4.0':
     dependencies:
-      zod: 4.4.3
+      zod: 4.6.2
 
   '@hono/node-server@2.1.1(hono@4.13.7)':
     dependencies:
