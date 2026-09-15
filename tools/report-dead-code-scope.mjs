@@ -48,5 +48,7 @@ console.log(
 console.log(
   "[knip] the repo has 12 packages with a src/ tree; the two above are the only ones declared, so " +
     "a dead export in the other ten is not caught here. Declaring all twelve was measured on " +
-    "2026-08-20 and surfaced nothing — they are unexamined, not known-dirty.",
+    "2026-08-20 and again on 2026-09-15, and surfaced nothing either time — they are " +
+    "unexamined, not known-dirty. The date is here so the next reader re-runs it rather " +
+    "than inheriting it: a note like this stays true only while its number does.",
 );
