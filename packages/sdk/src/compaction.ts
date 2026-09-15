@@ -456,3 +456,10 @@ export function estimateTokens(text: string): number {
 export function shouldCompact(input: ShouldCompactInput): boolean {
   return input.estimated >= input.contextWindow - input.buffer - (input.maxOutput ?? 0);
 }
+
+export type { CompressionConfig } from "./internal/runtime/compression/compression-config.js";
+export { CompressionModelUnresolvedError } from "./internal/runtime/compression/compression-model-registry.js";
+// `CompressionFailedError` is exported from `./errors`, not here: compression-summarizer.ts
+// imports `CompressibleMessage` from THIS module, so exporting from it closes a cycle madge
+// rejects (tests/architecture/no-cycles-at-all.test.ts). The errors entry is where a consumer
+// looks for a typed error anyway.

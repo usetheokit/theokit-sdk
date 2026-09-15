@@ -1,5 +1,71 @@
 # Changelog
 
+## 5.7.0
+
+### Minor Changes
+
+- [#675](https://github.com/usetheokit/theokit-sdk/pull/675) [`cbbed19`](https://github.com/usetheokit/theokit-sdk/commit/cbbed19abff45b58c10de1bf694524fbd246d6c2) Thanks [@usetheodev](https://github.com/usetheodev)! - A repo-root instruction file now requires a grant a consumer can write.
+  
+  `DEFAULT_DISCOVERY_SPECS` carries four repo-root instruction files whose bodies enter the system
+  prompt as if we had written them — `AGENTS.md`, `GEMINI.md`, `CLAUDE.md` and `.cursor/rules/*.mdc`.
+  Until now exactly ONE spec in that file carried a gate, and it was `.claude/rules/*.md`. A cloned
+  repository's `.claude/rules/*.md` needed a declaration; the `CLAUDE.md` one directory up did not,
+  while both carried the same risk.
+  
+  **The vocabulary landed before the gate, and the order is the whole point.** `CompatSource` went
+  from two literals to five:
+  
+  ```ts
+  compatSources: ["agents"]   // AGENTS.md is admitted; GEMINI.md is not
+  ```
+  
+  Gating the four against the OLD union would have gated three formats on a grant nobody could write
+  and made them permanently unreachable — worse than the gap. A test asserts the invariant in both
+  directions and fails the moment a spec is gated on a token the union does not carry.
+  
+  **Separate literals, not one `foreign` token**, so a consumer who wants `AGENTS.md` is not forced to
+  also admit `.cursor/rules/*.mdc`.
+  
+  **BREAKING for a consumer who declares nothing**: they went from four repo-root files in the prompt
+  to none. That is the intended behaviour and it is LOUD — `withheldSpecs` reports every withheld file
+  by path with the grant that restores it, and the runner warns once naming each one. A count would be
+  a diagnosis with no remedy: you cannot decide whether to grant a dialect without knowing which file
+  it brings.
+  
+  `undefined` and `[]` stay distinct: no gate configured admits everything, an empty declaration
+  withholds every gated spec. Collapsing them would restore the defect the first gate closed.
+
+- [#675](https://github.com/usetheokit/theokit-sdk/pull/675) [`de40d9f`](https://github.com/usetheokit/theokit-sdk/commit/de40d9f3d398f84d5b145cec8bc56a4c6ec85a25) Thanks [@usetheodev](https://github.com/usetheodev)! - The pre-compaction seam now reaches the compaction path a consumer actually calls.
+  
+  There are three compaction paths in this ecosystem. `withPreCompaction`, shipped in
+  `@theokit/agents@14.1.0`, covers one of them — the agents-layer strategy. The other two are
+  `autoCompactIfNeeded` and `Agent.compact(sessionId, { trigger })`, and **the second is the one a
+  person reaches**: `/compact` → `handleCompact` → `compactSession` → `Agent.compact`.
+  
+  ```ts
+  await Agent.compact(agentId, {
+    trigger: "manual",
+    onPreCompact: async ({ messages, trigger, signal }) => {
+      await archive(messages, { because: trigger })   // runs BEFORE the transcript is rewritten
+    },
+    onPreCompactError: (e) => report(e),              // compaction proceeds either way
+  })
+  ```
+  
+  **One seam covers both SDK paths** because they converge on `compactSessionTranscript`. A seam per
+  caller would need each one to choose, and a caller that chooses wrong reintroduces the gap.
+  
+  **`trigger` is received, not inferred.** It already existed in the options and already reached the
+  compaction boundary; the handler is simply told. Inferring it from the call site would be right today
+  and silently wrong the first time a third caller appears.
+  
+  **Failure never blocks compaction.** A handler that throws is reported; one that exceeds its bound is
+  abandoned with its `AbortSignal` aborted first, so it can stop rather than be left running. A hook
+  that could block would turn a consumer's bug into a runtime that cannot reclaim its context.
+  
+  **Nothing changes for a consumer who registers nothing** — the seam is not entered, asserted by a
+  test rather than left as an inference.
+
 ## 5.6.0
 
 ### Minor Changes

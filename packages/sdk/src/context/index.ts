@@ -106,3 +106,5 @@ export function resolveContextImports(
   };
   return resolveImportsInternal(content, basePath, internalOptions);
 }
+export type { WithheldSpec } from "../internal/runtime/context/context-discovery.js";
+export { withheldSpecs } from "../internal/runtime/context/context-discovery.js";

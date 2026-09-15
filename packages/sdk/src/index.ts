@@ -5,6 +5,11 @@
 
 // Agent façade
 export { Agent, type AgentPromptResult } from "./agent.js";
+// Types a consumer already meets through a public signature. Each was marked `@public` and reachable
+// from no entry — the promise the docblock makes was not kept by the export map. `AgentBuilderDeps`
+// states the reasoning in its own words: `new AgentBuilder(deps)` is callable by anyone, so this
+// parameter's type is part of the published contract whether or not that was intended.
+export type { AgentBuilderDeps } from "./agent-builder.js";
 // DX helpers — agent construction patterns (ADR D22-D26)
 export { AgentBuilder } from "./agent-builder.js";
 export { AgentFactory } from "./agent-factory.js";
@@ -40,6 +45,8 @@ export {
 } from "./budget.js";
 // SE25 — deterministic in-tree guardrail processors (built on the SE24 seam).
 export {
+  createTokenLimiter,
+  createUnicodeNormalizer,
   estimateTokens,
   TokenLimiter,
   type TokenLimiterOptions,
@@ -396,6 +403,8 @@ export type {
 } from "./types/agent.js";
 // SE7 — structured/multimodal tool-result content blocks (explicit for rollup-dts).
 export type { ImageBlock, ToolResultContentBlock } from "./types/content-blocks.js";
+export type { EnvPolicy } from "./types/env-policy.js";
+export type { ForkOptions, ForkResult } from "./types/fork.js";
 // M80 — `JudgeResult` and `Verdict` become public.
 //
 // They were `internal/`, so a consumer wanting to type the judge's return — to react to `blocked`
@@ -407,8 +416,10 @@ export type { ImageBlock, ToolResultContentBlock } from "./types/content-blocks.
 // `catch`es in the goal loop needs to tell "the judge credential does not work" from any other
 // failure.
 export type { JudgeResult, Verdict } from "./types/goal-events.js";
+export type { HookApprovalGate, HookApprovalRequest } from "./types/hooks.js";
 // Type contract
 export type * from "./types/index.js";
+export type { LlmCallContext, ToolContext } from "./types/plugin.js";
 // SE24 — guardrail processor pipeline (inputProcessors / outputProcessors).
 export type {
   InputProcessorContext,

@@ -63,7 +63,6 @@ const KNOWN_TEST_ONLY = new Set([
   "internal/persistence/pagination.ts",
   "internal/personality/resolver.ts",
   "internal/runtime/compression/compression-attempt.ts",
-  "internal/runtime/compression/compression-config.ts",
   "internal/runtime/lifecycle/auto-summarize.ts",
   "internal/runtime/tools/hitl-middleware.ts",
   "internal/security/test-reset.ts",

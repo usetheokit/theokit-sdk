@@ -45,7 +45,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `cloud_run_unknown_status` | domain | NetworkError | `packages/sdk/src/internal/cloud-agent/real-cloud-run.ts:284` +1 |
 | `cloud_runtime_pre_release` | domain | ConfigurationError | `packages/sdk/src/agent.ts:417` +2 |
 | `cloud_stdio_cwd_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:121` |
-| `compression_failed` | domain | — | `packages/sdk/src/internal/runtime/compression/compression-summarizer.ts:41` |
+| `compression_failed` | domain | — | `packages/sdk/src/errors.ts:700` |
 | `compression_model_unresolved` | domain | — | `packages/sdk/src/internal/runtime/compression/compression-model-registry.ts:102` +1 |
 | `context_config_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-manager.ts:288` |
 | `context_frontmatter_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-frontmatter.ts:38` |
