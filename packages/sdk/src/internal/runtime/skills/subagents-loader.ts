@@ -64,6 +64,30 @@ async function readProjectSubagents(
   return subagents;
 }
 
+/**
+ * Parse an agent file, or return null when it was written for another runtime.
+ *
+ * A foreign-runtime file is skipped like a file with no frontmatter, and for the same reason the
+ * loader already records there: one of them must not stop every agent in the directory from
+ * loading. Only `subagent_foreign_runtime_field` takes this door — a misspelling of one of OUR keys
+ * carries `subagent_unknown_field` and still propagates, which is what keeps a typo'd `sandbox`
+ * from returning as a silent gate.
+ */
+function parseOrSkipForeignRuntime(
+  raw: string,
+  filename: string,
+): { name: string; definition: AgentDefinition } | null {
+  try {
+    return parseSubagentMarkdown(raw, filename);
+  } catch (error) {
+    if (error instanceof ConfigurationError && error.code === "subagent_foreign_runtime_field") {
+      diag(`[theokit-sdk] ${filename}: ${error.message} — skipping this agent`);
+      return null;
+    }
+    throw error;
+  }
+}
+
 async function readSubagentsFrom(
   root: string,
   subagents: Record<string, AgentDefinition>,
@@ -85,7 +109,8 @@ async function readSubagentsFrom(
       diag(`[theokit-sdk] ${entry.name} has no frontmatter — not an agent declaration, skipping`);
       continue;
     }
-    const definition = parseSubagentMarkdown(raw, entry.name);
+    const definition = parseOrSkipForeignRuntime(raw, entry.name);
+    if (definition === null) continue;
     if (subagents[definition.name] === undefined) {
       // `path` is computed above to read the file and was then dropped. Keeping it is the whole
       // visibility fix (#524): without it a listing cannot say which root an agent came from.
@@ -176,24 +201,32 @@ const KNOWN_CLAUDE_CODE_FIELDS = new Set([
   "mcpServers",
 ]);
 
+/**
+ * The typed error for a key we do not accept. Built here rather than inline so `rejectUnknownFields`
+ * stays a plain loop: the message has two shapes and the code has two values, and computing all four
+ * at the throw site is what pushed that function past the cognitive-complexity gate.
+ */
+function unknownFieldError(key: string, filename: string): ConfigurationError {
+  const foreign = KNOWN_CLAUDE_CODE_FIELDS.has(key);
+  const siblings = [...KNOWN_CLAUDE_CODE_FIELDS].filter((f) => f !== key);
+  const origin = foreign
+    ? ` — "${key}" is a Claude Code subagent field that this runtime does not support. ` +
+      `The same applies to: ${siblings.join(", ")}. Removing them one at a time will meet each ` +
+      `in turn; the tree is written for another runtime`
+    : "";
+  return new ConfigurationError(
+    `Subagent ${filename}: unknown frontmatter field "${key}" (accepted: ${[...ACCEPTED_FIELDS].join(", ")})${origin}`,
+    { code: foreign ? "subagent_foreign_runtime_field" : "subagent_unknown_field" },
+  );
+}
+
 function rejectUnknownFields(
   fields: Record<string, FrontmatterValue | undefined>,
   filename: string,
 ): void {
   for (const key of Object.keys(fields)) {
     if (INERT_CLAUDE_CODE_FIELDS.has(key)) continue;
-    if (!ACCEPTED_FIELDS.has(key)) {
-      const siblings = [...KNOWN_CLAUDE_CODE_FIELDS].filter((f) => f !== key);
-      const origin = KNOWN_CLAUDE_CODE_FIELDS.has(key)
-        ? ` — "${key}" is a Claude Code subagent field that this runtime does not support. ` +
-          `The same applies to: ${siblings.join(", ")}. Removing them one at a time will meet each ` +
-          `in turn; the tree is written for another runtime`
-        : "";
-      throw new ConfigurationError(
-        `Subagent ${filename}: unknown frontmatter field "${key}" (accepted: ${[...ACCEPTED_FIELDS].join(", ")})${origin}`,
-        { code: "subagent_unknown_field" },
-      );
-    }
+    if (!ACCEPTED_FIELDS.has(key)) throw unknownFieldError(key, filename);
   }
 }
 
