@@ -142,6 +142,26 @@ export function admittedSpecs(
 }
 
 /**
+ * A spec a declaration did not admit, with the grant that would.
+ *
+ * A NAMED type rather than the inline shape it replaced, and that is not style. The DTS rollup only
+ * pulls a symbol into a chunk when a public type references it — with an anonymous return type
+ * nothing referenced `withheldSpecs`, the re-export dangled, and the build failed with TS2305 in
+ * whichever file carried it. Naming the return value is what makes the function reachable, and it
+ * also gives a consumer something to write in their own signature.
+ *
+ * @public
+ */
+export interface WithheldSpec {
+  /** The spec's stable id, as it appears in telemetry. */
+  readonly id: string;
+  /** The filename or glob that was not loaded. */
+  readonly pattern: string;
+  /** The `compatSources` grant that would admit it. */
+  readonly grant: string;
+}
+
+/**
  * The mirror of {@link admittedSpecs}: the specs a declaration did NOT admit.
  *
  * It exists because `runDiscovery`'s own docblock admits the gap it closes — *"a shorter result
@@ -166,7 +186,7 @@ export function admittedSpecs(
 export function withheldSpecs(
   specs: ReadonlyArray<DiscoverySpec>,
   declaredKinds: ReadonlyArray<string> | undefined,
-): ReadonlyArray<{ readonly id: string; readonly pattern: string; readonly grant: string }> {
+): ReadonlyArray<WithheldSpec> {
   if (declaredKinds === undefined) return [];
   const granted = new Set(declaredKinds);
   return specs
