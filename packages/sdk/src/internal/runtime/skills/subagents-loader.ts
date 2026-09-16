@@ -234,9 +234,21 @@ function unknownFieldError(key: string, filename: string): ConfigurationError {
       `The same applies to: ${siblings.join(", ")}. Removing them one at a time will meet each ` +
       `in turn; the tree is written for another runtime`
     : "";
+  // The two codes are written as LITERALS, one per branch, rather than as a ternary inside the
+  // options object. `tools/generate-error-codes.mjs` walks the source for the literal assigned to
+  // `code:`, so a ternary there is not a literal and it extracted NEITHER — measured 2026-09-15,
+  // when `quality:docs-errors` went red and the regenerated reference had lost
+  // `subagent_unknown_field` without ever gaining `subagent_foreign_runtime_field`. Two real,
+  // throwable codes were absent from the published error reference, which is the one place a
+  // consumer looks to find out what they can catch.
+  if (foreign)
+    return new ConfigurationError(
+      `Subagent ${filename}: unknown frontmatter field "${key}" (accepted: ${[...ACCEPTED_FIELDS].join(", ")})${origin}`,
+      { code: "subagent_foreign_runtime_field" },
+    );
   return new ConfigurationError(
     `Subagent ${filename}: unknown frontmatter field "${key}" (accepted: ${[...ACCEPTED_FIELDS].join(", ")})${origin}`,
-    { code: foreign ? "subagent_foreign_runtime_field" : "subagent_unknown_field" },
+    { code: "subagent_unknown_field" },
   );
 }
 
