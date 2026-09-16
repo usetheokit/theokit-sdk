@@ -7,14 +7,32 @@ import { loadSubagents } from "../../../../src/internal/runtime/skills/subagents
 import { removeTempDirRobustSync } from "../../../helpers/temp-workspace.js";
 
 /**
+ * `memory:` was this file's example until 2026-09-15, when it stopped being another runtime's field:
+ * `@theokit/agents` owns three memory roots and a reader for them, the loader now CARRIES the
+ * declaration, and a host applies it. The example moved to `permissionMode`, which is still theirs.
+ * What the case tests is unchanged — a foreign key skips its own file and the siblings load.
+ *
  * A subagent carrying Claude Code frontmatter fails the whole directory, and the message names one
  * key while a dozen siblings would do the same.
  *
- * **The failing is deliberate and stays.** The no-frontmatter case above it records why the line is
- * drawn where it is: skipping was added only for files that declare nothing, because "a file that
- * HAS frontmatter and gets it wrong is a broken agent and still fails loudly, which is what keeps a
- * typo'd `sandbox` from returning as a silent gate through this door." Isolating the failure per
- * file would hand that risk back.
+ * **This decision changed on 2026-09-15, and the reasoning that held it is kept rather than
+ * deleted.** It read:
+ *
+ *   "The failing is deliberate and stays. [...] a file that HAS frontmatter and gets it wrong is a
+ *   broken agent and still fails loudly, which is what keeps a typo'd `sandbox` from returning as a
+ *   silent gate through this door. Isolating the failure per file would hand that risk back."
+ *
+ * The risk it names is real, and the isolation that replaced it is NARROWER than the one that
+ * argument refuses. Only `KNOWN_CLAUDE_CODE_FIELDS` is skipped — the set that already encodes "this
+ * key belongs to another runtime and carries no behaviour here". A misspelling of one of OUR keys
+ * still propagates, so `sandboxx` stays fatal and cannot return as a silent gate. The last case
+ * below pins that half, and it is the half that must never be relaxed.
+ *
+ * What moved the decision was the cost, measured in a live TUI: one ported `.claude/agents/*.md`
+ * carrying `memory:` stopped every sibling agent from loading and the turn produced no answer at
+ * all, on an agent the task never used — while another runtime, same prompt and same project,
+ * answered normally. The diagnosis fix below tells a user WHICH key is foreign; it does not give
+ * them back the turn.
  *
  * What is fixable is the DIAGNOSIS. Measured: a directory with one valid agent and one carrying
  * `memory: project` loads nothing, with `unknown frontmatter field "memory"`. A user migrating a
@@ -43,27 +61,26 @@ function agentsDir(files: Record<string, string>): string {
 const ok = "---\nname: ok-agent\ndescription: d\n---\nbody\n";
 
 describe("a Claude Code frontmatter field names itself", () => {
-  it("says the field belongs to another runtime, and names its siblings", async () => {
+  it("skips the foreign file and loads its healthy sibling", async () => {
     const dir = agentsDir({
       "ok.md": ok,
-      "ported.md": "---\nname: ported\ndescription: d\nmemory: project\n---\nbody\n",
+      "ported.md": "---\nname: ported\ndescription: d\npermissionMode: acceptEdits\n---\nbody\n",
     });
 
-    const error = await loadSubagents(dir, true, undefined, []).catch((e: unknown) => e);
+    const loaded = await loadSubagents(dir, true, undefined, []);
 
-    expect(error).toBeInstanceOf(Error);
-    const message = (error as Error).message;
-    expect(
-      message,
-      "the message named one key and left the user to discover the other twelve one failure at a time",
-    ).toMatch(/permissionMode|another runtime|Claude Code/i);
+    expect(Object.keys(loaded), "the directory used to fail whole").toContain("ok-agent");
+    expect(Object.keys(loaded), "the foreign file itself does not load").not.toContain("ported");
   });
 
-  it("still fails loudly, which is the decision this test does not touch", async () => {
+  it("a genuinely unknown field is STILL fatal — the half that must not be relaxed", async () => {
+    // `sandboxx` is our own field, misspelled. Skipping it would load an agent whose sandbox the
+    // author believed they had set: the silent gate the previous decision existed to prevent.
     const dir = agentsDir({
-      "ported.md": "---\nname: p\ndescription: d\nmemory: project\n---\nb\n",
+      "typo.md": "---\nname: t\ndescription: d\nsandboxx: true\n---\nb\n",
     });
-    await expect(loadSubagents(dir, true, undefined, [])).rejects.toThrow(/memory/);
+
+    await expect(loadSubagents(dir, true, undefined, [])).rejects.toThrow(/sandboxx/);
   });
 
   it("loads a clean directory", async () => {
