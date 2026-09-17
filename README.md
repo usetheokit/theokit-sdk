@@ -624,6 +624,52 @@ Hooks are file-based only. There is no programmatic hook callback — hooks are 
 Three files are read from each config root, and **merged** — `hooks.json`, `settings.json` and
 `settings.local.json`. The last two are read from `.theokit/` too, not only from `.claude/`.
 
+### The shape
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "shell",
+        "hooks": [{ "type": "command", "command": "./scripts/guard.sh", "timeout": 30 }]
+      }
+    ]
+  }
+}
+```
+
+A hook entry accepts exactly three fields — `type`, `command`, `timeout`. Seven Claude Code fields
+are **refused with a named error rather than dropped**: `if`, `args`, `statusMessage`, `once`,
+`async`, `asyncRewake`, `shell`. Dropping `if` in particular fails OPEN — a deny hook narrowed to one
+dangerous command would silently become a deny hook over every call of that tool.
+
+**Four events fire**, and they are the whole of the mapping:
+
+| In `hooks.json` | Fires |
+| --- | --- |
+| `PreToolUse` | before a tool call |
+| `PostToolUse` | after a tool call |
+| `UserPromptSubmit` | before the run |
+| `Stop` | when the run stops |
+
+Any other documented Claude Code event — `SessionStart`, `PreCompact`, `SubagentStop`,
+`Notification`, `SessionEnd` and the rest of the thirty-three — is **reported to the operator and not
+loaded**. That is deliberate and not a backlog: mapping a name this runtime never fires would replace
+the report with silence, and an operator would have a declared veto that never runs.
+
+### A hook that denies
+
+Three spellings mean deny, and all three are read. The nested one is what the Claude Code
+documentation instructs a hook to emit:
+
+```json
+{ "hookSpecificOutput": { "permissionDecision": "deny", "permissionDecisionReason": "blocked by policy" } }
+```
+
+`ask` projects to **deny**, not allow: the hook asked for a decision this runtime cannot put to
+anyone, and resolving that to allow would be a fail-open one value over.
+
 That matters if another product keeps its own configuration in `.theokit/`: this is the SDK's
 filebase, so a `hooks` key in a `.theokit/settings.json` is read and validated **here**, against the
 shape above, whatever else wrote the file. A shape this loader cannot parse fails the run. Measured
