@@ -352,8 +352,13 @@ function flattenEventGroups(groups: unknown, path: string, ccEvent: string): Hoo
  * `if` is the one that made refusal the right answer rather than a warning. Dropped, it fails OPEN:
  * a deny hook narrowed to one dangerous command shape silently becomes a deny hook over every call
  * of that tool. Every other field in this set loses a convenience; this one inverts the intent.
+ *
+ * Exported for the same reason {@link CLAUDE_CODE_EVENT_MAP} is: so the set is DERIVED by whoever
+ * states it, rather than restated and left to drift. The README documents this list, and
+ * `tests/the-readme-hooks-shape-matches-the-loader.test.ts` reads it from here — #638, where the
+ * README told a consumer to validate "against the shape above" and no shape was above it.
  */
-const UNIMPLEMENTED_CLAUDE_CODE_HOOK_FIELDS = new Set([
+export const UNIMPLEMENTED_CLAUDE_CODE_HOOK_FIELDS = new Set([
   "if",
   "args",
   "statusMessage",
@@ -363,8 +368,12 @@ const UNIMPLEMENTED_CLAUDE_CODE_HOOK_FIELDS = new Set([
   "shell",
 ]);
 
-/** What `parseClaudeCodeCommand` reads. Anything else is refused. */
-const ACCEPTED_HOOK_FIELDS = new Set(["type", "command", "timeout"]);
+/**
+ * What `parseClaudeCodeCommand` reads. Anything else is refused.
+ *
+ * Exported for the README gate — see the note on the set above.
+ */
+export const ACCEPTED_HOOK_FIELDS = new Set(["type", "command", "timeout"]);
 
 /**
  * Refuse a hook entry that declares a field this parser does not read.

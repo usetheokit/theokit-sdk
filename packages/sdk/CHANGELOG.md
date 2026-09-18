@@ -1,5 +1,43 @@
 # Changelog
 
+## 5.9.0
+
+### Minor Changes
+
+- [#691](https://github.com/usetheokit/theokit-sdk/pull/691) [`4594f67`](https://github.com/usetheokit/theokit-sdk/commit/4594f6709e48849bb7774b40d2bc5c8e6f5d9e49) Thanks [@usetheodev](https://github.com/usetheodev)! - A subagent's `memory:` frontmatter is carried on `AgentDefinition.memory` instead of failing the
+  file. The SDK does not resolve the root, read `MEMORY.md` or touch the prompt: which of three roots
+  a note lives under is a decision about who can see it, `@theokit/agents` owns that decision with
+  `resolveAgentMemory`, and a second copy of the rule here is how the two drift into disagreeing about
+  privacy. The value passes through unjudged so a scope a newer `@theokit/agents` has learned is not
+  rejected by a list in this package. `permissionMode`, `maxTurns` and the rest of
+  `KNOWN_CLAUDE_CODE_FIELDS` still skip their file.
+
+### Patch Changes
+
+- [#691](https://github.com/usetheokit/theokit-sdk/pull/691) [`b19965d`](https://github.com/usetheokit/theokit-sdk/commit/b19965d4a0470944fb29bb5ee6f5055c98136f2b) Thanks [@usetheodev](https://github.com/usetheodev)! - Two throwable error codes are back in the published error reference.
+  
+  `subagent_foreign_runtime_field` and `subagent_unknown_field` were written as a ternary inside the
+  `ConfigurationError` options. `tools/generate-error-codes.mjs` walks the source for the literal
+  assigned to `code:`, and a ternary is not a literal, so it extracted NEITHER — the reference lost a
+  code it used to list and never gained the one that replaced it.
+  
+  Both are real and both are thrown. The error reference is the one place a consumer looks to find
+  out what they can catch, and it listed neither.
+
+- [#691](https://github.com/usetheokit/theokit-sdk/pull/691) [`1d6ce94`](https://github.com/usetheokit/theokit-sdk/commit/1d6ce943b0758223dbce3554e4d7f4c41f7837a0) Thanks [@usetheodev](https://github.com/usetheodev)! - A subagent written for another runtime no longer stops the whole directory from loading. One
+  `.claude/agents/*.md` carrying `memory:`, `permissionMode:`, `maxTurns:` or any other field in
+  `KNOWN_CLAUDE_CODE_FIELDS` threw out of `loadSubagents`, so every sibling agent failed with it and
+  the turn produced no answer at all — measured in a live session where the offending agent was not
+  used by the task. Such a file is now skipped with a diagnostic, the way a file with no frontmatter
+  already was. A misspelling of one of our own fields (`sandboxx`), or an unknown that belongs to
+  nobody (`widgets`), is still fatal — so a typo cannot return as a silent gate.
+
+- [#691](https://github.com/usetheokit/theokit-sdk/pull/691) [`7d6664a`](https://github.com/usetheokit/theokit-sdk/commit/7d6664aa0aa9e45e720d33b438f5055c5740297a) Thanks [@usetheodev](https://github.com/usetheodev)! - The dead-code scope note carries a second measurement. It said declaring all twelve packages "was
+  measured on 2026-08-20 and surfaced nothing", which is the honest shape for a coverage gap — but a
+  note like that stays true only while its number does. Re-measured 2026-09-15 by declaring the other
+  ten workspaces and running knip: configuration hints only, no unused exports, exit 0. The ten are
+  still unexamined rather than known-dirty, now on two dates instead of one.
+
 ## 5.8.0
 
 ### Minor Changes
