@@ -59,7 +59,7 @@
   },
   "devDependencies": {
     "tsup": "^8.3.5",
-    "typescript": "^5.7.2",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.8",
     "@theokit/sdk": "workspace:*",
     "@theokit/sdk-cache": "workspace:*",
