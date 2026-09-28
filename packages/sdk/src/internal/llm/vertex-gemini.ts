@@ -13,6 +13,7 @@
 
 import { ConfigurationError } from "../../errors.js";
 import { resolveVertexBaseUrl } from "../providers/builtin/vertex.js";
+import { boundFetch } from "../runtime-fetch.js";
 import { OpenAIClient } from "./openai.js";
 import type { LlmClient, LlmEvent, LlmFinish, LlmRequest } from "./types.js";
 import {
@@ -96,7 +97,7 @@ export class VertexGeminiClient implements LlmClient {
     // suffix lands on our actual endpoint.
     //
     // Simplest: create a wrapper fetch that rewrites the URL before delegating.
-    const innerFetch = this.options.fetch ?? fetch;
+    const innerFetch = boundFetch(this.options.fetch);
     // B-103 (measured 2026-08-19): OpenAIClient is the only caller of this `fetch`, and
     // it invokes it exactly once with the template-literal string
     // `${baseUrl}${chatPath}` (openai.ts:169). For the placeholder baseUrl used below,

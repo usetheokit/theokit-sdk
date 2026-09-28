@@ -8,6 +8,7 @@ import {
   UnknownAgentError,
 } from "../errors.js";
 import { getConfiguredBaseUrl } from "./base-url.js";
+import { boundFetch } from "./runtime-fetch.js";
 
 /**
  * Default base URL used when neither `THEOKIT_API_BASE_URL` nor an explicit
@@ -65,7 +66,7 @@ export function resolveBaseUrl(): string {
  */
 export async function httpRequest<T>(path: string, options: HttpRequestOptions): Promise<T> {
   const url = `${resolveBaseUrl()}${path}`;
-  const fetchFn = options.fetchFn ?? globalThis.fetch;
+  const fetchFn = boundFetch(options.fetchFn);
   const headers: Record<string, string> = {
     "content-type": "application/json",
     authorization: `Bearer ${options.apiKey}`,

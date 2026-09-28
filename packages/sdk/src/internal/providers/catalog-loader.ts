@@ -1,22 +1,45 @@
 /**
- * Dynamic provider catalog loader (T10.1, ADR D447).
+ * Provider catalog loader (T10.1, ADR D447).
  *
- * Loads provider metadata from `provider-catalog.json` at runtime.
- * Malformed entries are skipped with WARN (EC-1) — never crash.
+ * Provider metadata, EMBEDDED at build time. Malformed entries are skipped with WARN (EC-1) — never
+ * crash.
+ *
+ * ## Why embedded and not read from disk
+ *
+ * It used to be `readFileSync` from a directory computed as
+ * `dirname(fileURLToPath(import.meta.url))` at module scope. Both halves break on a runtime with no
+ * filesystem, in that order, and this file is only model METADATA — so an environment that could not
+ * read it could not run a turn at all.
+ *
+ * Measured end to end on 2026-09-28, driving a real deploy of a TheoKit app (theokit#705):
+ *
+ *   1. Cloudflare EXECUTES the top-level module during validation, so the upload was refused before
+ *      any request existed — `The "path" argument must be of type string … Received undefined`,
+ *      code 10021.
+ *   2. With `import.meta.url` substituted by the consumer's bundler, the module initialised and the
+ *      TURN failed: `[unenv] fs.readFileSync is not implemented yet!`
+ *   3. With a newer `compatibility_date`, workerd implements `readFileSync` and the error became the
+ *      honest one: `ENOENT: readAll '/provider-catalog.json'`. The same `ENOENT` reached a deployed
+ *      Vercel function, whose bundle carries the JS and not the JSON.
+ *
+ * No consumer's bundler can fix that from outside. Probed from inside a deployed worker, workerd's
+ * whole virtual filesystem is `/bundle/worker.js`, an empty `/tmp` and `/dev` — there is nowhere to
+ * put this package's private data file such that `join(dirname(<a file URL>), …)` finds it, short of
+ * hardcoding our internal layout into their build.
+ *
+ * `with { type: "json" }` follows `internal/budget/pricing-registry.ts`, which has imported a sibling
+ * JSON exactly this way in this package for as long as it has existed. Bundlers inline it, so the
+ * emitted module carries the data and reaches for nothing.
  *
  * @internal
  */
 
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { diag } from "../diagnostics.js";
 import { globalSingleton } from "../global-singleton.js";
 import { type CatalogModel, catalogEntrySchema, catalogModelSchema } from "./catalog-schema.js";
+import embeddedCatalog from "./provider-catalog.json" with { type: "json" };
 import { getProviderProfile, registerProvider } from "./registry.js";
 import type { ApiMode, AuthType, ProviderProfile } from "./types.js";
-
-const __dirname_resolved = dirname(fileURLToPath(import.meta.url));
 
 export interface ProviderCapabilities {
   supportsToolUse: boolean;
@@ -174,9 +197,9 @@ function validateEntry(raw: Record<string, unknown>): CatalogEntry | null {
 }
 
 export function loadProviderCatalog(opts?: LoadOptions): Record<string, CatalogEntry> {
-  const catalogPath = join(__dirname_resolved, "provider-catalog.json");
-  const rawText = readFileSync(catalogPath, "utf-8");
-  let entries: Record<string, unknown>[] = JSON.parse(rawText);
+  // Copied, not aliased: `_testInjectMalformed` below appends to it, and the embedded array is a
+  // module-level singleton every caller shares.
+  let entries: Record<string, unknown>[] = [...(embeddedCatalog as Record<string, unknown>[])];
 
   if (opts?._testInjectMalformed) {
     entries = [

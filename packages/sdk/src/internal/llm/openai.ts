@@ -12,6 +12,7 @@ import { diag } from "../diagnostics.js";
 import { mapOllamaHttpError, mapOllamaTransportError } from "../error-mappers/ollama.js";
 import { mapOpenAICompatibleError } from "../error-mappers/openai-compatible.js";
 import { readErrorResponseBody } from "../http.js";
+import { boundFetch } from "../runtime-fetch.js";
 import {
   collapseSystemText,
   makeLlmFinish,
@@ -137,7 +138,7 @@ export class OpenAIClient implements LlmClient {
     // empty env var) degrades to the LEGACY path (byte-identical to pre-M45 string concat) and fails, typed,
     // at the first fetch — never poisoning the whole provider chain at construction time.
     this.chatPath = options.chatCompletionsPath ?? deriveChatPath(this.baseUrl);
-    this.fetchImpl = options.fetch ?? fetch;
+    this.fetchImpl = boundFetch(options.fetch);
   }
 
   /**

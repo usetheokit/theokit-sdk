@@ -13,6 +13,7 @@
 import { ConfigurationError } from "../../errors.js";
 import { mapOllamaHttpError, mapOllamaTransportError } from "../error-mappers/ollama.js";
 import { mapOpenAICompatibleError } from "../error-mappers/openai-compatible.js";
+import { boundFetch } from "../runtime-fetch.js";
 import { collapseSystemText, makeLlmFinish } from "./finish.js";
 import { toStringToolResultContent } from "./tool-result-content.js";
 import { wrapTransportError } from "./transport-error.js";
@@ -78,7 +79,7 @@ export class OllamaNativeClient implements LlmClient {
     // Strip `/v1` if user mistakenly included it (peer-project guard).
     const raw = (options.baseUrl ?? "http://localhost:11434").replace(/\/+$/, "");
     this.baseUrl = raw.replace(/\/v1$/i, "");
-    this.fetchImpl = options.fetch ?? fetch;
+    this.fetchImpl = boundFetch(options.fetch);
   }
 
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: HTTP+NDJSON handshake + accumulator is intentionally one block (mirrors openai.ts)

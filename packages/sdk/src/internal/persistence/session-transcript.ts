@@ -19,6 +19,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import type { SessionRecord, TranscriptBlock } from "../../types/session-record.js";
+import { diag } from "../diagnostics.js";
 import type { LlmContentPart, LlmMessage, LlmToolResultPart } from "../llm/types.js";
 import { redactSecrets } from "../security/redact.js";
 import { replaceFileAtomic } from "./atomic-write.js";
@@ -460,7 +461,30 @@ export async function readTranscript(path: string): Promise<SessionRecord[]> {
   try {
     raw = await readFile(path, "utf8");
   } catch (cause) {
-    if ((cause as NodeJS.ErrnoException).code === "ENOENT") return [];
+    const code = (cause as NodeJS.ErrnoException).code;
+    // An absent file is an empty transcript — a first turn has none, so this is the common case.
+    if (code === "ENOENT") return [];
+    // And so is a runtime with no filesystem. The only call inside this `try` is `readFile`, and a
+    // real filesystem failure ALWAYS carries a code: ENOENT, EACCES, EISDIR, EMFILE. An error with
+    // no code did not come from a filesystem; it came from the absence of one — `unenv`'s
+    // `createNotImplementedError` returns a plain `new Error(…)`, so there is nothing else to key on
+    // and no message to match without depending on another package's wording.
+    //
+    // Measured 2026-09-28: every turn on Cloudflare Workers failed during `LocalAgent.initialize`,
+    // because `hydrateSession` reached for a transcript the platform has no way to hold. Before the
+    // model, before a token, on a session that never existed.
+    //
+    // NOT a bare `catch { return [] }`, which would report EACCES on a real transcript as an empty
+    // history — a permissions problem read as "no messages", which is the silent-corruption shape
+    // `error-handling.md` refuses. A test pins EACCES, EISDIR and EMFILE still throwing.
+    if (code === undefined) {
+      diag(
+        `[theokit-sdk] no filesystem for the session transcript, continuing with an empty one: ${
+          cause instanceof Error ? cause.message : String(cause)
+        }\n`,
+      );
+      return [];
+    }
     throw cause;
   }
   return raw

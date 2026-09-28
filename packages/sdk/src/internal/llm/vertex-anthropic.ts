@@ -20,6 +20,7 @@
 import { ConfigurationError } from "../../errors.js";
 import { mapVertexError } from "../error-mappers/vertex.js";
 import { resolveVertexBaseUrl, stripVertexPrefix } from "../providers/builtin/vertex.js";
+import { boundFetch } from "../runtime-fetch.js";
 import {
   buildAnthropicCommonBody,
   handleAnthropicResponse,
@@ -51,7 +52,7 @@ export class VertexAnthropicClient implements LlmClient {
   private readonly fetchImpl: typeof fetch;
 
   constructor(private readonly options: VertexAnthropicClientOptions) {
-    this.fetchImpl = options.fetch ?? fetch;
+    this.fetchImpl = boundFetch(options.fetch);
   }
 
   private resolveProjectOrThrow(): string {

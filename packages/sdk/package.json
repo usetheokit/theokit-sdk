@@ -373,7 +373,7 @@
     "**/agent.cjs"
   ],
   "scripts": {
-    "build": "tsup && cp src/internal/providers/provider-catalog.json dist/provider-catalog.json && node ../../tools/repair-dts-imports.mjs .",
+    "build": "tsup && node ../../tools/repair-dts-imports.mjs .",
     "test": "vitest run --no-file-parallelism",
     "test:watch": "vitest",
     "eval": "vitest run --no-file-parallelism tests/eval/suites",

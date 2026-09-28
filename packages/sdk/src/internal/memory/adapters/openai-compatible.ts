@@ -5,6 +5,7 @@ import { mapWithConcurrency } from "../../concurrency/map-with-concurrency.js";
 import { mapOpenAICompatibleError } from "../../error-mappers/openai-compatible.js";
 import { parseRetryAfter } from "../../error-mappers/shared.js";
 import { computeBackoffMs } from "../../llm/retry.js";
+import { boundFetch } from "../../runtime-fetch.js";
 import type {
   CreateAdapterOptions,
   EmbeddingRuntime,
@@ -144,7 +145,7 @@ export async function createOpenAiCompatibleRuntime(
   }
   const envBaseUrl = cfg.baseUrlEnv !== undefined ? process.env[cfg.baseUrlEnv] : undefined;
   const baseUrl = options.baseUrl ?? envBaseUrl ?? cfg.defaultBaseUrl;
-  const fetchImpl = options.fetch ?? fetch;
+  const fetchImpl = boundFetch(options.fetch);
   // T4.4 — default to process-wide singleton (was per-adapter instance).
   const cache = options.cache ?? globalEmbeddingCache;
   // EC-4: refuse unknown models to prevent vec0 dimension mismatches downstream.
