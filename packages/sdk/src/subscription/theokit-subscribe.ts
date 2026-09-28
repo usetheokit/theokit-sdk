@@ -11,6 +11,7 @@
  * @public
  */
 
+import { boundFetch } from "../internal/runtime-fetch.js";
 import { parseSseW3C } from "./internal/sse-parser.js";
 import type { WireFrame } from "./internal/subscription-runtime.js";
 import {
@@ -133,7 +134,7 @@ async function* openSse<T>(
   opts: SubscribeOptions,
 ): AsyncIterable<FrameOut<T>> {
   const url = `${stripTrailingSlash(opts.baseUrl)}/api/subscriptions/${encodeURIComponent(name)}?input=${encodeURIComponent(JSON.stringify(input))}`;
-  const fetchFn = opts.fetch ?? globalThis.fetch;
+  const fetchFn = boundFetch(opts.fetch);
   const res = await fetchFn(url, {
     method: "GET",
     headers: {

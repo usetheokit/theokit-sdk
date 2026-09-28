@@ -1,5 +1,6 @@
 import { NetworkError } from "../../errors.js";
 import { mapAnthropicError } from "../error-mappers/anthropic.js";
+import { boundFetch } from "../runtime-fetch.js";
 import { buildAnthropicCommonBody, mapAnthropicStopReason } from "./anthropic-shared.js";
 import { makeLlmFinish, parseToolArguments } from "./finish.js";
 import { parseSseStream } from "./sse.js";
@@ -116,7 +117,7 @@ export class AnthropicClient implements LlmClient {
 
   constructor(private readonly options: AnthropicClientOptions) {
     this.baseUrl = options.baseUrl ?? "https://api.anthropic.com";
-    this.fetchImpl = options.fetch ?? fetch;
+    this.fetchImpl = boundFetch(options.fetch);
   }
 
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: HTTP+SSE handshake + accumulator is intentionally one block

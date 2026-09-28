@@ -18,6 +18,7 @@
  * (usetheodev/theokit-sdk#283 records the same trap on a declaration).
  */
 
+import { boundFetch } from "../runtime-fetch.js";
 import { authFilePath, readAuthFile } from "./credential-store.js";
 import { ensureFreshCredential } from "./oauth-engine.js";
 import type {
@@ -74,7 +75,7 @@ async function resolveOAuth(
   };
   if (opts.oauth === undefined) return base; // no config to refresh with — return the stored access token
   const deps: HttpDeps = {
-    fetch: opts.deps?.fetch ?? fetch,
+    fetch: boundFetch(opts.deps?.fetch),
     now: opts.deps?.now ?? (() => Date.now()),
   };
   return ensureFreshCredential(base, { config: opts.oauth, store: opts.store, env }, deps);

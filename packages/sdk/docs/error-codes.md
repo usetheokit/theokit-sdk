@@ -41,8 +41,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `cloud_incompatible_function_resolver` | domain | ConfigurationError | `packages/sdk/src/internal/cloud-agent/cloud-tool-parity.ts:43` +2 |
 | `cloud_incompatible_mcp_stdio_local` | domain | ConfigurationError | `packages/sdk/src/internal/cloud-agent/cloud-tool-parity.ts:74` |
 | `cloud_plugin_path_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:159` +1 |
-| `cloud_run_http_error` | domain | NetworkError | `packages/sdk/src/internal/cloud-agent/real-cloud-run.ts:155` |
-| `cloud_run_unknown_status` | domain | NetworkError | `packages/sdk/src/internal/cloud-agent/real-cloud-run.ts:284` +1 |
+| `cloud_run_http_error` | domain | NetworkError | `packages/sdk/src/internal/cloud-agent/real-cloud-run.ts:156` |
+| `cloud_run_unknown_status` | domain | NetworkError | `packages/sdk/src/internal/cloud-agent/real-cloud-run.ts:285` +1 |
 | `cloud_runtime_pre_release` | domain | ConfigurationError | `packages/sdk/src/agent.ts:417` +2 |
 | `cloud_stdio_cwd_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:121` |
 | `compression_failed` | domain | — | `packages/sdk/src/errors.ts:700` |
@@ -62,9 +62,9 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `duplicate_tool_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:201` |
 | `effective_tools_expected_options` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/effective-tools.ts:102` +1 |
 | `embedding_dimension_mismatch` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:146` +1 |
-| `embedding_invalid_response` | domain | NetworkError | `packages/sdk/src/internal/memory/adapters/openai-compatible.ts:399` |
-| `embedding_missing_api_key` | domain | AuthenticationError | `packages/sdk/src/internal/memory/adapters/openai-compatible.ts:141` |
-| `embedding_unknown_model` | domain | ConfigurationError | `packages/sdk/src/internal/memory/adapters/openai-compatible.ts:153` |
+| `embedding_invalid_response` | domain | NetworkError | `packages/sdk/src/internal/memory/adapters/openai-compatible.ts:400` |
+| `embedding_missing_api_key` | domain | AuthenticationError | `packages/sdk/src/internal/memory/adapters/openai-compatible.ts:142` |
+| `embedding_unknown_model` | domain | ConfigurationError | `packages/sdk/src/internal/memory/adapters/openai-compatible.ts:154` |
 | `eval_already_running` | domain | — | `packages/sdk/src/internal/eval/single-flight.ts:19` |
 | `eval_threshold_failed` | domain | — | `packages/sdk/src/internal/eval/assert.ts:33` |
 | `fallback_empty_chain` | domain | NetworkError | `packages/sdk/src/internal/llm/fallback-client.ts:44` |
@@ -141,7 +141,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `missing_model` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:35` |
 | `model_unavailable` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:75` +1 |
 | `network` | domain | MemoryAdapterError, buildErrorMetadata | `packages/memory-honcho/src/adapter.ts:258` +5 |
-| `network_error` | domain | NetworkError | `packages/sdk/src/internal/http.ts:98` |
+| `network_error` | domain | NetworkError | `packages/sdk/src/internal/http.ts:99` |
 | `no_api_key` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-brave.ts:50` |
 | `no_memory_adapter` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:141` +2 |
 | `no_such_session` | domain | NoSuchSessionError | `packages/sdk/src/interactive/types.ts:41` +1 |
@@ -154,7 +154,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `oauth_state_mismatch` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/oauth.ts:127` |
 | `oauth_timeout` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/oauth.ts:216` +1 |
 | `oauth_token_exchange_failed` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/oauth.ts:148` |
-| `ollama_image_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/llm/ollama-native.ts:323` |
+| `ollama_image_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/llm/ollama-native.ts:324` |
 | `ollama_model_loading` | domain | NetworkError | `packages/sdk/src/internal/error-mappers/ollama.ts:101` |
 | `ollama_model_not_pulled` | domain | ConfigurationError | `packages/sdk/src/internal/error-mappers/ollama.ts:84` |
 | `ollama_unreachable` | domain | ConfigurationError | `packages/sdk/src/internal/error-mappers/ollama.ts:55` +1 |
@@ -193,11 +193,11 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `sqlite_driver_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/sqlite-open.ts:195` |
 | `sqlite_vec_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/memory/sqlite-vec-loader.ts:23` +1 |
 | `squad_process_unsupported` | domain | ConfigurationError | `packages/sdk/src/squad.ts:117` |
-| `sse_http_error` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:146` |
-| `sse_server_error` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:154` |
+| `sse_http_error` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:147` |
+| `sse_server_error` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:155` |
 | `ssrf_blocked` | domain | — | `packages/sdk-tools/src/internal/network-guard.ts:23` |
 | `stream_idle_timeout` | domain | NetworkError | `packages/sdk/src/internal/llm/sse.ts:95` |
-| `stream_truncated` | domain | NetworkError | `packages/sdk/src/internal/llm/anthropic.ts:184` +1 |
+| `stream_truncated` | domain | NetworkError | `packages/sdk/src/internal/llm/anthropic.ts:185` +1 |
 | `subagent_foreign_runtime_field` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/subagents-loader.ts:245` |
 | `subagent_mcp_unsupported_local` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/subagents-loader.ts:272` |
 | `subagent_missing_description` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:142` |
@@ -207,8 +207,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `subagent_sandbox_not_boolean` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/subagents-loader.ts:312` |
 | `subagent_unknown_field` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/subagents-loader.ts:249` |
 | `subagent_unknown_setting_source` | domain | ConfigurationError | `packages/sdk/src/subagents-loader.ts:96` |
-| `subscribe_baseUrl_missing` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:77` |
-| `subscribe_name_invalid` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:72` |
+| `subscribe_baseUrl_missing` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:78` |
+| `subscribe_name_invalid` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:73` |
 | `subscription_descriptor_invalid` | domain | SubscriptionError | `packages/sdk/src/subscription/internal/server-integration.ts:172` |
 | `subscription_disconnected` | domain | — | `packages/sdk/src/subscription/types.ts:147` |
 | `subscription_duplicate` | domain | SubscriptionError | `packages/sdk/src/subscription/internal/subscription-runtime.ts:101` |
@@ -250,7 +250,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `workflow_snapshot_not_found` | domain | — | `packages/sdk/src/workflow-errors.ts:159` |
 | `workflow_state_invalid` | domain | — | `packages/sdk/src/workflow-errors.ts:82` |
 | `workflow_tool_failed` | domain | WorkflowToolError | `packages/sdk/src/workflow-as-tool.ts:40` +2 |
-| `ws_global_missing` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:183` |
+| `ws_global_missing` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:184` |
 | `ws_peer_missing` | domain | SubscriptionError | `packages/sdk/src/subscription/internal/ws-adapter-node.ts:48` |
 | `ws_transport_mismatch` | domain | SubscriptionError | `packages/sdk/src/subscription/internal/server-integration.ts:351` |
 | `zod_not_installed` | domain | ConfigurationError | `packages/sdk/src/internal/structured-output-helpers.ts:33` +1 |
