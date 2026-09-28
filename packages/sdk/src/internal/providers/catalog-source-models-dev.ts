@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 
 import { Retry } from "../../retry.js";
 import { diag } from "../diagnostics.js";
+import { boundFetch } from "../runtime-fetch.js";
 import { registerBuiltins } from "./builtin/index.js";
 import { getCatalogModelInfo, loadProviderCatalog, patchModelInfo } from "./catalog-loader.js";
 import { catalogModelSchema } from "./catalog-schema.js";
@@ -362,7 +363,7 @@ export async function refreshModelCatalog(
     if (cached !== undefined) return cached;
   }
 
-  const body = await fetchCatalogBody(url, opts.deps?.fetch ?? fetch);
+  const body = await fetchCatalogBody(url, boundFetch(opts.deps?.fetch));
   // fail-closed: serve whatever we already have (stale cache if present, else vendored)
   if (body === undefined) return { source: "cache", models: loadCacheIntoIndex(url) };
 

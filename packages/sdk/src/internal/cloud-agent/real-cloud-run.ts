@@ -7,6 +7,7 @@ import { resolveApiKey } from "../env.js";
 import { parseSseStream } from "../llm/sse.js";
 import { FixtureRunBase, prepareRunContext } from "../runtime/fixtures/fixture-run-base.js";
 import type { FixtureScript } from "../runtime/fixtures/types.js";
+import { boundFetch } from "../runtime-fetch.js";
 import type { CloudAgentPayload } from "./types.js";
 
 /**
@@ -71,7 +72,7 @@ export function createRealCloudRun(options: CreateRealCloudRunOptions): Run {
       apiKey,
       baseUrl,
       userText,
-      fetchImpl: options.fetch ?? fetch,
+      fetchImpl: boundFetch(options.fetch),
       sendOptions: options.sendOptions,
       systemPrompt: options.systemPrompt,
       agentConfig: options.agentConfig,

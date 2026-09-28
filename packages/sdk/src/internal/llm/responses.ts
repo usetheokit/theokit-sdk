@@ -16,6 +16,7 @@
  * token refresh) — mirroring `OpenAIClient`.
  */
 import { mapOpenAICompatibleError } from "../error-mappers/openai-compatible.js";
+import { boundFetch } from "../runtime-fetch.js";
 import { collapseSystemText, makeLlmFinish, parseToolArguments } from "./finish.js";
 import { parseSseStream } from "./sse.js";
 import { toStringToolResultContent } from "./tool-result-content.js";
@@ -483,7 +484,7 @@ export class ResponsesApiClient implements LlmClient {
   constructor(private readonly options: ResponsesApiClientOptions) {
     this.name = options.providerName ?? "openai-responses";
     this.baseUrl = (options.baseUrl ?? "https://api.openai.com/v1").replace(/\/+$/, "");
-    this.fetchImpl = options.fetch ?? fetch;
+    this.fetchImpl = boundFetch(options.fetch);
   }
 
   /**

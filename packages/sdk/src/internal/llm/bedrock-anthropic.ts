@@ -22,6 +22,7 @@ import {
   resolveBedrockBaseUrl,
   stripBedrockPrefix,
 } from "../providers/builtin/bedrock.js";
+import { boundFetch } from "../runtime-fetch.js";
 import {
   buildAnthropicCommonBody,
   handleAnthropicResponse,
@@ -48,7 +49,7 @@ export class BedrockAnthropicClient implements LlmClient {
   private readonly fetchImpl: typeof fetch;
 
   constructor(private readonly options: BedrockAnthropicClientOptions) {
-    this.fetchImpl = options.fetch ?? fetch;
+    this.fetchImpl = boundFetch(options.fetch);
   }
 
   private async resolveTokenOrThrow(region: string): Promise<string> {
