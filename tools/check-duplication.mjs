@@ -62,8 +62,13 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
  * 2886 -> 2683 on 2026-09-02: the #524 opt-in threaded one `compatSources` parameter through the
  * four config-reading subsystems, and the paths that had each resolved their own roots now share
  * `projectConfigRoots`. Pinned in the same commit that earned it.
+ *
+ * 2683 -> 2689 on 2026-10-16: B-380 (the memory ceiling) had to change the dreaming sweep in both
+ * of its copies, `sdk/src/internal/memory/dreaming/` and `sdk-memory/src/internal/dreaming/`, which
+ * still live side by side under the SDK 2.0 split (#306). Raised by decision rather than earned;
+ * B-444 consolidates the two copies and brings the budget back down.
  */
-const BUDGET_LINES = Number(process.env.MAX_DUPLICATED_LINES ?? 2683);
+const BUDGET_LINES = Number(process.env.MAX_DUPLICATED_LINES ?? 2689);
 
 const out = mkdtempSync(join(tmpdir(), "jscpd-gate-"));
 try {
