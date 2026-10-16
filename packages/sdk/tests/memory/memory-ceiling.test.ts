@@ -228,7 +228,7 @@ describe("a declared memory ceiling on the markdown store", () => {
     const file = await fileHolding(SEEDS[0] as string);
     const path = join(dir, file);
     const raw = await readFile(path, "utf8");
-    await writeFile(path, raw.replace(SEEDS[0] as string, "a body somebody rewrote by hand"));
+    await writeFile(path, raw.replaceAll(SEEDS[0] as string, "a body somebody rewrote by hand"));
     const write = appendMemoryFact(cwd, atCeiling(3), { text: SEEDS[0] as string });
     await expect(write).rejects.toMatchObject({ code: "memory_ceiling_reached" });
     expect(await listFactFiles()).toHaveLength(3);

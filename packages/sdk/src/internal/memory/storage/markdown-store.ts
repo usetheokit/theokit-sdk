@@ -7,6 +7,7 @@ import { replaceFileAtomic } from "../../persistence/atomic-write.js";
 import { withCwdMutex } from "../../persistence/cwd-mutex.js";
 import { safeFilenameForId } from "../../security/path-guard.js";
 import { MEMORY_KINDS, type MemoryConfig, type MemoryFact, redactSecrets } from "../types.js";
+import { ceilingReachedError, resolveMaxFacts } from "./fact-ceiling.js";
 import { parseMemoryFile, renderMemoryFile, slugForFact, titleForFact } from "./memory-file.js";
 import {
   indexBudgetWarning,
@@ -163,6 +164,64 @@ async function readLegacyFactsSectionIn(dir: string): Promise<MemoryFact[]> {
 }
 
 /**
+ * How many facts one directory holds, counted the way the readers above count them: entries that
+ * parse as a memory file, plus the legacy `## Facts` bullets of its `MEMORY.md`.
+ *
+ * STRICT where those readers are lenient. They turn every read error into "no fact", which is right
+ * for recall and wrong for an admission count: an `EACCES` on one file would undercount the store
+ * and admit the write its ceiling exists to refuse. Only absence is read as zero: no directory is
+ * an empty store, no `MEMORY.md` is a store with no legacy bullets.
+ */
+async function countFactsIn(dir: string): Promise<number> {
+  const entries = (await unlessMissing(readdir(dir))) ?? [];
+  let count = 0;
+  for (const entry of entries) {
+    if (!entry.endsWith(".md") || entry === "MEMORY.md") continue;
+    // A file that vanished after `readdir` (another process, a hand edit) is absence, not an error.
+    const raw = await unlessMissing(readFile(join(dir, entry), "utf8"));
+    if (raw !== undefined && parseMemoryFile(raw) !== undefined) count += 1;
+  }
+  const index = await unlessMissing(readFile(join(dir, "MEMORY.md"), "utf8"));
+  return index === undefined ? count : count + parseFactsSection(index).length;
+}
+
+/**
+ * The read's value, or `undefined` when there is nothing there to read: the path does not exist,
+ * or it is a directory (a `*.md` directory is not a fact either). Every other error is rethrown.
+ */
+async function unlessMissing<T>(read: Promise<T>): Promise<T | undefined> {
+  try {
+    return await read;
+  } catch (cause) {
+    const code = (cause as NodeJS.ErrnoException | undefined)?.code;
+    if (code === "ENOENT" || code === "EISDIR") return undefined;
+    throw cause;
+  }
+}
+
+/**
+ * Refuse a NEW fact once the directory holds `maxFacts` or more. With no ceiling nothing is counted,
+ * so the default path does no extra I/O. Only a second observation of a stored fact
+ * (`observations > 1`) is exempt; a name that merely exists, such as a hand-written note
+ * `resolveName` hands back, is a new fact. `>=`, not `===`: a store already above its ceiling (a
+ * lowered ceiling, a legacy migration) refuses too, and says its real count.
+ */
+async function assertRoomForNewFact(
+  dir: string,
+  maxFacts: number | undefined,
+  observations: number,
+): Promise<void> {
+  if (maxFacts === undefined || observations > 1) return;
+  const count = await countFactsIn(dir);
+  if (count >= maxFacts) throw ceilingReachedError(dir, count, maxFacts, markdownRemedy(dir));
+}
+
+/** How the markdown store tells a caller to make room under its ceiling. */
+function markdownRemedy(dir: string): string {
+  return `merge or delete fact files in ${dir}, or raise memory.maxFacts`;
+}
+
+/**
  * One directory entry as a fact, or `undefined` when it is not one.
  *
  * `MEMORY.md` is the index, not a memory; a non-markdown entry is not a memory; and a markdown file
@@ -239,16 +298,22 @@ export function appendFactToMarkdown(
   cwd: string,
   fact: MemoryFact,
   targetDir: string = projectMemoryDir(cwd),
+  options: { maxFacts?: number } = {},
 ): Promise<void> {
   return withCwdMutex(targetDir, async () => {
     const text = redactSecrets(fact.text);
     assertWritable(fact, text);
+    const maxFacts = resolveMaxFacts(options.maxFacts);
     const title = fact.title?.trim() ?? titleForFact(text);
     const base = fact.title !== undefined ? slugForFact(fact.title) : slugForFact(text);
-    await mkdir(targetDir, { recursive: true });
     const name = await resolveName(targetDir, base, text);
-    const description = fact.description?.trim() ?? text;
     const observations = await nextObservationCount(targetDir, name, text);
+    // Inside the mutex, so the count and the write are one critical section: two writes at one
+    // below the ceiling cannot both pass.
+    await assertRoomForNewFact(targetDir, maxFacts, observations);
+    // After the ceiling check, so a refusal creates no directory either.
+    await mkdir(targetDir, { recursive: true });
+    const description = fact.description?.trim() ?? text;
     await replaceFileAtomic(
       join(targetDir, `${name}.md`),
       renderMemoryFile({
@@ -450,5 +515,7 @@ export async function appendFact(
   fact: MemoryFact,
 ): Promise<void> {
   if (!config.enabled) return;
-  await appendFactToMarkdown(cwd, fact, resolveMemoryRoot(cwd, config));
+  await appendFactToMarkdown(cwd, fact, resolveMemoryRoot(cwd, config), {
+    ...(config.maxFacts !== undefined ? { maxFacts: config.maxFacts } : {}),
+  });
 }
