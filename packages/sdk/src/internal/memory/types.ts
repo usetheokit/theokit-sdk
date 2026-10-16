@@ -21,6 +21,12 @@ export interface MemoryConfig {
    * See `storage/memory-root.ts` for why a relative value is refused rather than resolved.
    */
   directory?: string;
+  /**
+   * The most facts the write directory may hold. A new fact at the ceiling is refused with
+   * `memory_ceiling_reached`; a second observation of a stored fact is still admitted. Absent means
+   * no ceiling. The public contract is `MemorySettings.maxFacts` in `types/agent.ts`.
+   */
+  maxFacts?: number;
 }
 
 /**

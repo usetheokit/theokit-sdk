@@ -478,6 +478,16 @@ export interface MemorySettings {
    */
   directory?: string;
   /**
+   * The most facts this agent's memory may hold. Default: no ceiling.
+   *
+   * At the ceiling a new fact is refused with a `ConfigurationError` whose code is
+   * `memory_ceiling_reached` and whose message names the directory, the count and what to
+   * consolidate; nothing is written. Recording a fact that is already stored is a second
+   * observation, not a new fact, and is still admitted. A value that is not a positive integer is
+   * refused with `invalid_memory_ceiling` on the first write.
+   */
+  maxFacts?: number;
+  /**
    * Whether the SDK auto-injects recalled facts as a `<memory>` block in the
    * LLM system prompt. Default `true`.
    */
