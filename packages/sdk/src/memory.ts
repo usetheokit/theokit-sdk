@@ -113,7 +113,14 @@ export interface DreamingSweepResult {
   duplicatesRemoved: number;
   clustersCreated: number;
   notesWritten: number;
-  /** Deduplicated facts past the per-sweep cap that this sweep did not cluster. */
+  /**
+   * How many facts this sweep left out of clustering. A sweep clusters at most 500 facts, counted
+   * after near-duplicates are removed; the rest wait for a later sweep, and this field is how many
+   * that was. 0 on `"ok"` when nothing was left out and on `"skipped"`.
+   *
+   * Absent when the sweep failed or when an older `@theokit/sdk-memory` ran it without reporting
+   * the count; never read absence as 0.
+   */
   factsLeftOut?: number;
 }
 
