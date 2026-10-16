@@ -35,6 +35,9 @@ export { collectMarkdownFiles, type DiscoveredFile } from "../index-manager-help
 export { lanceStoragePath } from "../lance-index.js";
 // The SQLite fact reader the Lance migration uses. 26 lines, zero diverging between the packages.
 export { readAllSqliteFacts, type SqliteFactRow } from "../migrate-sqlite-to-lance.js";
+// The declared fact ceiling (B-380): one validator and one refusal for both write families, so
+// the markdown store and the satellite's in-memory provider refuse with the same words.
+export { ceilingReachedError, resolveMaxFacts } from "./fact-ceiling.js";
 export {
   appendFact,
   appendFactToMarkdown,
