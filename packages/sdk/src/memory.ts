@@ -113,6 +113,8 @@ export interface DreamingSweepResult {
   duplicatesRemoved: number;
   clustersCreated: number;
   notesWritten: number;
+  /** Deduplicated facts past the per-sweep cap that this sweep did not cluster. */
+  factsLeftOut?: number;
 }
 
 /**
@@ -294,6 +296,7 @@ function toDreamingSweepResult(result: {
   duplicatesRemoved: number;
   clustersCreated: number;
   notesWritten: number;
+  factsLeftOut?: number;
 }): DreamingSweepResult {
   return {
     status: result.status as DreamingSweepResult["status"],
@@ -302,5 +305,6 @@ function toDreamingSweepResult(result: {
     duplicatesRemoved: result.duplicatesRemoved,
     clustersCreated: result.clustersCreated,
     notesWritten: result.notesWritten,
+    ...(result.factsLeftOut !== undefined ? { factsLeftOut: result.factsLeftOut } : {}),
   };
 }
