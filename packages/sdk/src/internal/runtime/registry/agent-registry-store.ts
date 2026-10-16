@@ -136,6 +136,9 @@ function serializeMemory(
   if (memory.scope !== undefined) out.scope = memory.scope;
   if (memory.activeRecall !== undefined) out.activeRecall = { ...memory.activeRecall };
   if (memory.index !== undefined) out.index = serializeMemoryIndex(memory.index);
+  // A count, not a secret. Without it a resumed agent comes back with no ceiling (B-380). Not
+  // re-validated here: the writer validates it on first use.
+  if (memory.maxFacts !== undefined) out.maxFacts = memory.maxFacts;
   return out;
 }
 
@@ -232,6 +235,7 @@ export interface SerializedAgentOptions {
       embedding?: { provider: string; model?: string };
     };
     activeRecall?: Record<string, unknown>;
+    maxFacts?: number;
   };
   skills?: { enabled?: ReadonlyArray<string> };
   plugins?: { enabled?: ReadonlyArray<string> };
