@@ -4,7 +4,10 @@
 // `@theokit/sdk`. Today: an in-process markdown-backed impl. Next iters
 // ship LanceDB + embeddings + active-memory cache.
 
-export { createInMemoryMarkdownProvider } from "./in-memory-provider.js";
+export {
+  createInMemoryMarkdownProvider,
+  type InMemoryMarkdownProviderOptions,
+} from "./in-memory-provider.js";
 
 // Iter 75: thirty-eighth Stage 3 file move (FINAL) — active-memory
 // orchestrator (296 LOC). The recall blocking primitive (ADR D6)
