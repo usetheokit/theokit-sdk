@@ -54,6 +54,8 @@ export interface SdkMemoryModule {
     duplicatesRemoved: number;
     clustersCreated: number;
     notesWritten: number;
+    /** Optional: a peer older than the one that reports the count leaves it out. */
+    factsLeftOut?: number;
   }>;
 
   /** Mirrors @theokit/sdk-memory's IndexManager class (static open). */
