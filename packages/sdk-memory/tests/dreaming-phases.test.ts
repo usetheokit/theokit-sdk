@@ -40,6 +40,27 @@ function stubEmbedding(textToVec: Record<string, ReadonlyArray<number>>): Embedd
 
 const fact = (text: string): MemoryFact => ({ text });
 
+const ONE_HOT_DIMENSION = 512;
+
+/** `count` facts whose texts are `fact number <i>`, so each maps to its own one-hot vector. */
+const distinctFacts = (count: number): MemoryFact[] =>
+  Array.from({ length: count }, (_, i) => fact(`fact number ${i}`));
+
+/** An embedding that gives `fact number <i>` a one-hot vector at index i: every pair has cosine 0. */
+function oneHotEmbedding(): EmbeddingRuntime {
+  return {
+    embed: async (texts: ReadonlyArray<string>): Promise<number[][]> =>
+      texts.map((text) => {
+        const vector = new Array<number>(ONE_HOT_DIMENSION).fill(0);
+        vector[Number(text.replace("fact number ", ""))] = 1;
+        return vector;
+      }),
+    dimension: ONE_HOT_DIMENSION,
+    providerId: "stub",
+    model: "stub-model",
+  } as unknown as EmbeddingRuntime;
+}
+
 describe("sdk-memory dreaming-phases (iter 54)", () => {
   describe("lightPhase", () => {
     it("test_returns_facts_unchanged_when_count_le_1", async () => {
@@ -124,6 +145,23 @@ describe("sdk-memory dreaming-phases (iter 54)", () => {
       const result = await remPhase([fact("short"), fact("the longer one")], embedding);
       expect(result.clusters.length).toBe(1);
       expect(result.clusters[0]?.representativeText).toBe("the longer one");
+    });
+
+    // B-380: the 500-fact cap drops the remainder from clustering, and the result has to say how
+    // many it dropped. One-hot vectors keep every fact distinct, so nothing merges the count away.
+    it("remPhase reports one fact left out of 501", async () => {
+      const rem = await remPhase(distinctFacts(501), oneHotEmbedding());
+      expect(rem.factsLeftOut).toBe(1);
+    });
+
+    it("remPhase reports zero left out at 500", async () => {
+      const rem = await remPhase(distinctFacts(500), oneHotEmbedding());
+      expect(rem.factsLeftOut).toBe(0);
+    });
+
+    it("remPhase reports zero left out for no facts", async () => {
+      const rem = await remPhase([], oneHotEmbedding());
+      expect(rem.factsLeftOut).toBe(0);
     });
   });
 

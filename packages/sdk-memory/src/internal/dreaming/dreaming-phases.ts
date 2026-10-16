@@ -42,12 +42,15 @@ export interface Cluster {
 }
 
 /**
- * What {@link remPhase} produced. Every input fact appears in exactly one
- * cluster, so a fact related to nothing comes back as a cluster of one — the
- * count is not a count of *interesting* groupings.
+ * What {@link remPhase} produced. Every input fact inside the per-sweep cap
+ * appears in exactly one cluster, so a fact related to nothing comes back as a
+ * cluster of one — the count is not a count of *interesting* groupings. Facts
+ * past the cap are counted in `factsLeftOut` and appear in no cluster.
  */
 export interface ClusterResult {
   clusters: Cluster[];
+  /** How many input facts past the per-sweep cap were not clustered; 0 when none were. */
+  factsLeftOut: number;
 }
 
 const DEFAULT_DEDUP_THRESHOLD = 0.95;
@@ -90,13 +93,16 @@ export async function remPhase(
   threshold: number = DEFAULT_CLUSTER_THRESHOLD,
   maxFactsPerSweep: number = DEFAULT_MAX_FACTS_PER_SWEEP,
 ): Promise<ClusterResult> {
-  if (facts.length === 0) return { clusters: [] };
+  if (facts.length === 0) return { clusters: [], factsLeftOut: 0 };
   // T4.6 — cap: take the leading window when facts exceed the budget.
   const capped = facts.length > maxFactsPerSweep ? facts.slice(0, maxFactsPerSweep) : facts;
   const vectors = await embedding.embed(capped.map((f) => f.text));
   const clusterOfIdx = unionFindByPairs(vectors, threshold);
   const groups = bucketFactsByClusterRoot(capped, clusterOfIdx);
-  return { clusters: [...groups.values()].map(buildClusterFromMembers) };
+  return {
+    clusters: [...groups.values()].map(buildClusterFromMembers),
+    factsLeftOut: facts.length - capped.length,
+  };
 }
 
 function unionFindByPairs(
