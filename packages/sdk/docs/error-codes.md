@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-244 distinct code(s).
+246 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -100,8 +100,9 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_input` | domain | MemoryAdapterError | `packages/memory-honcho/src/adapter.ts:98` +9 |
 | `invalid_max_iterations` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/real-local-run.ts:71` |
 | `invalid_memory_backend` | domain | ConfigurationError | `packages/sdk/src/internal/memory/index-manager-dispatch.ts:24` +1 |
+| `invalid_memory_ceiling` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:23` +1 |
 | `invalid_memory_directory` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/memory-root.ts:151` |
-| `invalid_memory_kind` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/markdown-store.ts:206` |
+| `invalid_memory_kind` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/markdown-store.ts:265` |
 | `invalid_model_selection` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/model-selection.ts:21` |
 | `invalid_processor_options` | domain | ConfigurationError | `packages/sdk/src/built-in-processors.ts:86` |
 | `invalid_redaction_pattern` | domain | ConfigurationError | `packages/sdk/src/security.ts:84` |
@@ -129,10 +130,11 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `mcp_http_error` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:497` +1 |
 | `mcp_not_init` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/client.ts:265` +2 |
 | `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:69` |
+| `memory_ceiling_reached` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:43` +1 |
 | `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:128` |
 | `memory_path_escapes_root` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:115` +1 |
 | `memory_path_traversal` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:280` |
-| `memory_threat_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/markdown-store.ts:223` |
+| `memory_threat_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/markdown-store.ts:282` |
 | `memory_tool_bad_args` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:138` +1 |
 | `migration_destination_exists` | domain | ConfigurationError | `packages/sdk/src/internal/memory/migrate-sqlite-to-lance.ts:159` +1 |
 | `missing_api_key` | domain | AuthenticationError, ConfigurationError | `packages/sdk/src/internal/agent/helpers.ts:215` +2 |
