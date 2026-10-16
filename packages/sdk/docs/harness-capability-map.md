@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1228 export(s) across 46 entry point(s).
+1233 export(s) across 46 entry point(s).
 
 ## `@theokit/acp`
 
@@ -565,6 +565,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `buildErrorMetadata` | function | Build an `ErrorMetadata` object with all optional fields included conditionally (no `undefined` keys in the output). |
 | `CategorizedFact` | interface | A fact stored under a typed category.  |
 | `CategorizedMemory` | interface | A typed, category-partitioned markdown memory store. |
+| `ceilingReachedError` | function | The refusal of a new fact at a store's declared ceiling: where the store is, how many facts it holds, the ceiling, and what to consolidate.  |
 | `chunkMarkdown` | function | Split markdown into the chunks that get embedded and searched.  |
 | `ChunkMarkdownOptions` | interface | Split a markdown document into semantically meaningful chunks (ADR D1 of memory-system-peer-project-parity).  |
 | `CircuitBreaker` | class | Stops calling a recall path that keeps timing out.  |
@@ -618,6 +619,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `indexBudgetWarning` | function | What to say about an index that the interop partner will truncate, or `undefined` when there is nothing true to say.  |
 | `IndexManager` | class | The default memory index: SQLite for storage, FTS5 for text matching, and sqlite-vec for vectors when an embedding runtime is supplied.  |
 | `IndexStatus` | interface | A snapshot of index health.  |
+| `InMemoryMarkdownProviderOptions` | interface | Options for {@link createInMemoryMarkdownProvider } . |
 | `isLanceAvailable` | function | Test helper for {@link LanceIndex } : indicates whether the Lance module is loadable in the current environment.  |
 | `isSqliteVecLoaded` | function | Check whether sqlite-vec is loaded by running a tiny version query. |
 | `jinaMemoryEmbeddingProviderAdapter` | const | Jina AI embeddings, over the standard OpenAI wire.  |
@@ -690,6 +692,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `remPhase` | function | REM phase — single-link agglomerative clustering by cosine similarity. |
 | `renderDiaryEntry` | function | One diary entry as the markdown that gets appended: a timestamp heading, the short entry hash, and the counts the sweep produced.  |
 | `resetMigrationStateForTests` | function | Test-only — reset the in-process migration flag map. |
+| `resolveMaxFacts` | function | The ceiling a caller declared, or `undefined` when none was declared.  |
 | `resolveMemoryRoot` | function | The memory root for this agent: `memory.directory` when set, the project store otherwise.  |
 | `runActiveMemory` | function | Run one blocking recall before the system prompt is assembled, and report what happened.  |
 | `RunActiveMemoryArgs` | interface | Everything {@link runActiveMemory } needs for one attempt.  |
@@ -1065,6 +1068,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `appendFact` | function | Record a fact, honouring the `enabled` gate on {@link MemoryConfig } : when memory is disabled the call resolves without touching disk.  |
 | `appendFactToMarkdown` | function | Write a fact as its own memory file and point the `MEMORY.md` index at it.  |
 | `asMemoryRoot` | function | Treat a directory as a memory root without resolving one.  |
+| `ceilingReachedError` | function | The refusal of a new fact at a store's declared ceiling: where the store is, how many facts it holds, the ceiling, and what to consolidate.  |
 | `claudeProjectMemoryDir` | function | Where the Claude Code CLI keeps THIS project's memories.  |
 | `collectMarkdownFiles` | function | Every markdown file the memory corpus holds: the index, the per-memory files, `notes/`, `wiki/` and `sessions/`, each tagged with the bucket `memory_search`'s `corpus` filters on.  |
 | `defaultIndexPath` | function | `<index root>/.index/memory.sqlite`.  |
@@ -1090,6 +1094,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `readFacts` | function | Every memory in the store, honouring the `enabled` gate on {@link MemoryConfig } : when memory is disabled the call resolves to `[]` without touching disk.  |
 | `readFactsFromMarkdown` | function | Every memory in the store: the per-memory files, plus any legacy `## Facts` bullets still in `MEMORY.md`.  |
 | `renderDiaryEntry` | function | One diary entry as the markdown that gets appended: a timestamp heading, the short entry hash, and the counts the sweep produced.  |
+| `resolveMaxFacts` | function | The ceiling a caller declared, or `undefined` when none was declared.  |
 | `resolveMemoryRoot` | function | The memory root for this agent: `memory.directory` when set, the project store otherwise.  |
 | `SessionFile` | interface | Session summary discovery (ADR D20).  |
 | `sessionsDir` | function | `<memory root>/sessions`.  |
