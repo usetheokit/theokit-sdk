@@ -39,15 +39,39 @@ import type {
   RecordSessionSummaryArgs,
   SDKAgent,
 } from "@theokit/sdk";
-import { Security } from "@theokit/sdk";
+import { ConfigurationError, Security } from "@theokit/sdk";
+import { ceilingReachedError, resolveMaxFacts } from "@theokit/sdk/internal/memory-store";
 import { replaceFileAtomic } from "@theokit/sdk/persistence";
 
 /** Adapter id prefix — namespaces minted MemoryIds so cross-adapter delete is safe (EC-B). */
 const ADAPTER_ID = "in-memory-md";
 
+/**
+ * Options for {@link createInMemoryMarkdownProvider}.
+ *
+ * @public
+ */
+export interface InMemoryMarkdownProviderOptions {
+  /**
+   * The most facts one handle may hold. Default: no ceiling.
+   *
+   * At the ceiling a new fact is refused on both write paths: the adapter's `write` rejects with a
+   * `ConfigurationError` whose code is `memory_ceiling_reached`, and the `memory_remember` tool
+   * replies `{ ok: false, code, error }`. Nothing is stored either way, and `delete(id)` frees a
+   * slot. A value that is not a positive integer throws `invalid_memory_ceiling` when the provider
+   * is created.
+   */
+  maxFacts?: number;
+}
+
+/** How the in-memory store tells a caller to make room under its ceiling. */
+const IN_MEMORY_REMEDY = "merge or delete facts with the adapter's delete(id), or raise maxFacts";
+
 /** Per-agent state holder. Stored on the handle via the opaque symbol slot. */
 interface InMemoryHandleState {
   readonly facts: Map<string, MemoryFact>;
+  /** The declared ceiling, validated when the provider was created; absent means none. */
+  readonly maxFacts: number | undefined;
   readonly counter: { next: number };
   /**
    * Workspace cwd captured at `init()` time. Used by `runActivePass()`
@@ -75,6 +99,26 @@ function buildCapabilities(): MemoryAdapterCapabilities {
   };
 }
 
+/**
+ * Refuse a new fact at the handle's ceiling. Called synchronously right before each `facts.set`,
+ * with no `await` between the check and the set, so two racing writes cannot both pass: the event
+ * loop runs each synchronous block to completion.
+ */
+function admitNewFact(state: InMemoryHandleState): void {
+  if (state.maxFacts !== undefined && state.facts.size >= state.maxFacts) {
+    throw ceilingReachedError(
+      "the in-memory store",
+      state.facts.size,
+      state.maxFacts,
+      IN_MEMORY_REMEDY,
+    );
+  }
+}
+
+function isCeilingRefusal(cause: unknown): cause is ConfigurationError {
+  return cause instanceof ConfigurationError && cause.code === "memory_ceiling_reached";
+}
+
 function buildAdapter(state: InMemoryHandleState): MemoryAdapter {
   return {
     id: ADAPTER_ID,
@@ -89,6 +133,7 @@ function buildAdapter(state: InMemoryHandleState): MemoryAdapter {
       // submitted to MemoryAdapter.write directly should never
       // surface verbatim in subsequent recall.
       const safeText = Security.redact(text);
+      admitNewFact(state);
       const id = `${ADAPTER_ID}:${state.counter.next++}` as MemoryId;
       state.facts.set(id, {
         id,
@@ -308,6 +353,13 @@ function buildMemoryRememberTool(state: InMemoryHandleState): CustomTool {
       // on subsequent runActivePass calls. Mirrors the iter 42
       // recordSessionSummary redaction posture.
       const safeContent = Security.redact(content);
+      try {
+        admitNewFact(state);
+      } catch (cause) {
+        // Only the ceiling is a reply the model can act on; anything else is a defect and rises.
+        if (!isCeilingRefusal(cause)) throw cause;
+        return JSON.stringify({ ok: false, code: cause.code, error: cause.message });
+      }
       const id = `${ADAPTER_ID}:${state.counter.next++}` as MemoryId;
       state.facts.set(id, {
         id,
@@ -332,11 +384,15 @@ function buildMemoryRememberTool(state: InMemoryHandleState): CustomTool {
  * Future LanceDB-backed impl will replace the substring match with
  * semantic-similarity ANN over embedding vectors.
  */
-export function createInMemoryMarkdownProvider(): MemoryProvider {
+export function createInMemoryMarkdownProvider(
+  options: InMemoryMarkdownProviderOptions = {},
+): MemoryProvider {
+  const maxFacts = resolveMaxFacts(options.maxFacts);
   return {
     async init(opts: MemoryProviderInitOptions): Promise<MemoryProviderHandle> {
       const state: InMemoryHandleState = {
         facts: new Map(),
+        maxFacts,
         counter: { next: 0 },
         cwd: opts.cwd,
       };
