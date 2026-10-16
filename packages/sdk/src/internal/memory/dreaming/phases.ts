@@ -25,6 +25,8 @@ export interface Cluster {
 
 export interface ClusterResult {
   clusters: Cluster[];
+  /** How many input facts past the per-sweep cap were not clustered; 0 when none were. */
+  factsLeftOut: number;
 }
 
 const DEFAULT_DEDUP_THRESHOLD = 0.95;
@@ -189,14 +191,17 @@ export async function remPhase(
   //
   // It becomes real damage only if recall serves notes INSTEAD of sources. That depends on what
   // the index covers, which is not settled here. Recorded rather than silently accepted.
-  if (facts.length === 0) return { clusters: [] };
+  if (facts.length === 0) return { clusters: [], factsLeftOut: 0 };
   // T4.6 — cap: subsample when facts exceed budget. Deterministic
   // sort by text hash so the same input always picks the same subset.
   const capped = facts.length > maxFactsPerSweep ? facts.slice(0, maxFactsPerSweep) : facts;
   const vectors = await embedding.embed(capped.map((f) => f.text));
   const clusterOfIdx = unionFindByPairs(vectors, threshold);
   const groups = bucketFactsByClusterRoot(capped, clusterOfIdx);
-  return { clusters: [...groups.values()].map(buildClusterFromMembers) };
+  return {
+    clusters: [...groups.values()].map(buildClusterFromMembers),
+    factsLeftOut: facts.length - capped.length,
+  };
 }
 
 function unionFindByPairs(
