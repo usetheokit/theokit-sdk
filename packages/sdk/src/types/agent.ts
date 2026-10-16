@@ -480,6 +480,10 @@ export interface MemorySettings {
   /**
    * The most facts this agent's memory may hold. Default: no ceiling.
    *
+   * The ceiling counts the write directory only: the per-memory fact files and any legacy
+   * `## Facts` bullets in that directory's `MEMORY.md`. A dreaming sweep's `factsBefore` counts
+   * every root it reads, so the two numbers can differ.
+   *
    * At the ceiling a new fact is refused with a `ConfigurationError` whose code is
    * `memory_ceiling_reached` and whose message names the directory, the count and what to
    * consolidate; nothing is written. Recording a fact that is already stored is a second

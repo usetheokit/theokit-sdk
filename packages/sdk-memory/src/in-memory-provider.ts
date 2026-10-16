@@ -55,6 +55,9 @@ export interface InMemoryMarkdownProviderOptions {
   /**
    * The most facts one handle may hold. Default: no ceiling.
    *
+   * Each handle counts only its own facts, so two agents on one provider each get the full
+   * ceiling.
+   *
    * At the ceiling a new fact is refused on both write paths: the adapter's `write` rejects with a
    * `ConfigurationError` whose code is `memory_ceiling_reached`, and the `memory_remember` tool
    * replies `{ ok: false, code, error }`. Nothing is stored either way, and `delete(id)` frees a
