@@ -1,4 +1,5 @@
 import { migrateLegacyJson } from "../../memory/migration.js";
+import { resolveMaxFacts } from "../../memory/storage/fact-ceiling.js";
 import {
   appendFact as appendFactMd,
   readFacts as readFactsMd,
@@ -144,6 +145,10 @@ export async function appendMemoryFact(
   fact: MemoryFact,
 ): Promise<void> {
   if (!config.enabled) return;
+  // Before the migration, which can move a legacy JSON store on disk: an invalid ceiling is
+  // refused while nothing has been touched (B-380). The writer validates it again, for its other
+  // callers; this call is about ordering, not a second rule.
+  resolveMaxFacts(config.maxFacts);
   await migrateLegacyJson(cwd, config);
   // #401 — this used to be `{ text: ... }` only, so a kind never reached storage even when a caller
   // supplied one: the field round-tripped through the file format and was severed at the one
