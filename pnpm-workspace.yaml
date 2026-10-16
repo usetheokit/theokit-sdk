@@ -1,2 +1,8 @@
 packages:
   - 'packages/*'
+
+auditConfig:
+  ignoreGhsas:
+    # braces <=3.0.3 (stack exhaustion), reached only through the jscpd dev tool
+    # (jscpd > @jscpd/finder > fast-glob > micromatch > braces). No patched release exists.
+    - GHSA-vfj7-8cjw-p6xm
