@@ -7,6 +7,7 @@ import { API_KEY_ENV_VAR, resolveApiKey } from "../../internal/env.js";
 import { httpRequest } from "../../internal/http.js";
 import { isLocalAgentId } from "../../internal/ids.js";
 import { LocalAgent } from "../../internal/local-agent/index.js";
+import { resolveMaxFacts } from "../../internal/memory/storage/fact-ceiling.js";
 import { discoverProviderPlugins } from "../../internal/providers/discovery.js";
 import { isFixtureApiKey } from "../../internal/runtime/fixtures/fixture-mode.js";
 import { normalizeModel } from "../../internal/runtime/model-selection.js";
@@ -304,6 +305,9 @@ export async function rehydrateExistingAgent(
     mcpServers: undefined,
     agentId,
   };
+  // Agent.resume never reaches validateAgentOptions, so a ceiling passed here is checked here,
+  // before the agent exists (B-380).
+  resolveMaxFacts(mergedOptions.memory?.maxFacts);
   if (existing.runtime === "cloud") {
     return new CloudAgent(mergedOptions, agentId);
   }
