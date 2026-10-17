@@ -488,7 +488,8 @@ export interface MemorySettings {
    * `memory_ceiling_reached` and whose message names the directory, the count and what to
    * consolidate; nothing is written. Recording a fact that is already stored is a second
    * observation, not a new fact, and is still admitted. A value that is not a positive integer is
-   * refused with `invalid_memory_ceiling` on the first write.
+   * refused with `invalid_memory_ceiling` by `Agent.create` and `Agent.resume`, before the agent
+   * exists, whether or not memory is enabled, and again by the writer before anything touches disk.
    */
   maxFacts?: number;
   /**

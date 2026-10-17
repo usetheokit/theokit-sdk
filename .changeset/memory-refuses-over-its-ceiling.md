@@ -12,9 +12,10 @@ Set `memory.maxFacts` on an agent to declare a ceiling. A new fact at or over it
 `ConfigurationError` whose code is `memory_ceiling_reached`, and nothing is written. The message
 gives the directory, how many facts it holds, the ceiling and what to consolidate. Recording a fact
 that is already stored counts as a second observation, not a new fact, so it is still admitted. A
-value that is not a positive integer is refused with `invalid_memory_ceiling` before anything
-touches disk. A prompt-driven memory write that hits the ceiling reports it on one diagnostic line
-and stores nothing. A resumed agent keeps its ceiling. With no ceiling declared, nothing changes and
+value that is not a positive integer is refused with `invalid_memory_ceiling` by `Agent.create`
+and `Agent.resume`, before the agent exists, and again by the writer before anything touches
+disk. A prompt-driven memory write that hits the ceiling reports it on one diagnostic line and
+stores nothing. A resumed agent keeps its ceiling. With no ceiling declared, nothing changes and
 no extra read happens.
 
 `createInMemoryMarkdownProvider({ maxFacts })` in `@theokit/sdk-memory` applies the same ceiling
