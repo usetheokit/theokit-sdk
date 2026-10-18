@@ -1,6 +1,12 @@
 import { diag } from "../diagnostics.js";
 import { derivePromptCacheKey } from "../llm/prompt-cache-key.js";
-import type { LlmClient, LlmThinkingPart, LlmTool, LlmToolCallPart } from "../llm/types.js";
+import type {
+  LlmClient,
+  LlmSystemBlock,
+  LlmThinkingPart,
+  LlmTool,
+  LlmToolCallPart,
+} from "../llm/types.js";
 import { escapeBlockBody } from "../runtime/system-prompt/escape.js";
 import { safeCall } from "../runtime/system-prompt/safe-call.js";
 import { HISTOGRAM_NAMES } from "../telemetry/span-names.js";
@@ -50,7 +56,8 @@ export interface LlmTurnOutput {
  *
  * PREPENDED, not appended, because the legacy provider declares `priority = 5` — ahead of Context,
  * Skills and Memory — so the recall summary sits at the top of the prompt. The value the loop
- * receives is the fully assembled prompt, so prepending is what reproduces that position.
+ * receives is the fully assembled prompt, so prepending is what reproduces that position. An
+ * Anthropic-family model puts the block after the prompt instead, see {@link buildLoopSystem}.
  *
  * @internal
  */
@@ -59,9 +66,44 @@ export function resolveSystemPromptWithMemoryAdditions(
   additions: string | undefined,
 ): string | undefined {
   if (additions === undefined || additions.length === 0) return systemPrompt;
-  const block = `<active-memory>\n${escapeBlockBody(additions)}\n</active-memory>`;
+  const block = activeMemoryBlock(additions);
   if (systemPrompt === undefined || systemPrompt.length === 0) return block;
   return `${block}\n\n${systemPrompt}`;
+}
+
+function activeMemoryBlock(additions: string): string {
+  return `<active-memory>\n${escapeBlockBody(additions)}\n</active-memory>`;
+}
+
+/**
+ * B-412 — decided by the id, not by the catalog's `supportsCacheControl`, which is false for the
+ * Anthropic ids measured on OpenRouter. Bedrock ids (`anthropic.claude-…`) do not match.
+ */
+function isAnthropicFamily(modelId: string | undefined): boolean {
+  if (modelId === undefined) return false;
+  const id = modelId.startsWith("openrouter/") ? modelId.slice("openrouter/".length) : modelId;
+  return /^(anthropic\/|claude)/.test(id);
+}
+
+/**
+ * B-412 — for an Anthropic-family model the configured prompt is block 1, cacheable, and the
+ * `<active-memory>` block follows it, so changing memory never sits in front of the cached
+ * prefix. Any other model, or an empty prompt, gets {@link resolveSystemPromptWithMemoryAdditions}.
+ * @internal
+ */
+export function buildLoopSystem(
+  systemPrompt?: string,
+  additions?: string,
+  modelId?: string,
+): string | LlmSystemBlock[] | undefined {
+  if (!isAnthropicFamily(modelId) || systemPrompt === undefined || systemPrompt.length === 0) {
+    return resolveSystemPromptWithMemoryAdditions(systemPrompt, additions);
+  }
+  const blocks: LlmSystemBlock[] = [{ text: systemPrompt, cacheable: true }];
+  if (additions !== undefined && additions.length > 0) {
+    blocks.push({ text: activeMemoryBlock(additions) });
+  }
+  return blocks;
 }
 
 function toLlmTool(tool: ResolvedTool): LlmTool {
@@ -126,10 +168,11 @@ export async function streamLlmTurn(
   const generator = inputs.llm.stream(
     {
       model: inputs.model.id ?? "auto",
-      ...((): { system?: string } => {
-        const effective = resolveSystemPromptWithMemoryAdditions(
+      ...((): { system?: string | LlmSystemBlock[] } => {
+        const effective = buildLoopSystem(
           inputs.systemPrompt,
           ctx.memorySystemPromptAdditions,
+          inputs.model.id,
         );
         return effective !== undefined ? { system: effective } : {};
       })(),
