@@ -1,10 +1,11 @@
 import { mkdir, readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import { ConfigurationError } from "../../../errors.js";
 import { diag } from "../../diagnostics.js";
 import { replaceFileAtomic } from "../../persistence/atomic-write.js";
 import { withCwdMutex } from "../../persistence/cwd-mutex.js";
+import { type FileLockOptions, withFileLock } from "../../persistence/file-lock.js";
 import { safeFilenameForId } from "../../security/path-guard.js";
 import { MEMORY_KINDS, type MemoryConfig, type MemoryFact, redactSecrets } from "../types.js";
 import { ceilingReachedError, resolveMaxFacts } from "./fact-ceiling.js";
@@ -304,37 +305,75 @@ export function appendFactToMarkdown(
     const text = redactSecrets(fact.text);
     assertWritable(fact, text);
     const maxFacts = resolveMaxFacts(options.maxFacts);
-    const title = fact.title?.trim() ?? titleForFact(text);
-    const base = fact.title !== undefined ? slugForFact(fact.title) : slugForFact(text);
-    const name = await resolveName(targetDir, base, text);
-    const observations = await nextObservationCount(targetDir, name, text);
-    // Inside the mutex, so the count and the write are one critical section: two writes at one
-    // below the ceiling cannot both pass.
-    await assertRoomForNewFact(targetDir, maxFacts, observations);
-    // After the ceiling check, so a refusal creates no directory either.
-    await mkdir(targetDir, { recursive: true });
-    const description = fact.description?.trim() ?? text;
-    await replaceFileAtomic(
-      join(targetDir, `${name}.md`),
-      renderMemoryFile({
-        name,
-        description,
-        ...(fact.kind !== undefined ? { kind: fact.kind } : {}),
-        modified: new Date().toISOString(),
-        observations,
-        body: text,
-      }),
-    );
-    // The index lives BESIDE the files it lists. A `MEMORY.md` in one directory pointing at
-    // memories in another names files that are not there — and the CLI reads that index.
-    const index = await nextIndex(targetDir, description, name, title);
-    await replaceFileAtomic(join(targetDir, "MEMORY.md"), index);
-    // AFTER the write, never instead of it. The fact file and the index are one atomic operation,
-    // so refusing the second would lose the first — and the thing being reported is a limit the
-    // interop partner applies when reading, not a failure of this write.
-    const warning = indexBudgetWarning(index, targetDir);
-    if (warning !== undefined) diag(`[theokit-sdk] ${warning}\n`);
+    if (maxFacts === undefined) return writeFactFile(targetDir, fact, text, undefined);
+    return withCeilingLock(targetDir, () => writeFactFile(targetDir, fact, text, maxFacts));
   });
+}
+
+/**
+ * Retries for the ceiling's cross-process lock: about 11 s of waiting in all (100 to 5000 ms per
+ * attempt). A holder only counts and writes, so that is many critical sections. It is shorter
+ * than the 30 s `stale` window, so a lock left by a process that crashed fails ceilinged writes
+ * with `ELOCKED` until it goes stale, rather than being waited out.
+ */
+const CEILING_LOCK: FileLockOptions = { retries: 10 };
+
+/**
+ * Run `fn` holding a lock that other SDK processes writing `targetDir` with a ceiling also take
+ * (B-380, LCR0111). The outer `withCwdMutex` orders writers inside this process; the count and the
+ * write must also be one critical section across processes, or two processes one fact below the
+ * ceiling both pass it. Only writers that declare a ceiling take it: a writer without one, and the
+ * Claude Code CLI, never count, so they never needed to wait.
+ *
+ * The companion lock is `<targetDir>.lock`, BESIDE the memory directory: inside it, the lock
+ * would need the directory to exist before the ceiling check, and a refusal must create nothing
+ * there. That makes the parent the one directory this creates on a refusal; when `targetDir` is
+ * the CLI's `~/.claude/projects/<project>/memory`, the parent and the short-lived `memory.lock`
+ * sit in the CLI's tree, which is accepted because the lock is removed on release.
+ */
+async function withCeilingLock(targetDir: string, fn: () => Promise<void>): Promise<void> {
+  const lockTarget = resolve(targetDir);
+  await mkdir(dirname(lockTarget), { recursive: true });
+  return withFileLock(lockTarget, fn, CEILING_LOCK);
+}
+
+/** The write itself: name, ceiling check, fact file, index. Callers hold the locks it needs. */
+async function writeFactFile(
+  targetDir: string,
+  fact: MemoryFact,
+  text: string,
+  maxFacts: number | undefined,
+): Promise<void> {
+  const title = fact.title?.trim() ?? titleForFact(text);
+  const base = fact.title !== undefined ? slugForFact(fact.title) : slugForFact(text);
+  const name = await resolveName(targetDir, base, text);
+  const observations = await nextObservationCount(targetDir, name, text);
+  // Under the ceiling lock, so the count and the write are one critical section: two writes at
+  // one below the ceiling cannot both pass, in one process or across several.
+  await assertRoomForNewFact(targetDir, maxFacts, observations);
+  // After the ceiling check, so a refusal creates no directory either.
+  await mkdir(targetDir, { recursive: true });
+  const description = fact.description?.trim() ?? text;
+  await replaceFileAtomic(
+    join(targetDir, `${name}.md`),
+    renderMemoryFile({
+      name,
+      description,
+      ...(fact.kind !== undefined ? { kind: fact.kind } : {}),
+      modified: new Date().toISOString(),
+      observations,
+      body: text,
+    }),
+  );
+  // The index lives BESIDE the files it lists. A `MEMORY.md` in one directory pointing at
+  // memories in another names files that are not there — and the CLI reads that index.
+  const index = await nextIndex(targetDir, description, name, title);
+  await replaceFileAtomic(join(targetDir, "MEMORY.md"), index);
+  // AFTER the write, never instead of it. The fact file and the index are one atomic operation,
+  // so refusing the second would lose the first — and the thing being reported is a limit the
+  // interop partner applies when reading, not a failure of this write.
+  const warning = indexBudgetWarning(index, targetDir);
+  if (warning !== undefined) diag(`[theokit-sdk] ${warning}\n`);
 }
 
 /**

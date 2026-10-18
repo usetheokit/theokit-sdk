@@ -490,6 +490,18 @@ export interface MemorySettings {
    * observation, not a new fact, and is still admitted. A value that is not a positive integer is
    * refused with `invalid_memory_ceiling` by `Agent.create` and `Agent.resume`, before the agent
    * exists, whether or not memory is enabled, and again by the writer before anything touches disk.
+   *
+   * The count and the write hold a lock that every SDK process writing this directory with a
+   * ceiling takes, so several processes on one directory cannot together pass it. That lock is
+   * the companion `<directory>.lock` beside the directory and needs the optional `proper-lockfile`
+   * peer; without it the ceiling holds within one process only, and the SDK says so once on its
+   * diagnostics channel. A writer that declares no ceiling, such as the Claude Code CLI, does not
+   * take the lock and can still add facts past it. When the lock stays busy past its retries the
+   * write is refused with `proper-lockfile`'s `ELOCKED` error, and nothing is written.
+   *
+   * A resumed agent keeps its ceiling and its `directory`: a `memory` object passed to
+   * `Agent.resume` replaces only the fields it sets, and a field set to `undefined` keeps its
+   * persisted value.
    */
   maxFacts?: number;
   /**
