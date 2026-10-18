@@ -46,6 +46,20 @@ const DEFAULT_MODELS: Record<RealLlmProvider, string> = {
   openrouter: "openai/gpt-4o-mini",
 };
 
+/**
+ * Models used when a provider's own key is missing and the call goes through OpenRouter instead.
+ * OpenRouter names models with its own slugs, so the native id does not always exist there:
+ * `anthropic/claude-3-5-haiku-latest` is refused with "not a valid model ID" (HTTP 400), checked
+ * against https://openrouter.ai/api/v1/models on 2026-10-18 (#719).
+ */
+const OPENROUTER_FALLBACK_MODELS: Record<RealLlmProvider, string> = {
+  openai: "openai/gpt-4o-mini",
+  anthropic: "anthropic/claude-haiku-4.5",
+  openrouter: "openai/gpt-4o-mini",
+};
+
+const OPENROUTER_ROUTE_PREFIX = "openrouter/";
+
 const DEFAULT_BASE_URLS: Record<RealLlmProvider, string> = {
   openai: "https://api.openai.com/v1",
   anthropic: "https://api.anthropic.com/v1",
@@ -89,7 +103,7 @@ export function resolveRealLlmEnv(
       shouldSkip: false,
       skipReason: "",
       provider: "openrouter",
-      model: options.model ?? DEFAULT_MODELS[provider],
+      model: openrouterRoutedModel(options.model ?? OPENROUTER_FALLBACK_MODELS[provider]),
       apiKey: openrouterKey,
       baseUrl: "",
     };
@@ -102,4 +116,14 @@ export function resolveRealLlmEnv(
     apiKey: "",
     baseUrl: "",
   };
+}
+
+/**
+ * The `openrouter/` prefix is what routes the call. A bare `anthropic/...` id makes Agent.create
+ * check the OpenRouter key against the native Anthropic provider and throw malformed_api_key
+ * (#719). A bare `openai/...` id only got through because "sk-or-" happens to start with OpenAI's
+ * "sk-".
+ */
+function openrouterRoutedModel(model: string): string {
+  return model.startsWith(OPENROUTER_ROUTE_PREFIX) ? model : `${OPENROUTER_ROUTE_PREFIX}${model}`;
 }
