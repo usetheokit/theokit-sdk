@@ -99,7 +99,14 @@ interface AnthropicMessageDelta {
   };
 }
 
+/** B-412 — Anthropic reports a streamed response's cache counters here, not in `message_delta`. */
+interface AnthropicMessageStart {
+  type: "message_start";
+  message?: { usage?: AnthropicMessageDelta["usage"] };
+}
+
 type AnthropicEvent =
+  | AnthropicMessageStart
   | AnthropicTextDelta
   | AnthropicToolStart
   | AnthropicToolDelta
@@ -167,7 +174,7 @@ export class AnthropicClient implements LlmClient {
 
     const accumulator = new AnthropicStreamAccumulator();
     for await (const record of parseSseStream(response.body, signal)) {
-      if (record.event === "ping" || record.event === "message_start") continue;
+      if (record.event === "ping") continue;
       let parsed: AnthropicEvent;
       try {
         parsed = JSON.parse(record.data) as AnthropicEvent;
@@ -224,6 +231,9 @@ class AnthropicStreamAccumulator {
     }
     if (event.type === "message_delta") {
       this.handleMessageDelta(event as AnthropicMessageDelta);
+    }
+    if (event.type === "message_start") {
+      this.readCacheCounters((event as AnthropicMessageStart).message?.usage);
     }
     return [];
   }
@@ -296,18 +306,19 @@ class AnthropicStreamAccumulator {
     this.stopReason = mapAnthropicStopReason(md.delta.stop_reason);
     if (md.usage?.input_tokens !== undefined) this.inputTokens = md.usage.input_tokens;
     if (md.usage?.output_tokens !== undefined) this.outputTokens = md.usage.output_tokens;
-    // T3.8 — treat 0 as "no cache activity" and leave the bucket
-    // unreported (mirrors usage-accumulator's filter where zero-value
-    // entries are stripped from the emitted TokenUsage).
-    if (
-      md.usage?.cache_creation_input_tokens !== undefined &&
-      md.usage.cache_creation_input_tokens > 0
-    ) {
-      this.cacheWriteTokens = md.usage.cache_creation_input_tokens;
-    }
-    if (md.usage?.cache_read_input_tokens !== undefined && md.usage.cache_read_input_tokens > 0) {
-      this.cacheReadTokens = md.usage.cache_read_input_tokens;
-    }
+    this.readCacheCounters(md.usage);
+  }
+
+  /**
+   * T3.8 / B-412 — the cache counters, from `message_start` and then `message_delta`. A field that
+   * is present wins over an earlier value, and 0 means "no cache activity": the bucket is cleared
+   * and left unreported (mirrors usage-accumulator, which strips zero-value entries).
+   */
+  private readCacheCounters(usage: AnthropicMessageDelta["usage"]): void {
+    const write = usage?.cache_creation_input_tokens;
+    if (write !== undefined) this.cacheWriteTokens = write > 0 ? write : undefined;
+    const read = usage?.cache_read_input_tokens;
+    if (read !== undefined) this.cacheReadTokens = read > 0 ? read : undefined;
   }
 
   /** M2 #61 — whether the terminal `message_delta` (stop_reason) was seen. */
