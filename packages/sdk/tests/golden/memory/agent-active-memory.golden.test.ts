@@ -10,6 +10,17 @@ import { sseFrame } from "../../helpers/anthropic-sse.js";
 import { removeTempDirRobust } from "../../helpers/temp-workspace.js";
 
 /**
+ * B-412: a body for an Anthropic-family model carries `system` as text blocks, the configured
+ * prompt first and cacheable, so an assertion about the prompt's text reads every block's text.
+ * A string is returned as is.
+ */
+function systemText(system: unknown): string | undefined {
+  if (system === undefined || typeof system === "string") return system;
+  if (!Array.isArray(system)) throw new Error(`unexpected system shape: ${JSON.stringify(system)}`);
+  return system.map((block: { text: string }) => block.text).join("\n\n");
+}
+
+/**
  * Increment B — when `memory.activeRecall.enabled === true`, the SDK must
  * prepend an `<active-memory>` block to the LLM's system prompt with the
  * recall summary from `runActiveMemory`.
@@ -111,7 +122,7 @@ describe("Active Memory wired through Agent.send", () => {
       },
     });
     await (await agent.send("magic-number")).wait();
-    const system = stub.captured.body?.system as string | undefined;
+    const system = systemText(stub.captured.body?.system);
     expect(system).toBeDefined();
     expect(system).toContain("<active-memory>");
     expect(system).toContain("8675309");
@@ -129,7 +140,7 @@ describe("Active Memory wired through Agent.send", () => {
       memory: { enabled: true },
     });
     await (await agent.send("magic-number")).wait();
-    const system = (stub.captured.body?.system as string | undefined) ?? "";
+    const system = systemText(stub.captured.body?.system) ?? "";
     expect(system).not.toContain("<active-memory>");
   });
 });

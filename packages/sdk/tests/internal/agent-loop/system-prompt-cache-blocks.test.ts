@@ -8,36 +8,15 @@
  * `buildLoopSystem` decides the shape by model family (plan D1) and puts the configured prompt
  * first, cacheable, with the memory block after it (plan D2). Every other model keeps the string
  * `resolveSystemPromptWithMemoryAdditions` produces, so its request body does not change (NFR-001).
- *
- * The builder is read off the module namespace rather than imported by name: it does not exist
- * before the change, and a named import of a missing export fails `tsc --noEmit`, which the
- * repository's pre-commit hook runs over `tests/**`. Read this way, the file compiles today and
- * every family case fails because the builder is absent.
  */
 
 import { describe, expect, it } from "vitest";
 
-import * as loopLlmStream from "../../../src/internal/agent-loop/loop-llm-stream.js";
+import {
+  buildLoopSystem,
+  resolveSystemPromptWithMemoryAdditions,
+} from "../../../src/internal/agent-loop/loop-llm-stream.js";
 import type { LlmSystemBlock } from "../../../src/internal/llm/types.js";
-
-type BuildLoopSystem = (
-  systemPrompt?: string,
-  additions?: string,
-  modelId?: string,
-) => string | LlmSystemBlock[] | undefined;
-
-function buildLoopSystem(
-  systemPrompt?: string,
-  additions?: string,
-  modelId?: string,
-): string | LlmSystemBlock[] | undefined {
-  const builder = (loopLlmStream as unknown as { buildLoopSystem?: BuildLoopSystem })
-    .buildLoopSystem;
-  if (builder === undefined) {
-    throw new Error("loop-llm-stream.ts does not export buildLoopSystem");
-  }
-  return builder(systemPrompt, additions, modelId);
-}
 
 function asBlocks(system: string | LlmSystemBlock[] | undefined): LlmSystemBlock[] {
   if (!Array.isArray(system)) {
@@ -46,14 +25,18 @@ function asBlocks(system: string | LlmSystemBlock[] | undefined): LlmSystemBlock
   return system;
 }
 
-const { resolveSystemPromptWithMemoryAdditions } = loopLlmStream;
-
 const FAMILY_IDS = [
   "openrouter/anthropic/claude-haiku-4.5",
   "anthropic/claude-haiku-4.5",
   "claude-sonnet-4-6",
 ];
-const OTHER_IDS = ["openai/gpt-4o-mini", "google/gemini-2.5-flash-lite"];
+// A Bedrock id (`anthropic.claude-…`) is outside the family on purpose, and so is a missing id.
+const OTHER_IDS = [
+  "openai/gpt-4o-mini",
+  "google/gemini-2.5-flash-lite",
+  "anthropic.claude-3-5-sonnet-20241022-v2:0",
+  undefined,
+];
 
 describe("buildLoopSystem — system blocks for the Anthropic family", () => {
   it("an Anthropic-family id gets the configured prompt as block 1, cacheable", () => {

@@ -13,6 +13,17 @@ import { sseFrame } from "../../helpers/anthropic-sse.js";
 import { removeTempDirRobust } from "../../helpers/temp-workspace.js";
 
 /**
+ * B-412: a body for an Anthropic-family model carries `system` as text blocks, the configured
+ * prompt first and cacheable, so an assertion about the prompt's text reads every block's text.
+ * A string is returned as is.
+ */
+function systemText(system: unknown): string | undefined {
+  if (system === undefined || typeof system === "string") return system;
+  if (!Array.isArray(system)) throw new Error(`unexpected system shape: ${JSON.stringify(system)}`);
+  return system.map((block: { text: string }) => block.text).join("\n\n");
+}
+
+/**
  * Behaviour gate for memory auto-write-on-send (ADR D1/D2 of v1-completeness).
  */
 
@@ -160,7 +171,7 @@ describe("LocalAgent.send memory auto-write", () => {
       memory: { enabled: true },
     });
     await (await agent.send("Remember: magic-number is 8675309.")).wait();
-    const system = captured.body?.system as string | undefined;
+    const system = systemText(captured.body?.system);
     expect(system).toBeDefined();
     expect(system).toContain("<memory>");
     expect(system).toContain("8675309");
