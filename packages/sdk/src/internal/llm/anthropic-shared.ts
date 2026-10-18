@@ -23,7 +23,12 @@ export interface AnthropicResponseLike {
     | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
   >;
   stop_reason?: string | null;
-  usage?: { input_tokens?: number; output_tokens?: number };
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+  };
 }
 
 export function extractAnthropicText(response: AnthropicResponseLike): string {
@@ -156,6 +161,8 @@ export async function handleAnthropicResponse(args: {
   stopReason: LlmStopReason;
   inputTokens?: number;
   outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
 }> {
   if (!args.response.ok) {
     throw args.errorMapper({
@@ -174,6 +181,8 @@ export async function consumeAnthropicResponse(response: Response): Promise<{
   stopReason: LlmStopReason;
   inputTokens?: number;
   outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
 }> {
   const data = (await response.json()) as AnthropicResponseLike;
   return {
@@ -182,6 +191,9 @@ export async function consumeAnthropicResponse(response: Response): Promise<{
     stopReason: mapAnthropicStopReason(data.stop_reason ?? null),
     inputTokens: data.usage?.input_tokens,
     outputTokens: data.usage?.output_tokens,
+    // B-412 — the counters the Bedrock and Vertex Anthropic clients used to drop.
+    cacheReadTokens: data.usage?.cache_read_input_tokens,
+    cacheWriteTokens: data.usage?.cache_creation_input_tokens,
   };
 }
 
