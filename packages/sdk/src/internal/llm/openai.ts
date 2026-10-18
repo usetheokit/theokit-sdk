@@ -21,6 +21,7 @@ import {
 } from "./finish.js";
 import { extractHermesToolCalls, StreamSuppressionBuffer } from "./hermes-tool-extract.js";
 import { toOpenAIMessages } from "./openai-messages.js";
+import { encodeOpenRouterSystemContent } from "./openrouter-system.js";
 import { parseSseStream } from "./sse.js";
 import { wrapTransportError } from "./transport-error.js";
 import type {
@@ -489,10 +490,11 @@ function applyToolsRequest(body: Record<string, unknown>, request: LlmRequest): 
 
 function buildOpenAIBody(request: LlmRequest, providerName?: string): Record<string, unknown> {
   const messages: Array<Record<string, unknown>> = [];
+  const systemParts =
+    providerName === "openrouter" ? encodeOpenRouterSystemContent(request.system) : undefined;
   const systemText = openAISystemText(request.system);
-  if (systemText.length > 0) {
-    messages.push({ role: "system", content: systemText });
-  }
+  if (systemParts !== undefined) messages.push({ role: "system", content: systemParts });
+  else if (systemText.length > 0) messages.push({ role: "system", content: systemText });
   for (const message of request.messages) {
     for (const out of toOpenAIMessages(message)) messages.push(out);
   }
