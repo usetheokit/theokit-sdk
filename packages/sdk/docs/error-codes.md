@@ -199,7 +199,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `sse_server_error` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:155` |
 | `ssrf_blocked` | domain | — | `packages/sdk-tools/src/internal/network-guard.ts:23` |
 | `stream_idle_timeout` | domain | NetworkError | `packages/sdk/src/internal/llm/sse.ts:95` |
-| `stream_truncated` | domain | NetworkError | `packages/sdk/src/internal/llm/anthropic.ts:185` +1 |
+| `stream_truncated` | domain | NetworkError | `packages/sdk/src/internal/llm/anthropic.ts:192` +1 |
 | `subagent_foreign_runtime_field` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/subagents-loader.ts:245` |
 | `subagent_mcp_unsupported_local` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/subagents-loader.ts:272` |
 | `subagent_missing_description` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:144` |
