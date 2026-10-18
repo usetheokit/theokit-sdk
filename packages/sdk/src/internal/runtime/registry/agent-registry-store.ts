@@ -137,8 +137,12 @@ function serializeMemory(
   if (memory.activeRecall !== undefined) out.activeRecall = { ...memory.activeRecall };
   if (memory.index !== undefined) out.index = serializeMemoryIndex(memory.index);
   // A count, not a secret. Without it a resumed agent comes back with no ceiling (B-380). Not
-  // re-validated here: the writer validates it on first use.
+  // re-validated here: `Agent.resume` validates the merged value before the agent exists.
   if (memory.maxFacts !== undefined) out.maxFacts = memory.maxFacts;
+  // A path, not a secret, kept as declared (a `~/` stays unexpanded and resolves against the home
+  // of the process that resumes). Without it a resumed agent wrote, and counted its ceiling, in
+  // the default store instead of the one it was created with (B-380).
+  if (memory.directory !== undefined) out.directory = memory.directory;
   return out;
 }
 
@@ -236,6 +240,7 @@ export interface SerializedAgentOptions {
     };
     activeRecall?: Record<string, unknown>;
     maxFacts?: number;
+    directory?: string;
   };
   skills?: { enabled?: ReadonlyArray<string> };
   plugins?: { enabled?: ReadonlyArray<string> };
