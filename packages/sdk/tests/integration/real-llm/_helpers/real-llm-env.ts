@@ -85,11 +85,15 @@ export function resolveRealLlmEnv(
   }
   const openrouterKey = process.env.OPENROUTER_API_KEY;
   if (openrouterKey !== undefined && openrouterKey.length > 0) {
+    // #719 — the `openrouter/` prefix is what actually routes the call. A bare
+    // `anthropic/...` id resolves to the native provider, which rejects the
+    // OpenRouter key as `malformed_api_key` before any request is sent.
+    const model = options.model ?? DEFAULT_MODELS[provider];
     return {
       shouldSkip: false,
       skipReason: "",
       provider: "openrouter",
-      model: options.model ?? DEFAULT_MODELS[provider],
+      model: model.startsWith("openrouter/") ? model : `openrouter/${model}`,
       apiKey: openrouterKey,
       baseUrl: "",
     };
