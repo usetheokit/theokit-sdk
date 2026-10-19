@@ -44,7 +44,7 @@
     "prepublishOnly": "node ../../tools/check-publish-no-workspace.mjs ."
   },
   "peerDependencies": {
-    "@theokit/sdk": ">=5.10.0",
+    "@theokit/sdk": "workspace:^",
     "better-sqlite3": "^12.0.0",
     "sqlite-vec": ">=0.1.0",
     "@lancedb/lancedb": ">=0.20.0"
