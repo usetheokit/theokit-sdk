@@ -478,6 +478,33 @@ export interface MemorySettings {
    */
   directory?: string;
   /**
+   * The most facts this agent's memory may hold. Default: no ceiling.
+   *
+   * The ceiling counts the write directory only: the per-memory fact files and any legacy
+   * `## Facts` bullets in that directory's `MEMORY.md`. A dreaming sweep's `factsBefore` counts
+   * every root it reads, so the two numbers can differ.
+   *
+   * At the ceiling a new fact is refused with a `ConfigurationError` whose code is
+   * `memory_ceiling_reached` and whose message names the directory, the count and what to
+   * consolidate; nothing is written. Recording a fact that is already stored is a second
+   * observation, not a new fact, and is still admitted. A value that is not a positive integer is
+   * refused with `invalid_memory_ceiling` by `Agent.create` and `Agent.resume`, before the agent
+   * exists, whether or not memory is enabled, and again by the writer before anything touches disk.
+   *
+   * The count and the write hold a lock that every SDK process writing this directory with a
+   * ceiling takes, so several processes on one directory cannot together pass it. That lock is
+   * the companion `<directory>.lock` beside the directory and needs the optional `proper-lockfile`
+   * peer; without it the ceiling holds within one process only, and the SDK says so once on its
+   * diagnostics channel. A writer that declares no ceiling, such as the Claude Code CLI, does not
+   * take the lock and can still add facts past it. When the lock stays busy past its retries the
+   * write is refused with `proper-lockfile`'s `ELOCKED` error, and nothing is written.
+   *
+   * A resumed agent keeps its ceiling and its `directory`: a `memory` object passed to
+   * `Agent.resume` replaces only the fields it sets, and a field set to `undefined` keeps its
+   * persisted value.
+   */
+  maxFacts?: number;
+  /**
    * Whether the SDK auto-injects recalled facts as a `<memory>` block in the
    * LLM system prompt. Default `true`.
    */

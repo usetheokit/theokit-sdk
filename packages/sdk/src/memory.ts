@@ -113,6 +113,15 @@ export interface DreamingSweepResult {
   duplicatesRemoved: number;
   clustersCreated: number;
   notesWritten: number;
+  /**
+   * How many facts this sweep left out of clustering. A sweep clusters at most 500 facts, counted
+   * after near-duplicates are removed; the rest wait for a later sweep, and this field is how many
+   * that was. 0 on `"ok"` when nothing was left out and on `"skipped"`.
+   *
+   * Absent when the sweep failed or when an older `@theokit/sdk-memory` ran it without reporting
+   * the count; never read absence as 0.
+   */
+  factsLeftOut?: number;
 }
 
 /**
@@ -294,6 +303,7 @@ function toDreamingSweepResult(result: {
   duplicatesRemoved: number;
   clustersCreated: number;
   notesWritten: number;
+  factsLeftOut?: number;
 }): DreamingSweepResult {
   return {
     status: result.status as DreamingSweepResult["status"],
@@ -302,5 +312,6 @@ function toDreamingSweepResult(result: {
     duplicatesRemoved: result.duplicatesRemoved,
     clustersCreated: result.clustersCreated,
     notesWritten: result.notesWritten,
+    ...(result.factsLeftOut !== undefined ? { factsLeftOut: result.factsLeftOut } : {}),
   };
 }

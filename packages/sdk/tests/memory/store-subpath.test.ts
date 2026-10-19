@@ -4,6 +4,7 @@ import * as indexDb from "../../src/internal/memory/index-db.js";
 import * as helpers from "../../src/internal/memory/index-manager-helpers.js";
 import * as lance from "../../src/internal/memory/lance-index.js";
 import * as migrate from "../../src/internal/memory/migrate-sqlite-to-lance.js";
+import * as ceiling from "../../src/internal/memory/storage/fact-ceiling.js";
 import * as barrel from "../../src/internal/memory/storage/index.js";
 import * as store from "../../src/internal/memory/storage/markdown-store.js";
 import * as root from "../../src/internal/memory/storage/memory-root.js";
@@ -42,7 +43,7 @@ describe("the internal/memory-store sub-path", () => {
     expect(exported.length).toBeGreaterThan(0);
     for (const name of exported) expect(barrel).toHaveProperty(name);
 
-    for (const mod of [root, sessionWriter, sessionLoader, wiki, transcripts]) {
+    for (const mod of [root, sessionWriter, sessionLoader, wiki, transcripts, ceiling]) {
       const names = Object.keys(mod).filter(
         (name) => typeof (mod as Record<string, unknown>)[name] === "function",
       );
@@ -56,6 +57,7 @@ describe("the internal/memory-store sub-path", () => {
   it("test_each_re_export_is_the_source_function_itself", () => {
     const sources = {
       ...store,
+      ...ceiling,
       ...root,
       ...sessionWriter,
       ...sessionLoader,

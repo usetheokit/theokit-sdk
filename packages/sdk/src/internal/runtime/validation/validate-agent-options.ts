@@ -7,6 +7,7 @@ import type {
   CustomTool,
 } from "../../../types/agent.js";
 import type { McpServerConfig } from "../../../types/mcp.js";
+import { resolveMaxFacts } from "../../memory/storage/fact-ceiling.js";
 
 /**
  * Pre-flight validation for `Agent.create()` options. Throws
@@ -20,6 +21,7 @@ import type { McpServerConfig } from "../../../types/mcp.js";
  * - subagent inline definitions require `description` and `prompt`
  * - programmatic `hooks` are rejected (hooks are file-based only)
  * - memory `storePath`, when relative, must stay inside the workspace
+ * - memory `maxFacts`, when declared, must be a positive integer
  * - custom `tools`: unique names, reserved-name collisions rejected,
  *   schema shape valid, cloud agents reject any non-empty tools array
  *   (a builtin listed in `withheldBuiltinTools` is no longer reserved —
@@ -273,7 +275,10 @@ function validateToolSchema(tool: CustomTool): void {
 }
 
 function validateMemory(options: AgentOptions): void {
-  const memory = (options as { memory?: { storePath?: string } }).memory;
+  const memory = (options as { memory?: { storePath?: string; maxFacts?: unknown } }).memory;
+  // Whether or not memory is enabled: an invalid ceiling is a typo that would otherwise wait for
+  // the day memory is switched on, and then surface only as a diagnostic on every write (B-380).
+  resolveMaxFacts(memory?.maxFacts);
   if (memory?.storePath === undefined) return;
   const storePath = memory.storePath;
   if (storePath.includes("..") || storePath.startsWith("/") || /^[A-Z]:/i.test(storePath)) {

@@ -7,6 +7,7 @@ import { API_KEY_ENV_VAR, resolveApiKey } from "../../internal/env.js";
 import { httpRequest } from "../../internal/http.js";
 import { isLocalAgentId } from "../../internal/ids.js";
 import { LocalAgent } from "../../internal/local-agent/index.js";
+import { resolveMaxFacts } from "../../internal/memory/storage/fact-ceiling.js";
 import { discoverProviderPlugins } from "../../internal/providers/discovery.js";
 import { isFixtureApiKey } from "../../internal/runtime/fixtures/fixture-mode.js";
 import { normalizeModel } from "../../internal/runtime/model-selection.js";
@@ -19,7 +20,13 @@ import {
 import { validateAgentOptions } from "../../internal/runtime/validation/validate-agent-options.js";
 import type { OTelSpan } from "../../internal/telemetry/tracer.js";
 import { getProviderProfile } from "../../providers.js";
-import type { AgentOptions, CustomTool, SDKAgent, SDKAgentInfo } from "../../types/agent.js";
+import type {
+  AgentOptions,
+  CustomTool,
+  MemorySettings,
+  SDKAgent,
+  SDKAgentInfo,
+} from "../../types/agent.js";
 import { presentProviderCredentialEnvVars } from "../auth/credential-availability.js";
 import { getConfiguredBaseUrl } from "../base-url.js";
 
@@ -293,10 +300,12 @@ export async function rehydrateExistingAgent(
     options.local !== undefined && existing.options.local !== undefined
       ? { ...existing.options.local, ...options.local }
       : (options.local ?? existing.options.local);
+  const mergedMemory = mergeResumedMemory(existing.options.memory, options.memory);
   const mergedOptions: AgentOptions = {
     ...existing.options,
     ...options,
     ...(mergedLocal !== undefined ? { local: mergedLocal } : {}),
+    ...(mergedMemory !== undefined ? { memory: mergedMemory } : {}),
     // SE8 — normalize a caller-supplied bare-string model override at this resume
     // boundary (Agent.resume never flows through runCreateUnderSpan). Cloud resume
     // honors it; local resume forces the persisted model below.
@@ -304,6 +313,9 @@ export async function rehydrateExistingAgent(
     mcpServers: undefined,
     agentId,
   };
+  // Agent.resume never reaches validateAgentOptions, so a ceiling passed here is checked here,
+  // before the agent exists (B-380).
+  resolveMaxFacts(mergedOptions.memory?.maxFacts);
   if (existing.runtime === "cloud") {
     return new CloudAgent(mergedOptions, agentId);
   }
@@ -312,6 +324,22 @@ export async function rehydrateExistingAgent(
   const agent = new LocalAgent({ ...mergedOptions, model: existing.options.model });
   await agent.initialize();
   return agent;
+}
+
+/**
+ * The memory settings a resumed agent runs with: the persisted ones, with each field the caller
+ * passed on resume taking its place. A field the override leaves out, or sets to `undefined`, keeps
+ * its persisted value, so `Agent.resume(id, { memory: { enabled: true } })` keeps the agent's
+ * `maxFacts` and `directory` (B-380). Replacing the object whole dropped them with no signal.
+ */
+function mergeResumedMemory(
+  persisted: AgentOptions["memory"],
+  override: AgentOptions["memory"],
+): AgentOptions["memory"] {
+  if (override === undefined) return persisted;
+  if (persisted === undefined) return override;
+  const named = Object.entries(override).filter(([, value]) => value !== undefined);
+  return { ...persisted, ...(Object.fromEntries(named) as Partial<MemorySettings>) };
 }
 
 async function validateRehydratedAgent(
