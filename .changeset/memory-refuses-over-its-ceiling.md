@@ -41,5 +41,5 @@ so read absence as unknown, not as 0. `ClusterResult`, which `@theokit/sdk-memor
 requires `factsLeftOut` too. Code that builds its own `ClusterResult`, such as a mock of
 `remPhase`, has to add it.
 
-`@theokit/sdk-memory` now needs `@theokit/sdk` `>=5.10.0`, the first release that exports the
+`@theokit/sdk-memory` now needs `@theokit/sdk` `^5.10.0`, the first release that exports the
 ceiling helpers it imports.
