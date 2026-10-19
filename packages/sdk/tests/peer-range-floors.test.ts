@@ -29,6 +29,35 @@ const SATELLITES = [
   "sdk-pty",
 ] as const;
 
+/** The version of `@theokit/sdk` in this workspace, which a `workspace:` peer range publishes against. */
+const WORKSPACE_SDK_VERSION = (
+  JSON.parse(readFileSync(join(REPO_ROOT, "packages", "sdk", "package.json"), "utf8")) as {
+    version: string;
+  }
+).version;
+
+/**
+ * The range pnpm writes into the published manifest for `range`.
+ *
+ * A `workspace:` range never reaches a consumer as written: `pnpm pack` replaces `workspace:^`
+ * with `^<version>`, `workspace:~` with `~<version>` and `workspace:*` with `<version>`, where
+ * `<version>` is the workspace package's version at pack time, and drops the protocol from a
+ * `workspace:` range that already names a version. The floor a consumer sees is the one in the
+ * published range, so that is the range the floor checks below have to read.
+ *
+ * `sdk-memory` declares `workspace:^` since 852c9b34: the `dep-check` gate refuses a plain range
+ * above the version installed in the workspace, and `>=5.10.0` names a version that exists only
+ * after `changeset version`. The siblings `memory-honcho`, `memory-mem0` and `memory-supermemory`
+ * declare the same peer the same way.
+ */
+function publishedPeerRange(range: string, workspaceVersion: string): string {
+  if (!range.startsWith("workspace:")) return range;
+  const spec = range.slice("workspace:".length);
+  if (spec === "^" || spec === "~") return `${spec}${workspaceVersion}`;
+  if (spec === "*") return workspaceVersion;
+  return spec;
+}
+
 /**
  * The [major, minor, patch] a range floors at, ignoring any prerelease suffix.
  *
@@ -53,11 +82,10 @@ function floorAtLeast(range: string, floor: string): boolean {
   return aPatch >= bPatch;
 }
 
-/** Extract the numeric major floor from a peer range like ">=4.0.0" or "^4". */
+/** The numeric major floor of a peer range like ">=4.0.0" or "^4". */
 function peerFloorMajor(range: string): number {
-  const m = range.match(/(\d+)(?:\.\d+)?(?:\.\d+)?/);
-  if (!m) throw new Error(`unparseable peer range: ${range}`);
-  return Number(m[1]);
+  const [major] = peerFloorTriple(range);
+  return major;
 }
 
 /** Floors established by measurement, with the API that forced each one. */
@@ -86,6 +114,12 @@ const MEASURED_FLOORS: Record<string, { floor: string; because: string }> = {
   // It could not be raised in the release that created 4.63.0. A floor names a version a consumer
   // can install, and that version did not exist yet; `dep-check`'s floor leg failed for one
   // release, correctly and out loud, saying so.
+  //
+  // The same holds for 5.10.0, the first SDK exporting `resolveMaxFacts` and `ceilingReachedError`,
+  // which sdk-memory imports since the memory ceiling. The peer is `workspace:^`, so its published
+  // floor is the SDK version of the release that publishes it, 5.10.0 for that release. While the
+  // workspace still carries 5.9.x, a pinned 5.10.0 here would fail on every commit before
+  // `changeset version` runs; raise it once 5.10.0 is the workspace version.
   "sdk-memory": {
     floor: "4.63.0",
     because: "imports members of internal/memory-store added in 4.63.0 (#463)",
@@ -103,6 +137,39 @@ const MEASURED_FLOORS: Record<string, { floor: string; because: string }> = {
   "sdk-tools": { floor: "4.54.0", because: "no TS consumer compiles against the SDK below 4.54.0" },
 };
 
+describe("publishedPeerRange — what pnpm writes for a workspace: range", () => {
+  it("resolves workspace:^ to a caret range on the workspace version", () => {
+    expect(publishedPeerRange("workspace:^", "5.10.0")).toBe("^5.10.0");
+  });
+
+  it("resolves workspace:~ to a tilde range on the workspace version", () => {
+    expect(publishedPeerRange("workspace:~", "5.10.0")).toBe("~5.10.0");
+  });
+
+  it("resolves workspace:* to the exact workspace version", () => {
+    expect(publishedPeerRange("workspace:*", "5.10.0")).toBe("5.10.0");
+  });
+
+  it("strips the protocol from a workspace: range that names a version", () => {
+    expect(publishedPeerRange("workspace:^4.63.0", "5.10.0")).toBe("^4.63.0");
+  });
+
+  it("leaves a plain range unchanged", () => {
+    expect(publishedPeerRange(">=4.63.0", "5.10.0")).toBe(">=4.63.0");
+  });
+
+  it("refuses a workspace:^ floor that publishes below a measured floor", () => {
+    const published = publishedPeerRange("workspace:^", "4.62.9");
+    expect(floorAtLeast(published, "4.63.0")).toBe(false);
+  });
+
+  it("still throws on a range with no version in it", () => {
+    expect(() => peerFloorTriple(publishedPeerRange("workspace:latest", "5.10.0"))).toThrow(
+      "unparseable peer range: latest",
+    );
+  });
+});
+
 describe("SE43 DoD#4 — satellite @theokit/sdk peer-range floors", () => {
   for (const pkg of SATELLITES) {
     it(`${pkg} declares a peer floor >= 4.0.0`, () => {
@@ -111,7 +178,9 @@ describe("SE43 DoD#4 — satellite @theokit/sdk peer-range floors", () => {
       ) as { peerDependencies?: Record<string, string> };
       const range = manifest.peerDependencies?.["@theokit/sdk"];
       expect(range, `${pkg} must declare a @theokit/sdk peerDependency`).toBeDefined();
-      expect(peerFloorMajor(range as string)).toBeGreaterThanOrEqual(4);
+      expect(
+        peerFloorMajor(publishedPeerRange(range as string, WORKSPACE_SDK_VERSION)),
+      ).toBeGreaterThanOrEqual(4);
     });
 
     const measured = MEASURED_FLOORS[pkg];
@@ -134,9 +203,10 @@ describe("SE43 DoD#4 — satellite @theokit/sdk peer-range floors", () => {
         // The docblock above states the invariant this file exists for: a known floor must not
         // "silently drop back". Dropping is the failure. Raising is not, and asserting against it
         // blocked every prerelease cut in the repository.
+        const published = publishedPeerRange(declared as string, WORKSPACE_SDK_VERSION);
         expect(
-          floorAtLeast(declared as string, measured.floor),
-          `${pkg} needs at least ${measured.floor} for ${measured.because}; a lower floor promises a build that fails. Declared: ${declared}`,
+          floorAtLeast(published, measured.floor),
+          `${pkg} needs at least ${measured.floor} for ${measured.because}; a lower floor promises a build that fails. Declared: ${declared}, published as: ${published}`,
         ).toBe(true);
       });
     }
