@@ -88,6 +88,23 @@ describe("Anthropic streaming usage read from message_start", () => {
     expect(u.inputTokens).toBe(12);
   });
 
+  it("a null input_tokens in message_delta keeps the message_start value", async () => {
+    const u = await finishOf(
+      frames({ input_tokens: 10 }, { input_tokens: null, output_tokens: 5 }),
+    );
+    expect(u.inputTokens).toBe(10);
+  });
+
+  it("a zero input_tokens in message_delta keeps the message_start value", async () => {
+    const u = await finishOf(frames({ input_tokens: 10 }, { input_tokens: 0, output_tokens: 5 }));
+    expect(u.inputTokens).toBe(10);
+  });
+
+  it("a zero input_tokens in message_delta is reported when message_start had none", async () => {
+    const u = await finishOf(frames({}, { input_tokens: 0, output_tokens: 5 }));
+    expect(u.inputTokens).toBe(0);
+  });
+
   it("a lower non-zero message_delta value replaces the message_start value", async () => {
     const u = await finishOf(
       frames(

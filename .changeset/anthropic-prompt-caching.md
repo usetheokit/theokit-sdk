@@ -39,7 +39,8 @@ Things a caller can observe:
   cost than before.
 - **Input tokens on the Anthropic stream.** `input_tokens` is read from `message_start` too, so a
   stream whose `message_delta` carries only `output_tokens` reports its uncached input instead of
-  none. A value in `message_delta` still replaces it.
+  none. A value above zero in `message_delta` still replaces it; a `null` or a zero there leaves
+  the `message_start` count.
 - **Malformed Anthropic frames.** A `content_block_start`, `content_block_delta` or
   `message_delta` frame that is not valid JSON now fails the turn with a retryable `NetworkError`
   (`code: "stream_malformed_frame"`) instead of being skipped, which finished the turn with text
