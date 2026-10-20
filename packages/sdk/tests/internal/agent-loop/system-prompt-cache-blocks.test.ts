@@ -29,12 +29,17 @@ const FAMILY_IDS = [
   "openrouter/anthropic/claude-haiku-4.5",
   "anthropic/claude-haiku-4.5",
   "claude-sonnet-4-6",
+  // D1 Consequences: Vertex Anthropic ids match (`vertex/{dialect}/{model}`, vertex.ts).
+  "vertex/anthropic/claude-sonnet-4-5@20250929",
+  "vertex/claude-3-5-sonnet",
 ];
 // A Bedrock id (`anthropic.claude-…`) is outside the family on purpose, and so is a missing id.
 const OTHER_IDS = [
   "openai/gpt-4o-mini",
   "google/gemini-2.5-flash-lite",
   "anthropic.claude-3-5-sonnet-20241022-v2:0",
+  "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0",
+  "vertex/google/gemini-2.0-flash-001",
   undefined,
 ];
 
