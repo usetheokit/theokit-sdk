@@ -22,6 +22,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Agent } from "../../src/agent.js";
+import { ConfigurationError } from "../../src/errors.js";
 import {
   clearAgentRegistry,
   invalidateRegistryHydration,
@@ -79,6 +80,23 @@ function mockFetch402QuotaExceeded(): typeof fetch {
       {
         status: 402,
         statusText: "Payment Required",
+        headers: { "content-type": "application/json" },
+      },
+    ) as Response;
+  }) as unknown as typeof fetch;
+}
+
+/**
+ * OpenRouter's answer for a model id it no longer serves (observed live 2026-10-20 for
+ * "deepseek/deepseek-r1"). The provider's text is the only place the model id appears.
+ */
+function mockFetch404MissingModel(modelId: string): typeof fetch {
+  return vi.fn(async (_input: string | URL | Request, _init?: RequestInit) => {
+    return new Response(
+      JSON.stringify({ error: { message: `No endpoints found for ${modelId}.`, code: 404 } }),
+      {
+        status: 404,
+        statusText: "Not Found",
         headers: { "content-type": "application/json" },
       },
     ) as Response;
@@ -223,6 +241,30 @@ describe("a provider's REASON reaches RunResult without the stream (#338 item 3)
       // problem from a rate limit from a bad key without attaching a diagnostics sink.
       expect(result.error?.message ?? "").toContain("quota_exceeded");
       expect(result.error?.message ?? "").toContain("openrouter");
+    } finally {
+      await agent.dispose();
+    }
+  });
+
+  it("missing_model_404_ends_the_run_with_a_ConfigurationError_naming_the_model", async () => {
+    // A retired model id is a configuration problem: the run must say which model, with a
+    // class a caller can branch on, rather than an UnknownAgentError naming neither.
+    const retiredModel = "deepseek/deepseek-r1";
+    vi.stubEnv("OPENROUTER_API_KEY", "sk-or-v1-test-fixture-key");
+    vi.stubGlobal("fetch", mockFetch404MissingModel(retiredModel));
+    const agent = await Agent.create({
+      apiKey: REAL_KEY_SHAPE,
+      model: { id: retiredModel },
+      local: { cwd: root },
+      providers: { routes: [{ capability: "chat", provider: "openrouter" }] },
+    });
+    try {
+      const result = await (await agent.send("hi")).wait();
+
+      expect(result.status).toBe("error");
+      expect(result.error?.code).toBe("model_unavailable");
+      expect(result.error?.cause).toBeInstanceOf(ConfigurationError);
+      expect(result.error?.message ?? "").toContain(retiredModel);
     } finally {
       await agent.dispose();
     }
