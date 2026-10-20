@@ -1,6 +1,6 @@
 {
   "name": "@theokit/sdk-memory",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "Memory subsystem for @theokit/sdk — MemoryProvider impls (markdown file store today; LanceDB + embeddings + circuit breaker next iters). Consumes the kernel-facing port from sdk-core.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/usetheokit/theokit-sdk#readme",
