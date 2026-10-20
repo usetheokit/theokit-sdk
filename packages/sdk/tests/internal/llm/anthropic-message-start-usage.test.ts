@@ -75,6 +75,29 @@ describe("Anthropic streaming usage read from message_start", () => {
     expect(u.cacheWriteTokens).toBe(512);
   });
 
+  it("input_tokens in message_start alone reaches the finish", async () => {
+    const u = await finishOf(
+      frames({ input_tokens: 10, cache_read_input_tokens: 2048 }, { output_tokens: 5 }),
+    );
+    expect(u.inputTokens).toBe(10);
+    expect(u.outputTokens).toBe(5);
+  });
+
+  it("an input_tokens in message_delta replaces the message_start value", async () => {
+    const u = await finishOf(frames({ input_tokens: 10 }, { input_tokens: 12, output_tokens: 5 }));
+    expect(u.inputTokens).toBe(12);
+  });
+
+  it("a lower non-zero message_delta value replaces the message_start value", async () => {
+    const u = await finishOf(
+      frames(
+        { input_tokens: 10, cache_read_input_tokens: 4096 },
+        { output_tokens: 5, cache_read_input_tokens: 2048 },
+      ),
+    );
+    expect(u.cacheReadTokens).toBe(2048);
+  });
+
   it("a message_delta value wins over message_start", async () => {
     const u = await finishOf(
       frames(
