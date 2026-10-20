@@ -8,6 +8,9 @@
  * t=0..1000 ms, the answer t=2500..6000 ms. The first text delta comes 1500 ms after the last
  * reasoning delta, so a duration that ends at the first text delta (2500) is told apart from one
  * that ends at the last reasoning delta (1000).
+ *
+ * Each name ends with the plan's test id in parentheses, so the plan's `vitest -t <id>` criteria
+ * still select exactly one test while the name itself reads as prose (CONTRIBUTING.md § Test names).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAgentLoop } from "../../../src/internal/agent-loop/loop.js";
@@ -121,7 +124,7 @@ describe("B-497: thinking-completed timing", () => {
 
   // Control: passes before and after B-497. If this fails, the harness is broken and the tests below
   // are not evidence of anything.
-  it("test_emits_one_thinking_completed_per_reasoning_block", async () => {
+  it("emits one thinking-completed per reasoning block (test_emits_one_thinking_completed_per_reasoning_block)", async () => {
     const { updates } = await runScripted(REASON_THEN_ANSWER);
     expect(updates.filter((u) => u.type === "thinking-completed")).toHaveLength(1);
     // The fake clock is the one the SDK reads: a 1000 ms reasoning span cannot report 0.
@@ -129,7 +132,7 @@ describe("B-497: thinking-completed timing", () => {
     expect(completed?.thinkingDurationMs).toBeGreaterThan(0);
   });
 
-  it("test_thinking_completed_arrives_before_first_text_delta", async () => {
+  it("sends thinking-completed before the first text-delta (test_thinking_completed_arrives_before_first_text_delta)", async () => {
     const types = (await runScripted(REASON_THEN_ANSWER)).updates.map((u) => u.type);
     expect(types).toContain("thinking-completed");
     expect(types).toContain("text-delta");
@@ -137,13 +140,13 @@ describe("B-497: thinking-completed timing", () => {
   });
 
   // The clock is fake, so the span is exact: last reasoning delta minus first, nothing else.
-  it("test_thinking_duration_is_the_reasoning_span", async () => {
+  it("reports the reasoning span as thinkingDurationMs (test_thinking_duration_is_the_reasoning_span)", async () => {
     const { updates } = await runScripted(REASON_THEN_ANSWER);
     const completed = updates.find((u) => u.type === "thinking-completed");
     expect(completed?.thinkingDurationMs).toBe(REASONING_SPAN_MS);
   });
 
-  it("test_thinking_sdkmessage_duration_is_the_reasoning_span", async () => {
+  it("replays the reasoning span as thinking_duration_ms (test_thinking_sdkmessage_duration_is_the_reasoning_span)", async () => {
     const { events } = await runScripted(REASON_THEN_ANSWER);
     const thinking = events.find((e) => e.type === "thinking") as
       | { thinking_duration_ms?: number }
@@ -154,7 +157,7 @@ describe("B-497: thinking-completed timing", () => {
   // A reasoning delta after the answer started is shown and replayed, but the close was already
   // sent: no second close, and the duration the consumer saw stays the one it keeps. The late
   // signature-only delta must still reach the returned block, or the replayed block is rejected.
-  it("test_late_reasoning_emits_no_second_thinking_completed", async () => {
+  it("shows late reasoning without a second thinking-completed (test_late_reasoning_emits_no_second_thinking_completed)", async () => {
     const script: TimedEvent[] = [
       ...REASON_THEN_ANSWER.slice(0, 4),
       { atMs: 3000, event: { type: "reasoning_delta", text: " (checked)" } },
@@ -178,7 +181,7 @@ describe("B-497: thinking-completed timing", () => {
     expect(updates).toHaveLength(script.length + 1);
   });
 
-  it("test_thinking_completed_precedes_tool_call_started", async () => {
+  it("closes the reasoning once, before tool-call-started (test_thinking_completed_precedes_tool_call_started)", async () => {
     const { cwd, hooks } = await makeLoopWorkspace("theokit-thinking-timing-");
     const updates: Update[] = [];
     await runAgentLoop(
@@ -202,7 +205,7 @@ describe("B-497: thinking-completed timing", () => {
 
   // The close goes through the same guarded callback as every other update: a listener that
   // throws on it cannot cost the consumer the answer.
-  it("test_throwing_listener_on_close_still_streams_text", async () => {
+  it("still streams the answer when the listener throws on the close (test_throwing_listener_on_close_still_streams_text)", async () => {
     const { updates, output } = await runScripted(REASON_THEN_ANSWER, (update) => {
       if (update.type === "thinking-completed") throw new Error("listener failed on close");
     });
@@ -215,7 +218,7 @@ describe("B-497: thinking-completed timing", () => {
     expect(output.errored).toBe(false);
   });
 
-  it("test_in_band_error_after_reasoning_closes_once", async () => {
+  it("closes once with the span when a provider error follows reasoning (test_in_band_error_after_reasoning_closes_once)", async () => {
     const script: TimedEvent[] = [
       ...REASON_THEN_ANSWER.slice(0, 3),
       { atMs: 4000, event: { type: "error", message: "provider failed mid-turn" } },
