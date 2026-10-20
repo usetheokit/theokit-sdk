@@ -25,5 +25,6 @@ Things a caller can observe:
   facts, resolved skills or context that change between turns change block 1 and miss.
 - **Counters.** The Anthropic streaming client reads `cache_read_input_tokens` and
   `cache_creation_input_tokens` from `message_start`, where Anthropic reports them; a value in
-  `message_delta` still wins, an explicit zero included. The non-streaming parser shared by the
-  Bedrock and Vertex Anthropic clients now returns both counters too.
+  `message_delta` still wins when it is above zero, and a zero there leaves the `message_start`
+  value in place. The non-streaming parser shared by the Bedrock and Vertex Anthropic clients now
+  returns both counters too.
