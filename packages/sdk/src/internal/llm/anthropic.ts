@@ -340,7 +340,11 @@ class AnthropicStreamAccumulator {
       this.sawStopReason = true;
     }
     this.stopReason = mapAnthropicStopReason(md.delta.stop_reason);
-    if (md.usage?.input_tokens !== undefined) this.inputTokens = md.usage.input_tokens;
+    // Same rule as the cache counters: a null or a zero-fill leaves the message_start count.
+    const input = md.usage?.input_tokens;
+    if (typeof input === "number" && (input > 0 || this.inputTokens === undefined)) {
+      this.inputTokens = input;
+    }
     if (md.usage?.output_tokens !== undefined) this.outputTokens = md.usage.output_tokens;
     this.readCacheCounters(md.usage);
   }
