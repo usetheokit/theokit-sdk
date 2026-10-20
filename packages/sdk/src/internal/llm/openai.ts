@@ -8,6 +8,7 @@
  */
 
 import { NetworkError } from "../../errors.js";
+import { splitChatCompletionsPrompt } from "../budget/normalize-usage.js";
 import { diag } from "../diagnostics.js";
 import { mapOllamaHttpError, mapOllamaTransportError } from "../error-mappers/ollama.js";
 import { mapOpenAICompatibleError } from "../error-mappers/openai-compatible.js";
@@ -277,12 +278,8 @@ export class OpenAIClient implements LlmClient {
 class OpenAIStreamAccumulator {
   private text = "";
   private stopReason: LlmStopReason = "end_turn";
-  /** Chat Completions `prompt_tokens`: the whole prompt, cached slice included. */
-  private promptTokens?: number;
-  private outputTokens?: number;
-  private cacheReadTokens?: number;
-  private cacheWriteTokens?: number;
-  private reasoningTokens?: number;
+  /** The stream's `usage` object, a later chunk replacing an earlier one per top-level field. */
+  private usage: NonNullable<OpenAIDeltaChunk["usage"]> = {};
   private readonly toolCalls = new Map<number, { id: string; name: string; args: string }>();
   /** R7: present only when recovery is enabled AND the request declares tools — holds suspected
    *  leaked-dialect content back from the `text_delta` stream. `undefined` ⇒ stream immediately. */
@@ -344,22 +341,7 @@ class OpenAIStreamAccumulator {
   }
 
   private applyUsage(usage: OpenAIDeltaChunk["usage"]): void {
-    if (usage?.prompt_tokens !== undefined) this.promptTokens = usage.prompt_tokens;
-    if (usage?.completion_tokens !== undefined) this.outputTokens = usage.completion_tokens;
-    // D376: cache + reasoning buckets via OpenRouter passthrough + OpenAI native.
-    const cachedDetail = usage?.prompt_tokens_details?.cached_tokens;
-    if (cachedDetail !== undefined) this.cacheReadTokens = cachedDetail;
-    const cacheWriteDetail = usage?.prompt_tokens_details?.cache_write_tokens;
-    if (cacheWriteDetail !== undefined) this.cacheWriteTokens = cacheWriteDetail;
-    const reasoningDetail = usage?.completion_tokens_details?.reasoning_tokens;
-    if (reasoningDetail !== undefined) this.reasoningTokens = reasoningDetail;
-    // a peer#10266 top-level fallback for Anthropic-on-OpenRouter.
-    if (usage?.cache_read_input_tokens !== undefined) {
-      this.cacheReadTokens = usage.cache_read_input_tokens;
-    }
-    if (usage?.cache_creation_input_tokens !== undefined) {
-      this.cacheWriteTokens = usage.cache_creation_input_tokens;
-    }
+    if (usage !== undefined) this.usage = { ...this.usage, ...usage };
   }
 
   private applyContentDelta(content: string | undefined): LlmEvent | undefined {
@@ -406,19 +388,6 @@ class OpenAIStreamAccumulator {
     this.stopReason = mapOpenAIFinish(reason);
   }
 
-  /**
-   * `inputTokens` means the uncached portion on every client, as Anthropic reports it.
-   * `prompt_tokens` already counts the cache buckets, so they are subtracted here, as
-   * `normalizeUsage` does for the same wire shape; otherwise `computeCost` bills a cached token
-   * at the input rate and again at the cache rate. Floored at 0 for a payload whose cache counts
-   * exceed its prompt total.
-   */
-  private uncachedInputTokens(): number | undefined {
-    if (this.promptTokens === undefined) return undefined;
-    const cached = (this.cacheReadTokens ?? 0) + (this.cacheWriteTokens ?? 0);
-    return Math.max(0, this.promptTokens - cached);
-  }
-
   finish(): LlmFinish {
     const toolCalls: LlmToolCallPart[] = [];
     for (const call of this.toolCalls.values()) {
@@ -461,11 +430,10 @@ class OpenAIStreamAccumulator {
       stopReason,
       text,
       toolCalls,
-      inputTokens: this.uncachedInputTokens(),
-      outputTokens: this.outputTokens,
-      cacheReadTokens: this.cacheReadTokens,
-      cacheWriteTokens: this.cacheWriteTokens,
-      reasoningTokens: this.reasoningTokens,
+      // D376: the prompt split (cache buckets out of inputTokens) has one owner, normalize-usage.ts.
+      ...splitChatCompletionsPrompt(this.usage),
+      outputTokens: this.usage.completion_tokens,
+      reasoningTokens: this.usage.completion_tokens_details?.reasoning_tokens,
     });
   }
 }

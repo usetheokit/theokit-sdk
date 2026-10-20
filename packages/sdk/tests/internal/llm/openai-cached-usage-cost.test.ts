@@ -98,6 +98,30 @@ describe("chat-completions usage keeps the cached slice out of inputTokens", () 
     expect(finish.inputTokens).toBe(1000);
   });
 
+  it("the nested cache counts win over a top-level zero, as normalizeUsage reads them", async () => {
+    const finish = await finishOf({
+      prompt_tokens: 2100,
+      completion_tokens: 8,
+      prompt_tokens_details: { cached_tokens: 2048, cache_write_tokens: 40 },
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+    });
+    expect(finish.cacheReadTokens).toBe(2048);
+    expect(finish.cacheWriteTokens).toBe(40);
+    expect(finish.inputTokens).toBe(12);
+  });
+
+  it("a top-level count fills a nested zero", async () => {
+    const finish = await finishOf({
+      prompt_tokens: 3000,
+      completion_tokens: 8,
+      prompt_tokens_details: { cached_tokens: 0 },
+      cache_read_input_tokens: 2500,
+    });
+    expect(finish.cacheReadTokens).toBe(2500);
+    expect(finish.inputTokens).toBe(500);
+  });
+
   it("cache counts above the prompt total floor inputTokens at zero", async () => {
     const finish = await finishOf({
       prompt_tokens: 100,
