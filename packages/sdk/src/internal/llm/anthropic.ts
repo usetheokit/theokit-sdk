@@ -1,4 +1,5 @@
 import { NetworkError } from "../../errors.js";
+import { diag } from "../diagnostics.js";
 import { mapAnthropicError } from "../error-mappers/anthropic.js";
 import { boundFetch } from "../runtime-fetch.js";
 import { buildAnthropicCommonBody, mapAnthropicStopReason } from "./anthropic-shared.js";
@@ -99,7 +100,14 @@ interface AnthropicMessageDelta {
   };
 }
 
+/** B-412 — Anthropic reports a streamed response's cache counters here, not in `message_delta`. */
+interface AnthropicMessageStart {
+  type: "message_start";
+  message?: { usage?: AnthropicMessageDelta["usage"] };
+}
+
 type AnthropicEvent =
+  | AnthropicMessageStart
   | AnthropicTextDelta
   | AnthropicToolStart
   | AnthropicToolDelta
@@ -167,13 +175,9 @@ export class AnthropicClient implements LlmClient {
 
     const accumulator = new AnthropicStreamAccumulator();
     for await (const record of parseSseStream(response.body, signal)) {
-      if (record.event === "ping" || record.event === "message_start") continue;
-      let parsed: AnthropicEvent;
-      try {
-        parsed = JSON.parse(record.data) as AnthropicEvent;
-      } catch {
-        continue;
-      }
+      if (record.event === "ping") continue;
+      const parsed = parseAnthropicFrame(record);
+      if (parsed === undefined) continue;
       const events = accumulator.consume(parsed);
       for (const event of events) yield event;
     }
@@ -187,6 +191,42 @@ export class AnthropicClient implements LlmClient {
       });
     }
     return accumulator.finish();
+  }
+}
+
+/**
+ * Frames whose loss would leave a hole in the turn: its text, a tool's input or its stop reason.
+ * Finishing without them reads as a complete answer, so a malformed one fails the turn instead.
+ */
+const CONTENT_FRAMES: ReadonlySet<string> = new Set([
+  "content_block_start",
+  "content_block_delta",
+  "message_delta",
+]);
+
+/**
+ * Parse one SSE frame. A frame `JSON.parse` refuses is never dropped silently: a content frame
+ * throws a retryable `NetworkError` (`stream_malformed_frame`), and any other frame (`message_start`
+ * with the usage counters, `message_stop`, an event this client does not know) is reported on the
+ * diagnostics channel and skipped. Neither names more than the event and the body's length: the body
+ * is model output or tool input, and the error message reaches the host's trace exporter.
+ */
+function parseAnthropicFrame(record: { event: string; data: string }): AnthropicEvent | undefined {
+  try {
+    return JSON.parse(record.data) as AnthropicEvent;
+  } catch (parseErr) {
+    const event = record.event;
+    const size = `${record.data.length} chars`;
+    if (CONTENT_FRAMES.has(event)) {
+      throw new NetworkError(
+        `Anthropic SSE ${event} frame (${size}) is not valid JSON; the turn would lose content`,
+        { code: "stream_malformed_frame", cause: parseErr },
+      );
+    }
+    diag(
+      `[theokit-sdk] skipped an Anthropic SSE ${event} frame (${size}) that is not valid JSON\n`,
+    );
+    return undefined;
   }
 }
 
@@ -224,6 +264,11 @@ class AnthropicStreamAccumulator {
     }
     if (event.type === "message_delta") {
       this.handleMessageDelta(event as AnthropicMessageDelta);
+    }
+    if (event.type === "message_start") {
+      const usage = (event as AnthropicMessageStart).message?.usage;
+      if (typeof usage?.input_tokens === "number") this.inputTokens = usage.input_tokens;
+      this.readCacheCounters(usage);
     }
     return [];
   }
@@ -294,20 +339,28 @@ class AnthropicStreamAccumulator {
       this.sawStopReason = true;
     }
     this.stopReason = mapAnthropicStopReason(md.delta.stop_reason);
-    if (md.usage?.input_tokens !== undefined) this.inputTokens = md.usage.input_tokens;
+    // Same rule as the cache counters: a null or a zero-fill leaves the message_start count.
+    const input = md.usage?.input_tokens;
+    if (typeof input === "number" && (input > 0 || this.inputTokens === undefined)) {
+      this.inputTokens = input;
+    }
     if (md.usage?.output_tokens !== undefined) this.outputTokens = md.usage.output_tokens;
-    // T3.8 — treat 0 as "no cache activity" and leave the bucket
-    // unreported (mirrors usage-accumulator's filter where zero-value
-    // entries are stripped from the emitted TokenUsage).
-    if (
-      md.usage?.cache_creation_input_tokens !== undefined &&
-      md.usage.cache_creation_input_tokens > 0
-    ) {
-      this.cacheWriteTokens = md.usage.cache_creation_input_tokens;
-    }
-    if (md.usage?.cache_read_input_tokens !== undefined && md.usage.cache_read_input_tokens > 0) {
-      this.cacheReadTokens = md.usage.cache_read_input_tokens;
-    }
+    this.readCacheCounters(md.usage);
+  }
+
+  /**
+   * T3.8 / B-412 / B-475 — the cache counters, from `message_start` and then `message_delta`. A
+   * value above 0 replaces the earlier one. A zero, a null or an absent field leaves it in place,
+   * so a `message_delta` that zero-fills its usage does not erase what `message_start` reported;
+   * a counter no event reports above 0 stays unreported (usage-accumulator strips zero entries).
+   * The `typeof` check is there because the wire is JSON: a null arrives although the type
+   * declares none.
+   */
+  private readCacheCounters(usage: AnthropicMessageDelta["usage"]): void {
+    const write = usage?.cache_creation_input_tokens;
+    if (typeof write === "number" && write > 0) this.cacheWriteTokens = write;
+    const read = usage?.cache_read_input_tokens;
+    if (typeof read === "number" && read > 0) this.cacheReadTokens = read;
   }
 
   /** M2 #61 — whether the terminal `message_delta` (stop_reason) was seen. */

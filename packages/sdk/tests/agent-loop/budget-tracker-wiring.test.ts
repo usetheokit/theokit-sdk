@@ -38,7 +38,11 @@ import type { BudgetTracker } from "../../src/types/budget-tracker.js";
 import { removeTempDirRobust } from "../helpers/temp-workspace.js";
 
 /** A one-round LLM that reports the token counts the wiring is supposed to forward. */
-function clientReporting(inputTokens?: number, outputTokens?: number): LlmClient {
+function clientReporting(
+  inputTokens?: number,
+  outputTokens?: number,
+  cache: { cacheReadTokens?: number; cacheWriteTokens?: number } = {},
+): LlmClient {
   return {
     name: "stub",
     async *stream(): AsyncGenerator<LlmEvent, LlmFinish, void> {
@@ -49,6 +53,7 @@ function clientReporting(inputTokens?: number, outputTokens?: number): LlmClient
         toolCalls: [],
         ...(inputTokens !== undefined ? { inputTokens } : {}),
         ...(outputTokens !== undefined ? { outputTokens } : {}),
+        ...cache,
       };
     },
   };
@@ -70,6 +75,8 @@ describe("BudgetTracker.track() wiring, against the production runIteration", ()
     tracker?: BudgetTracker;
     inputTokens?: number;
     outputTokens?: number;
+    cacheReadTokens?: number;
+    cacheWriteTokens?: number;
     model?: ModelSelection;
   }): Promise<Awaited<ReturnType<typeof runAgentLoop>>> {
     const hooks = new HooksExecutor(cwd);
@@ -79,7 +86,14 @@ describe("BudgetTracker.track() wiring, against the production runIteration", ()
       runId: "run-budget-wiring",
       model: options.model ?? { id: "openai/gpt-4o-mini" },
       userMessage: "hello",
-      llm: clientReporting(options.inputTokens, options.outputTokens),
+      llm: clientReporting(options.inputTokens, options.outputTokens, {
+        ...(options.cacheReadTokens !== undefined
+          ? { cacheReadTokens: options.cacheReadTokens }
+          : {}),
+        ...(options.cacheWriteTokens !== undefined
+          ? { cacheWriteTokens: options.cacheWriteTokens }
+          : {}),
+      }),
       mcp: new Map(),
       hooks,
       shellCwd: cwd,
@@ -110,6 +124,41 @@ describe("BudgetTracker.track() wiring, against the production runIteration", ()
     });
     // The production tracker's own accumulation, reached through the loop rather than by hand.
     expect(tracker.getTotal().tokens).toBe(160);
+  });
+
+  it("test_a_cached_turn_tracks_the_whole_prompt_as_input", async () => {
+    // inputTokens is the uncached slice on every client, and BudgetUsageEvent has only "input" and
+    // "output". Before the chat-completions client netted the cache out of inputTokens, a cached
+    // OpenRouter turn (prompt_tokens 2100, 2048 of them cached) reached the tracker as 2100 input
+    // tokens. Tracking only the uncached 52 let a maxTokens ceiling see 2.5% of the prompt.
+    const tracker = createCounterBudgetTracker();
+    const track = vi.spyOn(tracker, "track");
+
+    await drive({
+      tracker,
+      inputTokens: 52,
+      outputTokens: 8,
+      cacheReadTokens: 2000,
+      cacheWriteTokens: 48,
+    });
+
+    expect(track).toHaveBeenNthCalledWith(1, {
+      tokens: 2100,
+      model: "openai/gpt-4o-mini",
+      type: "input",
+    });
+    expect(tracker.getTotal().tokens).toBe(2108);
+  });
+
+  it("test_a_fully_cached_prompt_still_fires_the_input_event", async () => {
+    // The `inputT > 0` guard must read the whole prompt: an uncached slice of 0 with a cache read
+    // is still a prompt the tracker has to see.
+    const tracker = createCounterBudgetTracker();
+    const track = vi.spyOn(tracker, "track");
+
+    await drive({ tracker, inputTokens: 0, outputTokens: 5, cacheReadTokens: 4096 });
+
+    expect(track.mock.calls[0]?.[0]).toMatchObject({ tokens: 4096, type: "input" });
   });
 
   it("test_zero_input_skips_the_input_event", async () => {
