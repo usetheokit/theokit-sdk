@@ -99,7 +99,8 @@ describe("real OpenAI client", () => {
         break;
       }
     }
-    expect(result.inputTokens).toBe(120);
+    // prompt_tokens 120 includes the 80 cached tokens; inputTokens is the uncached 40.
+    expect(result.inputTokens).toBe(40);
     expect(result.outputTokens).toBe(8);
     expect(result.cacheReadTokens).toBe(80);
     expect(result.reasoningTokens).toBe(3);

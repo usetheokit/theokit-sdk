@@ -28,3 +28,10 @@ Things a caller can observe:
   `message_delta` still wins when it is above zero, and a zero there leaves the `message_start`
   value in place. The non-streaming parser shared by the Bedrock and Vertex Anthropic clients now
   returns both counters too.
+- **Cost on the chat-completions client.** `prompt_tokens` there already includes the cached
+  slice, and the client used to report it whole as `inputTokens` beside `cacheReadTokens`, so the
+  estimated cost charged every cached token twice (about 8 times too high on a cached
+  OpenRouter Anthropic turn). `inputTokens` is now the uncached portion, as on the Anthropic
+  client, and `prompt_tokens_details.cache_write_tokens` is read into `cacheWriteTokens`. A
+  native OpenAI chat-completions run with a cache hit reports a lower `inputTokens` and a lower
+  cost than before.
