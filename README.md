@@ -390,6 +390,8 @@ await run.cancel();
 
 The status moves to `"cancelled"`, the live stream aborts, in-flight tool calls stop, and `run.wait()` resolves with `status: "cancelled"`. Partial assistant text stays on the `Run` object. Cancel is a no-op if the run already finished.
 
+A cancelled turn reports no `usage` or `cost` on its `RunResult`: the result resolves when you cancel, before the turn's usage is collected. (OpenAI-compatible providers such as OpenRouter send usage only in the stream's final chunk.) The provider still bills the tokens it generated before the abort; ask the provider when you need that figure.
+
 ### Reading run state
 
 ```typescript
