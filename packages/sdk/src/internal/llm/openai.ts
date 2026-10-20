@@ -107,7 +107,7 @@ interface OpenAIDeltaChunk {
      * surfaces as `prompt_tokens_details.cached_tokens` on OpenRouter passthrough;
      * native OpenAI exposes the same field on `chatcmpl-*` responses.
      */
-    prompt_tokens_details?: { cached_tokens?: number };
+    prompt_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
     completion_tokens_details?: { reasoning_tokens?: number };
     /** Anthropic-on-OpenRouter passes cache_creation_tokens top-level (a peer#10266). */
     cache_creation_input_tokens?: number;
@@ -277,7 +277,8 @@ export class OpenAIClient implements LlmClient {
 class OpenAIStreamAccumulator {
   private text = "";
   private stopReason: LlmStopReason = "end_turn";
-  private inputTokens?: number;
+  /** Chat Completions `prompt_tokens`: the whole prompt, cached slice included. */
+  private promptTokens?: number;
   private outputTokens?: number;
   private cacheReadTokens?: number;
   private cacheWriteTokens?: number;
@@ -343,11 +344,13 @@ class OpenAIStreamAccumulator {
   }
 
   private applyUsage(usage: OpenAIDeltaChunk["usage"]): void {
-    if (usage?.prompt_tokens !== undefined) this.inputTokens = usage.prompt_tokens;
+    if (usage?.prompt_tokens !== undefined) this.promptTokens = usage.prompt_tokens;
     if (usage?.completion_tokens !== undefined) this.outputTokens = usage.completion_tokens;
     // D376: cache + reasoning buckets via OpenRouter passthrough + OpenAI native.
     const cachedDetail = usage?.prompt_tokens_details?.cached_tokens;
     if (cachedDetail !== undefined) this.cacheReadTokens = cachedDetail;
+    const cacheWriteDetail = usage?.prompt_tokens_details?.cache_write_tokens;
+    if (cacheWriteDetail !== undefined) this.cacheWriteTokens = cacheWriteDetail;
     const reasoningDetail = usage?.completion_tokens_details?.reasoning_tokens;
     if (reasoningDetail !== undefined) this.reasoningTokens = reasoningDetail;
     // a peer#10266 top-level fallback for Anthropic-on-OpenRouter.
@@ -403,6 +406,19 @@ class OpenAIStreamAccumulator {
     this.stopReason = mapOpenAIFinish(reason);
   }
 
+  /**
+   * `inputTokens` means the uncached portion on every client, as Anthropic reports it.
+   * `prompt_tokens` already counts the cache buckets, so they are subtracted here, as
+   * `normalizeUsage` does for the same wire shape; otherwise `computeCost` bills a cached token
+   * at the input rate and again at the cache rate. Floored at 0 for a payload whose cache counts
+   * exceed its prompt total.
+   */
+  private uncachedInputTokens(): number | undefined {
+    if (this.promptTokens === undefined) return undefined;
+    const cached = (this.cacheReadTokens ?? 0) + (this.cacheWriteTokens ?? 0);
+    return Math.max(0, this.promptTokens - cached);
+  }
+
   finish(): LlmFinish {
     const toolCalls: LlmToolCallPart[] = [];
     for (const call of this.toolCalls.values()) {
@@ -445,7 +461,7 @@ class OpenAIStreamAccumulator {
       stopReason,
       text,
       toolCalls,
-      inputTokens: this.inputTokens,
+      inputTokens: this.uncachedInputTokens(),
       outputTokens: this.outputTokens,
       cacheReadTokens: this.cacheReadTokens,
       cacheWriteTokens: this.cacheWriteTokens,
