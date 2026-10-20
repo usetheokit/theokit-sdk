@@ -33,7 +33,10 @@ function frame(event: string, data: Record<string, unknown>): string {
   return `event: ${event}\ndata: ${JSON.stringify({ type: event, ...data })}\n\n`;
 }
 
-function frames(startUsage: Record<string, number>, deltaUsage: Record<string, number>): string[] {
+function frames(
+  startUsage: Record<string, number | null>,
+  deltaUsage: Record<string, number | null>,
+): string[] {
   return [
     frame("message_start", {
       message: { id: "msg_1", type: "message", role: "assistant", usage: startUsage },
@@ -82,14 +85,34 @@ describe("Anthropic streaming usage read from message_start", () => {
     expect(u.cacheReadTokens).toBe(4096);
   });
 
-  it("an explicit zero in message_delta clears a message_start value", async () => {
+  it("a zero in message_delta keeps the message_start value", async () => {
     const u = await finishOf(
       frames(
         { input_tokens: 10, cache_read_input_tokens: 2048 },
         { output_tokens: 5, cache_read_input_tokens: 0 },
       ),
     );
-    expect(u.cacheReadTokens).toBeUndefined();
+    expect(u.cacheReadTokens).toBe(2048);
+  });
+
+  it("a zero in message_delta keeps the message_start write count", async () => {
+    const u = await finishOf(
+      frames(
+        { input_tokens: 10, cache_creation_input_tokens: 512 },
+        { output_tokens: 5, cache_creation_input_tokens: 0 },
+      ),
+    );
+    expect(u.cacheWriteTokens).toBe(512);
+  });
+
+  it("a null counter in message_delta keeps the message_start value", async () => {
+    const u = await finishOf(
+      frames(
+        { input_tokens: 10, cache_read_input_tokens: 2048 },
+        { output_tokens: 5, cache_read_input_tokens: null },
+      ),
+    );
+    expect(u.cacheReadTokens).toBe(2048);
   });
 
   it("a message_start without cache fields reports none (EC-3)", async () => {
