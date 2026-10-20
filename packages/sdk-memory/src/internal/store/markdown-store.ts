@@ -27,6 +27,7 @@ export {
   appendFact,
   appendFactToMarkdown,
   asMemoryRoot,
+  ceilingReachedError,
   claudeProjectMemoryDir,
   collectMarkdownFiles,
   type DiscoveredFile,
@@ -45,6 +46,7 @@ export {
   readAllSqliteFacts,
   readFacts,
   readFactsFromMarkdown,
+  resolveMaxFacts,
   resolveMemoryRoot,
   type SqliteFactRow,
 } from "@theokit/sdk/internal/memory-store";

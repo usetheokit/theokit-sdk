@@ -46,6 +46,11 @@ export interface DreamingResult {
   clustersCreated: number;
   notesWritten: number;
   diaryEntryHash: string | undefined;
+  /**
+   * Deduplicated facts past the per-sweep cap that were not clustered. Set on `"ok"`, 0 on
+   * `"skipped"`, and absent on `"error"`, where the sweep cannot say how many it left out.
+   */
+  factsLeftOut?: number;
 }
 
 export function runDreamingSweep(options: DreamingOptions): Promise<DreamingResult> {
@@ -75,6 +80,7 @@ async function runInner(options: DreamingOptions): Promise<DreamingResult> {
       clustersCreated: rem.clusters.length,
       notesWritten,
       diaryEntryHash: undefined,
+      factsLeftOut: rem.factsLeftOut,
     };
     await appendDiaryEntry(root, {
       timestampMs,
@@ -108,7 +114,7 @@ async function writeConsolidatedNotes(
 }
 
 function emptyResult(status: "skipped" | "error"): DreamingResult {
-  return {
+  const result: DreamingResult = {
     status,
     factsBefore: 0,
     factsAfter: 0,
@@ -117,4 +123,6 @@ function emptyResult(status: "skipped" | "error"): DreamingResult {
     notesWritten: 0,
     diaryEntryHash: undefined,
   };
+  // An empty store left nothing out; a failed sweep cannot say, so it reports no count.
+  return status === "skipped" ? { ...result, factsLeftOut: 0 } : result;
 }
