@@ -54,4 +54,5 @@ Things a caller can observe:
   `message_delta` frame that is not valid JSON now fails the turn with a retryable `NetworkError`
   (`code: "stream_malformed_frame"`) instead of being skipped, which finished the turn with text
   or tool input missing. Any other malformed frame is still skipped and reported on the
-  diagnostics channel.
+  diagnostics channel. The error message and the diagnostic line name the event and the frame's
+  length, never its body, which can hold model output or tool input.

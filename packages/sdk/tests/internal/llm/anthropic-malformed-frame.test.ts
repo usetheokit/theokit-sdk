@@ -35,6 +35,23 @@ function malformed(event: string): string {
   return `event: ${event}\ndata: not json\n\n`;
 }
 
+/** A broken frame whose body carries text a caller could not want copied into a span or a log. */
+const SECRET_MARKER = "sk-live-do-not-export-4f1c9e";
+const secretBody = `{"type":"content_block_delta","delta":{"text":"${SECRET_MARKER}"`;
+
+function malformedWith(event: string, body: string): string {
+  return `event: ${event}\ndata: ${body}\n\n`;
+}
+
+function captureStderr(): string[] {
+  const writes: string[] = [];
+  vi.spyOn(process.stderr, "write").mockImplementation((chunk: string | Uint8Array) => {
+    writes.push(String(chunk));
+    return true;
+  });
+  return writes;
+}
+
 const start = frame("message_start", {
   message: { id: "msg_1", type: "message", role: "assistant", usage: { input_tokens: 10 } },
 });
@@ -82,13 +99,36 @@ describe("Anthropic SSE frames that are not JSON", () => {
   });
 
   it("a malformed message_start is reported on the diagnostics channel", async () => {
-    const writes: string[] = [];
-    vi.spyOn(process.stderr, "write").mockImplementation((chunk: string | Uint8Array) => {
-      writes.push(String(chunk));
-      return true;
-    });
+    const writes = captureStderr();
     const finish = await finishOf([malformed("message_start"), text, end]);
     expect(finish.text).toBe("Hello");
-    expect(writes.some((w) => w.includes("message_start") && w.includes("not json"))).toBe(true);
+    expect(writes.some((w) => w.includes("message_start") && w.includes("8 chars"))).toBe(true);
+  });
+
+  it("a malformed content_block_start fails the turn with stream_malformed_frame", async () => {
+    await expect(
+      finishOf([start, malformed("content_block_start"), text, end]),
+    ).rejects.toMatchObject({ code: "stream_malformed_frame" });
+  });
+
+  it("the error for a malformed content frame names the event and length, not the body", async () => {
+    const error = await finishOf([
+      start,
+      malformedWith("content_block_delta", secretBody),
+      end,
+    ]).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(NetworkError);
+    const message = (error as NetworkError).message;
+    expect(message).toContain("content_block_delta");
+    expect(message).toContain(`${secretBody.length} chars`);
+    expect(message).not.toContain(SECRET_MARKER);
+  });
+
+  it("the diagnostic line for a skipped malformed frame does not copy the body", async () => {
+    const writes = captureStderr();
+    await finishOf([malformedWith("message_start", secretBody), text, end]);
+    const line = writes.find((w) => w.includes("message_start"));
+    expect(line).toContain(`${secretBody.length} chars`);
+    expect(writes.join("")).not.toContain(SECRET_MARKER);
   });
 });

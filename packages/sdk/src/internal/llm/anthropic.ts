@@ -204,28 +204,27 @@ const CONTENT_FRAMES: ReadonlySet<string> = new Set([
   "message_delta",
 ]);
 
-const MALFORMED_PREVIEW_CHARS = 120;
-
 /**
  * Parse one SSE frame. A frame `JSON.parse` refuses is never dropped silently: a content frame
  * throws a retryable `NetworkError` (`stream_malformed_frame`), and any other frame (`message_start`
  * with the usage counters, `message_stop`, an event this client does not know) is reported on the
- * diagnostics channel and skipped.
+ * diagnostics channel and skipped. Neither names more than the event and the body's length: the body
+ * is model output or tool input, and the error message reaches the host's trace exporter.
  */
 function parseAnthropicFrame(record: { event: string; data: string }): AnthropicEvent | undefined {
   try {
     return JSON.parse(record.data) as AnthropicEvent;
   } catch (parseErr) {
     const event = record.event;
-    const preview = record.data.slice(0, MALFORMED_PREVIEW_CHARS);
+    const size = `${record.data.length} chars`;
     if (CONTENT_FRAMES.has(event)) {
       throw new NetworkError(
-        `Anthropic SSE ${event} frame is not valid JSON; the turn would lose content: ${preview}`,
+        `Anthropic SSE ${event} frame (${size}) is not valid JSON; the turn would lose content`,
         { code: "stream_malformed_frame", cause: parseErr },
       );
     }
     diag(
-      `[theokit-sdk] skipped an Anthropic SSE ${event} frame that is not valid JSON: ${preview}\n`,
+      `[theokit-sdk] skipped an Anthropic SSE ${event} frame (${size}) that is not valid JSON\n`,
     );
     return undefined;
   }
