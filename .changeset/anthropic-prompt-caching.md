@@ -40,6 +40,12 @@ Things a caller can observe:
   Anthropic-style top-level ones, the nested count wins and a top-level count fills a nested
   zero, the rule `normalizeUsage` already applied; the stream client used to let the top-level
   field win.
+- **Budget trackers.** A `BudgetTracker`'s `input` event now carries the whole prompt:
+  `inputTokens` plus `cacheReadTokens` and `cacheWriteTokens`. On the chat-completions client this
+  keeps the count a tracker saw before `inputTokens` became the uncached portion. On the Anthropic
+  clients, which always reported the uncached portion, a cached turn now counts its cached tokens
+  against `maxTokens`, and `createUsdBudgetTracker` prices them at the input rate, so a cost cap
+  trips earlier than the provider's bill would.
 - **Input tokens on the Anthropic stream.** `input_tokens` is read from `message_start` too, so a
   stream whose `message_delta` carries only `output_tokens` reports its uncached input instead of
   none. A value above zero in `message_delta` still replaces it; a `null` or a zero there leaves
