@@ -15,6 +15,7 @@
  * override lets a host inject a refresh-aware fetch (dynamic `ChatGPT-Account-Id` / `session-id`, mid-turn
  * token refresh) — mirroring `OpenAIClient`.
  */
+import { netOfCache } from "../budget/normalize-usage.js";
 import { mapOpenAICompatibleError } from "../error-mappers/openai-compatible.js";
 import { boundFetch } from "../runtime-fetch.js";
 import { collapseSystemText, makeLlmFinish, parseToolArguments } from "./finish.js";
@@ -258,8 +259,7 @@ interface ResponsesEvent {
       /**
        * The slice of `input_tokens` the provider served from its prompt cache.
        *
-       * Read because `input_tokens` INCLUDES it: a consumer adding input to output without
-       * subtracting this reports tokens nobody is paying for. Measured 2026-08-25 with
+       * Read because `input_tokens` INCLUDES it (`applyUsage` nets it out). Measured 2026-08-25 with
        * `prompt_cache_key` in use — a three-round turn reported 9,835 where 619 were new, 16x.
        * The sibling Chat Completions transport has always read the equivalent
        * (`prompt_tokens_details.cached_tokens`); this one read the reasoning detail beside it and
@@ -450,11 +450,11 @@ class ResponsesStreamAccumulator {
 
   private applyUsage(usage: NonNullable<ResponsesEvent["response"]>["usage"]): void {
     if (usage === undefined) return;
-    this.inputTokens = usage.input_tokens;
     this.outputTokens = usage.output_tokens;
     this.reasoningTokens = usage.output_tokens_details?.reasoning_tokens;
     this.cacheReadTokens = usage.input_tokens_details?.cached_tokens;
     this.cacheWriteTokens = usage.input_tokens_details?.cache_write_tokens;
+    this.inputTokens = netOfCache(usage.input_tokens, this.cacheReadTokens, this.cacheWriteTokens);
   }
 }
 
