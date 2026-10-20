@@ -309,6 +309,9 @@ class RealLocalRun extends FixtureRunBase {
     let textStreamedSinceLastMessage = false;
     inputs.signal = anySignal([inputs.signal, this.cancelController.signal]);
     inputs.onLoopEvent = (event: SDKMessage) => {
+      // B-495 — wait() resolved at cancel time; what the loop reports while it unwinds (its
+      // "[aborted]" message, a late tool result) must not change what stream() and events() return.
+      if (this.terminated) return;
       this.liveDelivered.add(event);
       this.script.events.push(event);
       // theokit#140 - the same event on the complete timeline. Both views are fed from the one
@@ -377,6 +380,8 @@ class RealLocalRun extends FixtureRunBase {
    * Finding-B fix (sdk-error-packaging v1.1): set-once errorDetail copy.
    */
   private applyAgentLoopOutput(output: Awaited<ReturnType<typeof runAgentLoop>>): void {
+    // B-495 — a run cancelled mid-turn is already final; its output arrives after wait() resolved.
+    if (this.terminated) return;
     this.deliverUndeliveredEvents(output.events);
     this.script.conversation.push(...output.conversation);
     if (output.result.length > 0) this.script.result = output.result;
