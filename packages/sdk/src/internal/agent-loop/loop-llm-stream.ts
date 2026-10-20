@@ -1,4 +1,5 @@
 import { diag } from "../diagnostics.js";
+import { isAnthropicFamilyModel } from "../llm/model-capabilities.js";
 import { derivePromptCacheKey } from "../llm/prompt-cache-key.js";
 import type {
   LlmClient,
@@ -76,16 +77,6 @@ function activeMemoryBlock(additions: string): string {
 }
 
 /**
- * B-412 — decided by the id, not by the catalog's `supportsCacheControl`, which is false for the
- * Anthropic ids measured on OpenRouter. Bedrock ids (`anthropic.claude-…`) do not match.
- */
-function isAnthropicFamily(modelId: string | undefined): boolean {
-  if (modelId === undefined) return false;
-  const id = modelId.startsWith("openrouter/") ? modelId.slice("openrouter/".length) : modelId;
-  return /^(anthropic\/|claude)/.test(id);
-}
-
-/**
  * B-412 — for an Anthropic-family model the configured prompt is block 1, cacheable, and the
  * `<active-memory>` block follows it, so changing memory never sits in front of the cached
  * prefix. Any other model, or an empty prompt, gets {@link resolveSystemPromptWithMemoryAdditions}.
@@ -96,7 +87,7 @@ export function buildLoopSystem(
   additions?: string,
   modelId?: string,
 ): string | LlmSystemBlock[] | undefined {
-  if (!isAnthropicFamily(modelId) || systemPrompt === undefined || systemPrompt.length === 0) {
+  if (!isAnthropicFamilyModel(modelId) || systemPrompt === undefined || systemPrompt.length === 0) {
     return resolveSystemPromptWithMemoryAdditions(systemPrompt, additions);
   }
   const blocks: LlmSystemBlock[] = [{ text: systemPrompt, cacheable: true }];

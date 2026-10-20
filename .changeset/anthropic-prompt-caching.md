@@ -5,13 +5,15 @@
 Prompt caching now turns on for Anthropic models, and the cache counters they report reach the
 turn's usage.
 
-For a model id that starts with `anthropic/` or `claude` (after an optional `openrouter/` prefix),
+For a model id that starts with `anthropic/` or `claude` (after an optional `openrouter/`,
+`vertex/` or `bedrock/` prefix),
 the agent loop sends the system prompt as text blocks: the configured prompt first, marked with
 `cache_control: { type: "ephemeral" }`, then the `<active-memory>` block when memory adds one. The
 Anthropic client sends the blocks as they are, and the OpenRouter client sends them as `content`
 parts of the `system` message, with `cache_control` on the cacheable part. Every other provider
 still receives one string. Bedrock ids (`anthropic.claude-…`) are not matched,
-and their bodies do not change. Vertex Anthropic was not measured for this change.
+and their bodies do not change. Vertex Anthropic ids (`vertex/anthropic/claude-…`) are matched
+and get the same blocks; no live Vertex response was measured for this change.
 
 Things a caller can observe:
 

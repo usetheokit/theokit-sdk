@@ -82,6 +82,19 @@ export function resolveModelCapabilities(modelId: string): ModelCapabilities {
   return CONSERVATIVE_DEFAULTS;
 }
 
+/**
+ * B-412 / B-475 — whether a model id names an Anthropic model the loop sends cacheable system
+ * blocks to. Decided by the id, not by the catalog's `supportsCacheControl`, which is false for the
+ * Anthropic ids measured on OpenRouter. After the same routing prefixes the capability lookup
+ * strips (`openrouter/`, `vertex/`, `bedrock/`), the id must start with `anthropic/` or `claude`,
+ * so Vertex Anthropic ids match and Bedrock ids (`anthropic.claude-…`) do not.
+ * @internal
+ */
+export function isAnthropicFamilyModel(modelId: string | undefined): boolean {
+  if (modelId === undefined) return false;
+  return /^(anthropic\/|claude)/.test(stripRoutingPrefix(modelId));
+}
+
 function stripRoutingPrefix(modelId: string): string {
   for (const prefix of ROUTING_PREFIXES) {
     if (modelId.startsWith(prefix)) return modelId.slice(prefix.length);
