@@ -108,37 +108,30 @@ function isMissingModel404(status: number, body: unknown): boolean {
   return status === 404 && MISSING_MODEL_MESSAGE.test(extractOpenAiErrorMessage(body) ?? "");
 }
 
-function classifyOpenAiBodyCode(rawCode: string): ErrorCode | undefined {
-  if (
-    rawCode.includes("context_length") ||
-    rawCode.includes("context_window") ||
-    rawCode.includes("too_many_tokens") ||
-    rawCode.includes("max_tokens")
-  ) {
-    return "context_too_long";
-  }
-  if (
-    rawCode.includes("content_filter") ||
-    rawCode.includes("content_policy") ||
-    rawCode.includes("safety")
-  ) {
-    return "content_filtered";
-  }
-  if (
-    rawCode.includes("model_not_found") ||
-    rawCode.includes("model_unavailable") ||
-    rawCode.includes("invalid_model")
-  ) {
-    return "model_unavailable";
-  }
+// The body dialect, in precedence order: the first rule whose fragment appears in the
+// lowercased body code wins.
+const BODY_CODE_RULES: ReadonlyArray<{ fragments: readonly string[]; code: ErrorCode }> = [
+  {
+    fragments: ["context_length", "context_window", "too_many_tokens", "max_tokens"],
+    code: "context_too_long",
+  },
+  { fragments: ["content_filter", "content_policy", "safety"], code: "content_filtered" },
+  {
+    fragments: ["model_not_found", "model_unavailable", "invalid_model"],
+    code: "model_unavailable",
+  },
   // T3.7 — OpenRouter "Insufficient credits" / `insufficient_quota` in the BODY.
   // The status-402 half of this rule moved to the shared ladder, where it now
   // reaches all four mappers instead of this one; what stays here is the part
   // that is genuinely a body dialect.
-  if (rawCode.includes("insufficient_quota") || rawCode.includes("quota_exceeded")) {
-    return "quota_exceeded";
-  }
-  return undefined;
+  { fragments: ["insufficient_quota", "quota_exceeded"], code: "quota_exceeded" },
+];
+
+function classifyOpenAiBodyCode(rawCode: string): ErrorCode | undefined {
+  const rule = BODY_CODE_RULES.find(({ fragments }) =>
+    fragments.some((fragment) => rawCode.includes(fragment)),
+  );
+  return rule?.code;
 }
 
 function formatMessage(
