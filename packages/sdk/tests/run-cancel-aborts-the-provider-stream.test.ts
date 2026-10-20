@@ -45,9 +45,13 @@ function drainBody(req: IncomingMessage): Promise<void> {
 }
 
 function reasoningChunk(seq: number): string {
-  return `data: ${JSON.stringify({
-    choices: [{ index: 0, delta: { reasoning: `step ${String(seq)}. ` }, finish_reason: null }],
-  })}\n\n`;
+  // Built in steps: a template literal nested inside another made lizard read this function as
+  // running to the end of the file (CCN 16), which the item's complexity gate then refused.
+  const reasoning = `step ${String(seq)}. `;
+  const record = JSON.stringify({
+    choices: [{ index: 0, delta: { reasoning }, finish_reason: null }],
+  });
+  return `data: ${record}\n\n`;
 }
 
 /**
