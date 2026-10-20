@@ -8,6 +8,7 @@ import {
   type InheritedCredentials,
   withInheritedSubAgentCredentials,
 } from "../concurrency/subagent-credentials.js";
+import { diagFailure } from "../diagnostics.js";
 import { emitRunEvent } from "../emit-run-event.js";
 import { FallbackLlmClient } from "../llm/fallback-client.js";
 import { resolveProviderChain } from "../llm/router.js";
@@ -363,11 +364,7 @@ class RealLocalRun extends FixtureRunBase {
       // owns the client and releases it via `disposeSessionMcpClients` (`LocalAgent.dispose()`) plus
       // `reapIdle` on the next acquire; closing it here would kill the child the next turn expects
       // to still be running.
-      if (this.ownsMcpClients) {
-        for (const client of inputs.mcp.values()) {
-          await client.close().catch(() => undefined);
-        }
-      }
+      if (this.ownsMcpClients) await closeOwnedMcpClients(inputs);
     }
   }
 
@@ -435,5 +432,24 @@ class RealLocalRun extends FixtureRunBase {
       };
     }
     this.notifyNewEvents();
+  }
+}
+
+/**
+ * Close every MCP client a turn owns. A close that fails must not mask the turn's outcome, so it is
+ * not rethrown, but it may leave the server's child process running, so it is reported with the
+ * server's name. The `finally` of `executeAgentLoop` is the only place these clients are released,
+ * including for a run cancelled while its servers initialized (B-495).
+ */
+async function closeOwnedMcpClients(inputs: AgentLoopInputs): Promise<void> {
+  for (const [name, client] of inputs.mcp.entries()) {
+    try {
+      await client.close();
+    } catch (cause) {
+      const why = cause instanceof Error ? cause.message : String(cause);
+      diagFailure(
+        `[theokit-sdk] MCP server ${name} failed to close; its process may still be running: ${why}`,
+      );
+    }
   }
 }

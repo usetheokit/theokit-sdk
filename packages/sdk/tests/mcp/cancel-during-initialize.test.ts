@@ -7,10 +7,13 @@
  * run the caller had already stopped. The guard sits inside the `try` of `executeAgentLoop`, so the
  * `finally` that releases run-owned MCP clients still runs; this test watches both halves.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setDiagnosticsSink } from "../../src/internal/diagnostics.js";
 import { pollUntil } from "../helpers/poll-until.js";
 
 const closes: string[] = [];
+/** When set, `close()` records the call and then rejects with this error. */
+let closeFailure: Error | undefined;
 let initializeCalls = 0;
 let releaseInitialize: (() => void) | undefined;
 
@@ -26,6 +29,7 @@ vi.mock("../../src/internal/mcp/client.js", () => ({
     ),
     close: vi.fn(async () => {
       closes.push(name);
+      if (closeFailure !== undefined) throw closeFailure;
     }),
     listTools: vi.fn(async () => []),
     callTool: vi.fn(async () => ({})),
@@ -50,11 +54,15 @@ describe("a run cancelled while its MCP servers initialize", () => {
     closes.length = 0;
     initializeCalls = 0;
     releaseInitialize = undefined;
+    closeFailure = undefined;
     vi.mocked(runAgentLoop).mockClear();
   });
+  afterEach(() => {
+    setDiagnosticsSink(undefined);
+  });
 
-  it("starts no loop turn, and still closes the MCP client it owns", async () => {
-    const run = createRealLocalRun({
+  function startRunWithOneMcpServer() {
+    return createRealLocalRun({
       agentId: "agent-cancel-during-init",
       model: { id: "claude-sonnet-4-6" },
       message: "hello",
@@ -66,6 +74,10 @@ describe("a run cancelled while its MCP servers initialize", () => {
       workspaceCwd: process.cwd(),
       hooks: {} as never,
     } as never);
+  }
+
+  it("starts no loop turn, and still closes the MCP client it owns", async () => {
+    const run = startRunWithOneMcpServer();
 
     await pollUntil(() => initializeCalls > 0, {
       deadlineMs: 2_000,
@@ -80,6 +92,33 @@ describe("a run cancelled while its MCP servers initialize", () => {
     });
     expect(vi.mocked(runAgentLoop)).toHaveBeenCalledTimes(0);
     expect(closes).toEqual(["fs"]);
+    expect((await run.wait()).status).toBe("cancelled");
+  });
+
+  // The guard above leans on the `finally` to release the clients; a close that fails there must
+  // say so, naming the server, instead of leaving a possibly running MCP child with no trace.
+  it("reports a failed close of an owned MCP client through diagnostics, naming the server", async () => {
+    const reported: string[] = [];
+    setDiagnosticsSink((message) => {
+      reported.push(message);
+    });
+    closeFailure = new Error("EPIPE: child already gone");
+    const run = startRunWithOneMcpServer();
+
+    await pollUntil(() => initializeCalls > 0, {
+      deadlineMs: 2_000,
+      message: "initialize was never called",
+    });
+    await run.cancel();
+    releaseInitialize?.();
+
+    await pollUntil(() => reported.some((m) => m.includes("failed to close")), {
+      deadlineMs: 2_000,
+      message: () => `no close failure was reported; diagnostics: ${JSON.stringify(reported)}`,
+    });
+    const report = reported.find((m) => m.includes("failed to close")) ?? "";
+    expect(report).toContain("fs");
+    expect(report).toContain("EPIPE: child already gone");
     expect((await run.wait()).status).toBe("cancelled");
   });
 });
