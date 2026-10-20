@@ -6,7 +6,9 @@
  * `TheokitAgentError` subclasses with full `ErrorMetadata`.
  *
  * Body inspection: looks at `body.error.code` / `body.error.type` to detect
- * `context_too_long`, `content_filtered`, `model_unavailable` semantics.
+ * `context_too_long`, `content_filtered`, `model_unavailable` semantics, and at
+ * `body.error.message` for a 404 that says no endpoint serves the model
+ * (OpenRouter's numeric-code body for a retired model id).
  * Falls back to status-based mapping when body doesn't expose `.error`
  * (e.g., HTML server error page, DeepInfra's `{message: "..."}` shape).
  *
@@ -53,6 +55,14 @@ export function mapOpenAICompatibleError(args: MapOpenAiErrorArgs): TheokitAgent
   if (status === 429) {
     return new RateLimitError(message, { code: `${providerId}_rate_limit`, metadata });
   }
+  if (status === 404 && code === "model_unavailable") {
+    // The model id lives only in the provider's text, so this case carries it.
+    const detailed = formatMessage(providerId, status, code, extractOpenAiErrorMessage(body));
+    return new ConfigurationError(detailed, {
+      code: `${providerId}_model_unavailable`,
+      metadata,
+    });
+  }
   if (status === 400) {
     return new ConfigurationError(message, { code: `${providerId}_${code}`, metadata });
   }
@@ -74,9 +84,31 @@ function extractOpenAiErrorCode(body: unknown): string | undefined {
   return undefined;
 }
 
-function mapOpenAiStatusToCode(status: number, body: unknown): ErrorCode {
-  const rawCode = extractOpenAiErrorCode(body)?.toLowerCase() ?? "";
+function extractOpenAiErrorMessage(body: unknown): string | undefined {
+  if (body === null || typeof body !== "object") return undefined;
+  const err = (body as { error?: { message?: unknown } }).error;
+  if (err === undefined || err === null) return undefined;
+  return typeof err.message === "string" ? err.message : undefined;
+}
 
+// OpenRouter answers a model it does not serve with HTTP 404 and a numeric `error.code`,
+// so only the message tells it apart from a 404 for a wrong path (measured 2026-10-20).
+const MISSING_MODEL_MESSAGE = /no endpoints found/i;
+
+function mapOpenAiStatusToCode(status: number, body: unknown): ErrorCode {
+  const fromBodyCode = classifyOpenAiBodyCode(extractOpenAiErrorCode(body)?.toLowerCase() ?? "");
+  if (fromBodyCode !== undefined) return fromBodyCode;
+  if (isMissingModel404(status, body)) return "model_unavailable";
+
+  // Everything below the body dialect is RFC 9110 and lives once, in shared.ts.
+  return httpStatusToErrorCode(status);
+}
+
+function isMissingModel404(status: number, body: unknown): boolean {
+  return status === 404 && MISSING_MODEL_MESSAGE.test(extractOpenAiErrorMessage(body) ?? "");
+}
+
+function classifyOpenAiBodyCode(rawCode: string): ErrorCode | undefined {
   if (
     rawCode.includes("context_length") ||
     rawCode.includes("context_window") ||
@@ -106,11 +138,15 @@ function mapOpenAiStatusToCode(status: number, body: unknown): ErrorCode {
   if (rawCode.includes("insufficient_quota") || rawCode.includes("quota_exceeded")) {
     return "quota_exceeded";
   }
-
-  // Everything below the body dialect is RFC 9110 and lives once, in shared.ts.
-  return httpStatusToErrorCode(status);
+  return undefined;
 }
 
-function formatMessage(providerId: string, status: number, code: ErrorCode): string {
-  return `${providerId} API error: ${code} (HTTP ${status})`;
+function formatMessage(
+  providerId: string,
+  status: number,
+  code: ErrorCode,
+  detail?: string,
+): string {
+  const base = `${providerId} API error: ${code} (HTTP ${status})`;
+  return detail === undefined || detail === "" ? base : `${base}: ${detail}`;
 }
