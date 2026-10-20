@@ -36,7 +36,10 @@ Things a caller can observe:
   OpenRouter Anthropic turn). `inputTokens` is now the uncached portion, as on the Anthropic
   client, and `prompt_tokens_details.cache_write_tokens` is read into `cacheWriteTokens`. A
   native OpenAI chat-completions run with a cache hit reports a lower `inputTokens` and a lower
-  cost than before.
+  cost than before. When a usage object carries both the nested `prompt_tokens_details` counts and the
+  Anthropic-style top-level ones, the nested count wins and a top-level count fills a nested
+  zero, the rule `normalizeUsage` already applied; the stream client used to let the top-level
+  field win.
 - **Input tokens on the Anthropic stream.** `input_tokens` is read from `message_start` too, so a
   stream whose `message_delta` carries only `output_tokens` reports its uncached input instead of
   none. A value above zero in `message_delta` still replaces it; a `null` or a zero there leaves

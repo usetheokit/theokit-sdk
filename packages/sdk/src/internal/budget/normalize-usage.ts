@@ -176,19 +176,57 @@ function normalizeOpenAIResponses(raw: RawRecord): TokenUsage {
   return omitUndefined(usage);
 }
 
+/** The prompt of a Chat Completions `usage` object, split the way {@link splitChatCompletionsPrompt} reports it. */
+export interface ChatCompletionsPromptSplit {
+  /** `prompt_tokens` minus both cache buckets, floored at 0; absent when `prompt_tokens` is. */
+  readonly inputTokens?: number;
+  /** Absent when the payload carries neither cache-read field. */
+  readonly cacheReadTokens?: number;
+  /** Absent when the payload carries neither cache-write field. */
+  readonly cacheWriteTokens?: number;
+}
+
+/** Whether a raw usage field was sent with a value; a JSON `null` counts as not sent. */
+function sent(v: unknown): boolean {
+  return v !== undefined && v !== null;
+}
+
+/**
+ * The one reading of a Chat Completions prompt, shared by {@link normalizeUsage} and the streaming
+ * chat-completions client (`openai.ts`), so the two cannot disagree on which cache field wins.
+ *
+ * `prompt_tokens` already counts the cache buckets, so they are subtracted: `inputTokens` is the
+ * uncached portion, as Anthropic reports it, and `computeCost` bills each cached token once. The
+ * nested `prompt_tokens_details` values win; the Anthropic-style top-level fields that proxies
+ * routing Claude send (a peer#10266) are read only when the nested one is 0 or missing. Unlike
+ * `normalizeUsage`, a field the payload never sent stays absent instead of becoming 0.
+ *
+ * @internal
+ */
+export function splitChatCompletionsPrompt(raw: RawRecord): ChatCompletionsPromptSplit {
+  const details = (raw.prompt_tokens_details as RawRecord | undefined) ?? {};
+  const bucket = (nested: unknown, topLevel: unknown): number | undefined =>
+    sent(nested) || sent(topLevel) ? int(nested) || int(topLevel) : undefined;
+  const cacheReadTokens = bucket(details.cached_tokens, raw.cache_read_input_tokens);
+  const cacheWriteTokens = bucket(details.cache_write_tokens, raw.cache_creation_input_tokens);
+  const cached = (cacheReadTokens ?? 0) + (cacheWriteTokens ?? 0);
+  return {
+    ...(sent(raw.prompt_tokens)
+      ? { inputTokens: Math.max(0, int(raw.prompt_tokens) - cached) }
+      : {}),
+    ...(cacheReadTokens !== undefined ? { cacheReadTokens } : {}),
+    ...(cacheWriteTokens !== undefined ? { cacheWriteTokens } : {}),
+  };
+}
+
 function normalizeOpenAIChat(raw: RawRecord): TokenUsage {
-  const promptTotal = int(raw.prompt_tokens);
   const outputTokens = int(raw.completion_tokens);
-  const promptDetails = (raw.prompt_tokens_details as RawRecord | undefined) ?? {};
   const completionDetails = (raw.completion_tokens_details as RawRecord | undefined) ?? {};
-
-  // a peer#10266 fallback — proxies expose Anthropic-style top-level fields when routing Claude
-  const cacheReadTokens = int(promptDetails.cached_tokens) || int(raw.cache_read_input_tokens);
-  const cacheWriteTokens =
-    int(promptDetails.cache_write_tokens) || int(raw.cache_creation_input_tokens);
-
+  const split = splitChatCompletionsPrompt(raw);
+  const inputTokens = split.inputTokens ?? 0;
+  const cacheReadTokens = split.cacheReadTokens ?? 0;
+  const cacheWriteTokens = split.cacheWriteTokens ?? 0;
   const reasoningTokens = int(completionDetails.reasoning_tokens);
-  const inputTokens = Math.max(0, promptTotal - cacheReadTokens - cacheWriteTokens);
   const usage = {
     inputTokens,
     outputTokens,
