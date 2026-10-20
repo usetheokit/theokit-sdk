@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.27.6
+
+### Patch Changes
+
+- [#724](https://github.com/usetheokit/theokit-sdk/pull/724) [`d58f5ef`](https://github.com/usetheokit/theokit-sdk/commit/d58f5efbc911ffa429082688a53b36fad659e305) Thanks [@usetheodev](https://github.com/usetheodev)! - The optional `simple-git` peer range moves from `^3.0.0` to `^4.0.1`. Every 3.x release up to
+  3.36.0 is covered by published advisories (GHSA-x6jw-m9v5-85vh, GHSA-g4wm-2vf7-vfgr,
+  GHSA-858h-whjf-mvg5): Git configuration includes and abbreviated long options can lead to command
+  execution. 4.0.1 is the first release that fixes all of them.
+  
+  No tool in this package imports `simple-git`. `createGitDiffTool` and `createGitStatusTool` run
+  `git` as a child process, so their behaviour does not change. A project that still has
+  `simple-git` 3.x installed gets an unmet-peer warning and nothing else.
+
 ## 0.27.5
 
 ### Patch Changes
