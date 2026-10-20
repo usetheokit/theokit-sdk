@@ -310,15 +310,18 @@ class AnthropicStreamAccumulator {
   }
 
   /**
-   * T3.8 / B-412 — the cache counters, from `message_start` and then `message_delta`. A field that
-   * is present wins over an earlier value, and 0 means "no cache activity": the bucket is cleared
-   * and left unreported (mirrors usage-accumulator, which strips zero-value entries).
+   * T3.8 / B-412 / B-475 — the cache counters, from `message_start` and then `message_delta`. A
+   * value above 0 replaces the earlier one. A zero, a null or an absent field leaves it in place,
+   * so a `message_delta` that zero-fills its usage does not erase what `message_start` reported;
+   * a counter no event reports above 0 stays unreported (usage-accumulator strips zero entries).
+   * The `typeof` check is there because the wire is JSON: a null arrives although the type
+   * declares none.
    */
   private readCacheCounters(usage: AnthropicMessageDelta["usage"]): void {
     const write = usage?.cache_creation_input_tokens;
-    if (write !== undefined) this.cacheWriteTokens = write > 0 ? write : undefined;
+    if (typeof write === "number" && write > 0) this.cacheWriteTokens = write;
     const read = usage?.cache_read_input_tokens;
-    if (read !== undefined) this.cacheReadTokens = read > 0 ? read : undefined;
+    if (typeof read === "number" && read > 0) this.cacheReadTokens = read;
   }
 
   /** M2 #61 — whether the terminal `message_delta` (stop_reason) was seen. */
