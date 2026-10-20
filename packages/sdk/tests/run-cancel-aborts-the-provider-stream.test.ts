@@ -13,8 +13,9 @@
 
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import type { Run } from "../src/index.js";
-import { Agent } from "../src/index.js";
+import { Agent, Tool } from "../src/index.js";
 import { useTempCwd } from "./helpers/temp-workspace.js";
 
 useTempCwd("theokit-run-cancel-");
@@ -25,6 +26,7 @@ const ABORT_DEADLINE_MS = 1_000;
 const POST_CANCEL_WINDOW_MS = 2_000;
 const CANCEL_RESOLVE_BUDGET_MS = 50;
 const STUB_KEY = "sk-or-stub-0000000000";
+const TOOL_NAME = "wait_for_cancel";
 
 interface EndlessReasoningServer {
   server: Server;
@@ -105,6 +107,84 @@ async function startEndlessReasoningServer(chunksPerWrite = 1): Promise<EndlessR
   if (typeof addr !== "object" || addr === null) throw new Error("bind failed");
   state.url = `http://127.0.0.1:${String(addr.port)}`;
   return state;
+}
+
+// A chat-completions endpoint whose one response asks for a call of TOOL_NAME, and a custom tool
+// whose handler settles only when its ctx.signal aborts. README "Cancelling a run" says a custom
+// handler receives the abort; a cancel that never reached the tool leaves it pending.
+interface ToolCallServer {
+  server: Server;
+  url: string;
+  chatRequests: number;
+}
+
+function sseRecord(payload: unknown): string {
+  return `data: ${JSON.stringify(payload)}\n\n`;
+}
+
+/** One chat-completions stream that asks for a single call of {@link TOOL_NAME}, then ends. */
+function toolCallStream(): string {
+  const call = { index: 0, id: "call_1", type: "function" };
+  const fn = { name: TOOL_NAME, arguments: "{}" };
+  return [
+    sseRecord({ choices: [{ index: 0, delta: { tool_calls: [{ ...call, function: fn }] } }] }),
+    sseRecord({ choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }] }),
+    "data: [DONE]\n\n",
+  ].join("");
+}
+
+async function startToolCallServer(): Promise<ToolCallServer> {
+  const state: ToolCallServer = {
+    server: undefined as unknown as Server,
+    url: "",
+    chatRequests: 0,
+  };
+  state.server = createServer((req, res) => {
+    if (req.method !== "POST" || req.url?.endsWith("/chat/completions") !== true) {
+      res.statusCode = 404;
+      res.end();
+      return;
+    }
+    state.chatRequests += 1;
+    req.on("data", () => undefined);
+    req.on("end", () => {
+      res.statusCode = 200;
+      res.setHeader("content-type", "text/event-stream");
+      res.end(toolCallStream());
+    });
+  });
+  await new Promise<void>((resolve) => state.server.listen(0, "127.0.0.1", () => resolve()));
+  const addr = state.server.address();
+  if (typeof addr !== "object" || addr === null) throw new Error("bind failed");
+  state.url = `http://127.0.0.1:${String(addr.port)}`;
+  return state;
+}
+
+/** What the in-flight handler saw. */
+interface HandlerProbe {
+  started: boolean;
+  receivedSignal: boolean;
+  abortedAt: number | undefined;
+}
+
+function waitForCancelTool(probe: HandlerProbe) {
+  return Tool.create({
+    name: TOOL_NAME,
+    description: "Waits until the run is cancelled.",
+    inputSchema: z.object({}),
+    handler: (_input, ctx) => {
+      probe.started = true;
+      const signal = ctx?.signal;
+      probe.receivedSignal = signal !== undefined;
+      // Settles only on abort: a handler the cancel never reaches stays pending.
+      return new Promise<string>((resolve) => {
+        signal?.addEventListener("abort", () => {
+          probe.abortedAt = Date.now();
+          resolve("aborted");
+        });
+      });
+    },
+  });
 }
 
 /** Polls `condition` until it holds or `deadlineMs` passes; returns whether it held. */
@@ -292,5 +372,39 @@ describe("run.cancel() aborts the provider stream on a local run", () => {
     expect(result.error).toBeUndefined();
     expect(result.usage).toBeUndefined();
     expect(result.cost).toBeUndefined();
+  });
+
+  it("aborts a custom tool handler's ctx.signal within one second of cancel", async () => {
+    const toolServer = await startToolCallServer();
+    process.env.OPENROUTER_API_KEY = STUB_KEY;
+    process.env.OPENROUTER_API_BASE_URL = toolServer.url;
+    const probe: HandlerProbe = { started: false, receivedSignal: false, abortedAt: undefined };
+    const agent = await Agent.create({
+      apiKey: STUB_KEY,
+      model: { id: "deepseek/deepseek-r1-0528" },
+      providers: { routes: [{ capability: "chat", provider: "openrouter" }] },
+      tools: [waitForCancelTool(probe)],
+      local: { cwd: process.cwd() },
+    });
+    try {
+      const run = await agent.send("Wait for the cancel.");
+      expect(await pollUntil(() => probe.started, 5_000), "the tool handler never started").toBe(
+        true,
+      );
+      expect(toolServer.chatRequests).toBe(1);
+      expect(probe.receivedSignal).toBe(true);
+      const cancelledAt = Date.now();
+      await run.cancel();
+      await pollUntil(() => probe.abortedAt !== undefined, ABORT_DEADLINE_MS);
+      expect(
+        (probe.abortedAt ?? Number.POSITIVE_INFINITY) - cancelledAt,
+        `the handler's ctx.signal did not abort within ${String(ABORT_DEADLINE_MS)} ms of cancel`,
+      ).toBeLessThanOrEqual(ABORT_DEADLINE_MS);
+      expect((await run.wait()).status).toBe("cancelled");
+    } finally {
+      await agent.dispose();
+      toolServer.server.closeAllConnections();
+      await new Promise<void>((r) => toolServer.server.close(() => r()));
+    }
   });
 });
