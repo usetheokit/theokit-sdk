@@ -90,14 +90,15 @@ export interface LlmMessage {
  * annotation in the Anthropic wire body, which lets Anthropic bill
  * subsequent same-content requests at the cache-read rate (1-3x discount).
  *
- * For providers that don't support prompt caching (OpenAI, OpenRouter, etc),
- * the array is joined into a single string at the wire boundary so the
- * upstream contract stays unchanged. Back-compat: `LlmRequest.system` still
+ * OpenRouter receives the blocks as `content` parts of the `system` message,
+ * with `cache_control` on each cacheable part. Every other chat-completions
+ * provider (OpenAI and the compatible ones) gets the array joined into a
+ * single string at the wire boundary. Back-compat: `LlmRequest.system` still
  * accepts a plain `string` (pre-T3.5 callers compile unchanged).
  */
 export interface LlmSystemBlock {
   text: string;
-  /** When `true`, ask the provider to cache this block (Anthropic only). */
+  /** When `true`, ask the provider to cache this block (Anthropic, and OpenRouter content parts). */
   cacheable?: boolean;
 }
 
@@ -210,11 +211,15 @@ export interface LlmFinish {
   stopReason: LlmStopReason;
   text: string;
   toolCalls: LlmToolCallPart[];
+  /**
+   * Uncached input tokens, the way Anthropic reports them. The chat-completions client subtracts
+   * the cache buckets from the provider's cache-inclusive `prompt_tokens` to match.
+   */
   inputTokens?: number;
   outputTokens?: number;
   /** Cache read tokens (Anthropic prompt caching / OpenAI cached). ADR D376. */
   cacheReadTokens?: number;
-  /** Cache creation tokens (Anthropic only). ADR D376. */
+  /** Cache creation tokens (Anthropic, and OpenRouter's `cache_write_tokens`). ADR D376. */
   cacheWriteTokens?: number;
   /** Reasoning tokens (OpenAI o-series). ADR D376. */
   reasoningTokens?: number;

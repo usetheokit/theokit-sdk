@@ -14,6 +14,17 @@ import {
 } from "../../helpers/temp-workspace.js";
 
 /**
+ * B-412: a body for an Anthropic-family model carries `system` as text blocks, the configured
+ * prompt first and cacheable, so an assertion about the prompt's text reads every block's text.
+ * A string is returned as is.
+ */
+function systemText(system: unknown): string | undefined {
+  if (system === undefined || typeof system === "string") return system;
+  if (!Array.isArray(system)) throw new Error(`unexpected system shape: ${JSON.stringify(system)}`);
+  return system.map((block: { text: string }) => block.text).join("\n\n");
+}
+
+/**
  * Behaviour gate for `AgentOptions.systemPrompt` and
  * `SendOptions.systemPrompt`. Stub provider endpoints capture the request
  * body so each priority path is asserted against the actual wire shape.
@@ -166,7 +177,10 @@ describe("systemPrompt routing", () => {
     const captured = await withAnthropic();
     const agent = await Agent.create({ ...localBase, systemPrompt: "Be terse." });
     await (await agent.send("hi")).wait();
-    expect(captured.body?.system).toBe("Be terse.");
+    expect(systemText(captured.body?.system)).toBe("Be terse.");
+    expect(Array.isArray(captured.body?.system)).toBe(true);
+    const blocks = captured.body?.system as Array<{ cache_control?: unknown }>;
+    expect(blocks[0]?.cache_control).toEqual({ type: "ephemeral" });
   });
 
   it("threads AgentOptions.systemPrompt (resolver) into the Anthropic body", async () => {
@@ -176,14 +190,14 @@ describe("systemPrompt routing", () => {
       systemPrompt: async (ctx) => `Agent ${ctx.agentId}`,
     });
     await (await agent.send("hi")).wait();
-    expect(captured.body?.system).toMatch(/^Agent agent-/);
+    expect(systemText(captured.body?.system)).toMatch(/^Agent agent-/);
   });
 
   it("SendOptions.systemPrompt overrides AgentOptions.systemPrompt", async () => {
     const captured = await withAnthropic();
     const agent = await Agent.create({ ...localBase, systemPrompt: "A" });
     await (await agent.send("hi", { systemPrompt: "B" })).wait();
-    expect(captured.body?.system).toBe("B");
+    expect(systemText(captured.body?.system)).toBe("B");
   });
 
   it("omits `system` from the body when neither is set", async () => {
@@ -213,7 +227,7 @@ describe("systemPrompt routing", () => {
       context: { manager: "file" },
     });
     await (await agent.send("hi")).wait();
-    const system = captured.body?.system as string | undefined;
+    const system = systemText(captured.body?.system);
     expect(system).toBeDefined();
     expect(system).toContain("<context>");
     expect(system).toContain("8675309");
@@ -242,7 +256,7 @@ describe("systemPrompt routing", () => {
       local: { cwd, settingSources: ["project"] },
     });
     await (await agent.send("hi")).wait();
-    const system = captured.body?.system as string | undefined;
+    const system = systemText(captured.body?.system);
     expect(system).toContain("<skills>");
     expect(system).toContain("code-review:");
     expect(system).toContain("doc-writer:");
@@ -267,7 +281,7 @@ describe("systemPrompt routing", () => {
       systemPrompt: "Be terse.",
     });
     await (await agent.send("hi")).wait();
-    const system = captured.body?.system as string;
+    const system = systemText(captured.body?.system) ?? "";
     const skillsIdx = system.indexOf("<skills>");
     const baseIdx = system.indexOf("Be terse.");
     expect(skillsIdx).toBeGreaterThanOrEqual(0);
@@ -293,7 +307,7 @@ describe("systemPrompt routing", () => {
       memory: { enabled: true },
     });
     await (await agent.send("what's the number?")).wait();
-    const system = captured.body?.system as string | undefined;
+    const system = systemText(captured.body?.system);
     expect(system).toContain("<memory>");
     expect(system).toContain("8675309");
   });
@@ -319,7 +333,7 @@ describe("systemPrompt routing", () => {
     });
     const result = await (await agent.send("hi")).wait();
     expect(result.status).toBe("finished");
-    const system = captured.body?.system as string | undefined;
+    const system = systemText(captured.body?.system);
     expect(system === undefined || !system.includes("<memory>")).toBe(true);
     stderr.mockRestore();
   });

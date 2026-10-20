@@ -328,30 +328,42 @@ async function runIteration(
   const llmOutput = await streamLlmTurn(inputs, ctx);
   await inputs.pluginManager?.runPostLlmCallHooks(hookCtx);
   accumulateUsage(ctx.usage, llmOutput);
-  if (inputs.budgetTracker !== undefined) {
-    const modelId = inputs.model.id ?? "auto";
-    const inputT = llmOutput.inputTokens ?? 0;
-    const outputT = llmOutput.outputTokens ?? 0;
-    try {
-      if (inputT > 0) {
-        inputs.budgetTracker.track({
-          tokens: inputT,
-          model: modelId,
-          type: "input",
-        });
-      }
-      if (outputT > 0) {
-        inputs.budgetTracker.track({
-          tokens: outputT,
-          model: modelId,
-          type: "output",
-        });
-      }
-    } catch {
-      // Tracker.track() is contracted as non-throwing — swallow.
-    }
-  }
+  trackTurnUsage(inputs, llmOutput);
   return continueOrTerminate(inputs, ctx, llmOutput);
+}
+
+/**
+ * Report one turn's tokens to the run's BudgetTracker. `inputTokens` is the uncached slice on every
+ * client, and BudgetUsageEvent has only "input" and "output", so the input event carries the whole
+ * prompt: uncached plus both cache buckets (F-dom-5).
+ */
+function trackTurnUsage(inputs: AgentLoopInputs, llmOutput: LlmTurnOutput): void {
+  const tracker = inputs.budgetTracker;
+  if (tracker === undefined) return;
+  const modelId = inputs.model.id ?? "auto";
+  const inputT =
+    (llmOutput.inputTokens ?? 0) +
+    (llmOutput.cacheReadTokens ?? 0) +
+    (llmOutput.cacheWriteTokens ?? 0);
+  const outputT = llmOutput.outputTokens ?? 0;
+  try {
+    if (inputT > 0) {
+      tracker.track({
+        tokens: inputT,
+        model: modelId,
+        type: "input",
+      });
+    }
+    if (outputT > 0) {
+      tracker.track({
+        tokens: outputT,
+        model: modelId,
+        type: "output",
+      });
+    }
+  } catch {
+    // Tracker.track() is contracted as non-throwing — swallow.
+  }
 }
 
 /** #65 — apply the transform_llm_output hook fold (no-op when no plugin manager). */

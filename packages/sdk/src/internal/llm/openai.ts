@@ -8,6 +8,7 @@
  */
 
 import { NetworkError } from "../../errors.js";
+import { splitChatCompletionsPrompt } from "../budget/normalize-usage.js";
 import { diag } from "../diagnostics.js";
 import { mapOllamaHttpError, mapOllamaTransportError } from "../error-mappers/ollama.js";
 import { mapOpenAICompatibleError } from "../error-mappers/openai-compatible.js";
@@ -21,6 +22,7 @@ import {
 } from "./finish.js";
 import { extractHermesToolCalls, StreamSuppressionBuffer } from "./hermes-tool-extract.js";
 import { toOpenAIMessages } from "./openai-messages.js";
+import { encodeOpenRouterSystemContent } from "./openrouter-system.js";
 import { parseSseStream } from "./sse.js";
 import { wrapTransportError } from "./transport-error.js";
 import type {
@@ -106,7 +108,7 @@ interface OpenAIDeltaChunk {
      * surfaces as `prompt_tokens_details.cached_tokens` on OpenRouter passthrough;
      * native OpenAI exposes the same field on `chatcmpl-*` responses.
      */
-    prompt_tokens_details?: { cached_tokens?: number };
+    prompt_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
     completion_tokens_details?: { reasoning_tokens?: number };
     /** Anthropic-on-OpenRouter passes cache_creation_tokens top-level (a peer#10266). */
     cache_creation_input_tokens?: number;
@@ -276,11 +278,8 @@ export class OpenAIClient implements LlmClient {
 class OpenAIStreamAccumulator {
   private text = "";
   private stopReason: LlmStopReason = "end_turn";
-  private inputTokens?: number;
-  private outputTokens?: number;
-  private cacheReadTokens?: number;
-  private cacheWriteTokens?: number;
-  private reasoningTokens?: number;
+  /** The stream's `usage` object, a later chunk replacing an earlier one per top-level field. */
+  private usage: NonNullable<OpenAIDeltaChunk["usage"]> = {};
   private readonly toolCalls = new Map<number, { id: string; name: string; args: string }>();
   /** R7: present only when recovery is enabled AND the request declares tools — holds suspected
    *  leaked-dialect content back from the `text_delta` stream. `undefined` ⇒ stream immediately. */
@@ -342,20 +341,7 @@ class OpenAIStreamAccumulator {
   }
 
   private applyUsage(usage: OpenAIDeltaChunk["usage"]): void {
-    if (usage?.prompt_tokens !== undefined) this.inputTokens = usage.prompt_tokens;
-    if (usage?.completion_tokens !== undefined) this.outputTokens = usage.completion_tokens;
-    // D376: cache + reasoning buckets via OpenRouter passthrough + OpenAI native.
-    const cachedDetail = usage?.prompt_tokens_details?.cached_tokens;
-    if (cachedDetail !== undefined) this.cacheReadTokens = cachedDetail;
-    const reasoningDetail = usage?.completion_tokens_details?.reasoning_tokens;
-    if (reasoningDetail !== undefined) this.reasoningTokens = reasoningDetail;
-    // a peer#10266 top-level fallback for Anthropic-on-OpenRouter.
-    if (usage?.cache_read_input_tokens !== undefined) {
-      this.cacheReadTokens = usage.cache_read_input_tokens;
-    }
-    if (usage?.cache_creation_input_tokens !== undefined) {
-      this.cacheWriteTokens = usage.cache_creation_input_tokens;
-    }
+    if (usage !== undefined) this.usage = { ...this.usage, ...usage };
   }
 
   private applyContentDelta(content: string | undefined): LlmEvent | undefined {
@@ -444,11 +430,10 @@ class OpenAIStreamAccumulator {
       stopReason,
       text,
       toolCalls,
-      inputTokens: this.inputTokens,
-      outputTokens: this.outputTokens,
-      cacheReadTokens: this.cacheReadTokens,
-      cacheWriteTokens: this.cacheWriteTokens,
-      reasoningTokens: this.reasoningTokens,
+      // D376: the prompt split (cache buckets out of inputTokens) has one owner, normalize-usage.ts.
+      ...splitChatCompletionsPrompt(this.usage),
+      outputTokens: this.usage.completion_tokens,
+      reasoningTokens: this.usage.completion_tokens_details?.reasoning_tokens,
     });
   }
 }
@@ -489,10 +474,11 @@ function applyToolsRequest(body: Record<string, unknown>, request: LlmRequest): 
 
 function buildOpenAIBody(request: LlmRequest, providerName?: string): Record<string, unknown> {
   const messages: Array<Record<string, unknown>> = [];
+  const systemParts =
+    providerName === "openrouter" ? encodeOpenRouterSystemContent(request.system) : undefined;
   const systemText = openAISystemText(request.system);
-  if (systemText.length > 0) {
-    messages.push({ role: "system", content: systemText });
-  }
+  if (systemParts !== undefined) messages.push({ role: "system", content: systemParts });
+  else if (systemText.length > 0) messages.push({ role: "system", content: systemText });
   for (const message of request.messages) {
     for (const out of toOpenAIMessages(message)) messages.push(out);
   }
