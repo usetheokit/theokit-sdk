@@ -1,4 +1,5 @@
 import { NetworkError } from "../../errors.js";
+import { diag } from "../diagnostics.js";
 import { mapAnthropicError } from "../error-mappers/anthropic.js";
 import { boundFetch } from "../runtime-fetch.js";
 import { buildAnthropicCommonBody, mapAnthropicStopReason } from "./anthropic-shared.js";
@@ -175,12 +176,8 @@ export class AnthropicClient implements LlmClient {
     const accumulator = new AnthropicStreamAccumulator();
     for await (const record of parseSseStream(response.body, signal)) {
       if (record.event === "ping") continue;
-      let parsed: AnthropicEvent;
-      try {
-        parsed = JSON.parse(record.data) as AnthropicEvent;
-      } catch {
-        continue;
-      }
+      const parsed = parseAnthropicFrame(record);
+      if (parsed === undefined) continue;
       const events = accumulator.consume(parsed);
       for (const event of events) yield event;
     }
@@ -194,6 +191,43 @@ export class AnthropicClient implements LlmClient {
       });
     }
     return accumulator.finish();
+  }
+}
+
+/**
+ * Frames whose loss would leave a hole in the turn: its text, a tool's input or its stop reason.
+ * Finishing without them reads as a complete answer, so a malformed one fails the turn instead.
+ */
+const CONTENT_FRAMES: ReadonlySet<string> = new Set([
+  "content_block_start",
+  "content_block_delta",
+  "message_delta",
+]);
+
+const MALFORMED_PREVIEW_CHARS = 120;
+
+/**
+ * Parse one SSE frame. A frame `JSON.parse` refuses is never dropped silently: a content frame
+ * throws a retryable `NetworkError` (`stream_malformed_frame`), and any other frame (`message_start`
+ * with the usage counters, `message_stop`, an event this client does not know) is reported on the
+ * diagnostics channel and skipped.
+ */
+function parseAnthropicFrame(record: { event: string; data: string }): AnthropicEvent | undefined {
+  try {
+    return JSON.parse(record.data) as AnthropicEvent;
+  } catch (parseErr) {
+    const event = record.event;
+    const preview = record.data.slice(0, MALFORMED_PREVIEW_CHARS);
+    if (CONTENT_FRAMES.has(event)) {
+      throw new NetworkError(
+        `Anthropic SSE ${event} frame is not valid JSON; the turn would lose content: ${preview}`,
+        { code: "stream_malformed_frame", cause: parseErr },
+      );
+    }
+    diag(
+      `[theokit-sdk] skipped an Anthropic SSE ${event} frame that is not valid JSON: ${preview}\n`,
+    );
+    return undefined;
   }
 }
 
@@ -233,7 +267,9 @@ class AnthropicStreamAccumulator {
       this.handleMessageDelta(event as AnthropicMessageDelta);
     }
     if (event.type === "message_start") {
-      this.readCacheCounters((event as AnthropicMessageStart).message?.usage);
+      const usage = (event as AnthropicMessageStart).message?.usage;
+      if (typeof usage?.input_tokens === "number") this.inputTokens = usage.input_tokens;
+      this.readCacheCounters(usage);
     }
     return [];
   }

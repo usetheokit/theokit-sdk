@@ -35,3 +35,11 @@ Things a caller can observe:
   client, and `prompt_tokens_details.cache_write_tokens` is read into `cacheWriteTokens`. A
   native OpenAI chat-completions run with a cache hit reports a lower `inputTokens` and a lower
   cost than before.
+- **Input tokens on the Anthropic stream.** `input_tokens` is read from `message_start` too, so a
+  stream whose `message_delta` carries only `output_tokens` reports its uncached input instead of
+  none. A value in `message_delta` still replaces it.
+- **Malformed Anthropic frames.** A `content_block_start`, `content_block_delta` or
+  `message_delta` frame that is not valid JSON now fails the turn with a retryable `NetworkError`
+  (`code: "stream_malformed_frame"`) instead of being skipped, which finished the turn with text
+  or tool input missing. Any other malformed frame is still skipped and reported on the
+  diagnostics channel.
