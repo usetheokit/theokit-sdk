@@ -1,5 +1,7 @@
 import type { ToolContextMessage } from "../../types/agent-prims.js";
+import type { BudgetTracker, BudgetUsageEvent } from "../../types/budget-tracker.js";
 import { IterationBudget } from "../budget/tracker/budget.js";
+import { diagFailure } from "../diagnostics.js";
 import type { LlmContentPart, LlmMessage, LlmThinkingPart, LlmToolCallPart } from "../llm/types.js";
 import { safeCall } from "../runtime/system-prompt/safe-call.js";
 import { validateResponse } from "../runtime/validation/validate-response.js";
@@ -340,29 +342,33 @@ async function runIteration(
 function trackTurnUsage(inputs: AgentLoopInputs, llmOutput: LlmTurnOutput): void {
   const tracker = inputs.budgetTracker;
   if (tracker === undefined) return;
-  const modelId = inputs.model.id ?? "auto";
-  const inputT =
+  const model = inputs.model.id ?? "auto";
+  trackEvent(tracker, { tokens: promptTokens(llmOutput), model, type: "input" });
+  trackEvent(tracker, { tokens: llmOutput.outputTokens ?? 0, model, type: "output" });
+}
+
+/** The whole prompt of one turn: the uncached slice plus both cache buckets. */
+function promptTokens(llmOutput: LlmTurnOutput): number {
+  return (
     (llmOutput.inputTokens ?? 0) +
     (llmOutput.cacheReadTokens ?? 0) +
-    (llmOutput.cacheWriteTokens ?? 0);
-  const outputT = llmOutput.outputTokens ?? 0;
+    (llmOutput.cacheWriteTokens ?? 0)
+  );
+}
+
+/**
+ * Hand one non-empty event to the tracker. A consumer tracker that throws, against its contract,
+ * neither ends the turn nor costs the other event its call; the budget then undercounts, so say so.
+ */
+function trackEvent(tracker: BudgetTracker, event: BudgetUsageEvent): void {
+  if (event.tokens <= 0) return;
   try {
-    if (inputT > 0) {
-      tracker.track({
-        tokens: inputT,
-        model: modelId,
-        type: "input",
-      });
-    }
-    if (outputT > 0) {
-      tracker.track({
-        tokens: outputT,
-        model: modelId,
-        type: "output",
-      });
-    }
-  } catch {
-    // Tracker.track() is contracted as non-throwing — swallow.
+    tracker.track(event);
+  } catch (err) {
+    const why = err instanceof Error ? err.message : String(err);
+    diagFailure(
+      `[theokit-sdk] BudgetTracker.track threw (type=${event.type}, model=${event.model}, tokens=${event.tokens}): ${why}`,
+    );
   }
 }
 

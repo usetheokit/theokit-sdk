@@ -219,6 +219,24 @@ export function splitChatCompletionsPrompt(raw: RawRecord): ChatCompletionsPromp
   };
 }
 
+/**
+ * The uncached slice of a prompt whose total already counts both cache buckets, floored at 0;
+ * absent when the total is. `LlmFinish.inputTokens` is that slice on every client: the agent loop
+ * adds the buckets back for the BudgetTracker input event and `computeCost` bills them at their own
+ * rates, so a client passing the Responses API's `input_tokens` through counted them twice.
+ *
+ * @internal
+ */
+export function netOfCache(
+  total: number | undefined,
+  cacheReadTokens: number | undefined,
+  cacheWriteTokens: number | undefined,
+): number | undefined {
+  return total === undefined
+    ? undefined
+    : Math.max(0, total - (cacheReadTokens ?? 0) - (cacheWriteTokens ?? 0));
+}
+
 function normalizeOpenAIChat(raw: RawRecord): TokenUsage {
   const outputTokens = int(raw.completion_tokens);
   const completionDetails = (raw.completion_tokens_details as RawRecord | undefined) ?? {};
