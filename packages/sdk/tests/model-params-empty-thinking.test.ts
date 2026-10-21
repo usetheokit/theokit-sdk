@@ -29,7 +29,8 @@ function sseResponse(): Response {
     { choices: [{ index: 0, delta: {}, finish_reason: "stop" }] },
     { choices: [], usage: { prompt_tokens: 3, completion_tokens: 1, total_tokens: 4 } },
   ];
-  const text = `${records.map((r) => `data: ${JSON.stringify(r)}\n\n`).join("")}data: [DONE]\n\n`;
+  const frames = records.map((r) => `data: ${JSON.stringify(r)}\n\n`);
+  const text = `${frames.join("")}data: [DONE]\n\n`;
   return new Response(text, { status: 200, headers: { "content-type": "text/event-stream" } });
 }
 
