@@ -181,6 +181,62 @@ describe("B-497: thinking-completed timing", () => {
     expect(updates).toHaveLength(script.length + 1);
   });
 
+  // Anthropic ends its thinking block with a text-less delta that carries only the signature. It
+  // is part of the reasoning, so the span runs to it and not to the last delta that had text.
+  it("extends the span to a signature-only reasoning delta before the answer (test_signature_only_delta_extends_the_reasoning_span)", async () => {
+    const script: TimedEvent[] = [
+      ...REASON_THEN_ANSWER.slice(0, 3),
+      { atMs: 1800, event: { type: "reasoning_delta", text: "", signature: "S" } },
+      { atMs: 2500, event: { type: "text_delta", text: "The answer is 391." } },
+    ];
+    const { updates, events, output } = await runScripted(script);
+    const completed = updates.filter((u) => u.type === "thinking-completed");
+    expect(completed).toHaveLength(1);
+    expect(completed[0]?.thinkingDurationMs).toBe(1800);
+    const thinking = events.find((e) => e.type === "thinking") as
+      | { thinking_duration_ms?: number }
+      | undefined;
+    expect(thinking?.thinking_duration_ms).toBe(1800);
+    expect(output.thinking?.signature).toBe("S");
+  });
+
+  // The Anthropic client yields a text_delta for whatever text a frame carries, empty included. An
+  // empty delta is not answer text, so it must not close the reasoning that is still arriving.
+  it("keeps the reasoning open across an empty text delta (test_empty_text_delta_does_not_close_the_reasoning)", async () => {
+    const script: TimedEvent[] = [
+      REASON_THEN_ANSWER[0] as TimedEvent,
+      REASON_THEN_ANSWER[1] as TimedEvent,
+      { atMs: 600, event: { type: "text_delta", text: "" } },
+      REASON_THEN_ANSWER[2] as TimedEvent,
+      REASON_THEN_ANSWER[3] as TimedEvent,
+    ];
+    const { updates } = await runScripted(script);
+    const completed = updates.filter((u) => u.type === "thinking-completed");
+    expect(completed).toHaveLength(1);
+    expect(completed[0]?.thinkingDurationMs).toBe(REASONING_SPAN_MS);
+    const lastReasoningAt = updates.findLastIndex(
+      (u) => u.type === "thinking-delta" && u.text === " = 391",
+    );
+    expect(updates.findIndex((u) => u.type === "thinking-completed")).toBeGreaterThan(
+      lastReasoningAt,
+    );
+  });
+
+  it("reports 0 for a reasoning block that arrives in one delta (test_single_reasoning_delta_reports_zero_duration)", async () => {
+    const script: TimedEvent[] = [
+      REASON_THEN_ANSWER[0] as TimedEvent,
+      ...REASON_THEN_ANSWER.slice(3),
+    ];
+    const { updates, events } = await runScripted(script);
+    const completed = updates.filter((u) => u.type === "thinking-completed");
+    expect(completed).toHaveLength(1);
+    expect(completed[0]?.thinkingDurationMs).toBe(0);
+    const thinking = events.find((e) => e.type === "thinking") as
+      | { thinking_duration_ms?: number }
+      | undefined;
+    expect(thinking?.thinking_duration_ms).toBe(0);
+  });
+
   it("closes the reasoning once, before tool-call-started (test_thinking_completed_precedes_tool_call_started)", async () => {
     const { cwd, hooks } = await makeLoopWorkspace("theokit-thinking-timing-");
     const updates: Update[] = [];
