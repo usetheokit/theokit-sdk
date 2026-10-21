@@ -126,18 +126,41 @@ describe("mapOpenAICompatibleError on a 404", () => {
       expect(err.code).toBe("openrouter_unknown");
     }
   });
+
+  it("redacts_a_credential_in_a_missing_model_404_message", () => {
+    const hex64 = "0123456789abcdef".repeat(4);
+    const err = map404("openrouter", {
+      error: { message: `No endpoints found for foo/bar. key sk-or-v1-${hex64}`, code: 404 },
+    });
+
+    expect(err).toBeInstanceOf(ConfigurationError);
+    expect(err.message).toContain("foo/bar");
+    expect(err.message).not.toContain(hex64);
+  });
+
+  it("caps_a_long_missing_model_404_message", () => {
+    const providerText = `No endpoints found for foo/bar. ${"x".repeat(5000)}`;
+    const err = map404("openrouter", { error: { message: providerText, code: 404 } });
+    const base = "openrouter API error: model_unavailable (HTTP 404)";
+
+    expect(err).toBeInstanceOf(ConfigurationError);
+    expect(err.message).toBe(`${base}: ${providerText.slice(0, 512)}…`);
+  });
 });
 
 describe("mapOpenAICompatibleError outside the missing-model 404", () => {
-  it("keeps_the_message_of_a_400_model_not_found_without_the_provider_text", () => {
-    // ADR D2: only the missing-model 404 carries the provider's text; every other status keeps
-    // the message it had.
+  it("carries_the_provider_text_on_a_400_model_not_found", () => {
+    // B-502 reverses B-496's D2 for the 400 arm: a 400 is fixed by changing the request, so its
+    // message carries what the provider rejected. Every status other than 400 and the
+    // missing-model 404 still keeps the bare message.
     const err = mapStatus("openrouter", 400, {
       error: { code: "model_not_found", message: "No endpoints found for x." },
     });
 
     expect(err).toBeInstanceOf(ConfigurationError);
-    expect(err.message).toBe("openrouter API error: model_unavailable (HTTP 400)");
+    expect(err.message).toBe(
+      "openrouter API error: model_unavailable (HTTP 400): No endpoints found for x.",
+    );
   });
 
   it.each([
