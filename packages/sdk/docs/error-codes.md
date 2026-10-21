@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-247 distinct code(s).
+250 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -47,11 +47,13 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `cloud_stdio_cwd_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:123` |
 | `compression_failed` | domain | — | `packages/sdk/src/errors.ts:700` |
 | `compression_model_unresolved` | domain | — | `packages/sdk/src/internal/runtime/compression/compression-model-registry.ts:102` +1 |
+| `content_filtered` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:118` |
 | `context_config_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-manager.ts:288` |
 | `context_frontmatter_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-frontmatter.ts:38` |
 | `context_json_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-manager.ts:282` |
 | `context_read_error` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-manager.ts:269` |
 | `context_sources_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-manager.ts:309` |
+| `context_too_long` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:116` |
 | `credential_pool_ambiguous` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:70` +1 |
 | `credential_pool_empty` | domain | ConfigurationError | `packages/sdk/src/internal/llm/credential-pool.ts:91` |
 | `cron_ambiguous_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:215` |
@@ -141,7 +143,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `missing_credential` | domain | AuthenticationError | `packages/sdk/src/internal/providers/builtin/openai-chatgpt.ts:72` |
 | `missing_frontmatter` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:88` |
 | `missing_model` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:37` |
-| `model_unavailable` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:75` +1 |
+| `model_unavailable` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:75` +2 |
 | `network` | domain | MemoryAdapterError, buildErrorMetadata | `packages/memory-honcho/src/adapter.ts:258` +5 |
 | `network_error` | domain | NetworkError | `packages/sdk/src/internal/http.ts:99` |
 | `no_api_key` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-brave.ts:50` |
@@ -177,6 +179,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `plugin_missing_manifest` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:176` +2 |
 | `programmatic_hooks_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:99` |
 | `provider_unresolved` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:99` +1 |
+| `quota_exceeded` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:127` |
 | `rate_limit` | domain | — | `packages/sdk/src/internal/error-mappers/vertex.ts:47` |
 | `rate_limited` | domain | MemoryAdapterError | `packages/memory-honcho/src/adapter.ts:244` +3 |
 | `redirect_blocked` | domain | — | `packages/sdk-tools/src/internal/network-guard.ts:38` |
