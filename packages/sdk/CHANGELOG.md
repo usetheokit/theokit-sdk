@@ -1,5 +1,28 @@
 # Changelog
 
+## 5.11.1
+
+### Patch Changes
+
+- [#740](https://github.com/usetheokit/theokit-sdk/pull/740) [`f5ee221`](https://github.com/usetheokit/theokit-sdk/commit/f5ee2218c3fc7dfba0b87de64c7472b8fd7184e8) Thanks [@usetheodev](https://github.com/usetheodev)! - `run.cancel()` on a local run now aborts the provider request. Until now it only set the status to `cancelled`: the LLM request kept streaming, `onDelta` kept receiving updates, and the provider billed the whole generation. The run now aborts the request, stops waiting for in-flight tool calls and passes the abort to custom tool handlers through `ctx.signal`, and delivers no update to `onDelta` once it is terminal. Shell commands and MCP tool calls receive no abort and keep running until they finish. A run cancelled while its MCP servers start up runs no turn, and still closes the MCP clients it owns. A cancelled turn reports no `usage` or `cost`: its result resolves when you cancel, before the turn's usage is collected. A `BudgetTracker` receives no tokens for a cancelled turn either, although the provider bills what it generated before the abort. A failed `close()` of a run-owned MCP client is now reported as a diagnostic naming the server, where it used to be dropped. Once a run is cancelled, `stream()`, `events()` and `conversation()` stop growing: the `[aborted]` message and the conversation the turn returns while it winds down are no longer added after `wait()` has resolved.
+
+- [#744](https://github.com/usetheokit/theokit-sdk/pull/744) [`afb44b1`](https://github.com/usetheokit/theokit-sdk/commit/afb44b14153b15ddf482e78b89b4541f7c99836f) Thanks [@usetheodev](https://github.com/usetheodev)! - A provider that answers HTTP 404 because it does not serve the requested model now fails the run with a `ConfigurationError` whose message names the model. Until now OpenRouter's 404 for a retired model id (`No endpoints found for deepseek/deepseek-r1.`) became an `UnknownAgentError` with code `openrouter_unknown`, and neither the error nor `result.error.message` said which model was refused. The run now reports `result.error.code` `model_unavailable`, the error's `code` is `<provider>_model_unavailable`, and the message ends with the provider's own text when the provider sends one. OpenAI's 404 with code `model_not_found` gets the same class, at every OpenAI-compatible call site. OpenRouter's other "No endpoints found" 404s, for a request your data policy or the model's tool support rules out, report the same `model_unavailable` code; the provider's text in the message tells them apart. Any other 404, such as a wrong path, is still an `UnknownAgentError` with its old message.
+
+- [#743](https://github.com/usetheokit/theokit-sdk/pull/743) [`a87a239`](https://github.com/usetheokit/theokit-sdk/commit/a87a23961f2804e37575b12a8f7a5bb59f0b8bd7) Thanks [@usetheodev](https://github.com/usetheodev)! - The `thinking-completed` update now arrives when the reasoning ends: before the first `text-delta`
+  of a turn that reasons and then answers. It used to arrive after the whole turn's stream, so a UI
+  that closed its reasoning block on it kept the block open until the answer had finished.
+  
+  `thinkingDurationMs` on that update, and `thinking_duration_ms` on the replayed `thinking` message,
+  are now the reasoning span: the time of the last reasoning delta minus the time of the first. They
+  used to run until the end of the stream and so included the answer. In a live OpenRouter recording
+  the reported value was 19076 ms for 8282 ms of reasoning. Reasoning that arrives in a single delta,
+  with no delta after it, reports 0.
+  
+  A turn that reasons and then calls a tool, or that ends without text, still sends the update at the
+  end of the stream, with the same duration rule. Each turn with reasoning still sends exactly one
+  `thinking-completed`; reasoning that arrives after the answer started is shown and replayed but
+  sends no second one.
+
 ## 5.11.0
 
 ### Minor Changes
