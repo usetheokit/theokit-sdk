@@ -8,12 +8,12 @@
  * separate channel from the visible answer.
  *
  * Per `.claude/rules/real-llm-validation.md` this is the committable, repeatable evidence that the
- * unit-tested wiring actually produces reasoning against a real reasoning model (deepseek-r1).
+ * unit-tested wiring actually produces reasoning against a real reasoning model (deepseek/deepseek-r1-0528).
  */
 
 import { describe, expect, it } from "vitest";
 
-import type { Run } from "../../../src/index.js";
+import type { InteractionUpdate, Run } from "../../../src/index.js";
 import { Agent } from "../../../src/index.js";
 import { useTempCwd } from "../../helpers/temp-workspace.js";
 import { resolveRealLlmEnv } from "./_helpers/real-llm-env.js";
@@ -23,7 +23,7 @@ import { resolveRealLlmEnv } from "./_helpers/real-llm-env.js";
 // packages/sdk/.theokit/. See useTempCwd's docblock for the 540 MB that bought.
 useTempCwd();
 
-const env = resolveRealLlmEnv("openrouter", { model: "deepseek/deepseek-r1" });
+const env = resolveRealLlmEnv("openrouter", { model: "deepseek/deepseek-r1-0528" });
 
 /** Drain the run stream, separating reasoning (`thinking`) messages from the visible answer. */
 async function drainRun(run: Run): Promise<{ thinkingMessages: number; answerText: string }> {
@@ -41,13 +41,41 @@ async function drainRun(run: Run): Promise<{ thinkingMessages: number; answerTex
   return { thinkingMessages, answerText };
 }
 
+type TimedUpdate = { update: InteractionUpdate; at: number };
+
+/**
+ * B-497: where the FIRST `thinking-completed` sits relative to the answer, and the span of the
+ * reasoning deltas it closes. Sequence numbers are indexes into the `onDelta` timeline; the span
+ * uses the test's own clock on that same callback, so network latency before the first delta does
+ * not enter it. Only deltas before the first close count, so a later reasoning turn cannot widen it.
+ */
+function firstCloseTiming(timeline: readonly TimedUpdate[]): {
+  firstCompletedSeq: number;
+  firstTextDeltaSeq: number;
+  firstCompletedDurationMs: number;
+  thinkingSpanMs: number;
+} {
+  const firstCompletedSeq = timeline.findIndex((t) => t.update.type === "thinking-completed");
+  const firstTextDeltaSeq = timeline.findIndex((t) => t.update.type === "text-delta");
+  const closing = timeline[firstCompletedSeq]?.update;
+  const firstCompletedDurationMs =
+    closing?.type === "thinking-completed" ? closing.thinkingDurationMs : -1;
+  const reasoningTimes = timeline
+    .slice(0, Math.max(firstCompletedSeq, 0))
+    .filter((t) => t.update.type === "thinking-delta")
+    .map((t) => t.at);
+  const thinkingSpanMs =
+    reasoningTimes.length > 0 ? Math.max(...reasoningTimes) - Math.min(...reasoningTimes) : -1;
+  return { firstCompletedSeq, firstTextDeltaSeq, firstCompletedDurationMs, thinkingSpanMs };
+}
+
 describe.skipIf(env.shouldSkip)(`real-llm: openrouter reasoning (${env.provider})`, () => {
   it("surfaces reasoning as thinking-delta + thinking messages, separate from the answer", async () => {
     const agent = await Agent.create({
       apiKey: env.apiKey,
       model: { id: env.model, params: [{ id: "thinking", value: "high" }] },
-      // deepseek-r1 is an OpenRouter slug — route the chat capability to OpenRouter so the full
-      // `deepseek/deepseek-r1` id is sent (prefix inference would otherwise pick a bare provider).
+      // deepseek/deepseek-r1-0528 is an OpenRouter slug — route the chat capability to OpenRouter so the full
+      // `deepseek/deepseek-r1-0528` id is sent (prefix inference would otherwise pick a bare provider).
       providers: { routes: [{ capability: "chat", provider: "openrouter" }] },
     });
     try {
@@ -59,8 +87,10 @@ describe.skipIf(env.shouldSkip)(`real-llm: openrouter reasoning (${env.provider}
       let lastThinkingDeltaSeq = -1;
       let completedSeq = -1;
       let seq = 0;
+      const timeline: TimedUpdate[] = [];
       const run = await agent.send("What is 17 * 23? Reason step by step, then answer.", {
         onDelta: ({ update }) => {
+          timeline.push({ update, at: Date.now() });
           if (update.type === "thinking-delta") {
             thinkingDeltas += 1;
             reasoningText += update.text;
@@ -88,6 +118,13 @@ describe.skipIf(env.shouldSkip)(`real-llm: openrouter reasoning (${env.provider}
       expect(completedSeq).toBeGreaterThan(lastThinkingDeltaSeq);
       expect(typeof lastCompletedDurationMs).toBe("number");
       expect(lastCompletedDurationMs).toBeGreaterThanOrEqual(0);
+      // B-497: the close ends the reasoning block before the answer starts, and its duration is
+      // the span of the reasoning deltas it closes, within 500 ms of slack for delivery jitter.
+      const { firstCompletedSeq, firstTextDeltaSeq, firstCompletedDurationMs, thinkingSpanMs } =
+        firstCloseTiming(timeline);
+      expect(firstTextDeltaSeq).toBeGreaterThan(-1);
+      expect(firstCompletedSeq).toBeLessThan(firstTextDeltaSeq);
+      expect(Math.abs(firstCompletedDurationMs - thinkingSpanMs)).toBeLessThanOrEqual(500);
       // The visible answer is non-empty and does NOT simply equal the chain-of-thought.
       expect(answerText.length).toBeGreaterThan(0);
       expect(answerText).not.toBe(reasoningText);

@@ -388,7 +388,11 @@ console.log(result.git);         // { branches: [{ repoUrl, branch?, prUrl? }] }
 await run.cancel();
 ```
 
-The status moves to `"cancelled"`, the live stream aborts, in-flight tool calls stop, and `run.wait()` resolves with `status: "cancelled"`. Partial assistant text stays on the `Run` object. Cancel is a no-op if the run already finished.
+The status moves to `"cancelled"`, the live stream aborts, and `run.wait()` resolves with `status: "cancelled"`. What `stream()`, `events()` and `conversation()` returned when you cancelled is what they keep returning: nothing the turn reports while it winds down is added later. Cancel is a no-op if the run already finished.
+
+On a local run, cancel also stops the run from waiting for tool calls in flight, and a custom tool handler receives the abort on `ctx.signal`. Shell commands and MCP tool calls receive no abort: they keep running until they finish on their own, and the run discards their results.
+
+A cancelled turn reports no `usage` or `cost` on its `RunResult`: the result resolves when you cancel, before the turn's usage is collected. (OpenAI-compatible providers such as OpenRouter send usage only in the stream's final chunk.) The provider still bills the tokens it generated before the abort, and a `BudgetTracker` passed to `Agent.create` receives none of them, so a cost ceiling enforced through it undercounts each cancelled turn. Ask the provider when you need that figure.
 
 ### Reading run state
 

@@ -6,7 +6,9 @@
  * `TheokitAgentError` subclasses with full `ErrorMetadata`.
  *
  * Body inspection: looks at `body.error.code` / `body.error.type` to detect
- * `context_too_long`, `content_filtered`, `model_unavailable` semantics.
+ * `context_too_long`, `content_filtered`, `model_unavailable` semantics, and at
+ * `body.error.message` for a 404 that says no endpoint serves the model
+ * (OpenRouter's numeric-code body for a retired model id).
  * Falls back to status-based mapping when body doesn't expose `.error`
  * (e.g., HTML server error page, DeepInfra's `{message: "..."}` shape).
  *
@@ -53,6 +55,14 @@ export function mapOpenAICompatibleError(args: MapOpenAiErrorArgs): TheokitAgent
   if (status === 429) {
     return new RateLimitError(message, { code: `${providerId}_rate_limit`, metadata });
   }
+  if (status === 404 && code === "model_unavailable") {
+    // The model id lives only in the provider's text, so this case carries it.
+    const detailed = formatMessage(providerId, status, code, extractOpenAiErrorMessage(body));
+    return new ConfigurationError(detailed, {
+      code: `${providerId}_model_unavailable`,
+      metadata,
+    });
+  }
   if (status === 400) {
     return new ConfigurationError(message, { code: `${providerId}_${code}`, metadata });
   }
@@ -74,43 +84,62 @@ function extractOpenAiErrorCode(body: unknown): string | undefined {
   return undefined;
 }
 
-function mapOpenAiStatusToCode(status: number, body: unknown): ErrorCode {
-  const rawCode = extractOpenAiErrorCode(body)?.toLowerCase() ?? "";
+function extractOpenAiErrorMessage(body: unknown): string | undefined {
+  if (body === null || typeof body !== "object") return undefined;
+  const err = (body as { error?: { message?: unknown } }).error;
+  if (err === undefined || err === null) return undefined;
+  return typeof err.message === "string" ? err.message : undefined;
+}
 
-  if (
-    rawCode.includes("context_length") ||
-    rawCode.includes("context_window") ||
-    rawCode.includes("too_many_tokens") ||
-    rawCode.includes("max_tokens")
-  ) {
-    return "context_too_long";
-  }
-  if (
-    rawCode.includes("content_filter") ||
-    rawCode.includes("content_policy") ||
-    rawCode.includes("safety")
-  ) {
-    return "content_filtered";
-  }
-  if (
-    rawCode.includes("model_not_found") ||
-    rawCode.includes("model_unavailable") ||
-    rawCode.includes("invalid_model")
-  ) {
-    return "model_unavailable";
-  }
-  // T3.7 — OpenRouter "Insufficient credits" / `insufficient_quota` in the BODY.
-  // The status-402 half of this rule moved to the shared ladder, where it now
-  // reaches all four mappers instead of this one; what stays here is the part
-  // that is genuinely a body dialect.
-  if (rawCode.includes("insufficient_quota") || rawCode.includes("quota_exceeded")) {
-    return "quota_exceeded";
-  }
+// OpenRouter answers a model it does not serve with HTTP 404 and a numeric `error.code`,
+// so only the message tells it apart from a 404 for a wrong path (measured 2026-10-20).
+const MISSING_MODEL_MESSAGE = /no endpoints found/i;
+
+function mapOpenAiStatusToCode(status: number, body: unknown): ErrorCode {
+  const fromBodyCode = classifyOpenAiBodyCode(extractOpenAiErrorCode(body)?.toLowerCase() ?? "");
+  if (fromBodyCode !== undefined) return fromBodyCode;
+  if (isMissingModel404(status, body)) return "model_unavailable";
 
   // Everything below the body dialect is RFC 9110 and lives once, in shared.ts.
   return httpStatusToErrorCode(status);
 }
 
-function formatMessage(providerId: string, status: number, code: ErrorCode): string {
-  return `${providerId} API error: ${code} (HTTP ${status})`;
+function isMissingModel404(status: number, body: unknown): boolean {
+  return status === 404 && MISSING_MODEL_MESSAGE.test(extractOpenAiErrorMessage(body) ?? "");
+}
+
+// The body dialect, in precedence order: the first rule whose fragment appears in the
+// lowercased body code wins.
+const BODY_CODE_RULES: ReadonlyArray<{ fragments: readonly string[]; code: ErrorCode }> = [
+  {
+    fragments: ["context_length", "context_window", "too_many_tokens", "max_tokens"],
+    code: "context_too_long",
+  },
+  { fragments: ["content_filter", "content_policy", "safety"], code: "content_filtered" },
+  {
+    fragments: ["model_not_found", "model_unavailable", "invalid_model"],
+    code: "model_unavailable",
+  },
+  // T3.7 — OpenRouter "Insufficient credits" / `insufficient_quota` in the BODY.
+  // The status-402 half of this rule moved to the shared ladder, where it now
+  // reaches all four mappers instead of this one; what stays here is the part
+  // that is genuinely a body dialect.
+  { fragments: ["insufficient_quota", "quota_exceeded"], code: "quota_exceeded" },
+];
+
+function classifyOpenAiBodyCode(rawCode: string): ErrorCode | undefined {
+  const rule = BODY_CODE_RULES.find(({ fragments }) =>
+    fragments.some((fragment) => rawCode.includes(fragment)),
+  );
+  return rule?.code;
+}
+
+function formatMessage(
+  providerId: string,
+  status: number,
+  code: ErrorCode,
+  detail?: string,
+): string {
+  const base = `${providerId} API error: ${code} (HTTP ${status})`;
+  return detail === undefined || detail === "" ? base : `${base}: ${detail}`;
 }
