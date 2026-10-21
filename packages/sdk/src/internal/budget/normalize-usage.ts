@@ -178,7 +178,11 @@ function normalizeOpenAIResponses(raw: RawRecord): TokenUsage {
 
 /** The prompt of a Chat Completions `usage` object, split the way {@link splitChatCompletionsPrompt} reports it. */
 export interface ChatCompletionsPromptSplit {
-  /** `prompt_tokens` minus both cache buckets, floored at 0; absent when `prompt_tokens` is. */
+  /**
+   * `prompt_tokens` minus both cache buckets, floored at 0; absent when `prompt_tokens` is, and
+   * `NaN` when `prompt_tokens` was sent but is not a usable count. A cache field is `NaN` the same
+   * way. `makeLlmFinish` drops a `NaN` and reports it.
+   */
   readonly inputTokens?: number;
   /** Absent when the payload carries neither cache-read field. */
   readonly cacheReadTokens?: number;
@@ -189,6 +193,35 @@ export interface ChatCompletionsPromptSplit {
 /** Whether a raw usage field was sent with a value; a JSON `null` counts as not sent. */
 function sent(v: unknown): boolean {
   return v !== undefined && v !== null;
+}
+
+/**
+ * A sent token count, or `NaN` when it is negative, not finite or not a number. `int` would read
+ * those as 0, and a 0 is a real count: the streaming client then billed a malformed usage object as
+ * a turn with no input, and `makeLlmFinish` never reported it (loop-code-review LCR0104). `NaN`
+ * reaches that boundary check instead, which drops the field and says so. Strings are read the way
+ * `int` reads them, so a well-formed count gets the same value from either reader.
+ */
+function strictCount(v: unknown): number {
+  const n = typeof v === "string" ? Number.parseInt(v, 10) : v;
+  return typeof n === "number" && Number.isFinite(n) && n >= 0 ? Math.trunc(n) : Number.NaN;
+}
+
+/** A count from {@link strictCount}, with an absent or unusable one read as 0. */
+function usableOr0(count: number | undefined): number {
+  return count === undefined || Number.isNaN(count) ? 0 : count;
+}
+
+/**
+ * One cache bucket: the nested `prompt_tokens_details` value wins, and the Anthropic-style
+ * top-level field fills it only when the nested one is 0 or missing. An unusable nested value is
+ * reported as such, never replaced by the top-level one. Absent when neither field was sent.
+ */
+function cacheBucket(nested: unknown, topLevel: unknown): number | undefined {
+  if (!sent(nested) && !sent(topLevel)) return undefined;
+  const fromNested = sent(nested) ? strictCount(nested) : 0;
+  if (fromNested !== 0) return fromNested;
+  return sent(topLevel) ? strictCount(topLevel) : 0;
 }
 
 /**
@@ -205,14 +238,12 @@ function sent(v: unknown): boolean {
  */
 export function splitChatCompletionsPrompt(raw: RawRecord): ChatCompletionsPromptSplit {
   const details = (raw.prompt_tokens_details as RawRecord | undefined) ?? {};
-  const bucket = (nested: unknown, topLevel: unknown): number | undefined =>
-    sent(nested) || sent(topLevel) ? int(nested) || int(topLevel) : undefined;
-  const cacheReadTokens = bucket(details.cached_tokens, raw.cache_read_input_tokens);
-  const cacheWriteTokens = bucket(details.cache_write_tokens, raw.cache_creation_input_tokens);
-  const cached = (cacheReadTokens ?? 0) + (cacheWriteTokens ?? 0);
+  const cacheReadTokens = cacheBucket(details.cached_tokens, raw.cache_read_input_tokens);
+  const cacheWriteTokens = cacheBucket(details.cache_write_tokens, raw.cache_creation_input_tokens);
+  const cached = usableOr0(cacheReadTokens) + usableOr0(cacheWriteTokens);
   return {
     ...(sent(raw.prompt_tokens)
-      ? { inputTokens: Math.max(0, int(raw.prompt_tokens) - cached) }
+      ? { inputTokens: Math.max(0, strictCount(raw.prompt_tokens) - cached) }
       : {}),
     ...(cacheReadTokens !== undefined ? { cacheReadTokens } : {}),
     ...(cacheWriteTokens !== undefined ? { cacheWriteTokens } : {}),
@@ -240,10 +271,12 @@ export function netOfCache(
 function normalizeOpenAIChat(raw: RawRecord): TokenUsage {
   const outputTokens = int(raw.completion_tokens);
   const completionDetails = (raw.completion_tokens_details as RawRecord | undefined) ?? {};
+  // `int` turns an unusable count from the split back into 0: the public normalizeUsage clamps
+  // malformed input to 0 by contract, where the streaming client lets makeLlmFinish report it.
   const split = splitChatCompletionsPrompt(raw);
-  const inputTokens = split.inputTokens ?? 0;
-  const cacheReadTokens = split.cacheReadTokens ?? 0;
-  const cacheWriteTokens = split.cacheWriteTokens ?? 0;
+  const inputTokens = int(split.inputTokens);
+  const cacheReadTokens = int(split.cacheReadTokens);
+  const cacheWriteTokens = int(split.cacheWriteTokens);
   const reasoningTokens = int(completionDetails.reasoning_tokens);
   const usage = {
     inputTokens,
