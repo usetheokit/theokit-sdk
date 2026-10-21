@@ -10,9 +10,10 @@
  * below. Turning on `cache_control` for Anthropic models on OpenRouter made that the normal case.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { computeCost } from "../../../src/internal/budget/compute-cost.js";
+import { setDiagnosticsSink } from "../../../src/internal/diagnostics.js";
 import { OpenAIClient } from "../../../src/internal/llm/openai.js";
 import type { LlmFinish } from "../../../src/internal/llm/types.js";
 
@@ -135,5 +136,41 @@ describe("chat-completions usage keeps the cached slice out of inputTokens", () 
     const finish = await finishOf({ prompt_tokens: 11, completion_tokens: 4 });
     expect(finish.inputTokens).toBe(11);
     expect(finish.cacheReadTokens).toBeUndefined();
+  });
+});
+
+/** Capture every diagnostic the test emits, and restore the default destination after it. */
+function captureDiagnostics(): string[] {
+  const messages: string[] = [];
+  setDiagnosticsSink((message) => messages.push(message));
+  onTestFinished(() => setDiagnosticsSink(undefined));
+  return messages;
+}
+
+describe("chat-completions usage the provider sent malformed reaches the #372 boundary check", () => {
+  it("a negative prompt_tokens leaves inputTokens absent and is reported", async () => {
+    const messages = captureDiagnostics();
+    const finish = await finishOf({ prompt_tokens: -500, completion_tokens: 4 });
+    expect(finish.inputTokens).toBeUndefined();
+    expect(messages.some((m) => m.includes("unusable inputTokens"))).toBe(true);
+  });
+
+  it("a non-numeric prompt_tokens leaves inputTokens absent and is reported", async () => {
+    const messages = captureDiagnostics();
+    const finish = await finishOf({ prompt_tokens: "garbage", completion_tokens: 4 });
+    expect(finish.inputTokens).toBeUndefined();
+    expect(messages.some((m) => m.includes("unusable inputTokens"))).toBe(true);
+  });
+
+  it("a negative cached_tokens leaves cacheReadTokens absent and is reported", async () => {
+    const messages = captureDiagnostics();
+    const finish = await finishOf({
+      prompt_tokens: 100,
+      completion_tokens: 4,
+      prompt_tokens_details: { cached_tokens: -20 },
+    });
+    expect(finish.cacheReadTokens).toBeUndefined();
+    expect(finish.inputTokens).toBe(100);
+    expect(messages.some((m) => m.includes("unusable cacheReadTokens"))).toBe(true);
   });
 });
