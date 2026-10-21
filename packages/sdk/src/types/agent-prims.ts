@@ -17,6 +17,11 @@
 /**
  * One slot in a {@link ModelSelection.params} array.
  *
+ * The `thinking` param sets the reasoning effort and takes a non-empty value, for example
+ * `{ id: "thinking", value: "high" }`. An empty or whitespace-only value is refused with a
+ * `ConfigurationError` (code `invalid_model_param`) at `Agent.create` and at a `send` override,
+ * before any request. To request no reasoning, leave the `thinking` param out.
+ *
  * @public
  */
 export interface ModelParameterValue {
