@@ -1,5 +1,0 @@
----
-"@theokit/sdk": patch
----
-
-A provider that answers HTTP 404 because it does not serve the requested model now fails the run with a `ConfigurationError` whose message names the model. Until now OpenRouter's 404 for a retired model id (`No endpoints found for deepseek/deepseek-r1.`) became an `UnknownAgentError` with code `openrouter_unknown`, and neither the error nor `result.error.message` said which model was refused. The run now reports `result.error.code` `model_unavailable`, the error's `code` is `<provider>_model_unavailable`, and the message ends with the provider's own text when the provider sends one. OpenAI's 404 with code `model_not_found` gets the same class, at every OpenAI-compatible call site. OpenRouter's other "No endpoints found" 404s, for a request your data policy or the model's tool support rules out, report the same `model_unavailable` code; the provider's text in the message tells them apart. Any other 404, such as a wrong path, is still an `UnknownAgentError` with its old message.
