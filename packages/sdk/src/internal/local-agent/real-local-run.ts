@@ -2,11 +2,13 @@ import { ConfigurationError } from "../../errors.js";
 import type { SDKMessage } from "../../types/messages.js";
 import type { Run, RunOperation, RunStatus } from "../../types/run.js";
 import { type AgentLoopInputs, runAgentLoop } from "../agent-loop/loop.js";
+import { anySignal } from "../concurrency/abort-utils.js";
 import { withToolWhitelist } from "../concurrency/async-local-storage.js";
 import {
   type InheritedCredentials,
   withInheritedSubAgentCredentials,
 } from "../concurrency/subagent-credentials.js";
+import { diagFailure } from "../diagnostics.js";
 import { emitRunEvent } from "../emit-run-event.js";
 import { FallbackLlmClient } from "../llm/fallback-client.js";
 import { resolveProviderChain } from "../llm/router.js";
@@ -215,6 +217,13 @@ class RealLocalRun extends FixtureRunBase {
   private readonly ownsMcpClients: boolean;
   /** theokit#148 — what a delegated child inherits from this parent, scoped to the loop. */
   private readonly inheritedCredentials: InheritedCredentials;
+  /**
+   * B-495 — the run's own abort, composed into the signal the loop hands to the LLM fetch and the
+   * tool executors, so `cancel()` stops the request and not only the status. A TypeScript `private`
+   * field, never a JS `#private` one: the run wrappers are Proxies that call `cancel()` with `this`
+   * bound to the Proxy, where reading a `#private` field throws.
+   */
+  private readonly cancelController = new AbortController();
 
   constructor(
     options: ConstructorParameters<typeof FixtureRunBase>[0],
@@ -232,6 +241,14 @@ class RealLocalRun extends FixtureRunBase {
     setTimeout(() => {
       void this.driveLoop();
     }, 0);
+  }
+
+  override cancel(): Promise<void> {
+    // Repeats the base guard on purpose: a run that already finished keeps its request untouched
+    // and its result (usage and cost included) as it was.
+    if (this.terminated) return Promise.resolve();
+    this.cancelController.abort();
+    return super.cancel();
   }
 
   protected override notifyImmediately(): boolean {
@@ -290,7 +307,11 @@ class RealLocalRun extends FixtureRunBase {
     // and timestamp-fallback bugs. Scoped per run, reset at each assistant message so a multi-step
     // run answers the question per message rather than once for the whole run.
     let textStreamedSinceLastMessage = false;
+    inputs.signal = anySignal([inputs.signal, this.cancelController.signal]);
     inputs.onLoopEvent = (event: SDKMessage) => {
+      // B-495 — wait() resolved at cancel time; what the loop reports while it unwinds (its
+      // "[aborted]" message, a late tool result) must not change what stream() and events() return.
+      if (this.terminated) return;
       this.liveDelivered.add(event);
       this.script.events.push(event);
       // theokit#140 - the same event on the complete timeline. Both views are fed from the one
@@ -313,11 +334,17 @@ class RealLocalRun extends FixtureRunBase {
     // it, never replaces it.
     const callerOnDelta = inputs.onDelta;
     inputs.onDelta = (delta) => {
+      // B-495 — a record already parsed when cancel() ran still travels up after the abort; a
+      // terminal run hands no more deltas to the caller's onDelta or to the timeline.
+      if (this.terminated) return;
       callerOnDelta?.(delta);
       if (delta.update.type === "text-delta") textStreamedSinceLastMessage = true;
       this.pushTimeline({ kind: "delta", update: delta.update });
     };
     try {
+      // B-495 — cancelled while MCP servers initialized: start no turn. Inside the `try`, so the
+      // `finally` below still closes the MCP clients this run owns.
+      if (this.terminated) return;
       // SE18 — when the send set `activeTools`, run the loop inside a tool-whitelist
       // scope so a call to a tool outside the set is vetoed at dispatch (same path as
       // `Agent.fork`'s `allowedTools`). Absent ⇒ the full toolset is available.
@@ -340,11 +367,7 @@ class RealLocalRun extends FixtureRunBase {
       // owns the client and releases it via `disposeSessionMcpClients` (`LocalAgent.dispose()`) plus
       // `reapIdle` on the next acquire; closing it here would kill the child the next turn expects
       // to still be running.
-      if (this.ownsMcpClients) {
-        for (const client of inputs.mcp.values()) {
-          await client.close().catch(() => undefined);
-        }
-      }
+      if (this.ownsMcpClients) await closeOwnedMcpClients(inputs);
     }
   }
 
@@ -357,6 +380,8 @@ class RealLocalRun extends FixtureRunBase {
    * Finding-B fix (sdk-error-packaging v1.1): set-once errorDetail copy.
    */
   private applyAgentLoopOutput(output: Awaited<ReturnType<typeof runAgentLoop>>): void {
+    // B-495 — a run cancelled mid-turn is already final; its output arrives after wait() resolved.
+    if (this.terminated) return;
     this.deliverUndeliveredEvents(output.events);
     this.script.conversation.push(...output.conversation);
     if (output.result.length > 0) this.script.result = output.result;
@@ -412,5 +437,24 @@ class RealLocalRun extends FixtureRunBase {
       };
     }
     this.notifyNewEvents();
+  }
+}
+
+/**
+ * Close every MCP client a turn owns. A close that fails must not mask the turn's outcome, so it is
+ * not rethrown, but it may leave the server's child process running, so it is reported with the
+ * server's name. The `finally` of `executeAgentLoop` is the only place these clients are released,
+ * including for a run cancelled while its servers initialized (B-495).
+ */
+async function closeOwnedMcpClients(inputs: AgentLoopInputs): Promise<void> {
+  for (const [name, client] of inputs.mcp.entries()) {
+    try {
+      await client.close();
+    } catch (cause) {
+      const why = cause instanceof Error ? cause.message : String(cause);
+      diagFailure(
+        `[theokit-sdk] MCP server ${name} failed to close; its process may still be running: ${why}`,
+      );
+    }
   }
 }
