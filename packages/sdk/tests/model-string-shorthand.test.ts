@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { Agent, ConfigurationError } from "../src/index.js";
@@ -135,5 +138,20 @@ describe("normalizeModel refuses a thinking param with no effort", () => {
     expect(normalizeModel(low)).toBe(low);
     const other = { id: "o4-mini", params: [{ id: "other", value: "" }] };
     expect(normalizeModel(other)).toBe(other);
+  });
+});
+
+describe("the thinking param contract is documented where consumers read it", () => {
+  const src = join(import.meta.dirname, "..", "src");
+
+  it("documents_the_thinking_param_contract", () => {
+    const prims = readFileSync(join(src, "types/agent-prims.ts"), "utf8");
+    const declaration = prims.indexOf("export interface ModelParameterValue");
+    const docblock = prims.slice(prims.lastIndexOf("/**", declaration), declaration);
+    expect(docblock).toContain("thinking");
+    expect(docblock).toContain("non-empty");
+    for (const file of ["types/agent.ts", "internal/runtime/system-prompt/native-reasoning.ts"]) {
+      expect(readFileSync(join(src, file), "utf8"), file).not.toContain('[{ id: "thinking" }]');
+    }
   });
 });

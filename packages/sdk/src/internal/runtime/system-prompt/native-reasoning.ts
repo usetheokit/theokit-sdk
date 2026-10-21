@@ -2,7 +2,7 @@
  * SE37 — `reasoning: true` support internals: the CoT preamble + the
  * double-reasoning guard.
  *
- * A native reasoning model (configured with `model.params: [{ id: "thinking" }]`)
+ * A native reasoning model (configured with `model.params: [{ id: "thinking", value: "high" }]`)
  * already reasons internally, so layering the prompt-based `reasoning: true`
  * preamble + think tool on top wastes tokens and can degrade output. When a
  * native reasoning param is detected, `reasoning: true` is INERT (with a
