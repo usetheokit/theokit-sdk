@@ -1,6 +1,11 @@
 import { ConfigurationError } from "../../errors.js";
 import { diag } from "../diagnostics.js";
-import { getProviderProfile, type ProviderProfile, registerBuiltins } from "../providers/index.js";
+import {
+  getProviderProfile,
+  listProviders,
+  type ProviderProfile,
+  registerBuiltins,
+} from "../providers/index.js";
 import { AnthropicClient } from "./anthropic.js";
 import { BedrockAnthropicClient } from "./bedrock-anthropic.js";
 import { CredentialPool, newPooledCredential } from "./credential-pool.js";
@@ -96,6 +101,13 @@ function buildChain(options: ProviderRouterOptions): LlmClient[] {
   // `*_API_BASE_URL`, which is what makes a fallback a different destination rather than a retry.
   for (const fallback of options.fallback ?? []) addClient(fallback);
   if (clients.length === 0) {
+    // Lowercased exactly as `addClient` does, so a name that differs from a profile only in case
+    // stays a registered provider and keeps the credentials hint below.
+    if (getProviderProfile(options.primary.toLowerCase()) === undefined) {
+      throw new ConfigurationError(unregisteredProviderMessage(options.primary), {
+        code: "provider_unresolved",
+      });
+    }
     throw new ConfigurationError(
       `No provider client could be resolved (primary=${options.primary}). ` +
         `Set ANTHROPIC_API_KEY or OPENAI_API_KEY / OPENROUTER_API_KEY.`,
@@ -103,6 +115,21 @@ function buildChain(options: ProviderRouterOptions): LlmClient[] {
     );
   }
   return clients;
+}
+
+/**
+ * The primary names no profile, so no key could have helped: say so, and list the names that do
+ * resolve. Read at throw time, so a profile registered by a plugin for this send is listed too.
+ */
+function unregisteredProviderMessage(name: string): string {
+  const registered = listProviders()
+    .map((profile) => profile.name)
+    .sort()
+    .join(", ");
+  return (
+    `No provider client could be resolved: "${name}" is not a known provider. ` +
+    `Registered providers: ${registered}.`
+  );
 }
 
 /**
