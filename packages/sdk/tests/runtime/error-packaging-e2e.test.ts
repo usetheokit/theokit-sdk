@@ -251,7 +251,8 @@ describe("a provider's REASON reaches RunResult without the stream (#338 item 3)
     // class a caller can branch on, rather than an UnknownAgentError naming neither.
     const retiredModel = "deepseek/deepseek-r1";
     vi.stubEnv("OPENROUTER_API_KEY", "sk-or-v1-test-fixture-key");
-    vi.stubGlobal("fetch", mockFetch404MissingModel(retiredModel));
+    const fetchMock = mockFetch404MissingModel(retiredModel);
+    vi.stubGlobal("fetch", fetchMock);
     const agent = await Agent.create({
       apiKey: REAL_KEY_SHAPE,
       model: { id: retiredModel },
@@ -265,6 +266,8 @@ describe("a provider's REASON reaches RunResult without the stream (#338 item 3)
       expect(result.error?.code).toBe("model_unavailable");
       expect(result.error?.cause).toBeInstanceOf(ConfigurationError);
       expect(result.error?.message ?? "").toContain(retiredModel);
+      // ConfigurationError is not retryable, so the provider is asked exactly once.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     } finally {
       await agent.dispose();
     }
