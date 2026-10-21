@@ -8,7 +8,7 @@
  * separate channel from the visible answer.
  *
  * Per `.claude/rules/real-llm-validation.md` this is the committable, repeatable evidence that the
- * unit-tested wiring actually produces reasoning against a real reasoning model (deepseek-r1).
+ * unit-tested wiring actually produces reasoning against a real reasoning model (deepseek/deepseek-r1-0528).
  */
 
 import { describe, expect, it } from "vitest";
@@ -23,7 +23,7 @@ import { resolveRealLlmEnv } from "./_helpers/real-llm-env.js";
 // packages/sdk/.theokit/. See useTempCwd's docblock for the 540 MB that bought.
 useTempCwd();
 
-const env = resolveRealLlmEnv("openrouter", { model: "deepseek/deepseek-r1" });
+const env = resolveRealLlmEnv("openrouter", { model: "deepseek/deepseek-r1-0528" });
 
 /** Drain the run stream, separating reasoning (`thinking`) messages from the visible answer. */
 async function drainRun(run: Run): Promise<{ thinkingMessages: number; answerText: string }> {
@@ -74,8 +74,8 @@ describe.skipIf(env.shouldSkip)(`real-llm: openrouter reasoning (${env.provider}
     const agent = await Agent.create({
       apiKey: env.apiKey,
       model: { id: env.model, params: [{ id: "thinking", value: "high" }] },
-      // deepseek-r1 is an OpenRouter slug — route the chat capability to OpenRouter so the full
-      // `deepseek/deepseek-r1` id is sent (prefix inference would otherwise pick a bare provider).
+      // deepseek/deepseek-r1-0528 is an OpenRouter slug — route the chat capability to OpenRouter so the full
+      // `deepseek/deepseek-r1-0528` id is sent (prefix inference would otherwise pick a bare provider).
       providers: { routes: [{ capability: "chat", provider: "openrouter" }] },
     });
     try {
