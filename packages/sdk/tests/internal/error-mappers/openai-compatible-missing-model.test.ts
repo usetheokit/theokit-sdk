@@ -15,14 +15,18 @@ import { mapOpenAICompatibleError } from "../../../src/internal/error-mappers/op
 
 const RETIRED_MODEL = "deepseek/deepseek-r1";
 
-function map404(providerId: string, body: unknown): TheokitAgentError {
+function mapStatus(providerId: string, status: number, body: unknown): TheokitAgentError {
   return mapOpenAICompatibleError({
     providerId,
-    status: 404,
+    status,
     body,
     headers: new Headers(),
     endpoint: "/v1/chat/completions",
   });
+}
+
+function map404(providerId: string, body: unknown): TheokitAgentError {
+  return mapStatus(providerId, 404, body);
 }
 
 describe("mapOpenAICompatibleError on a 404", () => {
@@ -67,6 +71,35 @@ describe("mapOpenAICompatibleError on a 404", () => {
     expect(err.message).toContain(RETIRED_MODEL);
   });
 
+  it("maps_a_model_not_found_404_without_a_message_to_a_ConfigurationError", () => {
+    // With no provider text to carry, the message falls back to the bare base form.
+    const err = map404("openai", { error: { code: "model_not_found" } });
+
+    expect(err).toBeInstanceOf(ConfigurationError);
+    expect(err.code).toBe("openai_model_unavailable");
+    expect(err.message).toBe("openai API error: model_unavailable (HTTP 404)");
+  });
+
+  it("maps_a_data_policy_404_to_a_ConfigurationError", () => {
+    // OpenRouter's refusal when the account's data policy excludes every endpoint of the model.
+    const providerText = "No endpoints found matching your data policy (Free model publication).";
+    const err = map404("openrouter", { error: { code: 404, message: providerText } });
+
+    expect(err).toBeInstanceOf(ConfigurationError);
+    expect(err.metadata?.code).toBe("model_unavailable");
+    expect(err.message).toBe(`openrouter API error: model_unavailable (HTTP 404): ${providerText}`);
+  });
+
+  it.each([
+    "NO ENDPOINTS FOUND for x.",
+    "no endpoints found for x.",
+  ])("matches_the_missing_model_text_in_any_case: %s", (providerText) => {
+    const err = map404("openrouter", { error: { code: 404, message: providerText } });
+
+    expect(err).toBeInstanceOf(ConfigurationError);
+    expect(err.code).toBe("openrouter_model_unavailable");
+  });
+
   it("keeps_a_404_for_a_missing_path_out_of_ConfigurationError", () => {
     const err = map404("openrouter", { error: { message: "Not Found", code: 404 } });
 
@@ -92,5 +125,45 @@ describe("mapOpenAICompatibleError on a 404", () => {
       expect(err).toBeInstanceOf(UnknownAgentError);
       expect(err.code).toBe("openrouter_unknown");
     }
+  });
+});
+
+describe("mapOpenAICompatibleError outside the missing-model 404", () => {
+  it("keeps_the_message_of_a_400_model_not_found_without_the_provider_text", () => {
+    // ADR D2: only the missing-model 404 carries the provider's text; every other status keeps
+    // the message it had.
+    const err = mapStatus("openrouter", 400, {
+      error: { code: "model_not_found", message: "No endpoints found for x." },
+    });
+
+    expect(err).toBeInstanceOf(ConfigurationError);
+    expect(err.message).toBe("openrouter API error: model_unavailable (HTTP 400)");
+  });
+
+  it.each([
+    ["context_length_exceeded", "context_too_long"],
+    ["context_window_exceeded", "context_too_long"],
+    ["too_many_tokens", "context_too_long"],
+    ["max_tokens_exceeded", "context_too_long"],
+    ["content_filter", "content_filtered"],
+    ["content_policy_violation", "content_filtered"],
+    ["safety_block", "content_filtered"],
+    ["model_not_found", "model_unavailable"],
+    ["model_unavailable", "model_unavailable"],
+    ["invalid_model", "model_unavailable"],
+    ["insufficient_quota", "quota_exceeded"],
+    ["quota_exceeded", "quota_exceeded"],
+    ["CONTEXT_LENGTH_EXCEEDED", "context_too_long"],
+  ])("classifies_the_body_code_%s_as_%s", (bodyCode, expected) => {
+    const err = mapStatus("openai", 400, { error: { code: bodyCode } });
+
+    expect(err.metadata?.code).toBe(expected);
+  });
+
+  it("takes_the_first_matching_rule_when_a_body_code_matches_two", () => {
+    // "context_length" (context_too_long) precedes "safety" (content_filtered) in the table.
+    const err = mapStatus("openai", 400, { error: { code: "context_length_safety" } });
+
+    expect(err.metadata?.code).toBe("context_too_long");
   });
 });
