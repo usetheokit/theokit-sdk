@@ -322,6 +322,8 @@ async function consumeStreamEvent(
 ): Promise<string> {
   if (event.type === "text_delta") {
     const text = event.text ?? "";
+    // B-497: the first answer text ends the reasoning block, so close it before the text shows.
+    if (text.length > 0) await closeReasoningOnce(inputs, reasoning);
     await emitTextDeltaCallback(inputs, text);
     return text;
   }
@@ -350,8 +352,15 @@ async function runCollectorLoop(
   thinking?: LlmThinkingPart;
 }> {
   // issue #47/#48: reasoning streams on its own channel — `text` is accumulated for the
-  // `thinking` SDKMessage replay; `startedAt` (set on the first delta) measures the duration.
-  const reasoning: ReasoningAccumulator = { text: "", startedAt: undefined, signature: undefined };
+  // `thinking` SDKMessage replay; the duration is `lastAt - startedAt` (B-497).
+  const reasoning: ReasoningAccumulator = {
+    text: "",
+    startedAt: undefined,
+    lastAt: undefined,
+    signature: undefined,
+    closed: false,
+    durationMs: 0,
+  };
   let errored = false;
   let finishValue: CollectedEvents["finishValue"];
   let thinking: LlmThinkingPart | undefined;
@@ -408,6 +417,17 @@ interface ReasoningAccumulator {
    * it once, on its own delta, after the text. Kept as last-seen-wins: one block, one signature.
    */
   signature: string | undefined;
+  /**
+   * B-497: when the last reasoning delta before the close arrived. The duration is
+   * `lastAt - startedAt`: the reasoning span, never the time the answer or a tool call took after it.
+   * A text-less delta counts too, so Anthropic's signature delta, which ends its thinking block, is
+   * inside the span. A block that arrives in a single delta reports 0.
+   */
+  lastAt: number | undefined;
+  /** B-497: set once `thinking-completed` was sent, so a turn closes its reasoning exactly once. */
+  closed: boolean;
+  /** B-497: the duration the close reported, reused for the replayed `thinking` SDKMessage. */
+  durationMs: number;
 }
 
 /**
@@ -419,16 +439,36 @@ async function accumulateReasoning(
   reasoning: ReasoningAccumulator,
   text: string,
 ): Promise<void> {
-  if (reasoning.startedAt === undefined) reasoning.startedAt = Date.now();
+  const now = Date.now();
+  if (reasoning.startedAt === undefined) reasoning.startedAt = now;
+  // B-497: a delta after the close is still shown and replayed, but the span was already reported.
+  if (!reasoning.closed) reasoning.lastAt = now;
   reasoning.text += text;
   await emitReasoningDeltaCallback(inputs, text);
 }
 
 /**
+ * B-497: close the reasoning block once, on the first answer text, or at the end of the stream when
+ * no text follows (a tool-only turn, an error, a throw). The duration is the reasoning span, so it is
+ * the same whichever of the two moments sends it. No-op without reasoning or after the first close.
+ */
+async function closeReasoningOnce(
+  inputs: AgentLoopInputs,
+  reasoning: ReasoningAccumulator,
+): Promise<void> {
+  if (reasoning.closed || reasoning.text.length === 0) return;
+  reasoning.closed = true;
+  // Non-empty text means `accumulateReasoning` ran, and it sets both stamps before appending, so the
+  // fallbacks only satisfy the type.
+  reasoning.durationMs = (reasoning.lastAt ?? 0) - (reasoning.startedAt ?? 0);
+  await emitThinkingCompletedCallback(inputs, reasoning.durationMs);
+}
+
+/**
  * issue #47/#48: finalize the reasoning block for this turn. Emit the accumulated reasoning as a
  * `thinking` SDKMessage (run.stream replay) BEFORE the assistant turn — preserving reason-then-answer
- * order — carrying the measured duration, then close the live channel with a single
- * `thinking-completed` so a UI can end its reasoning block. No-op when the model produced no reasoning.
+ * order, carrying the reasoning span, and close the live channel if the first answer text has not
+ * already closed it (B-497). No-op when the model produced no reasoning.
  */
 async function finalizeReasoning(
   inputs: AgentLoopInputs,
@@ -436,12 +476,10 @@ async function finalizeReasoning(
   reasoning: ReasoningAccumulator,
 ): Promise<LlmThinkingPart | undefined> {
   if (reasoning.text.length === 0) return undefined;
-  const thinkingDurationMs =
-    reasoning.startedAt === undefined ? 0 : Date.now() - reasoning.startedAt;
+  await closeReasoningOnce(inputs, reasoning);
   ctx.events.push(
-    buildThinkingEvent(inputs, reasoning.text, thinkingDurationMs, reasoning.signature),
+    buildThinkingEvent(inputs, reasoning.text, reasoning.durationMs, reasoning.signature),
   );
-  await emitThinkingCompletedCallback(inputs, thinkingDurationMs);
   // theokit#122 — RETURNED, not stashed on the context. See `LlmTurnOutput.thinking` for why the
   // context-state version leaked a signature onto the following round's text.
   return {
