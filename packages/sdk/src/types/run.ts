@@ -4,6 +4,7 @@
  *
  */
 // T4.1 / D438 — import primitives from leaf to break the run<->agent cycle (#5).
+import type { TheokitAgentError } from "../errors-base.js";
 import type { CustomTool, ModelSelection, PermissionMode } from "./agent-prims.js";
 import type { ConversationStep, ConversationTurn } from "./conversation.js";
 import type { McpServerConfig } from "./mcp.js";
@@ -274,15 +275,20 @@ export type StreamToCompletionResult = RunToCompletionResult;
  * Structured error attached to a {@link RunResult} when the underlying run
  * transitioned to `"error"` status. `message` is always present; `code` is
  * a stable identifier suitable for branching (e.g. `"llm_4xx"`,
- * `"tool_dispatch_failed"`, `"mcp_init_failed"`); `cause` is the raw error
- * for further inspection when available.
+ * `"tool_dispatch_failed"`, `"mcp_init_failed"`); `cause` is the typed
+ * {@link TheokitAgentError} behind the failure, so `instanceof` works on it
+ * directly (e.g. `result.error?.cause instanceof AuthenticationError`).
+ *
+ * A failure whose original cause was missing or not an SDK error carries an
+ * `UnknownAgentError` with the same message and code, holding the original
+ * value at its own `cause`.
  *
  * @public
  */
 export interface RunErrorDetail {
   message: string;
   code?: string;
-  cause?: unknown;
+  cause?: TheokitAgentError;
 }
 
 /**
