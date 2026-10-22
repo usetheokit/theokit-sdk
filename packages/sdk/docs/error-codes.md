@@ -47,13 +47,13 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `cloud_stdio_cwd_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:123` |
 | `compression_failed` | domain | — | `packages/sdk/src/errors.ts:700` |
 | `compression_model_unresolved` | domain | — | `packages/sdk/src/internal/runtime/compression/compression-model-registry.ts:102` +1 |
-| `content_filtered` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:118` |
+| `content_filtered` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:139` |
 | `context_config_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-manager.ts:288` |
 | `context_frontmatter_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-frontmatter.ts:38` |
 | `context_json_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-manager.ts:282` |
 | `context_read_error` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-manager.ts:269` |
 | `context_sources_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-manager.ts:309` |
-| `context_too_long` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:116` |
+| `context_too_long` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:137` |
 | `credential_pool_ambiguous` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:70` +1 |
 | `credential_pool_empty` | domain | ConfigurationError | `packages/sdk/src/internal/llm/credential-pool.ts:91` |
 | `cron_ambiguous_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:215` |
@@ -179,7 +179,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `plugin_missing_manifest` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:176` +2 |
 | `programmatic_hooks_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:99` |
 | `provider_unresolved` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:99` +1 |
-| `quota_exceeded` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:127` |
+| `quota_exceeded` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:148` |
 | `rate_limit` | domain | — | `packages/sdk/src/internal/error-mappers/vertex.ts:47` |
 | `rate_limited` | domain | MemoryAdapterError | `packages/memory-honcho/src/adapter.ts:244` +3 |
 | `redirect_blocked` | domain | — | `packages/sdk-tools/src/internal/network-guard.ts:38` |

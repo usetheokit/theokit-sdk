@@ -8,7 +8,9 @@
  * Body inspection: looks at `body.error.code` / `body.error.type` to detect
  * `context_too_long`, `content_filtered`, `model_unavailable` semantics, and at
  * `body.error.message` for a 404 that says no endpoint serves the model
- * (OpenRouter's numeric-code body for a retired model id).
+ * (OpenRouter's numeric-code body for a retired model id). A 400 and that 404
+ * end their message with the provider's text, redacted and capped at 512
+ * characters; every other status keeps the bare message.
  * Falls back to status-based mapping when body doesn't expose `.error`
  * (e.g., HTML server error page, DeepInfra's `{message: "..."}` shape).
  *
@@ -26,7 +28,13 @@ import {
   type TheokitAgentError,
   UnknownAgentError,
 } from "../../errors.js";
+import { redactSecrets } from "../security/index.js";
 import { buildErrorMetadata, httpStatusToErrorCode } from "./shared.js";
+
+// A provider's text joins a message consumers log and show, so it is bounded first. 512 keeps every
+// measured text whole (OpenRouter's 400s run 40 to 60 characters, OpenAI's context-length text
+// about 250); `metadata.raw` keeps up to 2048 bytes of the body for the rest.
+const PROVIDER_DETAIL_MAX_CHARS = 512;
 
 interface MapOpenAiErrorArgs {
   providerId: string;
@@ -57,14 +65,16 @@ export function mapOpenAICompatibleError(args: MapOpenAiErrorArgs): TheokitAgent
   }
   if (status === 404 && code === "model_unavailable") {
     // The model id lives only in the provider's text, so this case carries it.
-    const detailed = formatMessage(providerId, status, code, extractOpenAiErrorMessage(body));
+    const detailed = formatMessage(providerId, status, code, boundedProviderDetail(body));
     return new ConfigurationError(detailed, {
       code: `${providerId}_model_unavailable`,
       metadata,
     });
   }
   if (status === 400) {
-    return new ConfigurationError(message, { code: `${providerId}_${code}`, metadata });
+    // A 400 is fixed by changing the request, and only the provider's text says what to change.
+    const detailed = formatMessage(providerId, status, code, boundedProviderDetail(body));
+    return new ConfigurationError(detailed, { code: `${providerId}_${code}`, metadata });
   }
   if (status === 408) {
     return new NetworkError(message, { code: `${providerId}_timeout`, metadata });
@@ -89,6 +99,17 @@ function extractOpenAiErrorMessage(body: unknown): string | undefined {
   const err = (body as { error?: { message?: unknown } }).error;
   if (err === undefined || err === null) return undefined;
   return typeof err.message === "string" ? err.message : undefined;
+}
+
+// Redaction runs before the cut: a key cut first could keep too few characters to match a
+// credential pattern, and its prefix would reach the message unmasked.
+function boundedProviderDetail(body: unknown): string | undefined {
+  const raw = extractOpenAiErrorMessage(body);
+  if (raw === undefined || raw.trim() === "") return undefined;
+  const redacted = redactSecrets(raw);
+  return redacted.length <= PROVIDER_DETAIL_MAX_CHARS
+    ? redacted
+    : `${redacted.slice(0, PROVIDER_DETAIL_MAX_CHARS)}…`;
 }
 
 // OpenRouter answers a model it does not serve with HTTP 404 and a numeric `error.code`,
