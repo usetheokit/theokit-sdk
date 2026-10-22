@@ -10,6 +10,7 @@ import type {
   SDKUserMessage,
 } from "../../../types/run.js";
 import { generateRunId } from "../../ids.js";
+import { toTypedRunErrorDetail } from "../typed-run-error.js";
 import { applyExtraRunFields } from "./fixture-responder.js";
 import type { FixtureScript } from "./types.js";
 
@@ -252,7 +253,7 @@ export abstract class FixtureRunBase implements Run {
     // Surface the script's errorDetail (set by emitErrorEvent) so wait()
     // callers see the cause without having to drain stream().
     if (status === "error" && this.script.errorDetail !== undefined) {
-      base.error = this.script.errorDetail;
+      base.error = toTypedRunErrorDetail(this.script.errorDetail);
     }
     applyScriptMetrics(base, this.script);
     return this.extendRunResult(applyExtraRunFields(base, this.script));
