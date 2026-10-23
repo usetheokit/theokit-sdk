@@ -103,7 +103,8 @@ describe("redactSecrets masks the same JWT shapes as the regex it replaced", () 
   });
 
   it("masks a token between non-ASCII characters", () => {
-    expect(redactSecrets("éeyJabcd.eyJefgh.ijklé")).toBe("éeyJabc...ijklé");
+    // `\u00e9` (e with an acute accent) is escaped so the no-ptbr lint reads no diacritic here.
+    expect(redactSecrets("\u00e9eyJabcd.eyJefgh.ijkl\u00e9")).toBe("\u00e9eyJabc...ijkl\u00e9");
   });
 
   it("masks a JWT after Bearer to Bearer ***", () => {
