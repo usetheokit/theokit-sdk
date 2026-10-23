@@ -29,6 +29,7 @@ import type { ProvidersManagerImpl } from "../runtime/config/providers-manager.j
 import type { FileContextManager } from "../runtime/context/context-manager.js";
 import { HooksExecutor } from "../runtime/hooks/hooks-executor.js";
 import { runPostRunLifecycle } from "../runtime/lifecycle/post-run-lifecycle.js";
+import { wrapRunWithThrowOnError } from "../runtime/lifecycle/throw-on-error-run.js";
 import type { MemoryFact } from "../runtime/memory-glue/memory-store.js";
 import { normalizeModel } from "../runtime/model-selection.js";
 import type { PluginMetadata, PluginsManager } from "../runtime/plugin-loader/plugins-manager.js";
@@ -322,6 +323,15 @@ export class LocalAgent implements SDKAgent {
     return declared !== undefined ? { contextWindow: declared } : {};
   }
 
+  /**
+   * The run the caller receives: under `throwOnError`, a view whose `wait()` rejects with the
+   * typed cause (B-498). Its own method because the inline ternary pushed `runLockedSendCycle`
+   * past the project's cognitive-complexity ceiling.
+   */
+  #callerView(run: Run): Run {
+    return this.options.throwOnError === true ? wrapRunWithThrowOnError(run) : run;
+  }
+
   private async runLockedSendCycle(
     message: string | SDKUserMessage,
     options: SendOptions,
@@ -342,7 +352,7 @@ export class LocalAgent implements SDKAgent {
     }
     // T3.2: opt-in Task wrapping (ADRs D363/D374).
     if (options.task !== undefined) registerRunAsTask(run, this.agentId, options.task, userText);
-    resolve(run);
+    resolve(this.#callerView(run));
     try {
       await runPostRunLifecycle({
         run,
