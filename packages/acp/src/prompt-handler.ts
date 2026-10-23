@@ -64,6 +64,39 @@ function isAbortError(err: unknown): boolean {
   return err.name === "AbortError" || err.message.includes("aborted");
 }
 
+/**
+ * B-498 — a consumer's agent created with `throwOnError: true` rejects `run.wait()` on a failed
+ * run. That rejection is mapped as a resolved error run would be, so the ACP client still gets a
+ * stop reason or a JSON-RPC error. It is recognised by the run's own status: any other rejection
+ * (an abort, a run that did not fail) propagates to `handlePrompt` unchanged.
+ */
+async function waitOrMapThrowOnError(
+  run: Run,
+): Promise<{ status: string; error?: { message: string; code?: string } }> {
+  try {
+    return await run.wait();
+  } catch (err) {
+    if (run.status !== "error") throw err;
+    return {
+      status: "error",
+      error: {
+        message: err instanceof Error ? err.message : String(err),
+        code: canonicalCode(err),
+      },
+    };
+  }
+}
+
+/**
+ * The canonical code of a rejected SDK error, read by shape as the SDK's `registerLoopError` reads
+ * it (`metadata.code`, else `code`), so an error from a second copy of the SDK still maps.
+ */
+function canonicalCode(err: unknown): string {
+  const metaCode = (err as { metadata?: { code?: unknown } } | null)?.metadata?.code;
+  const rawCode = (err as { code?: unknown } | null)?.code;
+  return typeof metaCode === "string" ? metaCode : typeof rawCode === "string" ? rawCode : "";
+}
+
 type ExtractOutcome = { ok: true; text: string } | { ok: false; error: AcpError };
 
 function extractOrError(params: acp.PromptRequest, deps: HandlePromptDeps): ExtractOutcome {
@@ -102,7 +135,7 @@ async function runPrompt(
     const msg = err instanceof Error ? err.message : String(err);
     deps.log(`[acp] translator threw mid-stream: ${msg}`);
   }
-  const result = await run.wait();
+  const result = await waitOrMapThrowOnError(run);
   const errorCode =
     result.status === "error" && result.error !== undefined ? (result.error.code ?? "") : "";
   const stopReason = mapStopReason(result.status, errorCode);
