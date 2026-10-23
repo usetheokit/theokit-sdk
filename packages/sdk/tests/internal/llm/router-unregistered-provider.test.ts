@@ -101,6 +101,16 @@ describe("an unregistered primary provider", () => {
   });
 });
 
+describe("an unregistered primary beside a fallback that resolves", () => {
+  it("runs_on_the_fallback_without_naming_the_unregistered_primary", () => {
+    process.env.OPENROUTER_API_KEY = "sk-or-test-key";
+
+    const chain = resolveProviderChain({ primary: "no-such-provider", fallback: ["openrouter"] });
+
+    expect(chain).toHaveLength(1);
+  });
+});
+
 describe("a registered primary provider with no credential", () => {
   it("keeps_the_credentials_hint_for_a_known_provider_written_in_another_case", () => {
     const error = captureResolutionError("OpenRouter");
@@ -109,6 +119,38 @@ describe("a registered primary provider with no credential", () => {
     expect(error.message).toBe(
       "No provider client could be resolved (primary=OpenRouter). " +
         "Set ANTHROPIC_API_KEY or OPENAI_API_KEY / OPENROUTER_API_KEY.",
+    );
+  });
+
+  it("keeps_the_credentials_hint_for_a_provider_named_by_its_alias", () => {
+    const error = captureResolutionError("or");
+
+    expect(error.code).toBe("provider_unresolved");
+    expect(error.message).toBe(
+      "No provider client could be resolved (primary=or). " +
+        "Set ANTHROPIC_API_KEY or OPENAI_API_KEY / OPENROUTER_API_KEY.",
+    );
+  });
+});
+
+describe("a primary that matches a registered profile only when case is ignored", () => {
+  it("names_the_lowercase_rule_for_a_provider_registered_with_uppercase_letters", () => {
+    registerProvider({
+      name: "AcmeAI",
+      apiMode: "chat_completions",
+      envVars: ["ACME_AI_TEST_API_KEY"],
+      authType: "api_key",
+      baseUrl: "https://acme.invalid/v1",
+      fallbackModels: ["acme-model"],
+    });
+
+    const error = captureResolutionError("AcmeAI");
+
+    expect(error.code).toBe("provider_unresolved");
+    expect(error.message).toBe(
+      'No provider client could be resolved: "AcmeAI" matches the registered provider "AcmeAI" ' +
+        "only when case is ignored, and routes look provider names up in lowercase. " +
+        'Register the provider as "acmeai".',
     );
   });
 });
