@@ -146,3 +146,27 @@ export interface CustomTool {
  * @public
  */
 export type PermissionMode = "default" | "plan" | "acceptEdits" | "bypass" | "bypassPermissions";
+
+/**
+ * Operations that may or may not be supported on a given `Run`, or on
+ * its parent agent. Kept in this leaf so `errors.ts` can name it without
+ * importing `types/run.ts`, which imports `errors.ts`.
+ *
+ * Runtime-specific availability — query at runtime with `run.supports(op)` and
+ * read the human reason via `run.unsupportedReason(op)`.
+ *
+ * @public
+ */
+export type RunOperation =
+  | "stream"
+  | "wait"
+  | "cancel"
+  | "conversation"
+  | "listArtifacts"
+  | "downloadArtifact"
+  | "runUntil"
+  | "runToCompletion"
+  | "streamToCompletion"
+  | "fork"
+  | "usePersonality"
+  | "workflow";
