@@ -22,6 +22,7 @@ import {
 import type { HooksExecutor } from "../hooks/hooks-executor.js";
 import type { MemoryProvider } from "../memory-glue/memory-provider.js";
 import { buildContextBudgetEvent } from "./context-budget-event.js";
+import { readRunResolving } from "./throw-on-error-run.js";
 
 /**
  * Inputs for {@link runPostRunLifecycle}. Bundled into a single record so the
@@ -154,7 +155,7 @@ export async function runPostRunLifecycle(inputs: PostRunLifecycleInputs): Promi
   } = inputs;
   let result: Awaited<ReturnType<Run["wait"]>>;
   try {
-    result = await run.wait();
+    result = await readRunResolving(run);
   } catch {
     // M93 — persists what the turn HAS ALREADY PRODUCED before leaving.
     //
