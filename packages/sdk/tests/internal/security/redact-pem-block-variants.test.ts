@@ -139,7 +139,7 @@ const CASES: ReadonlyArray<{ name: string; input: string; expected: string }> = 
 const OLD_PEM =
   /-----BEGIN[ ]+(?:RSA |EC |DSA |OPENSSH |ENCRYPTED |)PRIVATE KEY-----[\s\S]+?-----END[ ]+(?:RSA |EC |DSA |OPENSSH |ENCRYPTED |)PRIVATE KEY-----/g;
 
-const LABELS = ["", "RSA ", "EC ", "OPENSSH ", "ENCRYPTED "];
+const LABELS = ["", "RSA ", "EC ", "DSA ", "OPENSSH ", "ENCRYPTED "];
 const SPACINGS = [" ", "  ", "\t"];
 const header = (kind: "BEGIN" | "END") =>
   fc
@@ -156,7 +156,10 @@ const FRAGMENT = fc.oneof(
 const BOUND_MS = 100;
 const INPUT_LENGTH = 224_000;
 
-/** Best of three runs, warmed once, stopping at the first run over the bound. */
+/**
+ * Best of three runs, warmed once. All three always run: both timed inputs here are
+ * linear with the old regex too, so one slow run on a loaded host must not decide.
+ */
 function bestElapsedMs(run: () => unknown): number {
   run();
   let best = Number.POSITIVE_INFINITY;
@@ -164,7 +167,6 @@ function bestElapsedMs(run: () => unknown): number {
     const started = performance.now();
     run();
     best = Math.min(best, performance.now() - started);
-    if (best > BOUND_MS) return best;
   }
   return best;
 }
