@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildErrorMetadata } from "../../../src/internal/error-mappers/shared.js";
 import { maskToken } from "../../../src/internal/security/redact.js";
+import { _resetForTests } from "../../../src/internal/security/test-reset.js";
 
 const CUT = 2048;
 const PREFIX = '{"error":{"message":"upstream rejected the request: ';
@@ -154,6 +155,32 @@ describe("ErrorMetadata.raw redaction at the truncation boundary", () => {
     expect(rawOf(exact)).toBe(exact);
     const oneOver = "z".repeat(CUT + 1);
     expect(rawOf(oneOver)).toBe(`${oneOver.slice(0, CUT)}…`);
+  });
+
+  it("cuts_a_body_that_redaction_lengthens_past_the_limit_to_2049_characters", () => {
+    // Each `token=a ` (8 characters) redacts to `token=*** ` (10): 2048 characters become 2560.
+    const body = "token=a ".repeat(CUT / 8);
+    expect(body).toHaveLength(CUT);
+
+    const raw = rawOf(body);
+
+    expect(raw).toHaveLength(CUT + 1);
+    expect(raw.endsWith("…")).toBe(true);
+    expect(raw).not.toContain("token=a ");
+  });
+
+  it("only_cuts_the_body_when_redaction_is_off", () => {
+    const key = `sk-${"K5l6M7n8O9".repeat(3)}`;
+    const body = padTo(bodyWithKeyAt(key, CUT - 12), 3000);
+    _resetForTests({ enabled: false });
+    try {
+      const raw = rawOf(body);
+
+      expect(raw).toBe(`${body.slice(0, CUT)}…`);
+      expect(raw).toContain(key.slice(0, 12));
+    } finally {
+      _resetForTests({ enabled: true });
+    }
   });
 
   it("masks_a_credential_that_redaction_brings_inside_the_limit_from_deep_in_the_body", () => {
