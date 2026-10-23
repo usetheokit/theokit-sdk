@@ -221,7 +221,7 @@ export async function dispatchHandoff(args: {
       lastUserMessage,
       toolAllowlist !== undefined ? { activeTools: [...toolAllowlist] } : {},
     );
-    const result = await run.wait();
+    const result = await waitOrMapThrowOnError(run);
     const reply = buildReply(result, receiver.agentId);
     return {
       reply,
@@ -242,6 +242,27 @@ function extractReason(parsedInput: unknown): string {
   if (typeof parsedInput !== "object" || parsedInput === null) return "";
   if (!("reason" in parsedInput)) return "";
   return String((parsedInput as { reason: unknown }).reason ?? "");
+}
+
+/**
+ * B-498 — a receiver created with `throwOnError: true` rejects `run.wait()` on a failed run. The
+ * sender's model still gets the error reply a resolved error run produces. The rejection is
+ * recognised by the run's own status, so a rejection from a run that did not fail (an output
+ * processor throwing) propagates out of `dispatchHandoff` unchanged.
+ */
+async function waitOrMapThrowOnError(run: {
+  status: string;
+  wait(): Promise<{ status: string; result?: string; error?: { message: string } }>;
+}): Promise<{ status: string; result?: string; error?: { message: string } }> {
+  try {
+    return await run.wait();
+  } catch (err) {
+    if (run.status !== "error") throw err;
+    return {
+      status: "error",
+      error: { message: err instanceof Error ? err.message : String(err) },
+    };
+  }
 }
 
 function buildReply(
