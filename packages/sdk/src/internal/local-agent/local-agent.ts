@@ -323,15 +323,6 @@ export class LocalAgent implements SDKAgent {
     return declared !== undefined ? { contextWindow: declared } : {};
   }
 
-  /**
-   * The run the caller receives: under `throwOnError`, a view whose `wait()` rejects with the
-   * typed cause (B-498). Its own method because the inline ternary pushed `runLockedSendCycle`
-   * past the project's cognitive-complexity ceiling.
-   */
-  #callerView(run: Run): Run {
-    return this.options.throwOnError === true ? wrapRunWithThrowOnError(run) : run;
-  }
-
   private async runLockedSendCycle(
     message: string | SDKUserMessage,
     options: SendOptions,
@@ -352,7 +343,7 @@ export class LocalAgent implements SDKAgent {
     }
     // T3.2: opt-in Task wrapping (ADRs D363/D374).
     if (options.task !== undefined) registerRunAsTask(run, this.agentId, options.task, userText);
-    resolve(this.#callerView(run));
+    resolve(callerView(run, this.options.throwOnError));
     try {
       await runPostRunLifecycle({
         run,
@@ -604,6 +595,16 @@ export class LocalAgent implements SDKAgent {
   > {
     return localAgentStreamToCompletion(this, message, options);
   }
+}
+
+/**
+ * The run the caller receives: under `throwOnError`, a view whose `wait()` rejects with the
+ * typed cause (B-498). A module function rather than a method: lizard reads the class's `#`
+ * methods and `runLockedSendCycle` as one function, so a branch placed in any of them is
+ * charged to that merged span by the complexity gate.
+ */
+function callerView(run: Run, throwOnError: boolean | undefined): Run {
+  return throwOnError === true ? wrapRunWithThrowOnError(run) : run;
 }
 
 function resolveCwd(cwd: string | string[] | undefined): string {
