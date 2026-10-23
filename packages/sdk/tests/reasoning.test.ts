@@ -36,11 +36,14 @@ describe("SE37 — double-reasoning guard", () => {
     expect(isNativeReasoning({ id: "openai/gpt-4o-mini" })).toBe(false);
   });
 
-  it("a model with a thinking/reasoning param IS native reasoning", () => {
+  it("a model with a thinking param IS native reasoning", () => {
     expect(isNativeReasoning({ id: "x", params: [{ id: "thinking", value: "high" }] })).toBe(true);
-    expect(
-      isNativeReasoning({ id: "x", params: [{ id: "reasoning_effort", value: "high" }] }),
-    ).toBe(true);
+  });
+
+  it("a param id the request builder does not forward is NOT native reasoning", () => {
+    for (const id of ["reasoning", "reasoning_effort"]) {
+      expect(isNativeReasoning({ id: "x", params: [{ id, value: "high" }] }), id).toBe(false);
+    }
   });
 
   it("reasoningActive is true only when on AND the model is not native", () => {
