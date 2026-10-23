@@ -1,7 +1,11 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { Agent, ConfigurationError } from "../src/index.js";
 import { normalizeModel } from "../src/internal/runtime/model-selection.js";
+import type { ModelSelection } from "../src/types/agent-prims.js";
 import { useTempCwd } from "./helpers/temp-workspace.js";
 
 // This file creates agents without naming a cwd — `local: {}` and an omitted `local` both fall
@@ -101,5 +105,53 @@ describe("model shorthand (SE8) — generateObject / streamObject accept a strin
     } as never;
     expect(gen.model).toBe("openai/gpt-4o-mini");
     expect(strm.model).toBe("openai/gpt-4o-mini");
+  });
+});
+
+describe("normalizeModel refuses a thinking param with no effort", () => {
+  it("refuses_a_thinking_param_with_an_empty_value", () => {
+    const refused: unknown[] = [
+      [{ id: "thinking", value: "" }],
+      [{ id: "thinking", value: "   " }],
+      [{ id: "thinking" }],
+      [{ id: "thinking", value: null }],
+      [{ id: "thinking", value: 42 }],
+      [
+        { id: "thinking", value: "high" },
+        { id: "thinking", value: "" },
+      ],
+    ];
+    for (const params of refused) {
+      const selection = { id: "o4-mini", params } as unknown as ModelSelection;
+      let caught: unknown;
+      try {
+        normalizeModel(selection);
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught, `not refused: ${JSON.stringify(params)}`).toBeInstanceOf(ConfigurationError);
+      expect((caught as ConfigurationError).code).toBe("invalid_model_param");
+      expect((caught as Error).message).toContain("thinking");
+      expect((caught as Error).message).toContain("leave the param out");
+    }
+    const low = { id: "o4-mini", params: [{ id: "thinking", value: "low" }] };
+    expect(normalizeModel(low)).toBe(low);
+    const other = { id: "o4-mini", params: [{ id: "other", value: "" }] };
+    expect(normalizeModel(other)).toBe(other);
+  });
+});
+
+describe("the thinking param contract is documented where consumers read it", () => {
+  const src = join(import.meta.dirname, "..", "src");
+
+  it("documents_the_thinking_param_contract", () => {
+    const prims = readFileSync(join(src, "types/agent-prims.ts"), "utf8");
+    const declaration = prims.indexOf("export interface ModelParameterValue");
+    const docblock = prims.slice(prims.lastIndexOf("/**", declaration), declaration);
+    expect(docblock).toContain("thinking");
+    expect(docblock).toContain("non-empty");
+    for (const file of ["types/agent.ts", "internal/runtime/system-prompt/native-reasoning.ts"]) {
+      expect(readFileSync(join(src, file), "utf8"), file).not.toContain('[{ id: "thinking" }]');
+    }
   });
 });
