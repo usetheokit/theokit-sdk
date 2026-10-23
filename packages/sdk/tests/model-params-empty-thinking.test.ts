@@ -12,6 +12,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConfigurationError } from "../src/errors.js";
 import { Agent, TheokitAgentError } from "../src/index.js";
+import { REASONING_PREAMBLE } from "../src/internal/runtime/system-prompt/native-reasoning.js";
 import { useTempCwd } from "./helpers/temp-workspace.js";
 
 useTempCwd("theokit-empty-thinking-");
@@ -150,5 +151,34 @@ describe("model.params thinking with an empty value", () => {
     } finally {
       await agent.dispose?.();
     }
+  });
+});
+
+/**
+ * Only `thinking` reaches the provider as a reasoning effort. A param id the request builder does
+ * not forward must not count as native reasoning either, or it switches off `reasoning: true` and
+ * the run gets no reasoning of any kind with no error.
+ */
+describe("reasoning param ids the request builder does not forward", () => {
+  it.each([
+    "reasoning",
+    "reasoning_effort",
+  ])("keeps_reasoning_true_active_for_an_unforwarded_%s_param", async (paramId) => {
+    const agent = await Agent.create({
+      apiKey: STUB_KEY,
+      model: { id: "o4-mini", params: [{ id: paramId, value: "high" }] },
+      providers: { routes: [{ capability: "chat", provider: "openai" }] },
+      reasoning: true,
+      local: { cwd: process.cwd() },
+    });
+    try {
+      const run = await agent.send("hi");
+      await run.wait();
+    } finally {
+      await agent.dispose?.();
+    }
+    const bodies = chatBodies();
+    expect(bodies, "the stub never received the chat request").toHaveLength(1);
+    expect(JSON.stringify(bodies[0]?.messages)).toContain(REASONING_PREAMBLE);
   });
 });
