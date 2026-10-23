@@ -24,6 +24,10 @@ import { generateCloudAgentId } from "../ids.js";
 import { withCwdMutex } from "../persistence/cwd-mutex.js";
 import { DEFAULT_AGENTIC_MODEL_ID } from "../runtime/config/default-model.js";
 import { isFixtureApiKey } from "../runtime/fixtures/fixture-mode.js";
+import {
+  readRunResolving,
+  wrapRunWithThrowOnError,
+} from "../runtime/lifecycle/throw-on-error-run.js";
 import { normalizeModel } from "../runtime/model-selection.js";
 import {
   flushRegistrySaves,
@@ -168,7 +172,7 @@ export class CloudAgent implements SDKAgent {
           reject(err);
           return;
         }
-        resolve(run);
+        resolve(this.options.throwOnError === true ? wrapRunWithThrowOnError(run) : run);
         // T1.10 — bound the mutex hold on run.wait() so a hanging cloud
         // run (pre-release runtime is unreliable) doesn't block all
         // subsequent sends to this agentId forever. The run continues
@@ -177,7 +181,10 @@ export class CloudAgent implements SDKAgent {
         // override via THEOKIT_CLOUD_SEND_MUTEX_TIMEOUT_MS env var).
         const mutexTimeoutMs = Number(process.env.THEOKIT_CLOUD_SEND_MUTEX_TIMEOUT_MS) || 300_000;
         try {
-          await Promise.race([run.wait(), new Promise<void>((r) => setTimeout(r, mutexTimeoutMs))]);
+          await Promise.race([
+            readRunResolving(run),
+            new Promise<void>((r) => setTimeout(r, mutexTimeoutMs)),
+          ]);
         } catch {
           // Caller observes via their own wait/stream.
         }
