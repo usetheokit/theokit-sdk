@@ -109,12 +109,45 @@ function maskJwts(s: string): string {
   return copied === 0 ? s : out + s.slice(copied);
 }
 
+const PEM_LABEL = "(?:RSA |EC |DSA |OPENSSH |ENCRYPTED |)";
+const PEM_BEGIN = new RegExp(`-----BEGIN[ ]+${PEM_LABEL}PRIVATE KEY-----`, "g");
+const PEM_END = new RegExp(`-----END[ ]+${PEM_LABEL}PRIVATE KEY-----`, "g");
+
+/**
+ * Mask each PEM private key block: a BEGIN header, then the first END header that starts at least
+ * one character after it, any label on either side. Masks the same spans the lazy regex
+ * `BEGIN[\s\S]+?END` did, in linear time.
+ *
+ * The regex retried its span at every BEGIN header, and each retry walked to the end of the string
+ * when no END header followed, so many unmatched headers cost the square of the length (seconds on
+ * a few hundred KB). Here a failed END search ends the scan: if no END header starts after one
+ * BEGIN, none starts after a later one, so the rest of the string is left as it is, exactly as the
+ * regex left it. Each search starts where the previous one ended, so every character is read a
+ * bounded number of times.
+ */
+function maskPemBlocks(s: string): string {
+  let out = "";
+  let cursor = 0;
+  for (;;) {
+    PEM_BEGIN.lastIndex = cursor;
+    const begin = PEM_BEGIN.exec(s);
+    if (begin === null) break;
+    PEM_END.lastIndex = begin.index + begin[0].length + 1;
+    const end = PEM_END.exec(s);
+    if (end === null) break;
+    const blockEnd = end.index + end[0].length;
+    out += s.slice(cursor, begin.index) + maskToken(s.slice(begin.index, blockEnd));
+    cursor = blockEnd;
+  }
+  return out + s.slice(cursor);
+}
+
 /**
  * Built-in credential maskers. Order matters — more specific prefixes
  * must come before generic ones (e.g., `sk-ant-` before `sk-`). The JWT
- * shape is the `maskJwts` scan rather than a regex, because its regex was
- * quadratic on a long run of `eyJ` it could not complete. The PEM regex
- * still has that shape (`[\s\S]+?` before a literal end marker).
+ * and PEM shapes are the `maskJwts` and `maskPemBlocks` scans rather than
+ * regexes, because each regex was quadratic on input it could not complete
+ * (a long run of `eyJ`, many BEGIN headers with no END header).
  *
  * @internal
  */
@@ -122,8 +155,10 @@ const BUILTIN_PATTERNS: readonly BuiltinMasker[] = [
   // T5.4: 30+ vendor prefixes (was 12 pre-T5.4). Order matters — more
   // specific prefixes precede generic ones (e.g., sk-ant-admin01 before
   // sk-ant-, sk-proj- before sk-). PEM block deliberately first so its
-  // multi-line span runs before any per-line patterns can fire.
-  /-----BEGIN[ ]+(?:RSA |EC |DSA |OPENSSH |ENCRYPTED |)PRIVATE KEY-----[\s\S]+?-----END[ ]+(?:RSA |EC |DSA |OPENSSH |ENCRYPTED |)PRIVATE KEY-----/g,
+  // multi-line span runs before any per-line patterns can fire. A scan
+  // rather than a regex: the regex was quadratic on many BEGIN headers with
+  // no END header (B-544).
+  maskPemBlocks,
   // JWT — exact 3-segment base64url. Dotted; the body floor of 4 chars per
   // segment matches the minimum legal payload while skipping `a.b.c` noise.
   // A scan rather than a regex: the regex was quadratic on a long run of
