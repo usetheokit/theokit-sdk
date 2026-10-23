@@ -115,8 +115,14 @@ export async function* runUntilImpl(
       if (signal.aborted) cancelOnAbort();
       else signal.addEventListener("abort", cancelOnAbort, { once: true });
     }
-    const result = await run.wait();
-    if (signal !== undefined) signal.removeEventListener("abort", cancelOnAbort);
+    // B-498 — in a `finally`: under `throwOnError` a failed turn's `wait()` rejects, and the
+    // listener must not outlive the turn on the caller's signal.
+    let result: Awaited<ReturnType<typeof run.wait>>;
+    try {
+      result = await run.wait();
+    } finally {
+      if (signal !== undefined) signal.removeEventListener("abort", cancelOnAbort);
+    }
     lastResponse = result.result ?? "";
     // M55 — token accounting fails open: it only sums when the run reports usage.
     const turnTokens = result.usage?.totalTokens;
