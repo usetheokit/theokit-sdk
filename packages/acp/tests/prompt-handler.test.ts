@@ -1,5 +1,5 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import type { Run, SDKAgent } from "@theokit/sdk";
+import { type Run, type SDKAgent, UnknownAgentError } from "@theokit/sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // `handlePrompt` orchestrates three collaborators. Two of them talk to the
@@ -339,5 +339,37 @@ describe("handlePrompt — failure paths", () => {
     expect(translateStream).toHaveBeenCalledWith(
       expect.objectContaining({ signal: h.session.abortController.signal }),
     );
+  });
+});
+
+// B-498, D4: a consumer whose agent was created with `throwOnError: true` gets a run whose
+// `wait()` rejects on a failed run. The handler maps that rejection as it maps a resolved
+// error run, and lets every other rejection reach its existing failure path.
+describe("handlePrompt — a run whose wait() rejects", () => {
+  const rejectingRun = (status: string, error: unknown): Run =>
+    ({
+      status,
+      stream: () => (async function* () {})(),
+      wait: async () => {
+        throw error;
+      },
+    }) as unknown as Run;
+
+  it("maps_a_rejected_run_to_the_same_stop_reason", async () => {
+    const failure = new UnknownAgentError("limit reached", { code: "max_iterations" });
+    const h = makeHarness({ sendImpl: async () => rejectingRun("error", failure) });
+
+    const out = await handlePrompt(promptWith("hello"), h.deps);
+
+    expect(out).toEqual({ response: { stopReason: "max_turn_requests" } });
+  });
+
+  it("answers_cancelled_when_wait_rejects_with_an_abort", async () => {
+    const abort = Object.assign(new Error("The operation was aborted"), { name: "AbortError" });
+    const h = makeHarness({ sendImpl: async () => rejectingRun("cancelled", abort) });
+
+    const out = await handlePrompt(promptWith("hello"), h.deps);
+
+    expect(out).toEqual({ response: { stopReason: "cancelled" } });
   });
 });

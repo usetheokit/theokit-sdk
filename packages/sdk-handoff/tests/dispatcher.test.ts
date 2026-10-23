@@ -6,7 +6,12 @@
  * Uses fake agents (no LLM); validates dispatch flow + error paths.
  */
 
-import type { SDKAgent } from "@theokit/sdk";
+import {
+  AuthenticationError,
+  type SDKAgent,
+  TheokitAgentError,
+  UnknownAgentError,
+} from "@theokit/sdk";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { Handoff } from "../src/handoff.js";
@@ -218,5 +223,58 @@ describe("dispatchHandoff", () => {
     const ctx = (predicate.mock.calls as any)[0]?.[0];
     expect(ctx?.senderAgentId).toBe("sender");
     expect(ctx?.receiverAgentId).toBe("agent-billing");
+  });
+});
+
+// B-498, D4: a receiver created with `throwOnError: true` hands back a run whose `wait()`
+// rejects on a failed run. The dispatcher replies as it does for a resolved error run, and
+// rethrows a rejection from a run that did not fail.
+describe("dispatchHandoff — a receiver run whose wait() rejects", () => {
+  function rejectingReceiver(name: string, status: string, error: unknown): SDKAgent {
+    const agent = fakeAgent(name);
+    (agent as unknown as { send: unknown }).send = vi.fn(async () => ({
+      status,
+      wait: async () => {
+        throw error;
+      },
+    }));
+    return agent;
+  }
+
+  function dispatchTo(receiver: SDKAgent) {
+    return dispatchHandoff({
+      descriptor: Handoff.create(receiver),
+      senderAgentId: "sender",
+      chainState: createChainState("sender", 5),
+      rawInputJson: {},
+      history: { messages: [] },
+      messageOverride: "hi",
+    });
+  }
+
+  it("replies_with_the_error_when_the_receiver_run_rejects", async () => {
+    const failure = new AuthenticationError("bad key", { code: "openrouter_auth_failed" });
+    const receiver = rejectingReceiver("billing", "error", failure);
+
+    const { reply } = await dispatchTo(receiver);
+
+    expect(reply).toBe("(Handoff target agent-billing returned status=error: bad key)");
+  });
+
+  it("replies_with_the_error_when_a_codeless_run_failure_rejects", async () => {
+    const receiver = rejectingReceiver("cloud", "error", new UnknownAgentError("cloud run failed"));
+
+    const { reply } = await dispatchTo(receiver);
+
+    expect(reply).toBe("(Handoff target agent-cloud returned status=error: cloud run failed)");
+  });
+
+  it("propagates_a_wait_failure_from_a_run_that_did_not_fail", async () => {
+    const failure = new TheokitAgentError("output processor exploded", {
+      code: "processor_failed",
+    });
+    const receiver = rejectingReceiver("billing", "finished", failure);
+
+    await expect(dispatchTo(receiver)).rejects.toBe(failure);
   });
 });
