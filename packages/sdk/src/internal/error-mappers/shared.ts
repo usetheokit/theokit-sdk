@@ -35,10 +35,19 @@ export function parseRetryAfter(headers: Headers | undefined): number | undefine
 }
 
 /**
- * Truncate raw response body to ~2KB and redact known credential
- * patterns so it can ride inside `ErrorMetadata.raw` without
- * ballooning logs OR leaking tokens. Returns `undefined` for
- * null/undefined input.
+ * Redact known credential patterns in the raw response body, then
+ * truncate the redacted text to ~2KB, so it can ride inside
+ * `ErrorMetadata.raw` without ballooning logs OR leaking tokens.
+ * Returns `undefined` for null/undefined input.
+ *
+ * Redaction runs first, over the whole body: a pattern can only mask a
+ * credential it sees whole, and cutting first left a key straddling the
+ * cut too short for its pattern, so its leading fragment reached `raw` in
+ * clear (B-540). The `…` suffix is added exactly when the REDACTED text
+ * exceeds 2048 characters. No bounded window is redacted instead: any
+ * bound is an edge that redaction of the text before it can pull into
+ * `raw`. The cost stays linear because the PEM and JWT maskers are linear
+ * scans (B-544, B-554).
  *
  * Post T1.1 (secret-redaction-discipline, ADR D68): every error metadata
  * goes through `redactSecrets` before exposure. Note the shape change —
@@ -53,8 +62,8 @@ export function parseRetryAfter(headers: Headers | undefined): number | undefine
 export function truncateRaw(body: unknown): unknown {
   if (body === null || body === undefined) return undefined;
   const s = typeof body === "string" ? body : JSON.stringify(body);
-  const truncated = s.length <= RAW_MAX_BYTES ? s : `${s.slice(0, RAW_MAX_BYTES)}…`;
-  return redactSecrets(truncated);
+  const redacted = redactSecrets(s);
+  return redacted.length <= RAW_MAX_BYTES ? redacted : `${redacted.slice(0, RAW_MAX_BYTES)}…`;
 }
 
 /**
