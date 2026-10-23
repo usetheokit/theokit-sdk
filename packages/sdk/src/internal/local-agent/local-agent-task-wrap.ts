@@ -7,6 +7,7 @@
  */
 
 import type { Run } from "../../types/run.js";
+import { readRunResolving } from "../runtime/lifecycle/throw-on-error-run.js";
 import { submit as taskRegistrySubmit } from "../task/registry.js";
 
 export function registerRunAsTask(
@@ -34,7 +35,7 @@ export function registerRunAsTask(
         },
         { once: true },
       );
-      const result = await run.wait();
+      const result = await readRunResolving(run);
       ctx.emit({ status: result.status, runId: run.id });
       return { status: result.status, result: result.result };
     },
