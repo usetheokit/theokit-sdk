@@ -17,7 +17,12 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Agent } from "../../src/agent.js";
-import { AuthenticationError, TheokitAgentError, UnknownAgentError } from "../../src/errors.js";
+import {
+  AgentRunError,
+  AuthenticationError,
+  TheokitAgentError,
+  UnknownAgentError,
+} from "../../src/errors.js";
 import { HooksExecutor } from "../../src/internal/runtime/hooks/hooks-executor.js";
 import { readRunResolving } from "../../src/internal/runtime/lifecycle/throw-on-error-run.js";
 import {
@@ -218,6 +223,33 @@ describe("a run that fails on a provider 401", () => {
     }
     expect(postRunCalls).toHaveLength(1);
     expect(postRunCalls[0]).toMatchObject({ event: "postRun", output: { status: "error" } });
+  });
+
+  it("prompt_rejects_with_AgentRunError_whose_cause_is_the_AuthenticationError", async () => {
+    const fetchStub = stubFetch401();
+    vi.stubEnv("OPENROUTER_API_KEY", "");
+    vi.stubGlobal("fetch", fetchStub);
+
+    const rejected = await Agent.prompt("hi", {
+      apiKey: BAD_KEY,
+      throwOnError: true,
+      model: { id: "deepseek/deepseek-r1-0528" },
+      local: { cwd: root },
+      providers: { routes: [{ capability: "chat", provider: "openrouter" }] },
+    }).then(
+      (result) => {
+        throw new Error(`Agent.prompt resolved with status ${result.status}; expected a rejection`);
+      },
+      (error: unknown) => error,
+    );
+
+    expect(fetchStub).toHaveBeenCalled();
+    expect(rejected).toBeInstanceOf(AgentRunError);
+    expect((rejected as AgentRunError).message).toBe(
+      "openrouter API error: auth_failed (HTTP 401)",
+    );
+    expect((rejected as AgentRunError).code).toBe("auth_failed");
+    expect((rejected as AgentRunError).cause).toBeInstanceOf(AuthenticationError);
   });
 });
 

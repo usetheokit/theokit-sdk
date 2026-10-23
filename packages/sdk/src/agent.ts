@@ -151,7 +151,9 @@ export class Agent {
    * @public
    */
   static async prompt(message: string, options: AgentOptions): Promise<AgentPromptResult> {
-    const agent = await Agent.create(options);
+    // B-498: the transient agent is created without throwOnError, so run.wait() resolves and the
+    // check below builds AgentRunError, this method's documented contract, from the result.
+    const agent = await Agent.create({ ...options, throwOnError: false });
     try {
       const run = await agent.send(message);
       const result = await run.wait();
