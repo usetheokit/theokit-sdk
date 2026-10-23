@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { AuthenticationError, TheokitAgentError, UnknownAgentError } from "../../../src/errors.js";
 import { toTypedRunErrorDetail } from "../../../src/internal/runtime/typed-run-error.js";
-import { causeOf, detailWithForeignCause } from "../../runtime/run-error-detail-cause.types.js";
+import { causeOf, detailWithForeignCause } from "../../runtime/run-error-detail-cause-types.js";
 
 describe("toTypedRunErrorDetail", () => {
   it("keeps_a_typed_cause_by_identity", () => {
