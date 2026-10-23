@@ -19,7 +19,7 @@ export { TheokitAgentError };
 import { readEnv } from "./internal/env.js";
 import { defaultRetriableForCode } from "./internal/error-mappers/default-retriable.js";
 import { redactSecrets } from "./internal/security/redact.js";
-import type { RunOperation } from "./types/run.js";
+import type { RunOperation } from "./types/agent-prims.js";
 
 /**
  * T1.1 — closed literal union for `AgentRunError.code`. The previous
