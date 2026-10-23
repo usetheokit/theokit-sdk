@@ -154,3 +154,26 @@ describe("a primary that matches a registered profile only when case is ignored"
     );
   });
 });
+
+describe("a primary that matches a registered alias only when case is ignored", () => {
+  it("names_the_lowercase_rule_for_an_alias_registered_with_uppercase_letters", () => {
+    registerProvider({
+      name: "acme",
+      aliases: ["AcmeX"],
+      apiMode: "chat_completions",
+      envVars: ["ACME_TEST_API_KEY"],
+      authType: "api_key",
+      baseUrl: "https://acme.invalid/v1",
+      fallbackModels: ["acme-model"],
+    });
+
+    const error = captureResolutionError("AcmeX");
+
+    expect(error.code).toBe("provider_unresolved");
+    expect(error.message).toBe(
+      'No provider client could be resolved: "AcmeX" matches the alias "AcmeX" of the registered ' +
+        'provider "acme" only when case is ignored, and routes look provider names up in ' +
+        'lowercase. Register the alias as "acmex", or route to "acme".',
+    );
+  });
+});

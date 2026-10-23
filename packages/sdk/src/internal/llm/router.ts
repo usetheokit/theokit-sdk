@@ -128,7 +128,8 @@ function normalizeProviderName(name: string): string {
  *
  * The registry keeps a name's case and routes look names up in lowercase, so a profile registered
  * as "AcmeAI" can never be reached. Calling that name unknown while listing it would contradict
- * itself; the message names the lowercase rule instead.
+ * itself; the message names the lowercase rule instead. Aliases are kept verbatim too, so an alias
+ * registered as "AcmeX" is just as unreachable and gets the same treatment.
  */
 function unregisteredProviderMessage(name: string): string {
   const normalized = normalizeProviderName(name);
@@ -142,6 +143,8 @@ function unregisteredProviderMessage(name: string): string {
       `lowercase. Register the provider as "${normalized}".`
     );
   }
+  const aliasMessage = caseOnlyAliasMessage(name, normalized);
+  if (aliasMessage !== undefined) return aliasMessage;
   const registered = listProviders()
     .map((profile) => profile.name)
     .sort()
@@ -150,6 +153,20 @@ function unregisteredProviderMessage(name: string): string {
     `No provider client could be resolved: "${name}" is not a known provider. ` +
     `Registered providers: ${registered}.`
   );
+}
+
+/** The message for a primary that equals a registered alias only when case is ignored, if any. */
+function caseOnlyAliasMessage(name: string, normalized: string): string | undefined {
+  for (const profile of listProviders()) {
+    const alias = profile.aliases?.find((entry) => normalizeProviderName(entry) === normalized);
+    if (alias === undefined) continue;
+    return (
+      `No provider client could be resolved: "${name}" matches the alias "${alias}" of the ` +
+      `registered provider "${profile.name}" only when case is ignored, and routes look provider ` +
+      `names up in lowercase. Register the alias as "${normalized}", or route to "${profile.name}".`
+    );
+  }
+  return undefined;
 }
 
 /**
