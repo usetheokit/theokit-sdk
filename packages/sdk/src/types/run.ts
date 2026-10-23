@@ -283,6 +283,9 @@ export type StreamToCompletionResult = RunToCompletionResult;
  * `UnknownAgentError` with the same message and code, holding the original
  * value at its own `cause`.
  *
+ * With `AgentOptions.throwOnError`, `run.wait()` rejects with this same `cause`
+ * instead of resolving.
+ *
  * @public
  */
 export interface RunErrorDetail {
