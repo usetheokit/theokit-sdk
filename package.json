@@ -97,7 +97,7 @@
       "protobufjs"
     ],
     "overrides": {
-      "zod": "^4.0.0",
+      "zod": "^4.6.6",
       "vite": "^7.3.7",
       "brace-expansion": "^5.0.11",
       "postcss": "^8.5.25",
