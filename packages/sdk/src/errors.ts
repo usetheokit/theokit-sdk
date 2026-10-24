@@ -19,7 +19,7 @@ export { TheokitAgentError };
 import { readEnv } from "./internal/env.js";
 import { defaultRetriableForCode } from "./internal/error-mappers/default-retriable.js";
 import { redactSecrets } from "./internal/security/redact.js";
-import type { RunOperation } from "./types/run.js";
+import type { RunOperation } from "./types/agent-prims.js";
 
 /**
  * T1.1 — closed literal union for `AgentRunError.code`. The previous
@@ -212,11 +212,12 @@ export class UnknownAgentError extends TheokitAgentError {
 }
 
 /**
- * Thrown by `Agent.prompt` (and helpers that go through `run.wait()`) when
- * the option `{ throwOnError: true }` is set and the run terminates with
- * `status: 'error'`. Carries the structured `RunResult.error` fields so
- * callers can `catch` once and branch on `code` / `provider` instead of
- * unwrapping the run.
+ * Thrown by `Agent.prompt` alone when the option `{ throwOnError: true }` is
+ * set and the run terminates with `status: 'error'`. Carries the structured
+ * `RunResult.error` fields so callers can `catch` once and branch on `code` /
+ * `provider` instead of unwrapping the run; its `cause` is `result.error.cause`,
+ * the typed error. Every other `throwOnError` surface (`run.wait()`, the
+ * helpers) rejects with that typed error directly.
  *
  * Extends {@link TheokitAgentError} per ADR D65 — no new hierarchy.
  *
@@ -370,8 +371,10 @@ function safeStringify(value: unknown): string {
  * It never inspects `err.message`.
  *
  * @example
+ *   const agent = await Agent.create({ apiKey, model, throwOnError: true });
+ *   const run = await agent.send(message);
  *   try {
- *     await agent.send(message, { throwOnError: true });
+ *     await run.wait();
  *   } catch (err) {
  *     if (isTransientError(err)) return retryWithBackoff();
  *     throw err;

@@ -788,6 +788,33 @@ class TheokitAgentError extends Error {
 | `UnknownAgentError` | Catch-all for unclassified server or runtime errors. |
 | `UnsupportedRunOperationError` | A `Run` operation is not available on the current runtime. Check first with `run.supports(operation)`. |
 
+### Failed runs
+
+A run that fails resolves `run.wait()` with `status: "error"` and a plain `result.error` of `{ message, code, cause }`. `code` stays the canonical string you branch on (`auth_failed`, `context_too_long`, ...). `result.error.cause` is always a `TheokitAgentError`: the typed error behind the failure, or an `UnknownAgentError` with the same message and code when the failure had no SDK error behind it (the original value sits at its own `cause`).
+
+```typescript
+const result = await run.wait();
+if (result.error?.cause instanceof AuthenticationError) {
+  // bad key: ask the user to check it
+}
+```
+
+Create the agent with `throwOnError: true` and `run.wait()` rejects with that same `result.error.cause` instead. Cancelled and finished runs still resolve.
+
+```typescript
+const agent = await Agent.create({ apiKey, model, throwOnError: true });
+const run = await agent.send(message);
+try {
+  await run.wait();
+} catch (err) {
+  if (err instanceof AuthenticationError) {
+    // bad key
+  }
+}
+```
+
+The helpers built on `send` surface it the same way under the option: `agent.generate`, `agent.fork` and `agent.runToCompletion` reject with it; `agent.runUntil` and `agent.streamToCompletion` throw it from their iterator; `Agent.batch` returns it as the failed item's `error`. A workflow `agentStep`, a cron task and an `Eval` row keep recording the failure, with its class name, code or message. `Agent.prompt` alone wraps it in `AgentRunError`, whose `cause` is the typed error.
+
 ## Cloud runtime — pre-release
 
 > The cloud runtime depends on **Theo PaaS**, currently pre-release. The local runtime works without it. Cloud APIs below describe the contract for when PaaS reaches general availability.

@@ -4,12 +4,17 @@
  *
  */
 // T4.1 / D438 — import primitives from leaf to break the run<->agent cycle (#5).
-import type { CustomTool, ModelSelection, PermissionMode } from "./agent-prims.js";
+import type { TheokitAgentError } from "../errors.js";
+import type { CustomTool, ModelSelection, PermissionMode, RunOperation } from "./agent-prims.js";
 import type { ConversationStep, ConversationTurn } from "./conversation.js";
 import type { McpServerConfig } from "./mcp.js";
 import type { SDKMessage } from "./messages.js";
 import type { InteractionUpdate } from "./updates.js";
 import type { CostBreakdown, TokenUsage } from "./usage.js";
+
+// `RunOperation` lives in the `./agent-prims.ts` leaf so `errors.ts` can name it without importing
+// this module, which imports `errors.ts` for `RunErrorDetail.cause` (a cycle madge refuses).
+export type { RunOperation } from "./agent-prims.js";
 
 /**
  * Options for the tool-result guard (spotlighting + PII redaction on tool
@@ -31,29 +36,6 @@ export interface ToolResultGuardOptions {
  * @public
  */
 export type RunStatus = "running" | "finished" | "error" | "cancelled";
-
-/**
- * Operations that may or may not be supported on a given {@link Run}, or on
- * its parent agent.
- *
- * Runtime-specific availability — query at runtime with `run.supports(op)` and
- * read the human reason via `run.unsupportedReason(op)`.
- *
- * @public
- */
-export type RunOperation =
-  | "stream"
-  | "wait"
-  | "cancel"
-  | "conversation"
-  | "listArtifacts"
-  | "downloadArtifact"
-  | "runUntil"
-  | "runToCompletion"
-  | "streamToCompletion"
-  | "fork"
-  | "usePersonality"
-  | "workflow";
 
 /**
  * Git metadata attached to cloud runs.
@@ -274,15 +256,23 @@ export type StreamToCompletionResult = RunToCompletionResult;
  * Structured error attached to a {@link RunResult} when the underlying run
  * transitioned to `"error"` status. `message` is always present; `code` is
  * a stable identifier suitable for branching (e.g. `"llm_4xx"`,
- * `"tool_dispatch_failed"`, `"mcp_init_failed"`); `cause` is the raw error
- * for further inspection when available.
+ * `"tool_dispatch_failed"`, `"mcp_init_failed"`); `cause` is the typed
+ * {@link TheokitAgentError} behind the failure, so `instanceof` works on it
+ * directly (e.g. `result.error?.cause instanceof AuthenticationError`).
+ *
+ * A failure whose original cause was missing or not an SDK error carries an
+ * `UnknownAgentError` with the same message and code, holding the original
+ * value at its own `cause`.
+ *
+ * With `AgentOptions.throwOnError`, `run.wait()` rejects with this same `cause`
+ * instead of resolving.
  *
  * @public
  */
 export interface RunErrorDetail {
   message: string;
   code?: string;
-  cause?: unknown;
+  cause?: TheokitAgentError;
 }
 
 /**
