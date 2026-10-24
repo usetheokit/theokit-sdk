@@ -84,25 +84,34 @@ function repeatTo(unit: string, length: number): string {
   return unit.repeat(Math.ceil(length / unit.length)).slice(0, length);
 }
 
-/** The most text `truncateRaw` passes to redaction; the documented bound of the helper. */
-const REDACT_INPUT_CAP = 65_536;
-const BEYOND_CAP_MARKER = "MARKER-PAST-THE-REDACTION-CAP";
+/**
+ * Where a refused design capped the text passed to redaction (review round 2): a credential the cap
+ * cut stayed in clear, and a fixed edge drop after it is shorter than a JWT or PEM block can be.
+ */
+const SIXTY_FOUR_KIB = 65_536;
+const PAST_THE_BLOCKS_MARKER = "MARKER-AFTER-THE-KEY-BLOCKS";
 
 /**
- * Private key blocks until one straddles the redaction cap, then a marker past it. Redaction
- * shrinks each whole block to 13 characters, so without the cap the marker would be pulled inside
- * the 2048-character cut, and with a cap but no edge margin the straddling block's key lines would.
+ * Private key blocks until one straddles 64 KiB, then a marker. Redaction shrinks each whole block
+ * to its 13-character mask, so the redacted body is short enough to come back whole.
  */
-function bodyPastTheCap(): { body: string; straddlingLines: string[] } {
+function bodyOfKeyBlocksPast64Kib(): { body: string; blocks: string[] } {
   let body = PREFIX;
-  let straddlingLines: string[] = [];
-  for (let i = 0; body.length <= REDACT_INPUT_CAP; i++) {
-    straddlingLines = keyLines(`Cap${String(i).padStart(3, "0")}`, 20);
-    body += `${pemBlock("", straddlingLines)}\n`;
+  const blocks: string[] = [];
+  for (let i = 0; body.length <= SIXTY_FOUR_KIB; i++) {
+    const block = pemBlock("", keyLines(`Cap${String(i).padStart(3, "0")}`, 20));
+    blocks.push(block);
+    body += `${block}\n`;
   }
-  const blockStart = body.lastIndexOf("-----BEGIN");
-  expect(blockStart).toBeLessThan(REDACT_INPUT_CAP);
-  return { body: `${body} ${BEYOND_CAP_MARKER} end"}}`, straddlingLines };
+  expect(body.lastIndexOf("-----BEGIN")).toBeLessThan(SIXTY_FOUR_KIB);
+  return { body: `${body} ${PAST_THE_BLOCKS_MARKER} end"}}`, blocks };
+}
+
+function maskEach(body: string, credentials: string[]): string {
+  return credentials.reduce(
+    (text, credential) => text.replace(credential, maskToken(credential)),
+    body,
+  );
 }
 
 /** Best of three runs after one warm-up, as the redact linear guards measure. */
@@ -210,18 +219,64 @@ describe("ErrorMetadata.raw redaction at the truncation boundary", () => {
     expect(rawOf(body)).toBe(`${"a".repeat(CUT - 1)}…`);
   });
 
-  it("does_not_redact_or_return_text_past_the_redaction_input_cap", () => {
-    const raw = rawOf(bodyPastTheCap().body);
-
-    expect(raw).not.toContain(BEYOND_CAP_MARKER);
-  });
-
-  it("does_not_return_the_key_lines_of_a_private_key_block_cut_by_the_redaction_input_cap", () => {
-    const { body, straddlingLines } = bodyPastTheCap();
+  it("redacts_every_private_key_block_of_a_body_longer_than_64_kib", () => {
+    const { body, blocks } = bodyOfKeyBlocksPast64Kib();
+    const redacted = maskEach(body, blocks);
+    expect(redacted.length).toBeLessThanOrEqual(CUT);
 
     const raw = rawOf(body);
 
-    expect(straddlingLines.filter((line) => raw.includes(line))).toEqual([]);
+    expect(raw).toBe(redacted);
+    expect(raw).toContain(PAST_THE_BLOCKS_MARKER);
+  });
+
+  it("masks_a_private_key_block_that_straddles_64_kib_of_the_body", () => {
+    const { body, blocks } = bodyOfKeyBlocksPast64Kib();
+    const straddling = blocks[blocks.length - 1] as string;
+    expect(body.indexOf(straddling) + straddling.length).toBeGreaterThan(SIXTY_FOUR_KIB);
+
+    const raw = rawOf(body);
+
+    const lines = straddling.split("\n").slice(1, -1);
+    expect(lines.filter((line) => raw.includes(line))).toEqual([]);
+    expect(raw).toContain(maskToken(straddling));
+  });
+
+  it("masks_a_jwt_longer_than_16_kib_that_straddles_64_kib_of_the_body", () => {
+    // 29 key blocks redact to about 400 characters, which pulls a JWT that starts near 40 KB and
+    // ends past 64 KiB inside the cut. Its payload is longer than the 16 KiB edge drop refused in
+    // review round 2.
+    let lead = PREFIX;
+    for (let i = 0; lead.length < 40_000; i++) {
+      lead += `${pemBlock("", keyLines(`Jwt${String(i).padStart(2, "0")}`, 20))}\n`;
+    }
+    const headerAndPayload = `${JWT_HEADER}.eyJ${repeatTo("c3ViIjoiMTIzNDU2Nzg5MCIs", 30_000)}`;
+    const jwt = `${headerAndPayload}.${"Sig4nAtUrE".repeat(3)}`;
+    const jwtStart = lead.length + 1;
+    expect(SIXTY_FOUR_KIB - jwtStart).toBeGreaterThan(16_384);
+    expect(jwtStart + jwt.length).toBeGreaterThan(SIXTY_FOUR_KIB);
+    const body = `${lead} ${jwt} end"}}`;
+
+    const raw = rawOf(body);
+
+    const leakedSlices: string[] = [];
+    for (let i = 0; i + 40 <= headerAndPayload.length; i += 40) {
+      const slice = headerAndPayload.slice(i, i + 40);
+      if (raw.includes(slice)) leakedSlices.push(slice);
+    }
+    expect(raw.includes(JWT_HEADER)).toBe(false);
+    expect(leakedSlices).toEqual([]);
+    expect(raw).toContain(maskToken(jwt));
+  });
+
+  it("keeps_the_first_2048_redacted_characters_of_a_body_longer_than_64_kib", () => {
+    const key = `sk-${"F3g4H5i6J7".repeat(3)}`;
+    const body = padTo(bodyWithKeyAt(key, 100), 70_000);
+    const redacted = body.replace(key, maskToken(key));
+
+    const raw = rawOf(body);
+
+    expect(raw).toBe(`${redacted.slice(0, CUT)}…`);
   });
 
   it("masks_a_credential_that_redaction_brings_inside_the_limit_from_deep_in_the_body", () => {

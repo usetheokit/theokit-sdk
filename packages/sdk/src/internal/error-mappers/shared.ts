@@ -14,14 +14,6 @@ import { redactSecrets } from "../security/index.js";
 
 /** Longest `ErrorMetadata.raw`, in UTF-16 code units, before the `…` suffix. */
 const RAW_MAX_CHARS = 2048;
-/** Most of a provider error body passed to redaction, so its cost has a bound whatever the body. */
-const REDACT_INPUT_CAP = 65_536;
-/**
- * Redacted text dropped before a capped body's end. The cap can cut a credential short of what
- * its pattern needs, leaving a clear fragment at the end of the redacted text; the margin is
- * longer than any credential shape the maskers know, an 8192-bit RSA key block included.
- */
-const CAP_EDGE_MARGIN = 16_384;
 
 /**
  * Parse the `Retry-After` header (RFC 7231) into seconds. Both forms are
@@ -54,13 +46,15 @@ export function parseRetryAfter(headers: Headers | undefined): number | undefine
  * its pattern, so its leading fragment reached `raw` in clear (B-540).
  * The `…` suffix is added exactly when text was dropped.
  *
- * Redaction sees at most the first 64 KiB of the body, which bounds its
- * cost on a body of any size, a pattern registered with
- * `Security.addPattern` included. A credential cut by that bound is left
- * in clear at the end of the redacted text, and redaction can shrink the
- * text before it enough to pull it inside the cut, so a capped body also
- * drops the last 16 KiB of its redacted text. The cut never splits a
- * surrogate pair.
+ * Redaction sees the whole body, however long. Any bound on what it reads
+ * brings the edge back: a credential cut by the bound matches nothing, and
+ * redaction of the text before it can pull the clear fragment inside the
+ * cut, and no fixed margin is enough because JWTs and PEM blocks have no
+ * length bound (plan D1, review round 2). The builtin patterns were timed
+ * on hostile input and the two that were not linear were fixed (B-544,
+ * B-554), so the cost grows with the body's length; a pattern
+ * registered with `Security.addPattern` sees the whole body too and
+ * should stay linear in its input. The cut never splits a surrogate pair.
  *
  * Post T1.1 (secret-redaction-discipline, ADR D68): every error metadata
  * goes through `redactSecrets` before exposure. Note the shape change —
@@ -75,13 +69,8 @@ export function parseRetryAfter(headers: Headers | undefined): number | undefine
 export function truncateRaw(body: unknown): unknown {
   if (body === null || body === undefined) return undefined;
   const s = typeof body === "string" ? body : JSON.stringify(body);
-  if (s.length <= REDACT_INPUT_CAP) {
-    const redacted = redactSecrets(s);
-    return redacted.length <= RAW_MAX_CHARS ? redacted : `${cutAt(redacted, RAW_MAX_CHARS)}…`;
-  }
-  const redacted = redactSecrets(s.slice(0, REDACT_INPUT_CAP));
-  const kept = cutAt(redacted, Math.max(0, redacted.length - CAP_EDGE_MARGIN));
-  return `${cutAt(kept, RAW_MAX_CHARS)}…`;
+  const redacted = redactSecrets(s);
+  return redacted.length <= RAW_MAX_CHARS ? redacted : `${cutAt(redacted, RAW_MAX_CHARS)}…`;
 }
 
 /** The first `end` code units of `text`, one fewer when that would split a surrogate pair. */
