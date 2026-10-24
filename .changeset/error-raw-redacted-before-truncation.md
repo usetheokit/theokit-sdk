@@ -9,4 +9,6 @@ block before the cut, reached `metadata.raw` in clear. The whole body is now red
 redacted text is cut. Two visible differences follow. A body that redaction shrinks to 2048
 characters or fewer comes back whole, with no `…`. And when the text is still longer, the cut can
 fall inside a mask such as `sk-V2w...y5Z6`, which leaves part of the mask and never more of the key
-than the mask itself shows.
+than the mask itself shows. A pattern registered with `Security.addPattern` now runs over the whole
+error body as well, not over its first 2048 characters, so it must stay linear on input of any
+length.
