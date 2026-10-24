@@ -259,7 +259,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `mkMemoryId` | function | Construct a branded `MemoryId` for an adapter.  |
 | `ModelListItem` | interface | Single model entry in the catalog. |
 | `ModelParameterDefinition` | interface | Per-model parameter definition discovered from `Theokit.models.list()`. |
-| `ModelParameterValue` | interface | One slot in a {@link ModelSelection.params } array. |
+| `ModelParameterValue` | interface | One slot in a {@link ModelSelection.params } array.  |
 | `ModelSelection` | interface | Identifies a model plus optional per-model parameters (e.g.  |
 | `ModelVariant` | interface | Preset variant for a model — pre-filled parameter combinations. |
 | `NetworkError` | class | Service unavailable, timeout, transport-level failure. |
