@@ -84,6 +84,27 @@ function repeatTo(unit: string, length: number): string {
   return unit.repeat(Math.ceil(length / unit.length)).slice(0, length);
 }
 
+/** The most text `truncateRaw` passes to redaction; the documented bound of the helper. */
+const REDACT_INPUT_CAP = 65_536;
+const BEYOND_CAP_MARKER = "MARKER-PAST-THE-REDACTION-CAP";
+
+/**
+ * Private key blocks until one straddles the redaction cap, then a marker past it. Redaction
+ * shrinks each whole block to 13 characters, so without the cap the marker would be pulled inside
+ * the 2048-character cut, and with a cap but no edge margin the straddling block's key lines would.
+ */
+function bodyPastTheCap(): { body: string; straddlingLines: string[] } {
+  let body = PREFIX;
+  let straddlingLines: string[] = [];
+  for (let i = 0; body.length <= REDACT_INPUT_CAP; i++) {
+    straddlingLines = keyLines(`Cap${String(i).padStart(3, "0")}`, 20);
+    body += `${pemBlock("", straddlingLines)}\n`;
+  }
+  const blockStart = body.lastIndexOf("-----BEGIN");
+  expect(blockStart).toBeLessThan(REDACT_INPUT_CAP);
+  return { body: `${body} ${BEYOND_CAP_MARKER} end"}}`, straddlingLines };
+}
+
 /** Best of three runs after one warm-up, as the redact linear guards measure. */
 function bestElapsedMs(run: () => unknown): number {
   run();
@@ -181,6 +202,26 @@ describe("ErrorMetadata.raw redaction at the truncation boundary", () => {
     } finally {
       _resetForTests({ enabled: true });
     }
+  });
+
+  it("does_not_split_a_surrogate_pair_at_the_cut", () => {
+    const body = `${"a".repeat(CUT - 1)}\u{1F600} tail`;
+
+    expect(rawOf(body)).toBe(`${"a".repeat(CUT - 1)}…`);
+  });
+
+  it("does_not_redact_or_return_text_past_the_redaction_input_cap", () => {
+    const raw = rawOf(bodyPastTheCap().body);
+
+    expect(raw).not.toContain(BEYOND_CAP_MARKER);
+  });
+
+  it("does_not_return_the_key_lines_of_a_private_key_block_cut_by_the_redaction_input_cap", () => {
+    const { body, straddlingLines } = bodyPastTheCap();
+
+    const raw = rawOf(body);
+
+    expect(straddlingLines.filter((line) => raw.includes(line))).toEqual([]);
   });
 
   it("masks_a_credential_that_redaction_brings_inside_the_limit_from_deep_in_the_body", () => {
