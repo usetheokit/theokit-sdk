@@ -12,7 +12,8 @@ import type { ErrorCode } from "../../errors.js";
 import type { ErrorCode, ErrorMetadata } from "../../errors.js";
 import { redactSecrets } from "../security/index.js";
 
-const RAW_MAX_BYTES = 2048;
+/** Longest `ErrorMetadata.raw`, in UTF-16 code units, before the `…` suffix. */
+const RAW_MAX_CHARS = 2048;
 
 /**
  * Parse the `Retry-After` header (RFC 7231) into seconds. Both forms are
@@ -35,10 +36,25 @@ export function parseRetryAfter(headers: Headers | undefined): number | undefine
 }
 
 /**
- * Truncate raw response body to ~2KB and redact known credential
- * patterns so it can ride inside `ErrorMetadata.raw` without
- * ballooning logs OR leaking tokens. Returns `undefined` for
- * null/undefined input.
+ * Redact known credential patterns in the raw response body, then
+ * cut the redacted text to 2048 characters (UTF-16 code units), so it can ride inside
+ * `ErrorMetadata.raw` without ballooning logs OR leaking tokens.
+ * Returns `undefined` for null/undefined input.
+ *
+ * Redaction runs first: a pattern can only mask a credential it sees
+ * whole, and cutting first left a key straddling the cut too short for
+ * its pattern, so its leading fragment reached `raw` in clear (B-540).
+ * The `…` suffix is added exactly when text was dropped.
+ *
+ * Redaction sees the whole body, however long. Any bound on what it reads
+ * brings the edge back: a credential cut by the bound matches nothing, and
+ * redaction of the text before it can pull the clear fragment inside the
+ * cut, and no fixed margin is enough because JWTs and PEM blocks have no
+ * length bound (plan D1, review round 2). The builtin patterns were timed
+ * on hostile input and the two that were not linear were fixed (B-544,
+ * B-554), so the cost grows with the body's length; a pattern
+ * registered with `Security.addPattern` sees the whole body too and
+ * should stay linear in its input. The cut never splits a surrogate pair.
  *
  * Post T1.1 (secret-redaction-discipline, ADR D68): every error metadata
  * goes through `redactSecrets` before exposure. Note the shape change —
@@ -53,8 +69,15 @@ export function parseRetryAfter(headers: Headers | undefined): number | undefine
 export function truncateRaw(body: unknown): unknown {
   if (body === null || body === undefined) return undefined;
   const s = typeof body === "string" ? body : JSON.stringify(body);
-  const truncated = s.length <= RAW_MAX_BYTES ? s : `${s.slice(0, RAW_MAX_BYTES)}…`;
-  return redactSecrets(truncated);
+  const redacted = redactSecrets(s);
+  return redacted.length <= RAW_MAX_CHARS ? redacted : `${cutAt(redacted, RAW_MAX_CHARS)}…`;
+}
+
+/** The first `end` code units of `text`, one fewer when that would split a surrogate pair. */
+function cutAt(text: string, end: number): string {
+  if (end >= text.length) return text;
+  const last = text.charCodeAt(end - 1);
+  return text.slice(0, last >= 0xd800 && last <= 0xdbff ? end - 1 : end);
 }
 
 /**
