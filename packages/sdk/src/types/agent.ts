@@ -734,7 +734,7 @@ export interface AgentOptions {
    * auto-attached, turning a non-reasoning model into a reason -> act ->
    * observe loop (same model; reuses the existing tool loop). Default `false` —
    * byte-identical behaviour when unset. Inert (with a one-time warn) when a
-   * native reasoning model is configured (`model.params: [{ id: "thinking" }]`),
+   * native reasoning model is configured (`model.params: [{ id: "thinking", value: "high" }]`),
    * so native and prompt-based reasoning never stack. See `ReasoningTools` in `@theokit/sdk-tools`.
    */
   reasoning?: boolean;

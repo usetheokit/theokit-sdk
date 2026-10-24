@@ -2,7 +2,7 @@
  * SE37 — `reasoning: true` support internals: the CoT preamble + the
  * double-reasoning guard.
  *
- * A native reasoning model (configured with `model.params: [{ id: "thinking" }]`)
+ * A native reasoning model (configured with `model.params: [{ id: "thinking", value: "high" }]`)
  * already reasons internally, so layering the prompt-based `reasoning: true`
  * preamble + think tool on top wastes tokens and can degrade output. When a
  * native reasoning param is detected, `reasoning: true` is INERT (with a
@@ -18,8 +18,13 @@ import type { CustomTool } from "../../../types/agent.js";
 import type { ModelSelection } from "../../../types/agent-prims.js";
 import { diag } from "../../diagnostics.js";
 
-/** Param ids that mean the model is doing its own (native) reasoning. */
-const NATIVE_REASONING_PARAM_IDS = new Set(["thinking", "reasoning", "reasoning_effort"]);
+/**
+ * Param ids that mean the model is doing its own (native) reasoning. Only ids the request builder
+ * forwards as a reasoning effort belong here (`reasoningEffortFromParams` reads `thinking` only):
+ * an id that switched `reasoning: true` off without being forwarded would leave the run with no
+ * reasoning of any kind and no error.
+ */
+const NATIVE_REASONING_PARAM_IDS = new Set(["thinking"]);
 
 /**
  * The CoT preamble prepended to the system prompt when `reasoning: true` is
@@ -48,7 +53,7 @@ export function createThinkTool(): CustomTool {
 
 /**
  * True when the selected model is a native reasoning model — i.e. its `params`
- * carry a thinking/reasoning id. A bare-string model or one without such a param
+ * carry a `thinking` param. A bare-string model or one without such a param
  * is NOT native (returns false), so `reasoning: true` applies to it.
  */
 export function isNativeReasoning(model: ModelSelection | string | undefined): boolean {
@@ -72,7 +77,7 @@ export function warnDoubleReasoningOnce(): void {
   warned.add("double-reasoning");
   diag(
     "[theokit-sdk] `reasoning: true` skipped — a native reasoning model is configured " +
-      "(model.params thinking/reasoning); native reasoning wins. Remove one to silence.\n",
+      "(model.params thinking); native reasoning wins. Remove one to silence.\n",
   );
 }
 
