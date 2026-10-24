@@ -1,6 +1,11 @@
 import { ConfigurationError } from "../../errors.js";
 import { diag } from "../diagnostics.js";
-import { getProviderProfile, type ProviderProfile, registerBuiltins } from "../providers/index.js";
+import {
+  getProviderProfile,
+  listProviders,
+  type ProviderProfile,
+  registerBuiltins,
+} from "../providers/index.js";
 import { AnthropicClient } from "./anthropic.js";
 import { BedrockAnthropicClient } from "./bedrock-anthropic.js";
 import { CredentialPool, newPooledCredential } from "./credential-pool.js";
@@ -82,7 +87,7 @@ function buildChain(options: ProviderRouterOptions): LlmClient[] {
   // process-wide setting hijacking models it was not meant for, and within a chain it was doing
   // exactly that itself.
   const addClient = (name: ProviderName, perCallBaseUrl?: string): void => {
-    const lowered = name.toLowerCase();
+    const lowered = normalizeProviderName(name);
     if (seen.has(lowered)) return;
     seen.add(lowered);
     const client = buildClient(lowered, options, perCallBaseUrl);
@@ -96,6 +101,13 @@ function buildChain(options: ProviderRouterOptions): LlmClient[] {
   // `*_API_BASE_URL`, which is what makes a fallback a different destination rather than a retry.
   for (const fallback of options.fallback ?? []) addClient(fallback);
   if (clients.length === 0) {
+    // Normalized exactly as `addClient` does, so a name that differs from a lowercase profile only
+    // in case stays a registered provider and keeps the credentials hint below.
+    if (getProviderProfile(normalizeProviderName(options.primary)) === undefined) {
+      throw new ConfigurationError(unregisteredProviderMessage(options.primary), {
+        code: "provider_unresolved",
+      });
+    }
     throw new ConfigurationError(
       `No provider client could be resolved (primary=${options.primary}). ` +
         `Set ANTHROPIC_API_KEY or OPENAI_API_KEY / OPENROUTER_API_KEY.`,
@@ -103,6 +115,58 @@ function buildChain(options: ProviderRouterOptions): LlmClient[] {
     );
   }
   return clients;
+}
+
+/** Routes look every provider name up in lowercase; this is the one place that rule lives. */
+function normalizeProviderName(name: string): string {
+  return name.toLowerCase();
+}
+
+/**
+ * The primary names no profile, so no key could have helped: say so, and list the names that do
+ * resolve. Read at throw time, so a profile registered by a plugin for this send is listed too.
+ *
+ * The registry keeps a name's case and routes look names up in lowercase, so a profile registered
+ * as "AcmeAI" can never be reached. Calling that name unknown while listing it would contradict
+ * itself; the message names the lowercase rule instead. Aliases are kept verbatim too, so an alias
+ * registered as "AcmeX" is just as unreachable and gets the same treatment.
+ */
+function unregisteredProviderMessage(name: string): string {
+  const normalized = normalizeProviderName(name);
+  const caseOnlyMatch = listProviders().find(
+    (profile) => normalizeProviderName(profile.name) === normalized,
+  );
+  if (caseOnlyMatch !== undefined) {
+    return (
+      `No provider client could be resolved: "${name}" matches the registered provider ` +
+      `"${caseOnlyMatch.name}" only when case is ignored, and routes look provider names up in ` +
+      `lowercase. Register the provider as "${normalized}".`
+    );
+  }
+  const aliasMessage = caseOnlyAliasMessage(name, normalized);
+  if (aliasMessage !== undefined) return aliasMessage;
+  const registered = listProviders()
+    .map((profile) => profile.name)
+    .sort()
+    .join(", ");
+  return (
+    `No provider client could be resolved: "${name}" is not a known provider. ` +
+    `Registered providers: ${registered}.`
+  );
+}
+
+/** The message for a primary that equals a registered alias only when case is ignored, if any. */
+function caseOnlyAliasMessage(name: string, normalized: string): string | undefined {
+  for (const profile of listProviders()) {
+    const alias = profile.aliases?.find((entry) => normalizeProviderName(entry) === normalized);
+    if (alias === undefined) continue;
+    return (
+      `No provider client could be resolved: "${name}" matches the alias "${alias}" of the ` +
+      `registered provider "${profile.name}" only when case is ignored, and routes look provider ` +
+      `names up in lowercase. Register the alias as "${normalized}", or route to "${profile.name}".`
+    );
+  }
+  return undefined;
 }
 
 /**
