@@ -36,7 +36,7 @@ export function parseRetryAfter(headers: Headers | undefined): number | undefine
 
 /**
  * Redact known credential patterns in the raw response body, then
- * truncate the redacted text to ~2KB, so it can ride inside
+ * cut the redacted text to 2048 characters (UTF-16 code units), so it can ride inside
  * `ErrorMetadata.raw` without ballooning logs OR leaking tokens.
  * Returns `undefined` for null/undefined input.
  *
@@ -47,7 +47,9 @@ export function parseRetryAfter(headers: Headers | undefined): number | undefine
  * exceeds 2048 characters. No bounded window is redacted instead: any
  * bound is an edge that redaction of the text before it can pull into
  * `raw`. The cost stays linear because the PEM and JWT maskers are linear
- * scans (B-544, B-554).
+ * scans (B-544, B-554). A pattern a consumer registers with
+ * `Security.addPattern` runs over the whole body too, so it must be
+ * linear on input of any length.
  *
  * Post T1.1 (secret-redaction-discipline, ADR D68): every error metadata
  * goes through `redactSecrets` before exposure. Note the shape change —
