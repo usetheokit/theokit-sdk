@@ -1,7 +1,12 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
+import {
+  compareVersions,
+  isAtLeast,
+  readRootFile,
+  resolvedVersions,
+  type Version,
+  versionParts,
+} from "./lockfile-versions.mts";
 
 /*
  * GHSA-mrhx-c7xc-m3w5: zod below 4.6.6 can exhaust memory on crafted input. The root override
@@ -10,65 +15,61 @@ import { expect, it } from "vitest";
  * The audit cannot serve as the regression test, because it needs the registry. This test reads
  * the two local files that decide which zod gets installed (the root override and the lockfile)
  * and fails offline when either one lets a zod below the fix back in.
+ *
+ * Two policies are checked apart, so a failure names the one that broke: the advisory floor
+ * (at or above 4.6.6) and the major this workspace is on (4.x). A deliberate move to zod 5 fails
+ * the major check, not the advisory one.
  */
 
-type Version = readonly [number, number, number];
-
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const PATCHED: Version = [4, 6, 6];
+const MAJOR = 4;
 
-// Only `X.Y.Z` or `^X.Y.Z`, with nothing around it. Any other shape yields no version, so the
-// override test fails on a value it cannot read instead of passing because nothing parsed.
-function versionParts(value: string): Version | undefined {
-  const match = /^\^?(\d+)\.(\d+)\.(\d+)$/.exec(value);
-  if (!match) return undefined;
-  return [Number(match[1]), Number(match[2]), Number(match[3])];
+function isBelowTheFix(value: string): boolean {
+  return !isAtLeast(versionParts(value), PATCHED);
 }
 
-function compareVersions(left: Version, right: Version): number {
-  for (let index = 0; index < 3; index++) {
-    if (left[index] !== right[index]) return left[index] - right[index];
-  }
-  return 0;
-}
-
-function isPatched4x(version: Version | undefined): boolean {
-  return version !== undefined && version[0] === 4 && compareVersions(version, PATCHED) >= 0;
-}
-
-// Package and snapshot keys sit at a two-space indent as `zod@X.Y.Z:` or `zod@X.Y.Z(`. The
-// `overrides:` header (`  zod: ^4.6.6`) has no `@`, importer entries sit deeper, and
-// `zod-to-json-schema@...` has a `-` where the `@` must be, so none of them is collected.
-function resolvedZodVersions(lockfile: string): string[] {
-  return [...lockfile.matchAll(/^ {2}zod@(\d+\.\d+\.\d+)[(:]/gm)].map((match) => match[1]);
+function isOutsideTheMajor(value: string): boolean {
+  return versionParts(value)?.[0] !== MAJOR;
 }
 
 it("the root override admits no zod below the memory exhaustion fix", () => {
-  const manifest = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8"));
+  const manifest = JSON.parse(readRootFile("package.json"));
   const override: unknown = manifest.pnpm?.overrides?.zod;
 
   expect(typeof override, "pnpm.overrides.zod is missing from the root package.json").toBe(
     "string",
   );
   expect(
-    isPatched4x(versionParts(override as string)),
-    `override is ${String(override)}; it must be ^X.Y.Z at or above 4.6.6 within 4.x`,
-  ).toBe(true);
+    isBelowTheFix(override as string),
+    `override is ${String(override)}; it must be ^X.Y.Z at or above 4.6.6`,
+  ).toBe(false);
+  expect(
+    isOutsideTheMajor(override as string),
+    `override is ${String(override)}; this workspace is on zod 4.x`,
+  ).toBe(false);
 });
 
 it("every zod the lockfile resolves is past the memory exhaustion advisory", () => {
-  const versions = resolvedZodVersions(readFileSync(resolve(ROOT, "pnpm-lock.yaml"), "utf8"));
+  const versions = resolvedVersions(readRootFile("pnpm-lock.yaml"), "zod");
 
   expect(versions.length, "pnpm-lock.yaml resolves no zod at all").toBeGreaterThan(0);
-  expect(versions.filter((version) => !isPatched4x(versionParts(version)))).toEqual([]);
+  expect(versions.filter(isBelowTheFix), "zod below 4.6.6, or unreadable").toEqual([]);
+  expect(versions.filter(isOutsideTheMajor), "zod outside 4.x").toEqual([]);
 });
 
-it("the version comparison ranks 4.6.10 above 4.6.6 and 4.7.0 above 4.6.99", () => {
-  expect(isPatched4x(versionParts("4.6.10"))).toBe(true);
-  expect(isPatched4x(versionParts("4.7.0"))).toBe(true);
+it("two-digit patch and minor versions rank above the fix", () => {
+  expect(isBelowTheFix("4.6.10")).toBe(false);
+  expect(isBelowTheFix("4.7.0")).toBe(false);
   expect(compareVersions([4, 7, 0], [4, 6, 99])).toBeGreaterThan(0);
-  expect(isPatched4x(versionParts("4.6.5"))).toBe(false);
-  expect(isPatched4x(versionParts("5.0.0"))).toBe(false);
+});
+
+it("a version below 4.6.6 is below the fix", () => {
+  expect(isBelowTheFix("4.6.5")).toBe(true);
+});
+
+it("a zod outside 4.x fails the major check", () => {
+  expect(isOutsideTheMajor("5.0.0")).toBe(true);
+  expect(isOutsideTheMajor("3.25.0")).toBe(true);
 });
 
 it("an unreadable override value yields no parsed version", () => {
@@ -93,5 +94,15 @@ it("the lockfile scan returns only resolved zod keys", () => {
     "",
   ].join("\n");
 
-  expect(resolvedZodVersions(fixture)).toEqual(["4.6.7"]);
+  expect(resolvedVersions(fixture, "zod")).toEqual(["4.6.7"]);
+});
+
+it("the lockfile scan reports a pre-release zod key instead of skipping it", () => {
+  const fixture = ["packages:", "  zod@4.6.5-beta.1:", "  zod@4.6.7:", ""].join("\n");
+
+  expect(resolvedVersions(fixture, "zod")).toEqual(["4.6.5-beta.1", "4.6.7"]);
+});
+
+it("a pre-release zod key counts as below the fix", () => {
+  expect(isBelowTheFix("4.6.6-beta.1")).toBe(true);
 });
