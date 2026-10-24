@@ -73,7 +73,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AgentOptions` | interface | Top-level options accepted by `Agent.create()`.  |
 | `AgentPromptResult` | type | Result of a one-shot {@link Agent.prompt } call. |
 | `AgentRegistryOptions` | interface | Knobs for {@link LiveAgentRegistry.configure } .  |
-| `AgentRunError` | class | Thrown by `Agent.prompt` (and helpers that go through `run.wait()`) when the option `{ throwOnError: true }` is set and the run terminates with `status: 'error'`.  |
+| `AgentRunError` | class | Thrown by `Agent.prompt` alone when the option `{ throwOnError: true }` is set and the run terminates with `status: 'error'`.  |
 | `AgentRunErrorCode` | type | Back-compat alias of {@link KnownAgentRunErrorCode } .  |
 | `agentStep` | function | Build an `AgentStep`.  |
 | `AgentSubagentDescription` | interface | theokit#123 — one subagent of a registered agent (what theokit-studio calls a workflow).  |
@@ -330,7 +330,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `RunGitInfo` | interface | Git metadata attached to cloud runs. |
 | `runGoalLoop` | function | Run the goal-driven loop (`send → judge → continuation`) over ANY `send → wait` surface.  |
 | `RunMemoryDegradedEvent` | interface | A memory stage failed and the run continued without it.  |
-| `RunOperation` | type | Operations that may or may not be supported on a given {@link Run } , or on its parent agent.  |
+| `RunOperation` | type | Operations that may or may not be supported on a given `Run`, or on its parent agent.  |
 | `RunPermissionDeniedEvent` | interface | A tool call was DENIED before dispatch — by the permission gate/plugin (SE1), an operator file-hook `preToolUse`, or the fork tool-whitelist.  |
 | `RunRateLimitEvent` | interface | The provider returned a rate-limit (HTTP 429); the loop will back off + retry. |
 | `RunResult` | interface | Terminal result of a {@link Run } . |
@@ -961,7 +961,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | Symbol | Kind | Summary |
 |---|---|---|
 | `AgentDisposedError` | class | T1.6 — Thrown when a consumer calls `agent.send()` or any method on an agent that has already been `dispose()`d.  |
-| `AgentRunError` | class | Thrown by `Agent.prompt` (and helpers that go through `run.wait()`) when the option `{ throwOnError: true }` is set and the run terminates with `status: 'error'`.  |
+| `AgentRunError` | class | Thrown by `Agent.prompt` alone when the option `{ throwOnError: true }` is set and the run terminates with `status: 'error'`.  |
 | `AgentRunErrorCode` | type | Back-compat alias of {@link KnownAgentRunErrorCode } .  |
 | `AuthenticationError` | class | Invalid API key, not logged in, insufficient permissions. |
 | `BudgetExceededError` | class | Thrown by `Budget` enforcement (ADR D386) when a `mode: "block"` budget would be exceeded by the upcoming LLM call.  |
