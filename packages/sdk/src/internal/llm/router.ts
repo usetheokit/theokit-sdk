@@ -147,7 +147,7 @@ function unregisteredProviderMessage(name: string): string {
   if (aliasMessage !== undefined) return aliasMessage;
   const registered = listProviders()
     .map((profile) => profile.name)
-    .sort()
+    .sort((a, b) => a.localeCompare(b))
     .join(", ");
   return (
     `No provider client could be resolved: "${name}" is not a known provider. ` +
