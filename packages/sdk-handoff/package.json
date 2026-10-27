@@ -1,6 +1,6 @@
 {
   "name": "@theokit/sdk-handoff",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Inter-agent dispatch for @theokit/sdk — typed Handoff descriptors, loop protection, plugin-based wiring.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/usetheokit/theokit-sdk#readme",

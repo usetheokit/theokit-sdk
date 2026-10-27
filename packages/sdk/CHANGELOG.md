@@ -1,5 +1,92 @@
 # Changelog
 
+## 5.12.0
+
+### Minor Changes
+
+- [#763](https://github.com/usetheokit/theokit-sdk/pull/763) [`473616d`](https://github.com/usetheokit/theokit-sdk/commit/473616d2585f11c9c2878a47e17665111279388a) Thanks [@usetheodev](https://github.com/usetheodev)! - `@theokit/acp` and `@theokit/sdk-handoff` keep answering in their protocol when the consumer's agent was created with `throwOnError: true`. When a failed run's `run.wait()` rejects, the ACP handler picks the stop reason from the rejected error's own canonical code (`metadata.code`, else `code`), and the handoff dispatcher replies with `(Handoff target <id> returned status=error: <message>)` using the error's message. This is close to what a resolved error run produces, but not identical: when the run's detail code came from another writer (`agent_loop_failed`, for instance), the error's own code and message are used instead. Any rejection from a run whose status is not `"error"`, such as an abort or an output-processor failure on a finished run, propagates unchanged.
+  
+  `@theokit/sdk`: a failed run's `result.error.cause` is now always a `TheokitAgentError`, and `RunErrorDetail.cause` is typed that way. A failure with no SDK error behind it (a budget denial, the iteration limit, a hook, a cloud run failure, a non-SDK exception) carries an `UnknownAgentError` with the run's message and code, holding the original value at its own `cause`. `result.error.message` and `result.error.code` are unchanged.
+  
+  `AgentOptions.throwOnError` now reaches the run itself, as its doc comment promised. `run.wait()` rejects with `result.error.cause`, and so do `agent.generate`, `agent.fork` and `agent.runToCompletion`. `agent.runUntil` and `agent.streamToCompletion` throw it from their iterator, and `Agent.batch` returns it as the failed item's `error`. A workflow `agentStep`, a cron task and an `Eval` row keep recording the failure, now with the typed error's class name, code or message. `Agent.prompt` still rejects with `AgentRunError`, whose `cause` is the typed error. Cancelled and finished runs still resolve, the `postRun` hook still fires on a failed run, and a run nobody awaits raises no unhandled rejection.
+
+### Patch Changes
+
+- [#751](https://github.com/usetheokit/theokit-sdk/pull/751) [`eb80ccd`](https://github.com/usetheokit/theokit-sdk/commit/eb80ccda362b0783e21b3ac24ccab4aa262985b5) Thanks [@usetheodev](https://github.com/usetheodev)! - A `BudgetTracker` whose `track()` throws no longer loses the turn's other event, and the failure is
+  reported. The agent loop used to call `track()` for the input and the output events inside one `try`
+  with an empty `catch`. An input event that threw skipped the output event, and nothing said so, so a
+  `maxTokens` or USD ceiling counted less than the run spent. Each event now gets its own call, and a
+  throw is reported through the diagnostics sink, or on stderr when no sink is installed. The message
+  names the event type, the model id, the token count and the error. The turn still finishes.
+
+- [#751](https://github.com/usetheokit/theokit-sdk/pull/751) [`3547789`](https://github.com/usetheokit/theokit-sdk/commit/35477896d43d8e61f75f0a797556af8bba6bde88) Thanks [@usetheodev](https://github.com/usetheodev)! - A chat-completions stream whose usage carries a negative, non-finite or non-numeric `prompt_tokens`, `cached_tokens` or cache-write count no longer reports that count as 0. The field is left out of the turn's usage and the SDK writes `provider reported an unusable inputTokens (…)` (or `cacheReadTokens`, `cacheWriteTokens`) to the diagnostics sink, as it already did for every other malformed count, so a proxy sending a broken usage object is no longer billed and budgeted as a turn with no input. `normalizeUsage` still reads such a count as 0. (B-412)
+
+- [#764](https://github.com/usetheokit/theokit-sdk/pull/764) [`cc5c001`](https://github.com/usetheokit/theokit-sdk/commit/cc5c0011555b56857c1f75f521d2883b470ce0af) Thanks [@usetheodev](https://github.com/usetheodev)! - A `thinking` entry in `model.params` with an empty value is now refused instead of silently
+  turning reasoning off. `Agent.create` and a `send` model override throw a `ConfigurationError` with
+  code `invalid_model_param` before any request when the `thinking` value is empty, whitespace only,
+  missing or not a string, and the message names the param. It used to be accepted, and the chat
+  request went out with neither `reasoning_effort` nor `reasoning`, so a UI filling the value from an
+  unset setting lost reasoning with no signal. To request no reasoning, leave the `thinking` param
+  out. A non-empty value such as `"high"` is forwarded as before.
+
+- [#765](https://github.com/usetheokit/theokit-sdk/pull/765) [`6bb4105`](https://github.com/usetheokit/theokit-sdk/commit/6bb410578b631d8db9fb1caf68fab8952f588091) Thanks [@usetheodev](https://github.com/usetheodev)! - A provider error's `metadata.raw` no longer carries the start of a credential that sat across the
+  2048-character cut. The body used to be cut first and redacted after, so a key cut short of the
+  length its pattern needs matched nothing: 12 characters of an `sk-` key, or the key lines of a PEM
+  block before the cut, reached `metadata.raw` in clear. The whole body is now redacted and the
+  redacted text is cut. Two visible differences follow. A body that redaction shrinks to 2048
+  characters or fewer comes back whole, with no `…`. And when the text is still longer, the cut can
+  fall inside a mask such as `sk-V2w...y5Z6`, which leaves part of the mask and never more of the key
+  than the mask itself shows. Redaction reads the whole body, however long, because any bound on
+  what it reads would leave a credential cut by that bound in clear. A pattern registered with
+  `Security.addPattern` now sees the whole error body, not the first 2048 characters, so it should
+  stay linear in its input. The cut also no longer splits a surrogate pair, such as an emoji, at the
+  2048th character.
+
+- [#752](https://github.com/usetheokit/theokit-sdk/pull/752) [`cd6dc55`](https://github.com/usetheokit/theokit-sdk/commit/cd6dc555272002965e620267472a09d12d6d49f0) Thanks [@usetheodev](https://github.com/usetheodev)! - An OpenAI-compatible provider's HTTP 400 now ends the run with a `ConfigurationError` whose message says what the provider rejected. OpenRouter answers a model id it does not know with `nosuchvendor/nosuch-model-xyz is not a valid model ID`, and until now the message was only `openrouter API error: invalid_request (HTTP 400)`, so neither the error nor `result.error.message` named the model or the parameter. The 400 message now ends with the provider's `error.message`, for example `openrouter API error: invalid_request (HTTP 400): Expected max_tokens to be at least 1`. The class, the error `code` and `isRetryable` do not change.
+  
+  The provider's text goes through the same secret redaction as `metadata.raw` and is cut at 512 characters, ending with `…` when it is longer. The missing-model 404 message, which already carried the provider's text, gets the same redaction and cap. Every other status (401, 403, 408, 429, 5xx and the rest) keeps its message as it was. Code that compared a 400 message by equality will now see a longer string.
+
+- [#753](https://github.com/usetheokit/theokit-sdk/pull/753) [`38ad578`](https://github.com/usetheokit/theokit-sdk/commit/38ad578a4025c66c6b250810164a27c10563ba4b) Thanks [@usetheodev](https://github.com/usetheodev)! - `Security.redact` (and `redactSecrets` on the `@theokit/sdk/internal/security` subpath) no longer
+  blocks the event loop on a long run of `eyJ` it cannot complete as a JWT. The JWT pattern was a regex
+  that retried from every `eyJ` of such a run, so its time grew with the square of the run: 224000
+  characters of `eyJa` took over two minutes, and a string half filled by that run 20 to 40 seconds.
+  Callers that redact unbounded text, such as the session transcript, span attributes or a provider
+  error body, stalled for that long. JWTs are now found by a scan that reads each run of characters at
+  most three times, and the same inputs return in under 100 ms. What gets masked, and how, is
+  unchanged.
+
+- [#754](https://github.com/usetheokit/theokit-sdk/pull/754) [`c46f6a4`](https://github.com/usetheokit/theokit-sdk/commit/c46f6a40e700d154ea10dc7c820ee7a33f2c3fb4) Thanks [@usetheodev](https://github.com/usetheodev)! - `redactSecrets` no longer stalls on text that holds many PEM `BEGIN ... PRIVATE KEY` headers with no matching `END` header. Such input used to take seconds for a few hundred KB, because the PEM pattern searched to the end of the string once per header; PEM blocks are now found in one linear pass, so the same input takes milliseconds. What gets masked is unchanged.
+
+- [#751](https://github.com/usetheokit/theokit-sdk/pull/751) [`eb80ccd`](https://github.com/usetheokit/theokit-sdk/commit/eb80ccda362b0783e21b3ac24ccab4aa262985b5) Thanks [@usetheodev](https://github.com/usetheodev)! - On the OpenAI Responses API, `usage.inputTokens` is now the uncached part of the prompt, as it
+  already was on the Anthropic and Chat Completions clients. The client used to pass `input_tokens`
+  through as it came, and that total already includes the cache read and cache write buckets. A turn
+  that hit the prompt cache therefore counted its cached tokens twice: once in `inputTokens` and once
+  in `cacheReadTokens` / `cacheWriteTokens`.
+  
+  Things a caller can observe on a cached turn through a provider whose `apiMode` is
+  `"responses_api"`, the built-in `openai-chatgpt` (Codex) provider among them:
+  
+  - `RunResult.usage.inputTokens`, the `inputTokens` attribute of the `llm.call` span and the
+    `theokit_llm_tokens` histogram are lower by the cached tokens.
+  - The run's computed cost no longer bills the cached tokens a second time at the full input
+    price.
+  - A `BudgetTracker` input event carries the prompt once, so a `maxTokens` ceiling no longer trips
+    early. A USD tracker still prices the cached tokens of that event at the input rate, so it trips
+    less early than before but still early. For a prompt of 11 tokens with 3 read from the cache and
+    5 written to it, the event reports 11, where it reported 19 before.
+
+- [#767](https://github.com/usetheokit/theokit-sdk/pull/767) [`5696d56`](https://github.com/usetheokit/theokit-sdk/commit/5696d567fe34229a70ebf9f1c6df82e1dc289ae1) Thanks [@usetheodev](https://github.com/usetheodev)! - The unknown-provider error lists the registered provider names in locale order instead of UTF-16 code
+  unit order, so a mixed-case name such as `alpha` is no longer listed after `Zeta`. Builtin names are
+  lowercase ASCII, so their order does not change.
+
+- [#764](https://github.com/usetheokit/theokit-sdk/pull/764) [`ce11001`](https://github.com/usetheokit/theokit-sdk/commit/ce110011cbff61ac4381ae4b040af295debc9989) Thanks [@usetheodev](https://github.com/usetheodev)! - A `model.params` entry with id `reasoning` or `reasoning_effort` no longer switches off
+  `reasoning: true`. Only `thinking` is sent to the provider as a reasoning effort, so these two ids
+  used to count as native reasoning without being forwarded: the run got neither the provider effort
+  nor the reasoning preamble and `think` tool, and no error. `reasoning: true` now applies to such a
+  model. To request native reasoning, use `{ id: "thinking", value: "high" }`.
+
+- [#760](https://github.com/usetheokit/theokit-sdk/pull/760) [`67390b6`](https://github.com/usetheokit/theokit-sdk/commit/67390b65bc3af25082dabc02d8d53a9f5c286349) Thanks [@usetheodev](https://github.com/usetheodev)! - When a route's provider names no registered profile and no fallback provider resolves, the run now fails with a message that says so. With `providers.routes: [{ capability: "chat", provider: "no-such-provider" }]`, the run used to end with a `ConfigurationError` telling you to set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` / `OPENROUTER_API_KEY`, even when a key was set. The message now reads `No provider client could be resolved: "no-such-provider" is not a known provider. Registered providers: …`, with the registered names sorted. A provider that a plugin registered is listed too. A provider registered with uppercase letters (for example `AcmeAI`) cannot be routed to, because routes look provider names up in lowercase; the message now says that and names the lowercase spelling to register, instead of calling the name unknown while listing it. An alias registered with uppercase letters gets the same message, naming the provider it belongs to. The class (`ConfigurationError`), the code (`provider_unresolved`) and the opening phrase `No provider client could be resolved` are unchanged, and a registered provider with no key still gets the credentials message, word for word. An unregistered provider next to a fallback that resolves still runs on the fallback, as before.
+
 ## 5.11.1
 
 ### Patch Changes
