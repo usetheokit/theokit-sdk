@@ -80,16 +80,38 @@ describe("an unregistered primary provider", () => {
 
     const listed = registeredNamesIn(error.message).split(", ");
     expect(new Set(listed).size).toBe(listed.length);
-    expect(listed).toEqual([...listed].sort());
-    expect([...listed].sort()).toEqual(
+    expect(listed).toEqual([...listed].sort((a, b) => a.localeCompare(b)));
+    expect([...listed].sort((a, b) => a.localeCompare(b))).toEqual(
       listProviders()
         .map((profile) => profile.name)
-        .sort(),
+        .sort((a, b) => a.localeCompare(b)),
     );
     expect(error.message).toBe(
       `No provider client could be resolved: "no-such-provider" is not a known provider. ` +
         `Registered providers: ${listed.join(", ")}.`,
     );
+  });
+
+  it("lists_providers_in_locale_order_not_utf16_code_unit_order", () => {
+    for (const name of ["Zeta", "alpha"]) {
+      registerProvider({
+        name,
+        apiMode: "chat_completions",
+        envVars: [`${name.toUpperCase()}_TEST_API_KEY`],
+        authType: "api_key",
+        baseUrl: "https://acme.invalid/v1",
+        fallbackModels: ["acme-model"],
+      });
+    }
+
+    const listed = registeredNamesIn(captureResolutionError("no-such-provider").message).split(
+      ", ",
+    );
+
+    // The default string sort puts "Zeta" (U+005A) before "alpha" (U+0061); locale order does not.
+    expect(listed.indexOf("alpha")).toBeGreaterThanOrEqual(0);
+    expect(listed.indexOf("alpha")).toBeLessThan(listed.indexOf("Zeta"));
+    expect(listed).toEqual([...listed].sort((a, b) => a.localeCompare(b)));
   });
 
   it("names_an_empty_provider_as_not_a_known_provider", () => {
