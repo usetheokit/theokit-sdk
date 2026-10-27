@@ -120,11 +120,36 @@ describe("ResponsesApiClient.stream — the arms the golden fixtures do not reac
         },
       }),
     );
-    expect(finish.inputTokens).toBe(11);
+    // input_tokens INCLUDES both cache buckets; inputTokens is the uncached slice on every client.
+    expect(finish.inputTokens).toBe(3);
     expect(finish.outputTokens).toBe(22);
     expect(finish.reasoningTokens).toBe(7);
     expect(finish.cacheReadTokens).toBe(3);
     expect(finish.cacheWriteTokens).toBe(5);
+  });
+
+  it("leaves inputTokens absent when the terminal event reports no input_tokens", async () => {
+    // Subtracting the cache buckets must not invent a 0 for a field the provider never sent.
+    const { finish } = await drain(
+      sse({
+        type: "response.completed",
+        response: { usage: { output_tokens: 4, input_tokens_details: { cached_tokens: 2 } } },
+      }),
+    );
+    expect(finish.inputTokens).toBeUndefined();
+    expect(finish.cacheReadTokens).toBe(2);
+  });
+
+  it("floors inputTokens at 0 when the cache buckets exceed input_tokens", async () => {
+    const { finish } = await drain(
+      sse({
+        type: "response.completed",
+        response: {
+          usage: { input_tokens: 4, output_tokens: 1, input_tokens_details: { cached_tokens: 9 } },
+        },
+      }),
+    );
+    expect(finish.inputTokens).toBe(0);
   });
 
   it("reports an in-stream failure as an error event AND a typed throw, never a silent finish", async () => {

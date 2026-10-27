@@ -29,6 +29,7 @@ import type { ProvidersManagerImpl } from "../runtime/config/providers-manager.j
 import type { FileContextManager } from "../runtime/context/context-manager.js";
 import { HooksExecutor } from "../runtime/hooks/hooks-executor.js";
 import { runPostRunLifecycle } from "../runtime/lifecycle/post-run-lifecycle.js";
+import { wrapRunWithThrowOnError } from "../runtime/lifecycle/throw-on-error-run.js";
 import type { MemoryFact } from "../runtime/memory-glue/memory-store.js";
 import { normalizeModel } from "../runtime/model-selection.js";
 import type { PluginMetadata, PluginsManager } from "../runtime/plugin-loader/plugins-manager.js";
@@ -342,7 +343,7 @@ export class LocalAgent implements SDKAgent {
     }
     // T3.2: opt-in Task wrapping (ADRs D363/D374).
     if (options.task !== undefined) registerRunAsTask(run, this.agentId, options.task, userText);
-    resolve(run);
+    resolve(callerView(run, this.options.throwOnError));
     try {
       await runPostRunLifecycle({
         run,
@@ -594,6 +595,16 @@ export class LocalAgent implements SDKAgent {
   > {
     return localAgentStreamToCompletion(this, message, options);
   }
+}
+
+/**
+ * The run the caller receives: under `throwOnError`, a view whose `wait()` rejects with the
+ * typed cause (B-498). A module function rather than a method: lizard reads the class's `#`
+ * methods and `runLockedSendCycle` as one function, so a branch placed in any of them is
+ * charged to that merged span by the complexity gate.
+ */
+function callerView(run: Run, throwOnError: boolean | undefined): Run {
+  return throwOnError === true ? wrapRunWithThrowOnError(run) : run;
 }
 
 function resolveCwd(cwd: string | string[] | undefined): string {

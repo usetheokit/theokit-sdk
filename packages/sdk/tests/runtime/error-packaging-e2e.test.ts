@@ -103,6 +103,23 @@ function mockFetch404MissingModel(modelId: string): typeof fetch {
   }) as unknown as typeof fetch;
 }
 
+/**
+ * OpenRouter's answer for a model id it does not know (observed live 2026-10-20 and 2026-10-21):
+ * a 400 whose text is the only place the bad model id appears.
+ */
+function mockFetch400InvalidModel(modelId: string): typeof fetch {
+  return vi.fn(async (_input: string | URL | Request, _init?: RequestInit) => {
+    return new Response(
+      JSON.stringify({ error: { message: `${modelId} is not a valid model ID`, code: 400 } }),
+      {
+        status: 400,
+        statusText: "Bad Request",
+        headers: { "content-type": "application/json" },
+      },
+    ) as Response;
+  }) as unknown as typeof fetch;
+}
+
 describe("RunResult.error end-to-end (Finding B — full pipeline)", () => {
   let root: string;
 
@@ -266,6 +283,31 @@ describe("a provider's REASON reaches RunResult without the stream (#338 item 3)
       expect(result.error?.code).toBe("model_unavailable");
       expect(result.error?.cause).toBeInstanceOf(ConfigurationError);
       expect(result.error?.message ?? "").toContain(retiredModel);
+      // ConfigurationError is not retryable, so the provider is asked exactly once.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      await agent.dispose();
+    }
+  });
+
+  it("invalid_model_400_ends_the_run_with_a_message_naming_the_model", async () => {
+    // The class was already right; the message must also say which model the provider rejected.
+    const invalidModel = "nosuchvendor/nosuch-model-xyz";
+    vi.stubEnv("OPENROUTER_API_KEY", "sk-or-v1-test-fixture-key");
+    const fetchMock = mockFetch400InvalidModel(invalidModel);
+    vi.stubGlobal("fetch", fetchMock);
+    const agent = await Agent.create({
+      apiKey: REAL_KEY_SHAPE,
+      model: { id: invalidModel },
+      local: { cwd: root },
+      providers: { routes: [{ capability: "chat", provider: "openrouter" }] },
+    });
+    try {
+      const result = await (await agent.send("hi")).wait();
+
+      expect(result.status).toBe("error");
+      expect(result.error?.cause).toBeInstanceOf(ConfigurationError);
+      expect(result.error?.message ?? "").toContain(invalidModel);
       // ConfigurationError is not retryable, so the provider is asked exactly once.
       expect(fetchMock).toHaveBeenCalledTimes(1);
     } finally {

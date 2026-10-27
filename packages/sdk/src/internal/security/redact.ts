@@ -44,21 +44,126 @@ if (!REDACT_ENABLED && !warnedOptOut) {
 }
 
 /**
- * Built-in credential patterns. Order matters — more specific prefixes
- * must come before generic ones (e.g., `sk-ant-` before `sk-`). Quantifiers
- * are all bounded `{n,m}` or applied to char classes — linear time, no ReDoS.
+ * One built-in masker: a global regex whose every match `redactSecrets` replaces with `maskToken`
+ * of it, or a function that does its own masking in one pass over the string.
+ */
+type BuiltinMasker = RegExp | ((s: string) => string);
+
+/** True for a character of a JWT segment, `[A-Za-z0-9_-]`. */
+function isSegmentChar(code: number): boolean {
+  return (
+    (code >= 48 && code <= 57) || // 0-9
+    (code >= 65 && code <= 90) || // A-Z
+    (code >= 97 && code <= 122) || // a-z
+    code === 45 || // -
+    code === 95 // _
+  );
+}
+
+/** Index of the first character at or after `from` that is not a JWT segment character. */
+function runEnd(s: string, from: number): number {
+  let i = from;
+  while (i < s.length && isSegmentChar(s.charCodeAt(i))) i++;
+  return i;
+}
+
+/**
+ * End of the JWT whose first segment is the run ending at `r1`, or -1 when none completes there:
+ * `.`, `eyJ` and 4 or more segment characters running to a `.`, then a third run of 4 or more.
+ */
+function jwtEndAfterFirstRun(s: string, r1: number): number {
+  if (s[r1] !== "." || !s.startsWith("eyJ", r1 + 1)) return -1;
+  const r2 = runEnd(s, r1 + 4);
+  if (r2 - (r1 + 4) < 4 || s[r2] !== ".") return -1;
+  const r3 = runEnd(s, r2 + 1);
+  return r3 - (r2 + 1) < 4 ? -1 : r3;
+}
+
+/**
+ * Masks every three-segment JWT the regex `eyJ[A-Za-z0-9_-]{4,}\.eyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}`
+ * masks, with the same output, in time linear in the length of `s`.
+ *
+ * The regex retried from every `eyJ` of a run it could not complete, giving the run back one
+ * character at a time, which took minutes on a few hundred thousand characters of `eyJa`. Every
+ * `eyJ` in one run ends its first segment at the same character, with fewer characters than the
+ * first `eyJ` has, and what must follow that character is the same for all of them. So when the
+ * first `eyJ` of a run fails, every later one in that run fails too: the scan tries only the
+ * first, then resumes after the run. Each run is read at most three times, as the first, second
+ * and third segment.
+ */
+function maskJwts(s: string): string {
+  let out = "";
+  let copied = 0;
+  let start = s.indexOf("eyJ");
+  while (start >= 0) {
+    const r1 = runEnd(s, start + 3);
+    const end = r1 - (start + 3) >= 4 ? jwtEndAfterFirstRun(s, r1) : -1;
+    if (end < 0) {
+      start = s.indexOf("eyJ", r1 + 1);
+      continue;
+    }
+    out += s.slice(copied, start) + maskToken(s.slice(start, end));
+    copied = end;
+    start = s.indexOf("eyJ", end);
+  }
+  return copied === 0 ? s : out + s.slice(copied);
+}
+
+const PEM_LABEL = "(?:RSA |EC |DSA |OPENSSH |ENCRYPTED |)";
+const PEM_BEGIN = new RegExp(`-----BEGIN[ ]+${PEM_LABEL}PRIVATE KEY-----`, "g");
+const PEM_END = new RegExp(`-----END[ ]+${PEM_LABEL}PRIVATE KEY-----`, "g");
+
+/**
+ * Mask each PEM private key block: a BEGIN header, then the first END header that starts at least
+ * one character after it, any label on either side. Masks the same spans the lazy regex
+ * `BEGIN[\s\S]+?END` did, in linear time.
+ *
+ * The regex retried its span at every BEGIN header, and each retry walked to the end of the string
+ * when no END header followed, so many unmatched headers cost the square of the length (seconds on
+ * a few hundred KB). Here a failed END search ends the scan: if no END header starts after one
+ * BEGIN, none starts after a later one, so the rest of the string is left as it is, exactly as the
+ * regex left it. Each search starts where the previous one ended, so every character is read a
+ * bounded number of times.
+ */
+function maskPemBlocks(s: string): string {
+  let out = "";
+  let cursor = 0;
+  for (;;) {
+    PEM_BEGIN.lastIndex = cursor;
+    const begin = PEM_BEGIN.exec(s);
+    if (begin === null) break;
+    PEM_END.lastIndex = begin.index + begin[0].length + 1;
+    const end = PEM_END.exec(s);
+    if (end === null) break;
+    const blockEnd = end.index + end[0].length;
+    out += s.slice(cursor, begin.index) + maskToken(s.slice(begin.index, blockEnd));
+    cursor = blockEnd;
+  }
+  return out + s.slice(cursor);
+}
+
+/**
+ * Built-in credential maskers. Order matters — more specific prefixes
+ * must come before generic ones (e.g., `sk-ant-` before `sk-`). The JWT
+ * and PEM shapes are the `maskJwts` and `maskPemBlocks` scans rather than
+ * regexes, because each regex was quadratic on input it could not complete
+ * (a long run of `eyJ`, many BEGIN headers with no END header).
  *
  * @internal
  */
-const BUILTIN_PATTERNS: readonly RegExp[] = [
+const BUILTIN_PATTERNS: readonly BuiltinMasker[] = [
   // T5.4: 30+ vendor prefixes (was 12 pre-T5.4). Order matters — more
   // specific prefixes precede generic ones (e.g., sk-ant-admin01 before
   // sk-ant-, sk-proj- before sk-). PEM block deliberately first so its
-  // multi-line span runs before any per-line patterns can fire.
-  /-----BEGIN[ ]+(?:RSA |EC |DSA |OPENSSH |ENCRYPTED |)PRIVATE KEY-----[\s\S]+?-----END[ ]+(?:RSA |EC |DSA |OPENSSH |ENCRYPTED |)PRIVATE KEY-----/g,
+  // multi-line span runs before any per-line patterns can fire. A scan
+  // rather than a regex: the regex was quadratic on many BEGIN headers with
+  // no END header (B-544).
+  maskPemBlocks,
   // JWT — exact 3-segment base64url. Dotted; the body floor of 4 chars per
   // segment matches the minimum legal payload while skipping `a.b.c` noise.
-  /eyJ[A-Za-z0-9_-]{4,}\.eyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}/g,
+  // A scan rather than a regex: the regex was quadratic on a long run of
+  // `eyJ` it could not complete (B-554).
+  maskJwts,
   // Azure Storage SAS — match the sig= component (URL-encoded base64).
   /(?<=[?&]sig=)[A-Za-z0-9%+/]{20,}/g,
   // Anthropic
@@ -240,8 +345,8 @@ export function redactSecrets(text: unknown, opts?: { codeFile?: boolean }): str
   if (!REDACT_ENABLED) return coerced;
 
   let s = coerced;
-  for (const re of BUILTIN_PATTERNS) {
-    s = s.replace(re, (m) => maskToken(m));
+  for (const masker of BUILTIN_PATTERNS) {
+    s = typeof masker === "function" ? masker(s) : s.replace(masker, (m) => maskToken(m));
   }
   for (const re of _extraPatterns) {
     s = s.replace(re, (m) => maskToken(m));

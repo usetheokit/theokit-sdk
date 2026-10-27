@@ -606,11 +606,20 @@ export interface AgentOptions {
   apiKey?: string;
   name?: string;
   /**
-   * When `true`, `Agent.prompt` (and any helper that goes through `run.wait()`)
-   * rejects with `AgentRunError` instead of resolving with `{ status: 'error' }`.
-   * Cancelled runs (`status: 'cancelled'`) still resolve — cancel ≠ error.
-   * If `result.error` is undefined despite `status: 'error'` (malformed RunResult),
-   * the defensive guard resolves normally (no throw).
+   * When `true`, a failed run is surfaced as an error instead of resolving with
+   * `{ status: 'error' }`. The error is `result.error.cause`, the typed
+   * {@link TheokitAgentError} behind the failure:
+   *
+   * - `run.wait()`, `agent.generate`, `agent.fork` and `agent.runToCompletion`
+   *   reject with it.
+   * - `agent.runUntil` and `agent.streamToCompletion` throw it from their iterator.
+   * - `Agent.batch` returns it as the failed item's `error`.
+   * - A workflow `agentStep`, a cron task and an `Eval` row keep recording the
+   *   failure, with its class name, code or message.
+   * - `Agent.prompt` alone wraps it in `AgentRunError`, whose `cause` is the typed error.
+   *
+   * Cancelled and finished runs still resolve. A run with `status: 'error'` but no
+   * `result.error` (malformed RunResult) also resolves.
    *
    * Default `false` (backwards-compatible).
    *
@@ -725,7 +734,7 @@ export interface AgentOptions {
    * auto-attached, turning a non-reasoning model into a reason -> act ->
    * observe loop (same model; reuses the existing tool loop). Default `false` —
    * byte-identical behaviour when unset. Inert (with a one-time warn) when a
-   * native reasoning model is configured (`model.params: [{ id: "thinking" }]`),
+   * native reasoning model is configured (`model.params: [{ id: "thinking", value: "high" }]`),
    * so native and prompt-based reasoning never stack. See `ReasoningTools` in `@theokit/sdk-tools`.
    */
   reasoning?: boolean;

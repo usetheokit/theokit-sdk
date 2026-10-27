@@ -31,6 +31,8 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { runAgentLoop } from "../../src/internal/agent-loop/loop.js";
 import { createCounterBudgetTracker } from "../../src/internal/budget/tracker/budget-tracker-counter.js";
+import { setDiagnosticsSink } from "../../src/internal/diagnostics.js";
+import { ResponsesApiClient } from "../../src/internal/llm/responses.js";
 import type { LlmClient, LlmEvent, LlmFinish } from "../../src/internal/llm/types.js";
 import { HooksExecutor } from "../../src/internal/runtime/hooks/hooks-executor.js";
 import type { ModelSelection } from "../../src/types/agent.js";
@@ -78,6 +80,7 @@ describe("BudgetTracker.track() wiring, against the production runIteration", ()
     cacheReadTokens?: number;
     cacheWriteTokens?: number;
     model?: ModelSelection;
+    llm?: LlmClient;
   }): Promise<Awaited<ReturnType<typeof runAgentLoop>>> {
     const hooks = new HooksExecutor(cwd);
     await hooks.initialize(false);
@@ -86,14 +89,16 @@ describe("BudgetTracker.track() wiring, against the production runIteration", ()
       runId: "run-budget-wiring",
       model: options.model ?? { id: "openai/gpt-4o-mini" },
       userMessage: "hello",
-      llm: clientReporting(options.inputTokens, options.outputTokens, {
-        ...(options.cacheReadTokens !== undefined
-          ? { cacheReadTokens: options.cacheReadTokens }
-          : {}),
-        ...(options.cacheWriteTokens !== undefined
-          ? { cacheWriteTokens: options.cacheWriteTokens }
-          : {}),
-      }),
+      llm:
+        options.llm ??
+        clientReporting(options.inputTokens, options.outputTokens, {
+          ...(options.cacheReadTokens !== undefined
+            ? { cacheReadTokens: options.cacheReadTokens }
+            : {}),
+          ...(options.cacheWriteTokens !== undefined
+            ? { cacheWriteTokens: options.cacheWriteTokens }
+            : {}),
+        }),
       mcp: new Map(),
       hooks,
       shellCwd: cwd,
@@ -238,6 +243,106 @@ describe("BudgetTracker.track() wiring, against the production runIteration", ()
 
     expect(result.finalStatus).toBe("finished");
     expect(result.result).toBe("ok");
+  });
+
+  it("a tracker that throws on the input event still receives the output event", async () => {
+    // One failing event must not cost the other: an input-event throw used to skip the output
+    // event, so a maxTokens ceiling undercounted with no signal at all.
+    setDiagnosticsSink(() => undefined);
+    onTestFinished(() => setDiagnosticsSink(undefined));
+    const seen: string[] = [];
+    const flaky: BudgetTracker = {
+      track: (event) => {
+        if (event.type === "input") throw new Error("tracker store unavailable");
+        seen.push(`${event.type}:${event.tokens}`);
+      },
+      check: () => ({ allowed: true }),
+      getTotal: () => ({ tokens: 0 }),
+    };
+
+    const result = await drive({ tracker: flaky, inputTokens: 10, outputTokens: 5 });
+
+    expect(result.finalStatus).toBe("finished");
+    expect(seen).toEqual(["output:5"]);
+  });
+
+  it("reports a tracker failure through the diagnostics sink, naming the event type and model", async () => {
+    const messages: string[] = [];
+    setDiagnosticsSink((message) => messages.push(message));
+    onTestFinished(() => setDiagnosticsSink(undefined));
+    const flaky: BudgetTracker = {
+      track: (event) => {
+        if (event.type === "input") throw new Error("tracker store unavailable");
+      },
+      check: () => ({ allowed: true }),
+      getTotal: () => ({ tokens: 0 }),
+    };
+
+    await drive({ tracker: flaky, inputTokens: 10, outputTokens: 5 });
+
+    const reports = messages.filter((m) => m.includes("BudgetTracker.track"));
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toContain("type=input");
+    expect(reports[0]).toContain("model=openai/gpt-4o-mini");
+    expect(reports[0]).toContain("tracker store unavailable");
+  });
+
+  it("reports a non-Error thrown on both events once per event", async () => {
+    const messages: string[] = [];
+    setDiagnosticsSink((message) => messages.push(message));
+    onTestFinished(() => setDiagnosticsSink(undefined));
+    const broken: BudgetTracker = {
+      track: () => {
+        throw "quota store offline";
+      },
+      check: () => ({ allowed: true }),
+      getTotal: () => ({ tokens: 0 }),
+    };
+
+    const result = await drive({ tracker: broken, inputTokens: 10, outputTokens: 5 });
+
+    expect(result.finalStatus).toBe("finished");
+    const reports = messages.filter((m) => m.includes("BudgetTracker.track"));
+    expect(reports).toHaveLength(2);
+    expect(reports[0]).toContain("type=input");
+    expect(reports[1]).toContain("type=output");
+    expect(reports[1]).toContain("quota store offline");
+  });
+
+  it("tracks a cached Responses API prompt once in the input event", async () => {
+    // The Responses API reports input_tokens INCLUDING the cache buckets. The loop adds the buckets
+    // back to inputTokens for the input event, so the client must report the uncached slice or the
+    // tracker sees the cached tokens twice (11 + 3 + 5 = 19 for an 11-token prompt).
+    const text = JSON.stringify({ type: "response.output_text.delta", delta: "ok" });
+    const body = `data: ${text}\n\ndata: ${JSON.stringify({
+      type: "response.completed",
+      response: {
+        usage: {
+          input_tokens: 11,
+          output_tokens: 2,
+          input_tokens_details: { cached_tokens: 3, cache_write_tokens: 5 },
+        },
+      },
+    })}\n\ndata: [DONE]\n\n`;
+    const responses = new ResponsesApiClient({
+      apiKey: "sk-test",
+      fetch: (async () =>
+        new Response(body, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        })) as typeof fetch,
+    });
+    const tracker = createCounterBudgetTracker();
+    const track = vi.spyOn(tracker, "track");
+
+    await drive({ tracker, llm: responses, model: { id: "openai/gpt-5.5" } });
+
+    expect(track).toHaveBeenNthCalledWith(1, {
+      tokens: 11,
+      model: "openai/gpt-5.5",
+      type: "input",
+    });
+    expect(tracker.getTotal().tokens).toBe(13);
   });
 
   it("test_no_tracker_leaves_the_turn_unchanged", async () => {
