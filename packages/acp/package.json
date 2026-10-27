@@ -1,6 +1,6 @@
 {
   "name": "@theokit/acp",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "description": "Agent Client Protocol (ACP) server adapter for @theokit/sdk. Exposes an SDKAgent over stdio JSON-RPC so any ACP-compatible host can drive it. ADRs D349-D360.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/usetheokit/theokit-sdk#readme",
