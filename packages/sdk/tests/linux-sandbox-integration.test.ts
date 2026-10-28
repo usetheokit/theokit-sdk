@@ -224,20 +224,36 @@ describe("M63 — seccomp via bwrap --seccomp (REAL integration)", () => {
     expect(sbx.wrapCommand("echo x")).toBeNull(); // bwrap skipped entirely
   });
 
-  // The seccomp program is x86_64 only; elsewhere the wrap carries no filter at all.
-  (process.arch === "x64" ? it : it.skip)(
-    "wrapCommand_workspace_write_has_seccomp_flag_and_pipe",
-    () => {
-      // B-600: this used to pin `3< '<file>.bpf'`, the host file a confined command could replace.
-      // The program now reaches fd 3 through a pipe fed from memory.
-      const sbx = new LinuxSandbox({ workDir: wd }, { mode: "workspace-write" });
-      const w = sbx.wrapCommand("echo x");
-      expect(w).not.toBeNull();
-      expect(w).toContain("'\\''--seccomp'\\'' '\\''3'\\''");
-      expect(w).toContain("3<&0 0<&4 4<&-");
-      expect(w).not.toMatch(/3< '.*\.bpf'/);
-    },
-  );
+  it("wrapCommand_workspace_write_has_seccomp_flag_and_redirect", () => {
+    // B-600: this used to pin `3< '<file>.bpf'`, a host file under /tmp — a writable root, so a
+    // confined command could replace it. The seccomp flag is still passed, and fd 3 is now
+    // redirected from a PIPE (`3<&0`) that `printf` fills with the program's bytes from the
+    // SDK's memory. No file is the source, so no argument names one under a writable root.
+    const sbx = new LinuxSandbox({ workDir: wd }, { mode: "workspace-write" });
+    const w = sbx.wrapCommand("echo x");
+    expect(w).not.toBeNull();
+    if (process.arch !== "x64") {
+      // The program is x86_64 only; elsewhere the wrap carries no filter at all.
+      expect(w).not.toContain("--seccomp");
+      return;
+    }
+    expect(w).toContain("'\\''--seccomp'\\'' '\\''3'\\''");
+    expect(w, "fd 3 must be redirected from the pipe, never from a path").toContain(
+      "3<&0 0<&4 4<&-",
+    );
+    expect(w).not.toMatch(/3< '.*\.bpf'/);
+    // Every argument naming a path under a writable root (the cwd, /tmp) is one of bwrap's
+    // bind/chdir targets — none is a seccomp source. `--setenv` values (HOME may sit under /tmp)
+    // are environment strings, not files bwrap opens, so they are left out first.
+    const atBwrapLevel = (w ?? "")
+      .replaceAll("'\\''", "'")
+      .replace(/'--setenv' '[^']*' '[^']*'/g, "");
+    const writablePaths = [...atBwrapLevel.matchAll(/'((?:\/tmp|\/w)(?:\/[^']*)?)'/g)].map(
+      (m) => m[1],
+    );
+    const bindTargets = new Set(["/tmp", wd, path.join(wd, ".git")]);
+    expect(writablePaths.filter((p) => !bindTargets.has(p as string))).toEqual([]);
+  });
 });
 
 describe("M57 T0.1 — wrapCommandForSandbox (pure function, single source of the wrap)", () => {
