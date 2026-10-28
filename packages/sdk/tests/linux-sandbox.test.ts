@@ -20,7 +20,7 @@ import { chmodSync, existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import {
   allowlistedEnv,
@@ -159,12 +159,12 @@ describe("B-600 — seccompProgram: the program piped from memory", () => {
 
   it("a non-x86_64 architecture refuses the seccomp program and warns once", async () => {
     // Its own warn-once latch: a shared one would make this test silence the path route's test below.
-    // The constructor tests above trip it on a non-x86_64 host, so it is reset first.
-    const { __resetSeccompProgramWarnLatchForTests, seccompProgramForArch } = await import(
-      "../src/sandbox/seccomp-delivery.js"
-    );
-    seccompProgramForArch("arm64", () => {}); // the latch as an earlier constructor leaves it
-    __resetSeccompProgramWarnLatchForTests();
+    // The constructor tests above trip it on a non-x86_64 host, so the module is loaded afresh, with
+    // an unlatched latch, instead of through a reset seam in production code.
+    const tripped = await import("../src/sandbox/seccomp-delivery.js");
+    tripped.seccompProgramForArch("arm64", () => {}); // the latch as an earlier constructor leaves it
+    vi.resetModules();
+    const { seccompProgramForArch } = await import("../src/sandbox/seccomp-delivery.js");
     const warnings: string[] = [];
     expect(seccompProgramForArch("arm64", (m) => warnings.push(m))).toBeUndefined();
     expect(seccompProgramForArch("arm64", (m) => warnings.push(m))).toBeUndefined();
