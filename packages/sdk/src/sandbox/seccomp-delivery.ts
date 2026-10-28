@@ -129,12 +129,14 @@ export function wrapWithSeccompPath(
   command: string,
   seccompPath: string,
 ): string {
+  const program = programsWritten.get(resolve(seccompPath));
+  // A remembered file is never read, so bwrap must not need it on disk: `--ro-bind-try`.
+  const bind = program === undefined ? "--ro-bind" : "--ro-bind-try";
   const flags = [
     ...bwrapArgv.slice(0, -3),
-    ...readOnlyBindForSeccompPath(policy.mode, policy.cwd, seccompPath),
+    ...readOnlyBindForSeccompPath(policy.mode, policy.cwd, seccompPath, bind),
     ...bwrapArgv.slice(-3, -1),
   ];
-  const program = programsWritten.get(resolve(seccompPath));
   if (program !== undefined) return wrapWithSeccompProgram(flags, command, program);
   return `${[...flags, "--seccomp", "3", "--"].map(shellEscapePosix).join(" ")} /bin/sh -c ${shellEscapePosix(command)} 3< ${shellEscapePosix(seccompPath)}`;
 }
@@ -147,12 +149,17 @@ export function wrapWithSeccompPath(
  * of a writable root makes that subdirectory read-only, and its ancestors stay renamable. Paths are
  * compared resolved, not through symlinks. `seccompProgram` has none of these gaps.
  */
-function readOnlyBindForSeccompPath(mode: SandboxMode, cwd: string, seccompPath: string): string[] {
+function readOnlyBindForSeccompPath(
+  mode: SandboxMode,
+  cwd: string,
+  seccompPath: string,
+  bind: "--ro-bind" | "--ro-bind-try",
+): string[] {
   const file = resolve(seccompPath);
   const dir = dirname(file);
   const roots = writableRootsFor(mode, resolve(cwd)) ?? [];
   const covers = (root: string): boolean =>
     dir === "/" || root === dir || root.startsWith(`${dir}/`);
   const target = roots.some(covers) ? file : dir;
-  return ["--ro-bind", target, target];
+  return [bind, target, target];
 }
