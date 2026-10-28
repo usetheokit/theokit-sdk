@@ -6,6 +6,9 @@
 // an allow-all program. Every read-only-bind variant left a rename route for some placement of the
 // temp dir; a pipe fed from memory leaves nothing on disk to replace.
 
+import { dirname, resolve } from "node:path";
+
+import { type SandboxMode, writableRootsFor } from "./bwrap.js";
 import { buildSeccompFilter } from "./seccomp.js";
 import { shellEscapePosix } from "./shell-escape.js";
 
@@ -88,4 +91,47 @@ export function wrapWithSeccompProgram(
     `{ printf '${octalPrintfArg(program)}' | exec ${bwrapPrefix} '--seccomp' '3' '--' ` +
     `/bin/sh -c ${shellEscapePosix(command)} 3<&0 0<&4 4<&-; } 4<&0`;
   return `exec /bin/sh -c ${shellEscapePosix(pipeline)}`;
+}
+
+/**
+ * The deprecated path route: bwrap reads the program from `seccompPath` through `3< <path>`, with
+ * the filter bound read-only on top of every writable bind so a confined command can neither
+ * overwrite it nor rename its directory away (B-600).
+ *
+ * `bwrapArgv` is the binary followed by `buildBwrapArgv`'s output, which ends `--chdir <cwd> --`;
+ * the bind goes before `--chdir`, after every writable bind.
+ */
+export function wrapWithSeccompPath(
+  bwrapArgv: readonly string[],
+  policy: { mode: SandboxMode; cwd: string },
+  command: string,
+  seccompPath: string,
+): string {
+  const flags = [
+    ...bwrapArgv.slice(0, -3),
+    ...readOnlyBindForSeccompPath(policy.mode, policy.cwd, seccompPath),
+    ...bwrapArgv.slice(-3, -1),
+    "--seccomp",
+    "3",
+    "--",
+  ];
+  return `${flags.map(shellEscapePosix).join(" ")} /bin/sh -c ${shellEscapePosix(command)} 3< ${shellEscapePosix(seccompPath)}`;
+}
+
+/**
+ * The read-only bind for the filter. The DIRECTORY is bound, because binding only the file leaves
+ * its parent renamable. Where that directory is a writable root or contains one (a filter at
+ * `/x.bpf`, or directly in the workspace or `/tmp`), binding it would take a root's write access
+ * away, so only the file is bound and a parent rename stays open there. A filter in a SUBdirectory
+ * of a writable root makes that subdirectory read-only, and its ancestors stay renamable. Paths are
+ * compared resolved, not through symlinks. `seccompProgram` has none of these gaps.
+ */
+function readOnlyBindForSeccompPath(mode: SandboxMode, cwd: string, seccompPath: string): string[] {
+  const file = resolve(seccompPath);
+  const dir = dirname(file);
+  const roots = writableRootsFor(mode, resolve(cwd)) ?? [];
+  const covers = (root: string): boolean =>
+    dir === "/" || root === dir || root.startsWith(`${dir}/`);
+  const target = roots.some(covers) ? file : dir;
+  return ["--ro-bind", target, target];
 }
