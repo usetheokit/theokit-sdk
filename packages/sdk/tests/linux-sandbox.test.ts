@@ -15,11 +15,17 @@
  * explicit opt-out, which is NOT an anomaly and therefore does not warn), and a non-x86_64
  * architecture (where the cBPF filter would kill every syscall).
  */
+import { execFileSync, spawnSync } from "node:child_process";
+import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
   allowlistedEnv,
   type BwrapDetection,
+  buildSeccompFilter,
   createSandboxBackend,
   LinuxSandbox,
   resolveSandboxPosture,
@@ -66,6 +72,132 @@ describe("M75 T2.2 — wrapCommandForSandbox", () => {
     // The program comes in via an fd 3 redirect — that is how bwrap reads it.
     expect(com).toContain("--seccomp");
     expect(com).toContain("3< ");
+  });
+});
+
+/**
+ * B-600 — the program route. The seccomp program travels to bwrap's fd 3 through a pipe fed from
+ * memory, so no file exists that a confined command could replace for a later one.
+ */
+describe("B-600 — seccompProgram: the program piped from memory", () => {
+  // Bytes 000 and 377, and a digit right after an escape: `\000` followed by `1` must stay two bytes.
+  const PROGRAM = Buffer.from([
+    0, 0x31, 0xff, 0x7f, 6, 0, 0, 0, 0, 0, 0, 0, 0x20, 0x0a, 0x27, 0x5c,
+  ]);
+
+  /** The octal escapes of the printf the wrap emits, as `/bin/sh` will read them. */
+  function printfArgumentOf(wrap: string): string {
+    // The pipeline is one argument of `exec /bin/sh -c`, so its own quotes appear as `'\''`.
+    const m = /printf '\\''((?:\\[0-7]{3})+)'\\''/.exec(wrap);
+    if (m === null) throw new Error(`no octal printf argument in the wrap: ${wrap}`);
+    return m[1] as string;
+  }
+
+  it("test_seccomp_program_printf_argument_decodes_to_the_program_bytes", () => {
+    const wrap = wrapCommandForSandbox(
+      "workspace-write",
+      { cwd: "/w", env: {}, bin: "/usr/bin/bwrap", seccompProgram: PROGRAM },
+      "true",
+    )!;
+    const decoded = execFileSync("/bin/sh", ["-c", `printf '${printfArgumentOf(wrap)}'`]);
+    expect(Buffer.compare(decoded, PROGRAM), `decoded ${decoded.toString("hex")}`).toBe(0);
+  });
+
+  it("test_seccomp_program_costs_four_characters_per_byte", () => {
+    const program = buildSeccompFilter({ networkRestricted: true });
+    const opts = { cwd: "/w", env: {}, bin: "/usr/bin/bwrap" };
+    const plain = wrapCommandForSandbox("workspace-write", opts, "true")!;
+    const piped = wrapCommandForSandbox(
+      "workspace-write",
+      { ...opts, seccompProgram: program },
+      "true",
+    )!;
+    expect(piped.length).toBeLessThanOrEqual(4 * program.length + 2 * plain.length + 64);
+  });
+
+  it("test_no_host_path_in_the_linux_sandbox_wrap", () => {
+    const s = new LinuxSandbox(
+      { workDir: "/w" },
+      { mode: "workspace-write", bin: "/usr/bin/bwrap", env: {} },
+    );
+    const w = s.wrapCommand("true")!;
+    expect(w, "the wrap must not read the program from a host file").not.toMatch(/3< /);
+    expect(w).not.toContain(".bpf");
+    expect(w).not.toContain("ab-seccomp-");
+    if (process.arch === "x64")
+      expect(w, "the filter must still be installed").toContain("--seccomp");
+  });
+
+  it("test_seccomp_program_wins_over_seccomp_path", () => {
+    const w = wrapCommandForSandbox(
+      "workspace-write",
+      { cwd: "/w", env: {}, seccompPath: "/x/f.bpf", seccompProgram: PROGRAM },
+      "true",
+    )!;
+    expect(w, "with both given the path must be ignored").not.toContain("/x/f.bpf");
+    expect(w).not.toMatch(/3< /);
+    expect(w).toContain("printf");
+  });
+
+  it("test_seccomp_program_rejects_a_length_that_is_not_a_positive_multiple_of_8", () => {
+    const wrapWith = (program: Buffer) => () =>
+      wrapCommandForSandbox(
+        "workspace-write",
+        { cwd: "/w", env: {}, seccompProgram: program },
+        "true",
+      );
+    expect(wrapWith(Buffer.alloc(0))).toThrow(TypeError);
+    expect(wrapWith(Buffer.alloc(0))).toThrow(
+      "seccompProgram must be a positive multiple of 8 bytes, got 0",
+    );
+    expect(wrapWith(Buffer.alloc(7))).toThrow(
+      "seccompProgram must be a positive multiple of 8 bytes, got 7",
+    );
+  });
+
+  it("test_a_non_x64_architecture_refuses_the_seccomp_program_and_warns", async () => {
+    // Its own warn-once latch: a shared one would make this test silence the path route's test below.
+    const { seccompProgramForArch } = await import("../src/sandbox/seccomp-delivery.js");
+    const warnings: string[] = [];
+    expect(seccompProgramForArch("arm64", (m) => warnings.push(m))).toBeUndefined();
+    expect(seccompProgramForArch("arm64", (m) => warnings.push(m))).toBeUndefined();
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/x86_64|x64/i);
+    expect(seccompProgramForArch("x64", () => {})?.length).toBeGreaterThan(0);
+  });
+
+  /** A stand-in for bwrap: skips its flags up to `--`, drains fd 3, then runs the command. */
+  function fakeBwrap(): string {
+    const dir = mkdtempSync(path.join(tmpdir(), "b600-fake-bwrap-"));
+    const bin = path.join(dir, "bwrap");
+    writeFileSync(
+      bin,
+      '#!/bin/sh\nwhile [ "$1" != "--" ]; do shift; done\nshift\ncat <&3 >/dev/null\nexec "$@"\n',
+    );
+    chmodSync(bin, 0o755);
+    return bin;
+  }
+
+  it("test_seccomp_program_wrap_keeps_a_single_quote", () => {
+    const wrap = wrapCommandForSandbox(
+      "workspace-write",
+      { cwd: "/w", env: {}, bin: fakeBwrap(), seccompProgram: PROGRAM },
+      `printf %s "it's"`,
+    )!;
+    expect(execFileSync("/bin/sh", ["-c", wrap], { input: "" }).toString()).toBe("it's");
+  });
+
+  it("test_seccomp_program_wrap_keeps_stdin_and_the_exit_status", () => {
+    const wrap = wrapCommandForSandbox(
+      "workspace-write",
+      { cwd: "/w", env: {}, bin: fakeBwrap(), seccompProgram: PROGRAM },
+      "cat; exit 7",
+    )!;
+    const r = spawnSync("/bin/sh", ["-c", wrap], { input: "piped-input" });
+    expect(r.stdout.toString(), "the command's stdin must be the caller's, not the program").toBe(
+      "piped-input",
+    );
+    expect(r.status).toBe(7);
   });
 });
 

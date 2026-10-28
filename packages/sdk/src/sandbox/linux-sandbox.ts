@@ -11,6 +11,11 @@ import type { BwrapDetection, SandboxMode } from "./bwrap.js";
 import { buildBwrapArgv, detectBwrapMemoized } from "./bwrap.js";
 import { LocalSandbox } from "./local-sandbox.js";
 import { buildSeccompFilter } from "./seccomp.js";
+import {
+  nonX64SeccompWarning,
+  restrictedSeccompProgram,
+  wrapWithSeccompProgram,
+} from "./seccomp-delivery.js";
 import { shellEscapePosix } from "./shell-escape.js";
 import type { SandboxBackend, SandboxConfig } from "./types.js";
 
@@ -37,13 +42,23 @@ export function wrapCommandForSandbox(
     network?: boolean;
     env?: Record<string, string>;
     bin?: string;
+    /** Path of a cBPF program bwrap reads through `3< <path>`. Ignored when `seccompProgram` is given. */
     seccompPath?: string;
+    /**
+     * The cBPF seccomp program, piped to bwrap's fd 3 from memory so no file holds it. Must be a
+     * positive multiple of 8 bytes (a `TypeError` otherwise). Wins over `seccompPath`.
+     */
+    seccompProgram?: Uint8Array;
   },
   command: string,
 ): string | null {
   const argv = buildBwrapArgv(mode, { cwd: opts.cwd, network: opts.network, env: opts.env });
   if (argv === null) return null; // danger-full-access: bwrap skipped
   const bin = opts.bin ?? "bwrap";
+  if (opts.seccompProgram !== undefined) {
+    const prefix = [bin, ...argv.slice(0, -1)].map(shellEscapePosix).join(" ");
+    return wrapWithSeccompProgram(prefix, command, opts.seccompProgram);
+  }
   const seccompArgv = opts.seccompPath !== undefined ? ["--seccomp", "3"] : [];
   const base = `${shellEscapePosix(bin)} ${[...argv.slice(0, -1), ...seccompArgv, "--"].map(shellEscapePosix).join(" ")} /bin/sh -c ${shellEscapePosix(command)}`;
   return opts.seccompPath !== undefined ? `${base} 3< ${shellEscapePosix(opts.seccompPath)}` : base;
@@ -121,9 +136,10 @@ export class LinuxSandbox extends LocalSandbox {
   private readonly cwd: string;
   private readonly bin: string;
   private readonly env: Record<string, string>;
-  /** M63 — path to the cBPF seccomp program written host-side; passed to `bwrap --seccomp 3` via a
-   * shell redirect. `undefined` when the network is unrestricted OR generation failed (honest fallback). */
-  private readonly seccompPath: string | undefined;
+  /** B-600 — the cBPF seccomp program, piped to `bwrap --seccomp 3` from memory (never a file a
+   * confined command could replace). `undefined` when the network is unrestricted or the arch is not
+   * x86_64 (honest fallback). */
+  private readonly seccompProgram: Uint8Array | undefined;
 
   constructor(
     config: SandboxConfig,
@@ -137,7 +153,7 @@ export class LinuxSandbox extends LocalSandbox {
     // which the outer shell would re-resolve via $PATH at spawn time (TOCTOU / hijack window).
     this.bin = opts.bin ?? "bwrap";
     this.env = opts.env ?? allowlistedEnv();
-    this.seccompPath = seccompPathForNetwork(this.network);
+    this.seccompProgram = seccompProgramForNetwork(this.network);
   }
 
   /** Extracted for test visibility — delegates to the pure `wrapCommandForSandbox` (M57, single wrap SoT). */
@@ -149,7 +165,7 @@ export class LinuxSandbox extends LocalSandbox {
         network: this.network,
         env: this.env,
         bin: this.bin,
-        seccompPath: this.seccompPath,
+        seccompProgram: this.seccompProgram,
       },
       command,
     );
@@ -209,10 +225,7 @@ export function seccompPathForArch(arch: string, warn: (m: string) => void): str
   if (arch !== "x64") {
     if (!warnedNonX64) {
       warnedNonX64 = true;
-      warn(
-        `[sandbox] seccomp syscall filter unsupported on ${arch} (x86_64 only in v1) — running without ` +
-          "the filter; bwrap FS/network confinement still applies.",
-      );
+      warn(nonX64SeccompWarning(arch));
     }
     return undefined;
   }
@@ -373,8 +386,8 @@ export function __resetInteractiveWarnLatchForTests(): void {
  * at runtime: `network:true` gave `--seccomp` interactively and not one-shot). Two copies of a
  * security rule is not duplicated form — it is duplicated KNOWLEDGE, and it had already diverged.
  */
-function seccompPathForNetwork(networkOpen: boolean): string | undefined {
-  return networkOpen ? undefined : restrictedSeccompPath();
+function seccompProgramForNetwork(networkOpen: boolean): Uint8Array | undefined {
+  return networkOpen ? undefined : restrictedSeccompProgram((m) => console.warn(redactSecrets(m)));
 }
 
 /**
@@ -463,7 +476,7 @@ export function interactiveWrapCommand(
         network: opts.network ?? false,
         env: allowlistedEnv(),
         bin,
-        seccompPath: seccompPathForNetwork(opts.network ?? false),
+        seccompProgram: seccompProgramForNetwork(opts.network ?? false),
       },
       command,
     );
