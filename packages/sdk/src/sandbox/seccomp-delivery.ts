@@ -6,9 +6,7 @@
 // an allow-all program. Every read-only-bind variant left a rename route for some placement of the
 // temp dir; a pipe fed from memory leaves nothing on disk to replace.
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 
 import { type SandboxMode, writableRootsFor } from "./bwrap.js";
 import { buildSeccompFilter } from "./seccomp.js";
@@ -105,30 +103,21 @@ export function wrapWithSeccompProgram(
   return `exec /bin/sh -c ${shellEscapePosix(PIPE_SCRIPT)} sh ${[...words, command].map(shellEscapePosix).join(" ")}`;
 }
 
-/** The programs `writeSeccompFile` wrote, by resolved path: the wrap loads these, never the file. */
+/** The programs `seccompPathForArch` wrote, by resolved path: the wrap loads these, never the file. */
 const programsWritten = new Map<string, Buffer>();
 
 /**
- * Write `program` to a fresh temp file for the deprecated path route, removed on exit, SIGINT and
- * SIGTERM. The bytes are remembered by path, so a wrap naming this file pipes the program from
- * memory: a sandbox that does not load the filter mounts `/tmp` writable and can replace the file.
+ * Remember that `path` was written with `program`, so a wrap naming that file pipes the program
+ * from memory: a sandbox that does not load the filter mounts `/tmp` writable and can replace it.
  */
-export function writeSeccompFile(program: Buffer): string {
-  const dir = mkdtempSync(join(tmpdir(), "ab-seccomp-"));
-  const path = join(dir, "filter.bpf");
-  writeFileSync(path, program);
-  programsWritten.set(path, Buffer.from(program));
-  const cleanup = (): void => rmSync(dir, { recursive: true, force: true });
-  process.once("exit", cleanup);
-  process.once("SIGINT", cleanup);
-  process.once("SIGTERM", cleanup);
-  return path;
+export function rememberSeccompFile(path: string, program: Buffer): void {
+  programsWritten.set(resolve(path), Buffer.from(program));
 }
 
 /**
  * The deprecated path route, with the filter bound read-only on top of every writable bind so the
  * confined command can neither overwrite it nor rename its directory away (B-600). A path
- * `writeSeccompFile` wrote is piped from memory instead of read, because another sandbox, one with
+ * `seccompPathForArch` wrote is piped from memory instead of read, because another sandbox, one with
  * no filter, can still replace that file; any other path is read through `3< <path>`.
  *
  * `bwrapArgv` is the binary followed by `buildBwrapArgv`'s output, which ends `--chdir <cwd> --`;

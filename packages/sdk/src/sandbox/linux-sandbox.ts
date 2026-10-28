@@ -2,7 +2,9 @@
 // `BwrapSandbox` to `LinuxSandbox`: bwrap is the IMPLEMENTATION, Linux is the contract — swapping the
 // mechanism (landlock, for example) should not change the name the consumer imports.
 
-import { dirname } from "node:path";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 
 import { redactSecrets } from "../internal/security/redact.js";
 import type { BwrapDetection, SandboxMode } from "./bwrap.js";
@@ -11,10 +13,10 @@ import { LocalSandbox } from "./local-sandbox.js";
 import { buildSeccompFilter } from "./seccomp.js";
 import {
   nonX64SeccompWarning,
+  rememberSeccompFile,
   restrictedSeccompProgram,
   wrapWithSeccompPath,
   wrapWithSeccompProgram,
-  writeSeccompFile,
 } from "./seccomp-delivery.js";
 import { shellEscapePosix } from "./shell-escape.js";
 import type { SandboxBackend, SandboxConfig } from "./types.js";
@@ -238,7 +240,14 @@ export function seccompPathForArch(arch: string, warn: (m: string) => void): str
     return undefined;
   }
   try {
-    return writeSeccompFile(buildSeccompFilter({ networkRestricted: true }));
+    const dir = mkdtempSync(join(tmpdir(), "ab-seccomp-"));
+    const path = join(dir, "filter.bpf");
+    const program = buildSeccompFilter({ networkRestricted: true });
+    writeFileSync(path, program);
+    rememberSeccompFile(path, program); // the wraps pipe these bytes, never the file's (B-600)
+    const cleanup = (): void => rmSync(dir, { recursive: true, force: true });
+    for (const event of ["exit", "SIGINT", "SIGTERM"] as const) process.once(event, cleanup);
+    return path;
   } catch (err) {
     warn(
       `[sandbox] seccomp filter unavailable (${err instanceof Error ? err.message : String(err)}) — ` +
