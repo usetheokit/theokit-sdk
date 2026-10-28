@@ -6,6 +6,7 @@
 // an allow-all program. Every read-only-bind variant left a rename route for some placement of the
 // temp dir; a pipe fed from memory leaves nothing on disk to replace.
 
+import { rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 import { type SandboxMode, writableRootsFor } from "./bwrap.js";
@@ -112,6 +113,22 @@ const programsWritten = new Map<string, Buffer>();
  */
 export function rememberSeccompFile(path: string, program: Buffer): void {
   programsWritten.set(resolve(path), Buffer.from(program));
+}
+
+/**
+ * Remove `dir` when the process exits or is told to stop. A SIGINT or SIGTERM listener cancels
+ * Node's default termination, so once the directory is gone the signal is raised again when no other
+ * listener remains: the process ends as it would have, and a host's own handler still decides.
+ */
+export function removeDirOnExit(dir: string): void {
+  const cleanup = (): void => rmSync(dir, { recursive: true, force: true });
+  process.once("exit", cleanup);
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    process.once(signal, () => {
+      cleanup();
+      if (process.listenerCount(signal) === 0) process.kill(process.pid, signal);
+    });
+  }
 }
 
 /**
