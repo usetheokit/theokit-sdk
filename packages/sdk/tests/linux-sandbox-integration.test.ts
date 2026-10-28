@@ -9,13 +9,15 @@
 // workspace, allows in cwd, blocks the network, .git read-only, quotes survive the double shell, seccomp
 // blocks ptrace and AF_INET but allows AF_UNIX. They had never run in CI until M75.
 
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { afterAll, describe, expect, it } from "vitest";
 
 import {
+  allowlistedEnv,
+  buildSeccompFilter,
   createSandboxBackend,
   detectBwrap,
   LinuxSandbox,
@@ -136,7 +138,15 @@ describe("M53 review fixes — MEDIUM-1 absolute bin + MEDIUM-2 posture", () => 
       { mode: "workspace-write", bin: "/opt/trusted/bwrap" },
     );
     const wrapped = (sbx as unknown as { wrapCommand(c: string): string }).wrapCommand("echo hi");
-    expect(wrapped.startsWith("'/opt/trusted/bwrap' ")).toBe(true);
+    // B-600: on x86_64 the bwrap argv is passed, after the program, as positional arguments of the
+    // `exec /bin/sh -c '<script>' sh` that pipes the seccomp program; the script `exec`s them, so
+    // the bin is still the first word bwrap's process runs.
+    if (process.arch === "x64") {
+      expect(wrapped.startsWith("exec /bin/sh -c ")).toBe(true); // absolute: no PATH lookup
+      expect(wrapped.split(/ sh '(?:\\[0-7]{3})+' '\/opt\/trusted\/bwrap' /)).toHaveLength(2);
+    } else {
+      expect(wrapped.startsWith("'/opt/trusted/bwrap' ")).toBe(true);
+    }
     expect(wrapped).not.toMatch(/(^|\s)bwrap\s/); // never the bare name
   });
 
@@ -214,11 +224,34 @@ describe("M63 — seccomp via bwrap --seccomp (REAL integration)", () => {
   });
 
   it("wrapCommand_workspace_write_has_seccomp_flag_and_redirect", () => {
+    // B-600: this used to pin `3< '<file>.bpf'`, a host file under /tmp — a writable root, so a
+    // confined command could replace it. The seccomp flag is still passed, and fd 3 is now
+    // redirected from a PIPE (`3<&0`) that `printf` fills with the program's bytes from the
+    // SDK's memory. No file is the source, so no argument names one under a writable root.
     const sbx = new LinuxSandbox({ workDir: wd }, { mode: "workspace-write" });
     const w = sbx.wrapCommand("echo x");
     expect(w).not.toBeNull();
-    expect(w).toContain("'--seccomp' '3'");
-    expect(w).toMatch(/3< '.*\.bpf'/);
+    if (process.arch !== "x64") {
+      // The program is x86_64 only; elsewhere the wrap carries no filter at all.
+      expect(w).not.toContain("--seccomp");
+      return;
+    }
+    expect(w).toContain("'--seccomp' '3' '--'");
+    expect(w, "fd 3 must be redirected from the pipe, never from a path").toContain(
+      "3<&0 0<&4 4<&-",
+    );
+    expect(w).not.toMatch(/3< '.*\.bpf'/);
+    // Every argument naming a path under a writable root (the cwd, /tmp) is one of bwrap's
+    // bind/chdir targets — none is a seccomp source. `--setenv` values (HOME may sit under /tmp)
+    // are environment strings, not files bwrap opens, so they are left out first.
+    const atBwrapLevel = (w ?? "")
+      .replaceAll("'\\''", "'")
+      .replace(/'--setenv' '[^']*' '[^']*'/g, "");
+    const writablePaths = [...atBwrapLevel.matchAll(/'((?:\/tmp|\/w)(?:\/[^']*)?)'/g)].map(
+      (m) => m[1],
+    );
+    const bindTargets = new Set(["/tmp", wd, path.join(wd, ".git")]);
+    expect(writablePaths.filter((p) => !bindTargets.has(p as string))).toEqual([]);
   });
 });
 
@@ -262,16 +295,160 @@ describe("M57 T0.1 — wrapCommandForSandbox (pure function, single source of th
     const viaInstance = (sbx as unknown as { wrapCommand(c: string): string }).wrapCommand(
       "echo x",
     );
-    const seccompPath = viaInstance.includes("--seccomp")
-      ? viaInstance.split("3< '")[1]?.slice(0, -1)
-      : undefined;
+    // B-600: the instance pipes the memoized program instead of naming a file, so the pure function
+    // is given the same bytes rather than a path parsed out of a `3<` redirect.
+    const seccompProgram =
+      process.arch === "x64" ? buildSeccompFilter({ networkRestricted: true }) : undefined;
     const viaPure = wrapCommandForSandbox(
       "workspace-write",
-      { cwd: "/home/u/proj", network: false, bin: "/opt/bwrap", env, seccompPath },
+      { cwd: "/home/u/proj", network: false, bin: "/opt/bwrap", env, seccompProgram },
       "echo x",
     );
     expect(viaInstance).toBe(viaPure);
   });
+});
+
+describe("B-600 — the deprecated seccompPath route binds the filter read-only", () => {
+  // Live: a consumer composing its own wrap with `seccompPath`. The confined command tries every
+  // route a writable root offers; the read-only bind must refuse each, and the file keep its bytes.
+  // x86_64 only: the filter it feeds bwrap is the x86_64 program, which kills every other arch.
+  (HAS_BWRAP && process.arch === "x64" ? it : it.skip)(
+    "the_seccomp_filter_cannot_be_written_from_inside_the_sandbox",
+    async () => {
+      const detection = detectBwrap(realProbes);
+      if (!detection.ok) throw new Error(`bwrap vanished mid-run: ${detection.reason}`);
+      const filter = seccompPathForArch("x64", () => {})!;
+      const dir = path.dirname(filter);
+      try {
+        const before = readFileSync(filter);
+        const q = (p: string): string => `'${p.replace(/'/g, "'\\''")}'`;
+        const attack =
+          `(printf 'x' > ${q(filter)}) 2>/dev/null && echo OVERWRITE-OK || echo OVERWRITE-REFUSED; ` +
+          `(mv ${q(dir)} ${q(`${dir}.moved`)}) 2>/dev/null && echo RENAME-OK || echo RENAME-REFUSED`;
+        const wrapped = wrapCommandForSandbox(
+          "workspace-write",
+          { cwd: workDir, env: allowlistedEnv(), bin: detection.bin, seccompPath: filter },
+          attack,
+        )!;
+        const r = await new LocalSandbox({ workDir, timeoutMs: 10_000 }).execute(wrapped);
+
+        expect(r.stdout).toContain("OVERWRITE-REFUSED");
+        expect(r.stdout).toContain("RENAME-REFUSED");
+        expect(existsSync(`${dir}.moved`)).toBe(false);
+        expect(Buffer.compare(readFileSync(filter), before), "the filter's bytes changed").toBe(0);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+        rmSync(`${dir}.moved`, { recursive: true, force: true });
+      }
+    },
+  );
+
+  // Live: the read-only bind sits only on the wrap that loads the filter. A network-open wrap carries
+  // no filter and mounts /tmp writable, so it can replace the file the helper wrote; the next wrap
+  // that names that path must still load the program the helper built, not the file's new bytes.
+  (HAS_BWRAP && process.arch === "x64" ? it : it.skip)(
+    "a sandbox without seccompPath cannot weaken the filter a later seccompPath wrap loads",
+    async () => {
+      const detection = detectBwrap(realProbes);
+      if (!detection.ok) throw new Error(`bwrap vanished mid-run: ${detection.reason}`);
+      const filter = seccompPathForArch("x64", () => {})!;
+      const dir = path.dirname(filter);
+      const allowAll = "\\006\\000\\000\\000\\000\\000\\377\\177"; // BPF_RET|K, SECCOMP_RET_ALLOW
+      const inetProbe =
+        'python3 -c "import socket\n' +
+        'try:\n socket.socket(socket.AF_INET, socket.SOCK_STREAM); print(\\"INET-OK\\")\n' +
+        'except OSError as e: print(\\"INET-DENIED\\", e.errno)"';
+      const q = (p: string): string => `'${p.replace(/'/g, "'\\''")}'`;
+      const run = (cmd: string, opts: { network: boolean; seccompPath?: string }) =>
+        new LocalSandbox({ workDir, timeoutMs: 10_000 }).execute(
+          wrapCommandForSandbox(
+            "workspace-write",
+            { cwd: workDir, env: allowlistedEnv(), bin: detection.bin, ...opts },
+            cmd,
+          )!,
+        );
+      try {
+        const attack = await run(
+          `printf '${allowAll}' > ${q(filter)} && echo OVERWRITTEN; ` +
+            `mv ${q(dir)} ${q(`${dir}.moved`)} && mkdir ${q(dir)} && ` +
+            `printf '${allowAll}' > ${q(filter)} && echo REPLACED`,
+          { network: true },
+        );
+        // The attack itself succeeds: nothing protects the file from a wrap that does not load it.
+        expect(attack.stdout).toContain("OVERWRITTEN");
+        expect(attack.stdout).toContain("REPLACED");
+
+        const later = await run(inetProbe, { network: false, seccompPath: filter });
+        expect(later.stdout).toContain("INET-DENIED");
+        expect(later.stdout).not.toContain("INET-OK");
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+        rmSync(`${dir}.moved`, { recursive: true, force: true });
+      }
+    },
+  );
+
+  // Live: a helper-written path is piped from memory, so a wrap naming it must not need the file.
+  // Its bind was a plain `--ro-bind`, and bwrap exited 1 once the directory was gone.
+  (HAS_BWRAP && process.arch === "x64" ? it : it.skip)(
+    "a helper-written seccompPath still confines after its directory is removed",
+    async () => {
+      const detection = detectBwrap(realProbes);
+      if (!detection.ok) throw new Error(`bwrap vanished mid-run: ${detection.reason}`);
+      const filter = seccompPathForArch("x64", () => {})!;
+      rmSync(path.dirname(filter), { recursive: true, force: true });
+      const wrapped = wrapCommandForSandbox(
+        "workspace-write",
+        { cwd: workDir, env: allowlistedEnv(), bin: detection.bin, seccompPath: filter },
+        "echo CONFINED",
+      )!;
+      const r = await new LocalSandbox({ workDir, timeoutMs: 10_000 }).execute(wrapped);
+      expect(r.stderr).not.toContain("Can't find source path");
+      expect(r.exitCode).toBe(0);
+      expect(r.stdout).toContain("CONFINED");
+    },
+  );
+
+  // Live: a consumer's own filter file, which this process did not write, is the one route still
+  // read through `3< <path>`. The bind must refuse the attack and bwrap still load the filter.
+  (HAS_BWRAP && process.arch === "x64" ? it : it.skip)(
+    "a consumer-owned seccompPath is read from the file, bound read-only, and loaded",
+    async () => {
+      const detection = detectBwrap(realProbes);
+      if (!detection.ok) throw new Error(`bwrap vanished mid-run: ${detection.reason}`);
+      const dir = mkdtempSync(path.join(tmpdir(), "b600-foreign-"));
+      const filter = path.join(dir, "filter.bpf");
+      writeFileSync(filter, buildSeccompFilter({ networkRestricted: true }));
+      const q = (p: string): string => `'${p.replace(/'/g, "'\\''")}'`;
+      const inetProbe =
+        'python3 -c "import socket\n' +
+        'try:\n socket.socket(socket.AF_INET, socket.SOCK_STREAM); print(\\"INET-OK\\")\n' +
+        'except OSError as e: print(\\"INET-DENIED\\", e.errno)"';
+      try {
+        const before = readFileSync(filter);
+        const wrapped = wrapCommandForSandbox(
+          "workspace-write",
+          { cwd: workDir, env: allowlistedEnv(), bin: detection.bin, seccompPath: filter },
+          `(printf 'x' > ${q(filter)}) 2>/dev/null && echo OVERWRITE-OK || echo OVERWRITE-REFUSED; ` +
+            `(mv ${q(dir)} ${q(`${dir}.moved`)}) 2>/dev/null && echo RENAME-OK || echo RENAME-REFUSED; ` +
+            inetProbe,
+        )!;
+        expect(wrapped, "a file this process did not write is read through fd 3").toContain(
+          ` 3< ${q(filter)}`,
+        );
+        const r = await new LocalSandbox({ workDir, timeoutMs: 10_000 }).execute(wrapped);
+
+        expect(r.stdout).toContain("OVERWRITE-REFUSED");
+        expect(r.stdout).toContain("RENAME-REFUSED");
+        expect(r.stdout).toContain("INET-DENIED");
+        expect(r.stdout).not.toContain("INET-OK");
+        expect(Buffer.compare(readFileSync(filter), before), "the filter's bytes changed").toBe(0);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+        rmSync(`${dir}.moved`, { recursive: true, force: true });
+      }
+    },
+  );
 });
 
 describe("M63 review HIGH — no brick on non-x86_64 arch", () => {
