@@ -16,7 +16,7 @@
  * architecture (where the cBPF filter would kill every syscall).
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -442,6 +442,62 @@ describe("M75 T2.2 — honest degradation (negative cases)", () => {
     expect(p, "on arm64 no seccomp path may be returned").toBeUndefined();
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toMatch(/x86_64|x64/i);
+  });
+});
+
+/**
+ * B-600 review (loop-code-review LCR0123): seccompPathForArch's temp-dir cleanup listens for
+ * SIGINT and SIGTERM. A listener cancels Node's default termination, so a process that wrote the
+ * filter ignored its first SIGTERM. Each case runs in its own Node process, since it signals itself.
+ */
+describe("B-600 — the seccomp temp-dir cleanup leaves the process terminable", () => {
+  // The root `tsx` devDependency as a loader of this Node, resolved from the repository root, so the
+  // child is one process and its signal is the one spawnSync reports.
+  const REPO_ROOT = path.join(import.meta.dirname, "..", "..", "..");
+  const MODULE = path.join(import.meta.dirname, "..", "src", "sandbox", "linux-sandbox.ts");
+
+  function runChild(signal: "SIGTERM" | "SIGINT", ownHandler: boolean) {
+    const dir = mkdtempSync(path.join(tmpdir(), "b600-signal-"));
+    onTestFinished(() => removeTempDirRobustSync(dir));
+    const script = path.join(dir, "child.ts");
+    writeFileSync(
+      script,
+      [
+        `import { seccompPathForArch } from ${JSON.stringify(MODULE)};`,
+        ownHandler
+          ? `process.on(${JSON.stringify(signal)}, () => { console.log("HANDLED"); process.exit(0); });`
+          : "",
+        `console.log(seccompPathForArch("x64", () => {}));`,
+        `process.kill(process.pid, ${JSON.stringify(signal)});`,
+        `setTimeout(() => console.log("SURVIVED"), 3000);`,
+      ].join("\n"),
+    );
+    const r = spawnSync(process.execPath, ["--import", "tsx", script], {
+      cwd: REPO_ROOT,
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    const filter = r.stdout.split("\n")[0] ?? "";
+    return { ...r, filterDir: path.dirname(filter), filter };
+  }
+
+  for (const signal of ["SIGTERM", "SIGINT"] as const) {
+    it(`a ${signal} still ends a process that wrote the filter, and the temp dir is removed`, () => {
+      const r = runChild(signal, false);
+      expect(r.filter, r.stderr).toMatch(/ab-seccomp-.*filter\.bpf$/);
+      expect(r.stdout, "the signal was swallowed by the cleanup listener").not.toContain(
+        "SURVIVED",
+      );
+      expect(r.signal).toBe(signal);
+      expect(existsSync(r.filterDir), "the temp dir outlived the process").toBe(false);
+    });
+  }
+
+  it("a host's own SIGTERM handler still decides, and the cleanup does not kill it", () => {
+    const r = runChild("SIGTERM", true);
+    expect(r.stdout).toContain("HANDLED");
+    expect(r.status).toBe(0);
+    expect(r.signal).toBeNull();
   });
 });
 
