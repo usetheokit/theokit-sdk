@@ -11,7 +11,15 @@ allow-all program. Both wraps now pipe the program to bubblewrap from memory, an
 multiple of 8; a `TypeError` otherwise). It wins over `seccompPath` when both are given.
 
 `seccompPath`, `restrictedSeccompPath` and `seccompPathForArch` are deprecated in favour of
-`seccompProgram`, and keep working. With `seccompPath` the wrap now binds the filter's directory
-read-only, or the file where the directory is a writable root or contains one. That is only a
-partial fix: a temp dir nested inside a writable root can still be swapped by renaming an ancestor,
-and where only the file is bound its parent can be renamed.
+`seccompProgram`, and keep working. A `seccompPath` that `restrictedSeccompPath` or
+`seccompPathForArch` returned is now piped from the bytes the process wrote, so a sandbox started
+without the filter (a network-open one mounts `/tmp` writable) can replace the file without effect.
+For any other path the wrap binds the filter's directory read-only, or the file where the directory
+is a writable root or contains one. That is only a partial fix: the bind guards the file only from
+the command that loads it, a temp dir nested inside a writable root can still be swapped by renaming
+an ancestor, and where only the file is bound its parent can be renamed. Code that reads the
+helper's file itself is not covered either.
+
+The piped wrap passes the program, bubblewrap's arguments and the command to `/bin/sh` as
+positional arguments, so each is shell-escaped once. A command containing a single quote no longer
+fails to parse when the PTY's `$SHELL` is fish.

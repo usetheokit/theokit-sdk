@@ -2,9 +2,7 @@
 // `BwrapSandbox` to `LinuxSandbox`: bwrap is the IMPLEMENTATION, Linux is the contract — swapping the
 // mechanism (landlock, for example) should not change the name the consumer imports.
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 
 import { redactSecrets } from "../internal/security/redact.js";
 import type { BwrapDetection, SandboxMode } from "./bwrap.js";
@@ -16,6 +14,7 @@ import {
   restrictedSeccompProgram,
   wrapWithSeccompPath,
   wrapWithSeccompProgram,
+  writeSeccompFile,
 } from "./seccomp-delivery.js";
 import { shellEscapePosix } from "./shell-escape.js";
 import type { SandboxBackend, SandboxConfig } from "./types.js";
@@ -45,8 +44,9 @@ export function wrapCommandForSandbox(
     bin?: string;
     /**
      * @deprecated Pass `seccompProgram`: a confined command may replace a file before a later one
-     * loads it (B-600). Bound read-only (see `wrapWithSeccompPath` for what that leaves open);
-     * ignored when `seccompProgram` is given.
+     * loads it (B-600). A path `seccompPathForArch` or `restrictedSeccompPath` returned is piped
+     * from the bytes this process wrote; any other path is read from the file, bound read-only (see
+     * `wrapWithSeccompPath` for what that leaves open). Ignored when `seccompProgram` is given.
      */
     seccompPath?: string;
     /**
@@ -61,8 +61,7 @@ export function wrapCommandForSandbox(
   if (argv === null) return null; // danger-full-access: bwrap skipped
   const bin = opts.bin ?? "bwrap";
   if (opts.seccompProgram !== undefined) {
-    const prefix = [bin, ...argv.slice(0, -1)].map(shellEscapePosix).join(" ");
-    return wrapWithSeccompProgram(prefix, command, opts.seccompProgram);
+    return wrapWithSeccompProgram([bin, ...argv.slice(0, -1)], command, opts.seccompProgram);
   }
   if (opts.seccompPath === undefined) {
     return `${[bin, ...argv].map(shellEscapePosix).join(" ")} /bin/sh -c ${shellEscapePosix(command)}`;
@@ -239,14 +238,7 @@ export function seccompPathForArch(arch: string, warn: (m: string) => void): str
     return undefined;
   }
   try {
-    const dir = mkdtempSync(join(tmpdir(), "ab-seccomp-"));
-    const path = join(dir, "filter.bpf");
-    writeFileSync(path, buildSeccompFilter({ networkRestricted: true }));
-    const cleanup = (): void => rmSync(dir, { recursive: true, force: true });
-    process.once("exit", cleanup);
-    process.once("SIGINT", cleanup);
-    process.once("SIGTERM", cleanup);
-    return path;
+    return writeSeccompFile(buildSeccompFilter({ networkRestricted: true }));
   } catch (err) {
     warn(
       `[sandbox] seccomp filter unavailable (${err instanceof Error ? err.message : String(err)}) — ` +
