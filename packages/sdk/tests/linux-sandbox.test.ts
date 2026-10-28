@@ -301,6 +301,22 @@ describe("B-600 — seccompPath: the filter bound read-only", () => {
     expect(bind, "before bwrap's `--`").toBeLessThan(w.indexOf("'--chdir'"));
   });
 
+  it("a helper-written seccompPath is bound only if it still exists, since the wrap never reads it", () => {
+    // The program of a path seccompPathForArch wrote is piped from memory. A plain `--ro-bind` made
+    // bwrap exit 1 ("Can't find source path") once anything removed the directory.
+    const filter = seccompPathForArch("x64", () => {})!;
+    const dir = path.dirname(filter);
+    onTestFinished(() => removeTempDirRobustSync(dir));
+    const w = wrapCommandForSandbox(
+      "workspace-write",
+      { cwd: "/w", env: {}, seccompPath: filter },
+      "true",
+    )!;
+    expect(w).toContain(`'--ro-bind-try' '${dir}' '${dir}'`);
+    expect(indexOfBind(w, dir), "no plain bind that needs the directory on disk").toBe(-1);
+    expect(w).not.toContain("3< ");
+  });
+
   it("a seccompPath whose directory is an ancestor of the workspace binds only the file", () => {
     // `/x.bpf`: its directory is `/`, an ancestor of the workspace. Binding `/` read-only would
     // take the workspace's write access away, so only the file is bound.
