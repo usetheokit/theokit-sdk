@@ -36,6 +36,7 @@ import {
 // By explicit module path, not through the barrel: these are test seams and the package keeps them
 // out of its public surface (see the note at the foot of src/sandbox/index.ts).
 import { __resetSandboxWarnLatchForTests } from "../src/sandbox/linux-sandbox.js";
+import { shellEscapePosix } from "../src/sandbox/shell-escape.js";
 import { removeTempDirRobustSync } from "./helpers/temp-workspace.js";
 
 const detectOk = (): BwrapDetection => ({ ok: true, bin: "/usr/bin/bwrap" });
@@ -196,6 +197,61 @@ describe("B-600 — seccompProgram: the program piped from memory", () => {
     )!;
     expect(shellWords(wrap, "fish")).toEqual(shellWords(wrap, "sh"));
     expect(shellWords(wrap, "sh")).toContain(`printf %s "it's"`);
+  });
+
+  // A backslash before a quote, or before another backslash, is where fish and sh part ways: fish
+  // reads `\'` and `\\` inside single quotes as escapes. Under fish the first two payloads used to
+  // leave `(touch /tmp/pwned)` and `;touch PWNED;#` unquoted, run by the host shell outside bwrap.
+  const FISH_HOSTILE = [
+    String.raw`\'(touch /tmp/pwned)\'`,
+    String.raw`a\';touch PWNED;#`,
+    String.raw`echo a\\b`,
+    String.raw`printf 'a\\nb'`,
+    String.raw`trailing\\`,
+  ];
+  const ROUTES = {
+    "the piped program": { seccompProgram: PROGRAM },
+    "no filter": {},
+    "a foreign seccompPath": { seccompPath: "/tmp/ab-seccomp-X/filter.bpf" },
+  } as const;
+
+  for (const [route, extra] of Object.entries(ROUTES)) {
+    it.each(FISH_HOSTILE)(`${route}: %j parses to the same words under fish as under sh`, (cmd) => {
+      const wrap = wrapCommandForSandbox(
+        "workspace-write",
+        { cwd: "/w", env: {}, bin: "/usr/bin/bwrap", ...extra },
+        cmd,
+      )!;
+      expect(shellWords(wrap, "fish")).toEqual(shellWords(wrap, "sh"));
+      expect(shellWords(wrap, "sh"), "the command must reach /bin/sh -c verbatim").toContain(cmd);
+    });
+  }
+
+  it("every word of quotes, backslashes and a letter, up to six long, escapes to itself in both shells", () => {
+    let words = [""];
+    for (let n = 0; n < 6; n++)
+      words = [
+        ...words,
+        ...words.map((w) => w + "a"),
+        ...words.map((w) => w + "\\"),
+        ...words.map((w) => w + "'"),
+      ];
+    for (const w of new Set(words)) {
+      const escaped = shellEscapePosix(w);
+      expect(shellWords(escaped, "sh"), `sh: ${escaped}`).toEqual([w]);
+      expect(shellWords(escaped, "fish"), `fish: ${escaped}`).toEqual([w]);
+    }
+  });
+
+  it("the piped wrap keeps a backslash in the command", () => {
+    const wrap = wrapCommandForSandbox(
+      "workspace-write",
+      { cwd: "/w", env: {}, bin: fakeBwrap(), seccompProgram: PROGRAM },
+      String.raw`printf %s 'a\\b' "c\'"`,
+    )!;
+    expect(execFileSync("/bin/sh", ["-c", wrap], { input: "" }).toString()).toBe(
+      String.raw`a\\bc\'`,
+    );
   });
 
   it("the piped wrap keeps a single quote in the command", () => {

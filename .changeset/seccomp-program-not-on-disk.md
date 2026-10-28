@@ -21,5 +21,7 @@ an ancestor, and where only the file is bound its parent can be renamed. Code th
 helper's file itself is not covered either.
 
 The piped wrap passes the program, bubblewrap's arguments and the command to `/bin/sh` as
-positional arguments, so each is shell-escaped once. A command containing a single quote no longer
-fails to parse when the PTY's `$SHELL` is fish.
+positional arguments, so each is shell-escaped once. Every sandbox wrap also writes a backslash that
+precedes a quote, a backslash or the end of a word outside the single quotes, so the wrap parses to
+the same words under fish as under sh. Before, when the PTY's `$SHELL` was fish, a command containing
+`\'` could end the quoting early and run its tail in the host shell, outside bubblewrap.
