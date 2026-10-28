@@ -1314,7 +1314,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `resetSandboxWarnLatch` | function | Test seam: reset the WARN-once latch.  |
 | `resolveSandbox` | function | Resolve a {@link SandboxProvider } to a concrete backend for `ctx`. |
 | `resolveSandboxPosture` | function | MEDIUM-2: compute the posture so a surface (TUI footer) can show enforcement DURABLY instead of a one-shot warn.  |
-| `restrictedSeccompPath` | function | M57 — exported so the interactive PTY backend reuses the SAME memoized x64-gated seccomp program. |
+| `restrictedSeccompPath` | function | M57 — the memoized x64-gated seccomp program, written once per process to a temp file. |
 | `SandboxBackend` | class | The execution capability handed to an agent tool, and the extension point for new environments.  |
 | `SandboxConfig` | interface | Construction-time settings shared by every {@link SandboxBackend } .  |
 | `SandboxMode` | type | Codex's three canonical modes.  |
