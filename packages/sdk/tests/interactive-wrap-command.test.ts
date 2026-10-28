@@ -104,7 +104,7 @@ describe("M75 T3.2 — interactiveWrapCommand", () => {
     );
   });
 
-  it("test_no_host_path_in_the_interactive_wrap", () => {
+  it("the interactive wrap names no host file for the seccomp program", () => {
     // B-600: the program a confined command loads must not live in a file an earlier confined
     // command could replace. The interactive wrap pipes it from memory, so no path is named.
     const out = interactiveWrapCommand({ mode: "workspace-write", detect: detectOk })("bash", "/w");
