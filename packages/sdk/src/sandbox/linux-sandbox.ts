@@ -2,7 +2,7 @@
 // `BwrapSandbox` to `LinuxSandbox`: bwrap is the IMPLEMENTATION, Linux is the contract — swapping the
 // mechanism (landlock, for example) should not change the name the consumer imports.
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -14,6 +14,7 @@ import { buildSeccompFilter } from "./seccomp.js";
 import {
   nonX64SeccompWarning,
   rememberSeccompFile,
+  removeDirOnExit,
   restrictedSeccompProgram,
   wrapWithSeccompPath,
   wrapWithSeccompProgram,
@@ -245,8 +246,7 @@ export function seccompPathForArch(arch: string, warn: (m: string) => void): str
     const program = buildSeccompFilter({ networkRestricted: true });
     writeFileSync(path, program);
     rememberSeccompFile(path, program); // the wraps pipe these bytes, never the file's (B-600)
-    const cleanup = (): void => rmSync(dir, { recursive: true, force: true });
-    for (const event of ["exit", "SIGINT", "SIGTERM"] as const) process.once(event, cleanup);
+    removeDirOnExit(dir);
     return path;
   } catch (err) {
     warn(
