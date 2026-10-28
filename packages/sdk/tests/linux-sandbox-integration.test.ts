@@ -138,13 +138,12 @@ describe("M53 review fixes — MEDIUM-1 absolute bin + MEDIUM-2 posture", () => 
       { mode: "workspace-write", bin: "/opt/trusted/bwrap" },
     );
     const wrapped = (sbx as unknown as { wrapCommand(c: string): string }).wrapCommand("echo hi");
-    // B-600: on x86_64 the bwrap call sits inside the `exec /bin/sh -c '<pipeline>'` that pipes the
-    // seccomp program, one quoting level deeper; read it at its own level. The bin is still the
-    // first word bwrap's process runs.
-    const bwrapLevel = wrapped.replaceAll("'\\''", "'");
+    // B-600: on x86_64 the bwrap argv is passed, after the program, as positional arguments of the
+    // `exec /bin/sh -c '<script>' sh` that pipes the seccomp program; the script `exec`s them, so
+    // the bin is still the first word bwrap's process runs.
     if (process.arch === "x64") {
       expect(wrapped.startsWith("exec /bin/sh -c ")).toBe(true); // absolute: no PATH lookup
-      expect(bwrapLevel.split("| exec '/opt/trusted/bwrap' ")).toHaveLength(2);
+      expect(wrapped.split(/ sh '(?:\\[0-7]{3})+' '\/opt\/trusted\/bwrap' /)).toHaveLength(2);
     } else {
       expect(wrapped.startsWith("'/opt/trusted/bwrap' ")).toBe(true);
     }
@@ -237,7 +236,7 @@ describe("M63 — seccomp via bwrap --seccomp (REAL integration)", () => {
       expect(w).not.toContain("--seccomp");
       return;
     }
-    expect(w).toContain("'\\''--seccomp'\\'' '\\''3'\\''");
+    expect(w).toContain("'--seccomp' '3' '--'");
     expect(w, "fd 3 must be redirected from the pipe, never from a path").toContain(
       "3<&0 0<&4 4<&-",
     );
@@ -337,6 +336,51 @@ describe("B-600 — the deprecated seccompPath route binds the filter read-only"
         expect(r.stdout).toContain("RENAME-REFUSED");
         expect(existsSync(`${dir}.moved`)).toBe(false);
         expect(Buffer.compare(readFileSync(filter), before), "the filter's bytes changed").toBe(0);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+        rmSync(`${dir}.moved`, { recursive: true, force: true });
+      }
+    },
+  );
+
+  // Live: the read-only bind sits only on the wrap that loads the filter. A network-open wrap carries
+  // no filter and mounts /tmp writable, so it can replace the file the helper wrote; the next wrap
+  // that names that path must still load the program the helper built, not the file's new bytes.
+  (HAS_BWRAP && process.arch === "x64" ? it : it.skip)(
+    "a sandbox without seccompPath cannot weaken the filter a later seccompPath wrap loads",
+    async () => {
+      const detection = detectBwrap(realProbes);
+      if (!detection.ok) throw new Error(`bwrap vanished mid-run: ${detection.reason}`);
+      const filter = seccompPathForArch("x64", () => {})!;
+      const dir = path.dirname(filter);
+      const allowAll = "\\006\\000\\000\\000\\000\\000\\377\\177"; // BPF_RET|K, SECCOMP_RET_ALLOW
+      const inetProbe =
+        'python3 -c "import socket\n' +
+        'try:\n socket.socket(socket.AF_INET, socket.SOCK_STREAM); print(\\"INET-OK\\")\n' +
+        'except OSError as e: print(\\"INET-DENIED\\", e.errno)"';
+      const q = (p: string): string => `'${p.replace(/'/g, "'\\''")}'`;
+      const run = (cmd: string, opts: { network: boolean; seccompPath?: string }) =>
+        new LocalSandbox({ workDir, timeoutMs: 10_000 }).execute(
+          wrapCommandForSandbox(
+            "workspace-write",
+            { cwd: workDir, env: allowlistedEnv(), bin: detection.bin, ...opts },
+            cmd,
+          )!,
+        );
+      try {
+        const attack = await run(
+          `printf '${allowAll}' > ${q(filter)} && echo OVERWRITTEN; ` +
+            `mv ${q(dir)} ${q(`${dir}.moved`)} && mkdir ${q(dir)} && ` +
+            `printf '${allowAll}' > ${q(filter)} && echo REPLACED`,
+          { network: true },
+        );
+        // The attack itself succeeds: nothing protects the file from a wrap that does not load it.
+        expect(attack.stdout).toContain("OVERWRITTEN");
+        expect(attack.stdout).toContain("REPLACED");
+
+        const later = await run(inetProbe, { network: false, seccompPath: filter });
+        expect(later.stdout).toContain("INET-DENIED");
+        expect(later.stdout).not.toContain("INET-OK");
       } finally {
         rmSync(dir, { recursive: true, force: true });
         rmSync(`${dir}.moved`, { recursive: true, force: true });
