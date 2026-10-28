@@ -14,6 +14,7 @@ import { buildSeccompFilter } from "./seccomp.js";
 import {
   nonX64SeccompWarning,
   restrictedSeccompProgram,
+  wrapWithSeccompPath,
   wrapWithSeccompProgram,
 } from "./seccomp-delivery.js";
 import { shellEscapePosix } from "./shell-escape.js";
@@ -42,7 +43,11 @@ export function wrapCommandForSandbox(
     network?: boolean;
     env?: Record<string, string>;
     bin?: string;
-    /** Path of a cBPF program bwrap reads through `3< <path>`. Ignored when `seccompProgram` is given. */
+    /**
+     * @deprecated Pass `seccompProgram`: a confined command may replace a file before a later one
+     * loads it (B-600). Bound read-only (see `wrapWithSeccompPath` for what that leaves open);
+     * ignored when `seccompProgram` is given.
+     */
     seccompPath?: string;
     /**
      * The cBPF seccomp program, piped to bwrap's fd 3 from memory so no file holds it. Must be a
@@ -59,9 +64,10 @@ export function wrapCommandForSandbox(
     const prefix = [bin, ...argv.slice(0, -1)].map(shellEscapePosix).join(" ");
     return wrapWithSeccompProgram(prefix, command, opts.seccompProgram);
   }
-  const seccompArgv = opts.seccompPath !== undefined ? ["--seccomp", "3"] : [];
-  const base = `${shellEscapePosix(bin)} ${[...argv.slice(0, -1), ...seccompArgv, "--"].map(shellEscapePosix).join(" ")} /bin/sh -c ${shellEscapePosix(command)}`;
-  return opts.seccompPath !== undefined ? `${base} 3< ${shellEscapePosix(opts.seccompPath)}` : base;
+  if (opts.seccompPath === undefined) {
+    return `${[bin, ...argv].map(shellEscapePosix).join(" ")} /bin/sh -c ${shellEscapePosix(command)}`;
+  }
+  return wrapWithSeccompPath([bin, ...argv], { mode, cwd: opts.cwd }, command, opts.seccompPath);
 }
 
 /**
@@ -220,6 +226,9 @@ let warnedNonX64 = false;
  * accepts it. So we REFUSE to install on non-x64 and WARN through the honest-downgrade channel (bwrap
  * FS/network confinement still applies), exactly like the bwrap-missing fallback. `arch` is injectable
  * for tests. Cleaned on exit AND on SIGINT/SIGTERM (TUI Ctrl+C would otherwise leak the temp dir).
+ *
+ * @deprecated Writes the program to a temp file a confined command may be able to replace (B-600).
+ * Use `wrapCommandForSandbox`'s `seccompProgram`, which keeps the program in memory.
  */
 export function seccompPathForArch(arch: string, warn: (m: string) => void): string | undefined {
   if (arch !== "x64") {
@@ -248,7 +257,12 @@ export function seccompPathForArch(arch: string, warn: (m: string) => void): str
 }
 
 let seccompFilterPath: string | undefined | null; // undefined = not tried; null = resolved absent
-/** M57 — exported so the interactive PTY backend reuses the SAME memoized x64-gated seccomp program. */
+/**
+ * M57 — the memoized x64-gated seccomp program, written once per process to a temp file.
+ *
+ * @deprecated The SDK's own wraps no longer read this file (B-600): a file under `/tmp` is one a
+ * `workspace-write` command can replace. Use `wrapCommandForSandbox`'s `seccompProgram`.
+ */
 export function restrictedSeccompPath(): string | undefined {
   if (seccompFilterPath !== undefined) return seccompFilterPath ?? undefined;
   const path = seccompPathForArch(process.arch, (m) => console.warn(redactSecrets(m)));

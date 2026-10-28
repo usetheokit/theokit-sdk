@@ -201,6 +201,77 @@ describe("B-600 — seccompProgram: the program piped from memory", () => {
   });
 });
 
+/**
+ * B-600 — the deprecated path route. A consumer still passing `seccompPath` gets the filter bound
+ * read-only on top of every writable bind, so a confined command cannot overwrite it or rename its
+ * directory away. Where the directory is a writable root or contains one, only the file is bound,
+ * so the workspace stays writable.
+ */
+describe("B-600 — seccompPath: the filter bound read-only", () => {
+  const indexOfBind = (w: string, target: string): number =>
+    w.indexOf(`'--ro-bind' '${target}' '${target}'`);
+
+  it("test_seccomp_path_dir_is_read_only_after_every_writable_bind", () => {
+    const w = wrapCommandForSandbox(
+      "workspace-write",
+      { cwd: "/w", env: {}, seccompPath: "/tmp/ab-seccomp-X/filter.bpf" },
+      "true",
+    )!;
+    const bind = indexOfBind(w, "/tmp/ab-seccomp-X");
+    expect(bind, "the filter's directory must be bound read-only").toBeGreaterThan(-1);
+    expect(bind, "after the writable /tmp bind, or /tmp would cover it").toBeGreaterThan(
+      w.lastIndexOf("'--bind'"),
+    );
+    expect(bind, "before bwrap's `--`").toBeLessThan(w.indexOf("'--chdir'"));
+  });
+
+  it("test_seccomp_path_in_an_ancestor_of_the_workspace_binds_the_file", () => {
+    // `/x.bpf`: its directory is `/`, an ancestor of the workspace. Binding `/` read-only would
+    // take the workspace's write access away, so only the file is bound.
+    const w = wrapCommandForSandbox(
+      "workspace-write",
+      { cwd: "/home/u/proj", env: {}, seccompPath: "/x.bpf" },
+      "true",
+    )!;
+    expect(indexOfBind(w, "/x.bpf")).toBeGreaterThan(w.lastIndexOf("'--bind'"));
+    expect(w.match(/'--ro-bind' '\/' '\/'/g), "`/` must stay bound only once, first").toHaveLength(
+      1,
+    );
+    expect(w.endsWith(" 3< '/x.bpf'")).toBe(true);
+  });
+
+  it("test_seccomp_path_directly_in_tmp_binds_the_file", () => {
+    const w = wrapCommandForSandbox(
+      "workspace-write",
+      { cwd: "/w", env: {}, seccompPath: "/tmp/f.bpf" },
+      "true",
+    )!;
+    expect(indexOfBind(w, "/tmp/f.bpf")).toBeGreaterThan(w.lastIndexOf("'--bind'"));
+    expect(indexOfBind(w, "/tmp"), "/tmp must stay writable").toBe(-1);
+  });
+
+  it("test_seccomp_path_under_read_only_binds_the_directory", () => {
+    // read-only has no writable root, so nothing stops the directory itself being bound.
+    const w = wrapCommandForSandbox(
+      "read-only",
+      { cwd: "/w", env: {}, seccompPath: "/tmp/ab-seccomp-X/filter.bpf" },
+      "true",
+    )!;
+    expect(indexOfBind(w, "/tmp/ab-seccomp-X")).toBeLessThan(w.indexOf("'--chdir'"));
+    expect(indexOfBind(w, "/tmp/ab-seccomp-X")).toBeGreaterThan(-1);
+  });
+
+  it("test_seccomp_path_inside_the_workspace_binds_the_file", () => {
+    const w = wrapCommandForSandbox(
+      "workspace-write",
+      { cwd: "/w", env: {}, seccompPath: "/w/filter.bpf" },
+      "true",
+    )!;
+    expect(indexOfBind(w, "/w/filter.bpf")).toBeGreaterThan(w.lastIndexOf("'--bind'"));
+    expect(indexOfBind(w, "/w"), "the workspace must stay writable").toBe(-1);
+  });
+});
+
 describe("M75 T2.2 — allowlistedEnv", () => {
   it("test_reinjects_only_what_is_allowed_and_discards_the_rest", () => {
     // Codex's env_clear model: the child gets what it needs to run a shell, never the parent's env
