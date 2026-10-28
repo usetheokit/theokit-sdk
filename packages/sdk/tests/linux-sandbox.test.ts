@@ -88,8 +88,8 @@ describe("B-600 — seccompProgram: the program piped from memory", () => {
 
   /** The octal escapes of the printf the wrap emits, as `/bin/sh` will read them. */
   function printfArgumentOf(wrap: string): string {
-    // The pipeline is one argument of `exec /bin/sh -c`, so its own quotes appear as `'\''`.
-    const m = /printf '\\''((?:\\[0-7]{3})+)'\\''/.exec(wrap);
+    // The program is the first positional argument of `exec /bin/sh -c <script> sh`, escaped once.
+    const m = / sh '((?:\\[0-7]{3})+)' /.exec(wrap);
     if (m === null) throw new Error(`no octal printf argument in the wrap: ${wrap}`);
     return m[1] as string;
   }
@@ -158,7 +158,12 @@ describe("B-600 — seccompProgram: the program piped from memory", () => {
 
   it("a non-x86_64 architecture refuses the seccomp program and warns once", async () => {
     // Its own warn-once latch: a shared one would make this test silence the path route's test below.
-    const { seccompProgramForArch } = await import("../src/sandbox/seccomp-delivery.js");
+    // The constructor tests above trip it on a non-x86_64 host, so it is reset first.
+    const { __resetSeccompProgramWarnLatchForTests, seccompProgramForArch } = await import(
+      "../src/sandbox/seccomp-delivery.js"
+    );
+    seccompProgramForArch("arm64", () => {}); // the latch as an earlier constructor leaves it
+    __resetSeccompProgramWarnLatchForTests();
     const warnings: string[] = [];
     expect(seccompProgramForArch("arm64", (m) => warnings.push(m))).toBeUndefined();
     expect(seccompProgramForArch("arm64", (m) => warnings.push(m))).toBeUndefined();
@@ -179,6 +184,19 @@ describe("B-600 — seccompProgram: the program piped from memory", () => {
     chmodSync(bin, 0o755);
     return bin;
   }
+
+  it("the piped wrap parses to the same words under fish's single-quote rules as under sh's", () => {
+    // fish reads `\'` and `\\` as escapes inside single quotes; sh reads every byte there literally.
+    // A word escaped twice puts a backslash before a quote inside single quotes, and the two shells
+    // then split the wrap differently. Each word must be escaped exactly once.
+    const wrap = wrapCommandForSandbox(
+      "workspace-write",
+      { cwd: "/w", env: {}, bin: "/usr/bin/bwrap", seccompProgram: PROGRAM },
+      `printf %s "it's"`,
+    )!;
+    expect(shellWords(wrap, "fish")).toEqual(shellWords(wrap, "sh"));
+    expect(shellWords(wrap, "sh")).toContain(`printf %s "it's"`);
+  });
 
   it("the piped wrap keeps a single quote in the command", () => {
     const wrap = wrapCommandForSandbox(
@@ -375,3 +393,24 @@ describe("M75 T2.2 — resolveSandboxPosture", () => {
     expect(p.enforced, "danger-full-access may never report confinement").toBe(false);
   });
 });
+
+/**
+ * Split a line of plain words (no expansions) by quoting rules: `sh` reads a single-quoted region
+ * literally; `fish` treats `\'` and `\\` inside it as escapes. Outside quotes both read `\x` as `x`.
+ */
+function shellWords(line: string, dialect: "sh" | "fish"): string[] {
+  const single =
+    dialect === "sh" ? String.raw`'[^']*'` : String.raw`'(?:\\[\\']|\\(?![\\'])|[^'\\])*'`;
+  const part = new RegExp(String.raw`${single}|\\[^]|[^\s'\\]`, "g");
+  const word = new RegExp(`(?:${part.source})+`, "g");
+  if (line.replace(word, "").trim() !== "")
+    throw new Error(`unparsed quote under ${dialect}: ${line}`);
+  const decode = (p: string): string => {
+    if (p.startsWith("'")) {
+      const body = p.slice(1, -1);
+      return dialect === "fish" ? body.replace(/\\([\\'])/g, "$1") : body;
+    }
+    return p.startsWith("\\") ? p.slice(1) : p;
+  };
+  return [...line.matchAll(word)].map((m) => m[0].replace(part, decode));
+}
