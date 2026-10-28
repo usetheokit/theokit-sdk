@@ -30,6 +30,9 @@ import { __resetInteractiveWarnLatchForTests } from "../src/sandbox/linux-sandbo
 const detectOk = (): BwrapDetection => ({ ok: true, bin: "/usr/bin/bwrap" });
 const detectFailure = (): BwrapDetection => ({ ok: false, reason: "bwrap not found in PATH" });
 
+/** The wrap with one quoting level removed, where the seccomp pipeline nests the bwrap flags. */
+const atBwrapLevel = (wrap: string | null): string => (wrap ?? "").replaceAll("'\\''", "'");
+
 describe("M75 T3.2 — interactiveWrapCommand", () => {
   it("test_confines_when_bwrap_exists", () => {
     const wrap = interactiveWrapCommand({ mode: "workspace-write", detect: detectOk });
@@ -84,15 +87,32 @@ describe("M75 T3.2 — interactiveWrapCommand", () => {
     // passed vacuously: `not.toContain("--bind /w /w")` would be true even with the bind
     // present, because the real form is `'--bind' '/w' '/w'`. A test that cannot fail proves
     // nothing, and this was precisely the one protecting read-only mode.
-    expect(out).toContain("'--ro-bind' '/' '/'");
-    expect(out, "read-only must not write-bind the cwd").not.toContain("'--bind' '/w' '/w'");
+    // B-600: on x86_64 the bwrap flags sit one quoting level deeper, inside the pipeline that pipes
+    // the seccomp program; `atBwrapLevel` reads them at their own level.
+    expect(atBwrapLevel(out)).toContain("'--ro-bind' '/' '/'");
+    expect(atBwrapLevel(out), "read-only must not write-bind the cwd").not.toContain(
+      "'--bind' '/w' '/w'",
+    );
   });
 
   it("test_the_negative_lens_on_read_only_is_able_to_fail", () => {
     // Proof the assertion above is NOT vacuous: in the mode that MUST write to the cwd, the same
     // the searched string does appear. Without this counter-proof, `not.toContain` would stay green forever.
     const rw = interactiveWrapCommand({ mode: "workspace-write", detect: detectOk })("bash", "/w");
-    expect(rw, "workspace-write MUST write-bind the cwd").toContain("'--bind' '/w' '/w'");
+    expect(atBwrapLevel(rw), "workspace-write MUST write-bind the cwd").toContain(
+      "'--bind' '/w' '/w'",
+    );
+  });
+
+  it("test_no_host_path_in_the_interactive_wrap", () => {
+    // B-600: the program a confined command loads must not live in a file an earlier confined
+    // command could replace. The interactive wrap pipes it from memory, so no path is named.
+    const out = interactiveWrapCommand({ mode: "workspace-write", detect: detectOk })("bash", "/w");
+    expect(out, "the wrap must not read the program from a host file").not.toMatch(/3< /);
+    expect(out).not.toContain(".bpf");
+    expect(out).not.toContain("ab-seccomp-");
+    if (process.arch === "x64")
+      expect(out, "the filter must still be installed").toContain("--seccomp");
   });
 
   it("test_detection_is_consulted_per_wrap_not_frozen_at_construction", () => {

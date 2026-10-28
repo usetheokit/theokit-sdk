@@ -16,6 +16,7 @@ import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 
 import {
+  buildSeccompFilter,
   createSandboxBackend,
   detectBwrap,
   LinuxSandbox,
@@ -136,7 +137,11 @@ describe("M53 review fixes — MEDIUM-1 absolute bin + MEDIUM-2 posture", () => 
       { mode: "workspace-write", bin: "/opt/trusted/bwrap" },
     );
     const wrapped = (sbx as unknown as { wrapCommand(c: string): string }).wrapCommand("echo hi");
-    expect(wrapped.startsWith("'/opt/trusted/bwrap' ")).toBe(true);
+    // B-600: on x86_64 the bwrap call sits inside the `exec /bin/sh -c '<pipeline>'` that pipes the
+    // seccomp program, one quoting level deeper; read it at its own level. The bin is still the
+    // first word bwrap's process runs.
+    const bwrapLevel = wrapped.replaceAll("'\\''", "'");
+    expect(bwrapLevel).toMatch(/(^|\| exec )'\/opt\/trusted\/bwrap' /);
     expect(wrapped).not.toMatch(/(^|\s)bwrap\s/); // never the bare name
   });
 
@@ -213,12 +218,15 @@ describe("M63 — seccomp via bwrap --seccomp (REAL integration)", () => {
     expect(sbx.wrapCommand("echo x")).toBeNull(); // bwrap skipped entirely
   });
 
-  it("wrapCommand_workspace_write_has_seccomp_flag_and_redirect", () => {
+  it("wrapCommand_workspace_write_has_seccomp_flag_and_pipe", () => {
+    // B-600: this used to pin `3< '<file>.bpf'`, the host file a confined command could replace.
+    // The program now reaches fd 3 through a pipe fed from memory.
     const sbx = new LinuxSandbox({ workDir: wd }, { mode: "workspace-write" });
     const w = sbx.wrapCommand("echo x");
     expect(w).not.toBeNull();
-    expect(w).toContain("'--seccomp' '3'");
-    expect(w).toMatch(/3< '.*\.bpf'/);
+    expect(w).toContain("'\\''--seccomp'\\'' '\\''3'\\''");
+    expect(w).toContain("3<&0 0<&4 4<&-");
+    expect(w).not.toMatch(/3< '.*\.bpf'/);
   });
 });
 
@@ -262,12 +270,13 @@ describe("M57 T0.1 — wrapCommandForSandbox (pure function, single source of th
     const viaInstance = (sbx as unknown as { wrapCommand(c: string): string }).wrapCommand(
       "echo x",
     );
-    const seccompPath = viaInstance.includes("--seccomp")
-      ? viaInstance.split("3< '")[1]?.slice(0, -1)
-      : undefined;
+    // B-600: the instance pipes the memoized program instead of naming a file, so the pure function
+    // is given the same bytes rather than a path parsed out of a `3<` redirect.
+    const seccompProgram =
+      process.arch === "x64" ? buildSeccompFilter({ networkRestricted: true }) : undefined;
     const viaPure = wrapCommandForSandbox(
       "workspace-write",
-      { cwd: "/home/u/proj", network: false, bin: "/opt/bwrap", env, seccompPath },
+      { cwd: "/home/u/proj", network: false, bin: "/opt/bwrap", env, seccompProgram },
       "echo x",
     );
     expect(viaInstance).toBe(viaPure);
