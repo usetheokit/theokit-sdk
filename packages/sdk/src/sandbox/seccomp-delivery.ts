@@ -23,11 +23,6 @@ export function nonX64SeccompWarning(arch: string): string {
 
 let warnedNonX64Program = false;
 
-/** Test seam: reset `seccompProgramForArch`'s warn-once latch. Not re-exported from the barrel. */
-export function __resetSeccompProgramWarnLatchForTests(): void {
-  warnedNonX64Program = false;
-}
-
 /**
  * The restricted-network program for `arch`, or `undefined` where it must not be installed.
  *
