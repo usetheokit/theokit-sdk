@@ -20,7 +20,7 @@ import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import {
   allowlistedEnv,
@@ -36,6 +36,7 @@ import {
 // By explicit module path, not through the barrel: these are test seams and the package keeps them
 // out of its public surface (see the note at the foot of src/sandbox/index.ts).
 import { __resetSandboxWarnLatchForTests } from "../src/sandbox/linux-sandbox.js";
+import { removeTempDirRobustSync } from "./helpers/temp-workspace.js";
 
 const detectOk = (): BwrapDetection => ({ ok: true, bin: "/usr/bin/bwrap" });
 const detectFailure = (): BwrapDetection => ({ ok: false, reason: "bwrap not found in PATH" });
@@ -93,7 +94,7 @@ describe("B-600 — seccompProgram: the program piped from memory", () => {
     return m[1] as string;
   }
 
-  it("test_seccomp_program_printf_argument_decodes_to_the_program_bytes", () => {
+  it("the printf argument of the wrap decodes to the program's exact bytes", () => {
     const wrap = wrapCommandForSandbox(
       "workspace-write",
       { cwd: "/w", env: {}, bin: "/usr/bin/bwrap", seccompProgram: PROGRAM },
@@ -103,7 +104,7 @@ describe("B-600 — seccompProgram: the program piped from memory", () => {
     expect(Buffer.compare(decoded, PROGRAM), `decoded ${decoded.toString("hex")}`).toBe(0);
   });
 
-  it("test_seccomp_program_costs_four_characters_per_byte", () => {
+  it("the piped program costs about four characters per byte of the wrap", () => {
     const program = buildSeccompFilter({ networkRestricted: true });
     const opts = { cwd: "/w", env: {}, bin: "/usr/bin/bwrap" };
     const plain = wrapCommandForSandbox("workspace-write", opts, "true")!;
@@ -115,7 +116,7 @@ describe("B-600 — seccompProgram: the program piped from memory", () => {
     expect(piped.length).toBeLessThanOrEqual(4 * program.length + 2 * plain.length + 64);
   });
 
-  it("test_no_host_path_in_the_linux_sandbox_wrap", () => {
+  it("LinuxSandbox's wrap names no host file for the seccomp program", () => {
     const s = new LinuxSandbox(
       { workDir: "/w" },
       { mode: "workspace-write", bin: "/usr/bin/bwrap", env: {} },
@@ -128,7 +129,7 @@ describe("B-600 — seccompProgram: the program piped from memory", () => {
       expect(w, "the filter must still be installed").toContain("--seccomp");
   });
 
-  it("test_seccomp_program_wins_over_seccomp_path", () => {
+  it("seccompProgram wins over seccompPath when both are given", () => {
     const w = wrapCommandForSandbox(
       "workspace-write",
       { cwd: "/w", env: {}, seccompPath: "/x/f.bpf", seccompProgram: PROGRAM },
@@ -139,7 +140,7 @@ describe("B-600 — seccompProgram: the program piped from memory", () => {
     expect(w).toContain("printf");
   });
 
-  it("test_seccomp_program_rejects_a_length_that_is_not_a_positive_multiple_of_8", () => {
+  it("seccompProgram rejects a length that is not a positive multiple of 8", () => {
     const wrapWith = (program: Buffer) => () =>
       wrapCommandForSandbox(
         "workspace-write",
@@ -155,7 +156,7 @@ describe("B-600 — seccompProgram: the program piped from memory", () => {
     );
   });
 
-  it("test_a_non_x64_architecture_refuses_the_seccomp_program_and_warns", async () => {
+  it("a non-x86_64 architecture refuses the seccomp program and warns once", async () => {
     // Its own warn-once latch: a shared one would make this test silence the path route's test below.
     const { seccompProgramForArch } = await import("../src/sandbox/seccomp-delivery.js");
     const warnings: string[] = [];
@@ -169,6 +170,7 @@ describe("B-600 — seccompProgram: the program piped from memory", () => {
   /** A stand-in for bwrap: skips its flags up to `--`, drains fd 3, then runs the command. */
   function fakeBwrap(): string {
     const dir = mkdtempSync(path.join(tmpdir(), "b600-fake-bwrap-"));
+    onTestFinished(() => removeTempDirRobustSync(dir));
     const bin = path.join(dir, "bwrap");
     writeFileSync(
       bin,
@@ -178,7 +180,7 @@ describe("B-600 — seccompProgram: the program piped from memory", () => {
     return bin;
   }
 
-  it("test_seccomp_program_wrap_keeps_a_single_quote", () => {
+  it("the piped wrap keeps a single quote in the command", () => {
     const wrap = wrapCommandForSandbox(
       "workspace-write",
       { cwd: "/w", env: {}, bin: fakeBwrap(), seccompProgram: PROGRAM },
@@ -187,7 +189,7 @@ describe("B-600 — seccompProgram: the program piped from memory", () => {
     expect(execFileSync("/bin/sh", ["-c", wrap], { input: "" }).toString()).toBe("it's");
   });
 
-  it("test_seccomp_program_wrap_keeps_stdin_and_the_exit_status", () => {
+  it("the piped wrap keeps the command's stdin and exit status", () => {
     const wrap = wrapCommandForSandbox(
       "workspace-write",
       { cwd: "/w", env: {}, bin: fakeBwrap(), seccompProgram: PROGRAM },
@@ -211,7 +213,7 @@ describe("B-600 — seccompPath: the filter bound read-only", () => {
   const indexOfBind = (w: string, target: string): number =>
     w.indexOf(`'--ro-bind' '${target}' '${target}'`);
 
-  it("test_seccomp_path_dir_is_read_only_after_every_writable_bind", () => {
+  it("a seccompPath directory is bound read-only after every writable bind", () => {
     const w = wrapCommandForSandbox(
       "workspace-write",
       { cwd: "/w", env: {}, seccompPath: "/tmp/ab-seccomp-X/filter.bpf" },
@@ -225,7 +227,7 @@ describe("B-600 — seccompPath: the filter bound read-only", () => {
     expect(bind, "before bwrap's `--`").toBeLessThan(w.indexOf("'--chdir'"));
   });
 
-  it("test_seccomp_path_in_an_ancestor_of_the_workspace_binds_the_file", () => {
+  it("a seccompPath whose directory is an ancestor of the workspace binds only the file", () => {
     // `/x.bpf`: its directory is `/`, an ancestor of the workspace. Binding `/` read-only would
     // take the workspace's write access away, so only the file is bound.
     const w = wrapCommandForSandbox(
@@ -240,7 +242,7 @@ describe("B-600 — seccompPath: the filter bound read-only", () => {
     expect(w.endsWith(" 3< '/x.bpf'")).toBe(true);
   });
 
-  it("test_seccomp_path_directly_in_tmp_binds_the_file", () => {
+  it("a seccompPath directly in /tmp binds only the file", () => {
     const w = wrapCommandForSandbox(
       "workspace-write",
       { cwd: "/w", env: {}, seccompPath: "/tmp/f.bpf" },
@@ -250,7 +252,7 @@ describe("B-600 — seccompPath: the filter bound read-only", () => {
     expect(indexOfBind(w, "/tmp"), "/tmp must stay writable").toBe(-1);
   });
 
-  it("test_seccomp_path_under_read_only_binds_the_directory", () => {
+  it("a seccompPath under read-only mode binds the directory", () => {
     // read-only has no writable root, so nothing stops the directory itself being bound.
     const w = wrapCommandForSandbox(
       "read-only",
@@ -261,7 +263,7 @@ describe("B-600 — seccompPath: the filter bound read-only", () => {
     expect(indexOfBind(w, "/tmp/ab-seccomp-X")).toBeGreaterThan(-1);
   });
 
-  it("test_seccomp_path_inside_the_workspace_binds_the_file", () => {
+  it("a seccompPath directly in the workspace binds only the file", () => {
     const w = wrapCommandForSandbox(
       "workspace-write",
       { cwd: "/w", env: {}, seccompPath: "/w/filter.bpf" },
