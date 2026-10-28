@@ -9,7 +9,7 @@
 // workspace, allows in cwd, blocks the network, .git read-only, quotes survive the double shell, seccomp
 // blocks ptrace and AF_INET but allows AF_UNIX. They had never run in CI until M75.
 
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -381,6 +381,68 @@ describe("B-600 — the deprecated seccompPath route binds the filter read-only"
         const later = await run(inetProbe, { network: false, seccompPath: filter });
         expect(later.stdout).toContain("INET-DENIED");
         expect(later.stdout).not.toContain("INET-OK");
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+        rmSync(`${dir}.moved`, { recursive: true, force: true });
+      }
+    },
+  );
+
+  // Live: a helper-written path is piped from memory, so a wrap naming it must not need the file.
+  // Its bind was a plain `--ro-bind`, and bwrap exited 1 once the directory was gone.
+  (HAS_BWRAP && process.arch === "x64" ? it : it.skip)(
+    "a helper-written seccompPath still confines after its directory is removed",
+    async () => {
+      const detection = detectBwrap(realProbes);
+      if (!detection.ok) throw new Error(`bwrap vanished mid-run: ${detection.reason}`);
+      const filter = seccompPathForArch("x64", () => {})!;
+      rmSync(path.dirname(filter), { recursive: true, force: true });
+      const wrapped = wrapCommandForSandbox(
+        "workspace-write",
+        { cwd: workDir, env: allowlistedEnv(), bin: detection.bin, seccompPath: filter },
+        "echo CONFINED",
+      )!;
+      const r = await new LocalSandbox({ workDir, timeoutMs: 10_000 }).execute(wrapped);
+      expect(r.stderr).not.toContain("Can't find source path");
+      expect(r.exitCode).toBe(0);
+      expect(r.stdout).toContain("CONFINED");
+    },
+  );
+
+  // Live: a consumer's own filter file, which this process did not write, is the one route still
+  // read through `3< <path>`. The bind must refuse the attack and bwrap still load the filter.
+  (HAS_BWRAP && process.arch === "x64" ? it : it.skip)(
+    "a consumer-owned seccompPath is read from the file, bound read-only, and loaded",
+    async () => {
+      const detection = detectBwrap(realProbes);
+      if (!detection.ok) throw new Error(`bwrap vanished mid-run: ${detection.reason}`);
+      const dir = mkdtempSync(path.join(tmpdir(), "b600-foreign-"));
+      const filter = path.join(dir, "filter.bpf");
+      writeFileSync(filter, buildSeccompFilter({ networkRestricted: true }));
+      const q = (p: string): string => `'${p.replace(/'/g, "'\\''")}'`;
+      const inetProbe =
+        'python3 -c "import socket\n' +
+        'try:\n socket.socket(socket.AF_INET, socket.SOCK_STREAM); print(\\"INET-OK\\")\n' +
+        'except OSError as e: print(\\"INET-DENIED\\", e.errno)"';
+      try {
+        const before = readFileSync(filter);
+        const wrapped = wrapCommandForSandbox(
+          "workspace-write",
+          { cwd: workDir, env: allowlistedEnv(), bin: detection.bin, seccompPath: filter },
+          `(printf 'x' > ${q(filter)}) 2>/dev/null && echo OVERWRITE-OK || echo OVERWRITE-REFUSED; ` +
+            `(mv ${q(dir)} ${q(`${dir}.moved`)}) 2>/dev/null && echo RENAME-OK || echo RENAME-REFUSED; ` +
+            inetProbe,
+        )!;
+        expect(wrapped, "a file this process did not write is read through fd 3").toContain(
+          ` 3< ${q(filter)}`,
+        );
+        const r = await new LocalSandbox({ workDir, timeoutMs: 10_000 }).execute(wrapped);
+
+        expect(r.stdout).toContain("OVERWRITE-REFUSED");
+        expect(r.stdout).toContain("RENAME-REFUSED");
+        expect(r.stdout).toContain("INET-DENIED");
+        expect(r.stdout).not.toContain("INET-OK");
+        expect(Buffer.compare(readFileSync(filter), before), "the filter's bytes changed").toBe(0);
       } finally {
         rmSync(dir, { recursive: true, force: true });
         rmSync(`${dir}.moved`, { recursive: true, force: true });
