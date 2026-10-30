@@ -2,7 +2,7 @@
 // `BwrapSandbox` to `LinuxSandbox`: bwrap is the IMPLEMENTATION, Linux is the contract — swapping the
 // mechanism (landlock, for example) should not change the name the consumer imports.
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -11,6 +11,14 @@ import type { BwrapDetection, SandboxMode } from "./bwrap.js";
 import { buildBwrapArgv, detectBwrapMemoized } from "./bwrap.js";
 import { LocalSandbox } from "./local-sandbox.js";
 import { buildSeccompFilter } from "./seccomp.js";
+import {
+  nonX64SeccompWarning,
+  rememberSeccompFile,
+  removeDirOnExit,
+  restrictedSeccompProgram,
+  wrapWithSeccompPath,
+  wrapWithSeccompProgram,
+} from "./seccomp-delivery.js";
 import { shellEscapePosix } from "./shell-escape.js";
 import type { SandboxBackend, SandboxConfig } from "./types.js";
 
@@ -37,16 +45,31 @@ export function wrapCommandForSandbox(
     network?: boolean;
     env?: Record<string, string>;
     bin?: string;
+    /**
+     * @deprecated Pass `seccompProgram`: a confined command may replace a file before a later one
+     * loads it (B-600). A path `seccompPathForArch` or `restrictedSeccompPath` returned is piped
+     * from the bytes this process wrote; any other path is read from the file, bound read-only (see
+     * `wrapWithSeccompPath` for what that leaves open). Ignored when `seccompProgram` is given.
+     */
     seccompPath?: string;
+    /**
+     * The cBPF seccomp program, piped to bwrap's fd 3 from memory so no file holds it. Must be a
+     * positive multiple of 8 bytes (a `TypeError` otherwise). Wins over `seccompPath`.
+     */
+    seccompProgram?: Uint8Array;
   },
   command: string,
 ): string | null {
   const argv = buildBwrapArgv(mode, { cwd: opts.cwd, network: opts.network, env: opts.env });
   if (argv === null) return null; // danger-full-access: bwrap skipped
   const bin = opts.bin ?? "bwrap";
-  const seccompArgv = opts.seccompPath !== undefined ? ["--seccomp", "3"] : [];
-  const base = `${shellEscapePosix(bin)} ${[...argv.slice(0, -1), ...seccompArgv, "--"].map(shellEscapePosix).join(" ")} /bin/sh -c ${shellEscapePosix(command)}`;
-  return opts.seccompPath !== undefined ? `${base} 3< ${shellEscapePosix(opts.seccompPath)}` : base;
+  if (opts.seccompProgram !== undefined) {
+    return wrapWithSeccompProgram([bin, ...argv.slice(0, -1)], command, opts.seccompProgram);
+  }
+  if (opts.seccompPath === undefined) {
+    return `${[bin, ...argv].map(shellEscapePosix).join(" ")} /bin/sh -c ${shellEscapePosix(command)}`;
+  }
+  return wrapWithSeccompPath([bin, ...argv], { mode, cwd: opts.cwd }, command, opts.seccompPath);
 }
 
 /**
@@ -121,9 +144,10 @@ export class LinuxSandbox extends LocalSandbox {
   private readonly cwd: string;
   private readonly bin: string;
   private readonly env: Record<string, string>;
-  /** M63 — path to the cBPF seccomp program written host-side; passed to `bwrap --seccomp 3` via a
-   * shell redirect. `undefined` when the network is unrestricted OR generation failed (honest fallback). */
-  private readonly seccompPath: string | undefined;
+  /** B-600 — the cBPF seccomp program, piped to `bwrap --seccomp 3` from memory (never a file a
+   * confined command could replace). `undefined` when the network is unrestricted or the arch is not
+   * x86_64 (honest fallback). */
+  private readonly seccompProgram: Uint8Array | undefined;
 
   constructor(
     config: SandboxConfig,
@@ -137,7 +161,7 @@ export class LinuxSandbox extends LocalSandbox {
     // which the outer shell would re-resolve via $PATH at spawn time (TOCTOU / hijack window).
     this.bin = opts.bin ?? "bwrap";
     this.env = opts.env ?? allowlistedEnv();
-    this.seccompPath = seccompPathForNetwork(this.network);
+    this.seccompProgram = seccompProgramForNetwork(this.network);
   }
 
   /** Extracted for test visibility — delegates to the pure `wrapCommandForSandbox` (M57, single wrap SoT). */
@@ -149,7 +173,7 @@ export class LinuxSandbox extends LocalSandbox {
         network: this.network,
         env: this.env,
         bin: this.bin,
-        seccompPath: this.seccompPath,
+        seccompProgram: this.seccompProgram,
       },
       command,
     );
@@ -204,26 +228,25 @@ let warnedNonX64 = false;
  * accepts it. So we REFUSE to install on non-x64 and WARN through the honest-downgrade channel (bwrap
  * FS/network confinement still applies), exactly like the bwrap-missing fallback. `arch` is injectable
  * for tests. Cleaned on exit AND on SIGINT/SIGTERM (TUI Ctrl+C would otherwise leak the temp dir).
+ *
+ * @deprecated Writes the program to a temp file a confined command may be able to replace (B-600).
+ * Use `wrapCommandForSandbox`'s `seccompProgram`, which keeps the program in memory.
  */
 export function seccompPathForArch(arch: string, warn: (m: string) => void): string | undefined {
   if (arch !== "x64") {
     if (!warnedNonX64) {
       warnedNonX64 = true;
-      warn(
-        `[sandbox] seccomp syscall filter unsupported on ${arch} (x86_64 only in v1) — running without ` +
-          "the filter; bwrap FS/network confinement still applies.",
-      );
+      warn(nonX64SeccompWarning(arch));
     }
     return undefined;
   }
   try {
     const dir = mkdtempSync(join(tmpdir(), "ab-seccomp-"));
     const path = join(dir, "filter.bpf");
-    writeFileSync(path, buildSeccompFilter({ networkRestricted: true }));
-    const cleanup = (): void => rmSync(dir, { recursive: true, force: true });
-    process.once("exit", cleanup);
-    process.once("SIGINT", cleanup);
-    process.once("SIGTERM", cleanup);
+    const program = buildSeccompFilter({ networkRestricted: true });
+    writeFileSync(path, program);
+    rememberSeccompFile(path, program); // the wraps pipe these bytes, never the file's (B-600)
+    removeDirOnExit(dir);
     return path;
   } catch (err) {
     warn(
@@ -235,7 +258,12 @@ export function seccompPathForArch(arch: string, warn: (m: string) => void): str
 }
 
 let seccompFilterPath: string | undefined | null; // undefined = not tried; null = resolved absent
-/** M57 — exported so the interactive PTY backend reuses the SAME memoized x64-gated seccomp program. */
+/**
+ * M57 — the memoized x64-gated seccomp program, written once per process to a temp file.
+ *
+ * @deprecated The SDK's own wraps no longer read this file (B-600): a file under `/tmp` is one a
+ * `workspace-write` command can replace. Use `wrapCommandForSandbox`'s `seccompProgram`.
+ */
 export function restrictedSeccompPath(): string | undefined {
   if (seccompFilterPath !== undefined) return seccompFilterPath ?? undefined;
   const path = seccompPathForArch(process.arch, (m) => console.warn(redactSecrets(m)));
@@ -373,8 +401,8 @@ export function __resetInteractiveWarnLatchForTests(): void {
  * at runtime: `network:true` gave `--seccomp` interactively and not one-shot). Two copies of a
  * security rule is not duplicated form — it is duplicated KNOWLEDGE, and it had already diverged.
  */
-function seccompPathForNetwork(networkOpen: boolean): string | undefined {
-  return networkOpen ? undefined : restrictedSeccompPath();
+function seccompProgramForNetwork(networkOpen: boolean): Uint8Array | undefined {
+  return networkOpen ? undefined : restrictedSeccompProgram((m) => console.warn(redactSecrets(m)));
 }
 
 /**
@@ -463,7 +491,7 @@ export function interactiveWrapCommand(
         network: opts.network ?? false,
         env: allowlistedEnv(),
         bin,
-        seccompPath: seccompPathForNetwork(opts.network ?? false),
+        seccompProgram: seccompProgramForNetwork(opts.network ?? false),
       },
       command,
     );
