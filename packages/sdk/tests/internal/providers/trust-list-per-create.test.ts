@@ -6,14 +6,15 @@
  * told them to restart. Each fixture entry appends one byte to a sentinel at module evaluation, so
  * "imported" and "imported once" are read from the sentinel's length, never from a registration.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Agent } from "../../../src/agent.js";
 import { setDiagnosticsSink } from "../../../src/internal/diagnostics.js";
+import { globalSingleton } from "../../../src/internal/global-singleton.js";
 import { _resetDiscovery } from "../../../src/internal/providers/discovery.js";
 import { _resetProvidersForTests } from "../../../src/internal/providers/registry.js";
 import { useTempCwd } from "../../helpers/temp-workspace.js";
@@ -85,6 +86,8 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs();
   _resetDiscovery();
+  // The manifest step keeps its once-per-folder diagnostic set under this key.
+  globalSingleton("theokit-sdk.plugins.manifest-untrusted-warned", () => new Set<string>()).clear();
   _resetProvidersForTests();
 });
 
@@ -141,5 +144,45 @@ describe("the provider trust gate is read on each Agent.create", () => {
       expect(existsSync(providerSentinel("second"))).toBe(false);
       expect(messages.join("")).toContain("not valid JSON");
     });
+  });
+});
+
+describe("the manifest trust gate is read on each Agent.create", () => {
+  it("imports a manifest plugin trusted between two creates on the second create only", async () => {
+    const ws = mkdtempSync(join(tmpdir(), "theokit-trust-per-create-ws-"));
+    try {
+      const dir = join(ws, ".theokit", "plugins", "late-echo");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, "PLUGIN.md"),
+        "---\nname: late-echo\nentry: index.mjs\n---\n\nEcho.\n",
+      );
+      const sentinel = join(ws, "manifest.sentinel");
+      writeFileSync(
+        join(dir, "index.mjs"),
+        `import { appendFileSync } from "node:fs";
+appendFileSync(${JSON.stringify(sentinel)}, "x");
+export default { kind: "general", name: "late-echo", register() {} };
+`,
+      );
+      const create = async () => {
+        const agent = await Agent.create({
+          apiKey: STUB_KEY,
+          model: { id: "o4-mini" },
+          providers: { routes: [{ capability: "chat", provider: "openai" }] },
+          local: { cwd: ws, settingSources: ["plugins"] },
+        });
+        await agent.dispose?.();
+      };
+
+      await create();
+      expect(existsSync(sentinel)).toBe(false);
+
+      vi.stubEnv("THEOKIT_TRUSTED_PROVIDERS", "late-echo");
+      await create();
+      expect(readFileSync(sentinel, "utf8")).toHaveLength(1);
+    } finally {
+      rmSync(ws, { recursive: true, force: true });
+    }
   });
 });
