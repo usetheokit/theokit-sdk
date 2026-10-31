@@ -1,10 +1,12 @@
 /**
- * The trust gate for code loaded from disk (M47, B-686).
+ * The trust gate for provider plugins loaded from disk (M47, B-686).
  *
- * One list, read by both readers that import code from a folder: provider discovery
- * (`discovery.ts`) and the workspace manifest step (`manifest-entry-import.ts`). It is read on
- * every call and never cached, so a name the operator trusts takes effect on the next
- * `Agent.create` rather than after a restart.
+ * Provider discovery (`discovery.ts`) reads this list of NAMES; it authorizes only
+ * `~/.theokit/plugins/model-providers/<name>/`, a folder in the operator's own home. Workspace
+ * manifest plugins never consult it: a cloned workspace chooses its folder names, so they are
+ * trusted by realpath in a record of their own (`runtime/plugin-loader/workspace-plugin-trust.ts`),
+ * which shares the fail-closed file reader below. Both are read on every call and never cached, so
+ * an entry the operator adds takes effect on the next `Agent.create` rather than after a restart.
  *
  * @internal
  */
@@ -27,7 +29,7 @@ export function trustFilePath(): string {
  * Fail-closed: a missing or malformed trust file trusts NOTHING (a malformed file WARNs).
  */
 export function readTrustedNames(): Set<string> {
-  const trusted = new Set(readTrustFile(trustFilePath()));
+  const trusted = new Set(readTrustArray(trustFilePath(), PROVIDER_TRUST));
   for (const name of (process.env.THEOKIT_TRUSTED_PROVIDERS ?? "").split(",")) {
     const trimmed = name.trim();
     if (trimmed.length > 0) trusted.add(trimmed);
@@ -35,21 +37,38 @@ export function readTrustedNames(): Set<string> {
   return trusted;
 }
 
-/** The names in the trust file; a missing file is empty, a malformed one is empty with a WARN. */
-function readTrustFile(path: string): string[] {
+/** What a trust file holds, as its fail-closed warnings name it. */
+export interface TrustArrayShape {
+  /** What a malformed file leaves untrusted, e.g. "provider plugins". */
+  readonly subject: string;
+  /** What each entry must be, e.g. "plugin-name strings". */
+  readonly entries: string;
+}
+
+const PROVIDER_TRUST: TrustArrayShape = {
+  subject: "provider plugins",
+  entries: "plugin-name strings",
+};
+
+/**
+ * The non-empty strings in a JSON-array trust file. Fail-closed: a missing file is empty, and a
+ * malformed one (not JSON, not an array) is empty with a WARN; non-string entries are discarded
+ * with a WARN.
+ */
+export function readTrustArray(path: string, shape: TrustArrayShape): string[] {
   if (!existsSync(path)) return [];
   let parsed: unknown;
   try {
     parsed = JSON.parse(readFileSync(path, "utf-8"));
   } catch {
     diag(
-      `[theokit-sdk] WARN: ${path} is not valid JSON — trusting NO provider plugins (fail-closed)\n`,
+      `[theokit-sdk] WARN: ${path} is not valid JSON — trusting NO ${shape.subject} (fail-closed)\n`,
     );
     return [];
   }
   if (!Array.isArray(parsed)) {
     diag(
-      `[theokit-sdk] WARN: ${path} is not a JSON array — trusting NO provider plugins (fail-closed)\n`,
+      `[theokit-sdk] WARN: ${path} is not a JSON array — trusting NO ${shape.subject} (fail-closed)\n`,
     );
     return [];
   }
@@ -62,7 +81,7 @@ function readTrustFile(path: string): string[] {
   // and no clue the FILE shape is wrong.
   if (discarded > 0) {
     diag(
-      `[theokit-sdk] WARN: ${path} contains ${discarded} non-string entr${discarded === 1 ? "y" : "ies"} — discarded (entries must be plugin-name strings)\n`,
+      `[theokit-sdk] WARN: ${path} contains ${discarded} non-string entr${discarded === 1 ? "y" : "ies"} — discarded (entries must be ${shape.entries})\n`,
     );
   }
   return names;

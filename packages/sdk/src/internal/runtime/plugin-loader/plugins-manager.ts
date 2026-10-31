@@ -27,14 +27,16 @@ export interface PluginMetadata {
 }
 
 /**
- * A listed plugin from the native root `.theokit/plugins` that declares an `entry` (B-686): the
- * folder it lives in is the name the trust gate checks, and `entryPath` is guarded against traversal.
+ * A listed plugin from the native root `.theokit/plugins` that declares an `entry` (B-686):
+ * `folderPath` is the absolute folder it lives in, whose realpath the workspace trust record checks,
+ * and `entryPath` is guarded against traversal.
  *
  * @internal
  */
 export interface ManifestEntryCandidate {
   metadata: PluginMetadata;
   folder: string;
+  folderPath: string;
   entryPath: string;
 }
 
@@ -137,8 +139,9 @@ export class PluginsManager {
       if (origin === undefined || origin.root !== nativeRoot || metadata.entry === undefined) {
         return [];
       }
-      const entryPath = safePathJoin(join(origin.root, origin.folder), metadata.entry);
-      return [{ metadata, folder: origin.folder, entryPath }];
+      const folderPath = join(origin.root, origin.folder);
+      const entryPath = safePathJoin(folderPath, metadata.entry);
+      return [{ metadata, folder: origin.folder, folderPath, entryPath }];
     });
   }
 
