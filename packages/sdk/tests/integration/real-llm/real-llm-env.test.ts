@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { Agent } from "../../../src/index.js";
+import { useTempCwd } from "../../helpers/temp-workspace.js";
 import { resolveRealLlmEnv } from "./_helpers/real-llm-env.js";
 
 /**
@@ -16,7 +18,10 @@ import { resolveRealLlmEnv } from "./_helpers/real-llm-env.js";
  * rejects everything.
  */
 
-const VARS = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY"] as const;
+// The Agent.create case below would otherwise write its state into packages/sdk/.theokit/.
+useTempCwd();
+
+const VARS =["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY"] as const;
 let saved: Record<string, string | undefined>;
 
 beforeEach(() => {
@@ -53,7 +58,30 @@ describe("the gate opens", () => {
     expect(handle.provider).toBe("openrouter");
     expect(handle.apiKey).toBe("sk-or-test");
     // The MODEL still comes from the provider asked for — the fallback changes routing, not intent.
-    expect(handle.model).toBe("anthropic/claude-3-5-haiku-latest");
+    // The routing itself is carried by the `openrouter/` prefix (#719): a bare `anthropic/...` id
+    // sends the OpenRouter key to native Anthropic, which refuses it as `malformed_api_key`.
+    expect(handle.model).toBe("openrouter/anthropic/claude-3-5-haiku-latest");
+  });
+
+  it("routes a fallback model override through OpenRouter without double-prefixing (#719)", () => {
+    process.env.OPENROUTER_API_KEY = "sk-or-test";
+
+    expect(resolveRealLlmEnv("openai", { model: "openai/gpt-4o" }).model).toBe(
+      "openrouter/openai/gpt-4o",
+    );
+    expect(resolveRealLlmEnv("anthropic", { model: "openrouter/anthropic/claude-x" }).model).toBe(
+      "openrouter/anthropic/claude-x",
+    );
+  });
+
+  it("hands Agent.create a fallback handle it accepts (#719)", async () => {
+    // The repro: OPENROUTER_API_KEY set, ANTHROPIC_API_KEY unset. Before the fix the anthropic
+    // suites threw `malformed_api_key` at Agent.create, before a single request was sent.
+    process.env.OPENROUTER_API_KEY = "sk-or-v1-0123456789abcdef0123456789abcdef";
+    const handle = resolveRealLlmEnv("anthropic");
+
+    const agent = await Agent.create({ apiKey: handle.apiKey, model: { id: handle.model } });
+    await agent.dispose();
   });
 
   it("honours an explicit model override", () => {
