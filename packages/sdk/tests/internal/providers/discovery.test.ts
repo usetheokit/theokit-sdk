@@ -42,9 +42,9 @@ afterEach(() => {
 describe("discoverProviderPlugins (T3.4)", () => {
   it("idempotent — second call no-op", async () => {
     // B-064. The body used to end in `expect(true).toBe(true)` with "nothing to assert beyond not
-    // throwing" — but idempotence IS observable. `discoveryState.done` short-circuits at
-    // discovery.ts:92, and an untrusted plugin makes every scan emit a WARN. Counting those warnings
-    // is what makes removing the latch fail this test rather than pass it silently.
+    // throwing" — but idempotence IS observable. An untrusted plugin is warned about once per name
+    // (B-686 replaced the process latch with a per-name `warned` set), so counting those warnings is
+    // what makes removing that set fail this test rather than pass it silently.
     const dir = join(tmpHome, ".theokit", "plugins", "model-providers", "untrusted-probe");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "index.mjs"), "export default {};");
@@ -62,7 +62,7 @@ describe("discoverProviderPlugins (T3.4)", () => {
       await discoverProviderPlugins();
 
       expect(afterFirst, "the first call must actually scan the plugins root").toBe(1);
-      expect(warnings, "the second call must short-circuit and not re-scan").toBe(afterFirst);
+      expect(warnings, "the second call warns once per name: no second warning").toBe(afterFirst);
     } finally {
       write.mockRestore();
     }
