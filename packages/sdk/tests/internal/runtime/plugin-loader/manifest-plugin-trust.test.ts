@@ -2,15 +2,27 @@
  * B-686 (FR-002, FR-005, NFR-001): which workspace manifest plugins are imported, and which are not.
  *
  * The manager-level cases pin what `PluginsManager` offers the import step: only plugins listed from
- * the native root `.theokit/plugins` that declare an `entry`, each with the FOLDER it lives in (the
- * name the trust gate checks), while `plugins.list()` keeps exactly today's keys.
+ * the native root `.theokit/plugins` that declare an `entry`, each with the folder it lives in, while
+ * `plugins.list()` keeps exactly today's keys.
+ *
+ * Trust is keyed on the folder's realpath in a record of its own
+ * (`~/.theokit/plugins/trusted-workspace-plugins.json`), never on a name: a cloned workspace chooses
+ * its folder names, so a provider name in the provider trust list authorizes no workspace code.
  *
  * The `Agent.create` cases prove the trust half in both directions: each fixture entry appends one
  * byte to its own sentinel at evaluation, so "never imported" is a sentinel that does not exist,
  * not a tool that failed to register. Each test has its own workspace, so no module URL repeats.
  */
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -22,6 +34,12 @@ import { _resetDiscovery } from "../../../../src/internal/providers/discovery.js
 import { PluginsManager } from "../../../../src/internal/runtime/plugin-loader/plugins-manager.js";
 import type { CompatSource } from "../../../../src/types/agent.js";
 import { removeTempDirRobustSync, useTempCwd } from "../../../helpers/temp-workspace.js";
+import {
+  trustWorkspaceFolder,
+  trustWorkspacePath,
+  workspaceTrustRecordPath,
+  writeWorkspaceTrustRecord,
+} from "../../../helpers/workspace-plugin-trust.js";
 
 useTempCwd("theokit-manifest-trust-");
 
@@ -202,18 +220,82 @@ describe("Agent.create imports a workspace manifest entry only when its folder i
     expect(existsSync(sentinel)).toBe(false);
   });
 
+  it("never imports a folder whose name is a trusted provider name, and keeps it listed", async () => {
+    const ws = workspace();
+    const sentinel = sentinelEntry(manifest(ws, ".theokit", "echo", "echo", "index.mjs"), "echo");
+    mkdirSync(join(homedir(), ".theokit", "plugins"), { recursive: true });
+    writeFileSync(join(homedir(), ".theokit", "plugins", "trusted-providers.json"), '["echo"]');
+    vi.stubEnv("THEOKIT_TRUSTED_PROVIDERS", "echo");
+
+    expect(await listedNames(ws)).toContain("echo");
+    expect(existsSync(sentinel)).toBe(false);
+  });
+
+  it("never imports a folder of the same name in another workspace than the trusted one", async () => {
+    const trustedWs = workspace();
+    trustWorkspaceFolder(manifest(trustedWs, ".theokit", "echo", "echo", "index.mjs"));
+    const ws = workspace();
+    const sentinel = sentinelEntry(manifest(ws, ".theokit", "echo", "echo", "index.mjs"), "echo");
+
+    expect(await listedNames(ws)).toContain("echo");
+    expect(existsSync(sentinel)).toBe(false);
+  });
+
+  it("imports a folder reached through a symlinked cwd when its realpath is trusted", async () => {
+    const ws = workspace();
+    const sentinel = sentinelEntry(manifest(ws, ".theokit", "echo", "echo", "index.mjs"), "echo");
+    const link = join(workspace(), "link");
+    symlinkSync(ws, link);
+    trustWorkspaceFolder(join(ws, ".theokit", "plugins", "echo"));
+
+    expect(await listedNames(link)).toContain("echo");
+    expect(readFileSync(sentinel, "utf8")).toHaveLength(1);
+  });
+
+  it("never imports a folder trusted only by a symlinked path that is not its realpath", async () => {
+    const ws = workspace();
+    const sentinel = sentinelEntry(manifest(ws, ".theokit", "echo", "echo", "index.mjs"), "echo");
+    const link = join(workspace(), "link");
+    symlinkSync(ws, link);
+    trustWorkspacePath(join(link, ".theokit", "plugins", "echo"));
+
+    expect(await listedNames(link)).toContain("echo");
+    expect(existsSync(sentinel)).toBe(false);
+  });
+
+  it("trusts nothing when the workspace trust record is not valid JSON, and warns", async () => {
+    const ws = workspace();
+    const dir = manifest(ws, ".theokit", "echo", "echo", "index.mjs");
+    const sentinel = sentinelEntry(dir, "echo");
+    writeWorkspaceTrustRecord(`[${JSON.stringify(realpathSync(dir))}`);
+    const messages = await capturedDiagnostics(() => listedNames(ws));
+
+    expect(existsSync(sentinel)).toBe(false);
+    expect(messages.filter((m) => m.includes("not valid JSON"))).toHaveLength(1);
+  });
+
+  it("discards a relative entry in the workspace trust record with a warning", async () => {
+    const ws = workspace();
+    const sentinel = sentinelEntry(manifest(ws, ".theokit", "echo", "echo", "index.mjs"), "echo");
+    trustWorkspacePath("echo");
+    const messages = await capturedDiagnostics(() => listedNames(ws));
+
+    expect(existsSync(sentinel)).toBe(false);
+    expect(messages.some((m) => m.includes("not an absolute path"))).toBe(true);
+  });
+
   it("fails Agent.create with plugin_entry_import_failed for a trusted CLI-form entry that is absent", async () => {
     const ws = workspace();
-    cliManifest(ws, "cli-echo", "echo", "index.mjs");
-    vi.stubEnv("THEOKIT_TRUSTED_PROVIDERS", "cli-echo");
+    trustWorkspaceFolder(cliManifest(ws, "cli-echo", "echo", "index.mjs"));
 
     await expect(listedNames(ws)).rejects.toMatchObject({ code: "plugin_entry_import_failed" });
   });
 
-  it("never imports a foreign-root plugin even when its folder name is trusted", async () => {
+  it("never imports a foreign-root plugin even when its folder realpath is trusted", async () => {
     const ws = workspace();
-    const sentinel = sentinelEntry(manifest(ws, ".claude", "echo", "echo", "index.mjs"), "echo");
-    vi.stubEnv("THEOKIT_TRUSTED_PROVIDERS", "echo");
+    const dir = manifest(ws, ".claude", "echo", "echo", "index.mjs");
+    const sentinel = sentinelEntry(dir, "echo");
+    trustWorkspaceFolder(dir);
 
     expect(await listedNames(ws, { compatSources: ["claude-code"] })).toContain("echo");
     expect(existsSync(sentinel)).toBe(false);
@@ -221,42 +303,32 @@ describe("Agent.create imports a workspace manifest entry only when its folder i
 
   it("never imports a trusted folder the enabled list excludes, and keeps it unlisted", async () => {
     const ws = workspace();
-    const sentinel = sentinelEntry(manifest(ws, ".theokit", "echo", "echo", "index.mjs"), "echo");
-    vi.stubEnv("THEOKIT_TRUSTED_PROVIDERS", "echo");
+    const dir = manifest(ws, ".theokit", "echo", "echo", "index.mjs");
+    const sentinel = sentinelEntry(dir, "echo");
+    trustWorkspaceFolder(dir);
 
     expect(await listedNames(ws, { plugins: { enabled: ["other"] } })).not.toContain("echo");
     expect(existsSync(sentinel)).toBe(false);
   });
 
-  it("checks the folder name, not the declared name: folder pkg declaring echo stays unimported", async () => {
+  it("imports a trusted folder pkg declaring name echo exactly once", async () => {
     const ws = workspace();
-    const sentinel = sentinelEntry(manifest(ws, ".theokit", "pkg", "echo", "index.mjs"), "echo");
-    vi.stubEnv("THEOKIT_TRUSTED_PROVIDERS", "echo");
+    const dir = manifest(ws, ".theokit", "pkg", "echo", "index.mjs");
+    const sentinel = sentinelEntry(dir, "echo");
+    trustWorkspaceFolder(dir);
 
     expect(await listedNames(ws)).toContain("echo");
-    expect(existsSync(sentinel)).toBe(false);
-  });
-
-  it("imports a trusted folder echo declaring name other exactly once", async () => {
-    const ws = workspace();
-    const sentinel = sentinelEntry(manifest(ws, ".theokit", "echo", "other", "index.mjs"), "other");
-    vi.stubEnv("THEOKIT_TRUSTED_PROVIDERS", "echo");
-
-    expect(await listedNames(ws)).toContain("other");
     expect(readFileSync(sentinel, "utf8")).toHaveLength(1);
   });
 
   it("imports only the native copy of a folder present under both roots, and lists both", async () => {
     const ws = workspace();
-    const nativeSentinel = sentinelEntry(
-      manifest(ws, ".theokit", "echo", "echo", "index.mjs"),
-      "echo",
-    );
-    const foreignSentinel = sentinelEntry(
-      manifest(ws, ".claude", "echo", "echo", "index.mjs"),
-      "echo",
-    );
-    vi.stubEnv("THEOKIT_TRUSTED_PROVIDERS", "echo");
+    const nativeDir = manifest(ws, ".theokit", "echo", "echo", "index.mjs");
+    const nativeSentinel = sentinelEntry(nativeDir, "echo");
+    const foreignDir = manifest(ws, ".claude", "echo", "echo", "index.mjs");
+    const foreignSentinel = sentinelEntry(foreignDir, "echo");
+    trustWorkspaceFolder(nativeDir);
+    trustWorkspaceFolder(foreignDir);
 
     const names = await listedNames(ws, { compatSources: ["claude-code"] });
 
@@ -268,21 +340,42 @@ describe("Agent.create imports a workspace manifest entry only when its folder i
   it("diagnoses an untrusted folder once across two creates, naming the folder and its declared name", async () => {
     const ws = workspace();
     sentinelEntry(manifest(ws, ".theokit", "pkg", "echo", "index.mjs"), "echo");
-    const messages: string[] = [];
-    setDiagnosticsSink((message) => {
-      messages.push(message);
+    const messages = await capturedDiagnostics(async () => {
+      await listedNames(ws);
+      await listedNames(ws);
     });
-    try {
-      await listedNames(ws);
-      await listedNames(ws);
-    } finally {
-      setDiagnosticsSink((message) => {
-        process.stderr.write(message);
-      });
-    }
 
     const about = messages.filter((m) => m.includes('workspace plugin folder "pkg"'));
     expect(about).toHaveLength(1);
     expect(about[0]).toContain('"echo"');
   });
+
+  it("names the folder's realpath and the workspace trust record in the untrusted diagnostic", async () => {
+    const ws = workspace();
+    const dir = manifest(ws, ".theokit", "echo", "echo", "index.mjs");
+    sentinelEntry(dir, "echo");
+    const messages = await capturedDiagnostics(() => listedNames(ws));
+
+    const about = messages.filter((m) => m.includes('workspace plugin folder "echo"'));
+    expect(about).toHaveLength(1);
+    expect(about[0]).toContain(realpathSync(dir));
+    expect(about[0]).toContain(workspaceTrustRecordPath());
+    expect(about[0]).not.toContain("THEOKIT_TRUSTED_PROVIDERS");
+  });
 });
+
+/** Run `body` with a sink capturing every diagnostic; the forwarding sink is restored after. */
+async function capturedDiagnostics(body: () => Promise<unknown>): Promise<string[]> {
+  const messages: string[] = [];
+  setDiagnosticsSink((message) => {
+    messages.push(message);
+  });
+  try {
+    await body();
+  } finally {
+    setDiagnosticsSink((message) => {
+      process.stderr.write(message);
+    });
+  }
+  return messages;
+}

@@ -18,6 +18,7 @@ import { globalSingleton } from "../../../src/internal/global-singleton.js";
 import { _resetDiscovery } from "../../../src/internal/providers/discovery.js";
 import { _resetProvidersForTests } from "../../../src/internal/providers/registry.js";
 import { useTempCwd } from "../../helpers/temp-workspace.js";
+import { trustWorkspaceFolder } from "../../helpers/workspace-plugin-trust.js";
 
 useTempCwd("theokit-trust-per-create-");
 
@@ -194,7 +195,7 @@ export default { kind: "general", name: "late-echo", register() {} };
       await create();
       expect(existsSync(sentinel)).toBe(false);
 
-      vi.stubEnv("THEOKIT_TRUSTED_PROVIDERS", "late-echo");
+      trustWorkspaceFolder(dir);
       await create();
       expect(readFileSync(sentinel, "utf8")).toHaveLength(1);
     } finally {
