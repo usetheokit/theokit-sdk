@@ -40,7 +40,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `cloud_custom_tools_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/cloud-agent/cloud-agent.ts:154` +1 |
 | `cloud_incompatible_function_resolver` | domain | ConfigurationError | `packages/sdk/src/internal/cloud-agent/cloud-tool-parity.ts:43` +2 |
 | `cloud_incompatible_mcp_stdio_local` | domain | ConfigurationError | `packages/sdk/src/internal/cloud-agent/cloud-tool-parity.ts:74` |
-| `cloud_plugin_path_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:192` +1 |
+| `cloud_plugin_path_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:195` +1 |
 | `cloud_run_http_error` | domain | NetworkError | `packages/sdk/src/internal/cloud-agent/real-cloud-run.ts:156` |
 | `cloud_run_unknown_status` | domain | NetworkError | `packages/sdk/src/internal/cloud-agent/real-cloud-run.ts:285` +1 |
 | `cloud_runtime_pre_release` | domain | ConfigurationError | `packages/sdk/src/agent.ts:419` +2 |
@@ -172,14 +172,14 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `personality_not_found` | domain | ConfigurationError | `packages/sdk/src/internal/personality/switch.ts:60` |
 | `personality_reserved_name` | domain | ConfigurationError | `packages/sdk/src/internal/personality/registry.ts:110` |
 | `pipeline_duplicate_provider` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/system-prompt/pipeline.ts:33` |
-| `plugin_entry_import_failed` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/manifest-entry-import.ts:66` |
-| `plugin_entry_missing` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:167` |
-| `plugin_entry_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/manifest-entry-import.ts:73` |
+| `plugin_entry_import_failed` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/manifest-entry-import.ts:78` |
+| `plugin_entry_missing` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:170` |
+| `plugin_entry_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/manifest-entry-import.ts:85` |
 | `plugin_frontmatter_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugin-frontmatter.ts:39` |
 | `plugin_late_register_kind` | domain | ConfigurationError | `packages/sdk/src/internal/plugins/manager.ts:103` |
-| `plugin_manifest_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:218` |
-| `plugin_manifest_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:224` |
-| `plugin_missing_manifest` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:209` +2 |
+| `plugin_manifest_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:221` |
+| `plugin_manifest_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:227` |
+| `plugin_missing_manifest` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:212` +2 |
 | `programmatic_hooks_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:99` |
 | `provider_unresolved` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:107` +2 |
 | `quota_exceeded` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:148` |
