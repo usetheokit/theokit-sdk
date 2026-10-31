@@ -23,6 +23,8 @@ import { PersonalityStore } from "../personality/store.js";
 import type { PersonalityPreset } from "../personality/types.js";
 import { PluginManager } from "../plugins/manager.js";
 import { extractCodePlugins } from "../plugins/plugin-guards.js";
+import type { Plugin } from "../plugins/types.js";
+import { readTrustedNames } from "../providers/trust-gate.js";
 import { resolveCompatSources } from "../runtime/compat/compat-config-file.js";
 import { reportUndeclaredSources } from "../runtime/compat/foreign-config-sources.js";
 import type { ProvidersManagerImpl } from "../runtime/config/providers-manager.js";
@@ -32,6 +34,7 @@ import { runPostRunLifecycle } from "../runtime/lifecycle/post-run-lifecycle.js"
 import { wrapRunWithThrowOnError } from "../runtime/lifecycle/throw-on-error-run.js";
 import type { MemoryFact } from "../runtime/memory-glue/memory-store.js";
 import { normalizeModel } from "../runtime/model-selection.js";
+import { importTrustedManifestPlugins } from "../runtime/plugin-loader/manifest-entry-import.js";
 import type { PluginMetadata, PluginsManager } from "../runtime/plugin-loader/plugins-manager.js";
 import { updateRegisteredAgent } from "../runtime/registry/agent-registry.js";
 import type { SkillsHandle, SkillsManager } from "../runtime/skills/skills-manager.js";
@@ -220,6 +223,13 @@ export class LocalAgent implements SDKAgent {
     });
   }
 
+  /** B-686 — the trust gate is read only when a native manifest declares an entry. */
+  private async importManifestPlugins(): Promise<Plugin[]> {
+    const candidates = this.pluginsManager?.nativeEntryCandidates() ?? [];
+    if (candidates.length === 0) return [];
+    return importTrustedManifestPlugins(candidates, readTrustedNames());
+  }
+
   async initialize(): Promise<void> {
     await this.hooksExecutor.initialize(this.settingSourcesIncludeProject);
     if (this.context !== undefined) await this.context.initialize();
@@ -229,7 +239,9 @@ export class LocalAgent implements SDKAgent {
     // discriminates new Plugin[] from legacy `{ enabled }` metadata; the
     // latter returns empty so v1.2 callers continue to work.
     const codePlugins = extractCodePlugins(this.options.plugins);
-    await this.pluginManagerCode.initialize(codePlugins);
+    // B-686: a trusted native manifest's entry joins the same single-shot `initialize` call.
+    const manifestPlugins = await this.importManifestPlugins();
+    await this.pluginManagerCode.initialize([...codePlugins, ...manifestPlugins]);
     this.resolvedSubagents = await loadSubagents(
       this.workspaceCwd,
       this.settingSourcesIncludeProject,
