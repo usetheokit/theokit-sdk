@@ -66,6 +66,17 @@ function manifest(
   return dir;
 }
 
+/** Write `<ws>/.theokit/plugins/<folder>/.claude-plugin/plugin.json` declaring `name` and `entry`. */
+function cliManifest(ws: string, folder: string, name: string, entry: string): string {
+  const dir = join(ws, ".theokit", "plugins", folder);
+  mkdirSync(join(dir, ".claude-plugin"), { recursive: true });
+  writeFileSync(
+    join(dir, ".claude-plugin", "plugin.json"),
+    JSON.stringify({ name, version: "1.0.0", entry }),
+  );
+  return dir;
+}
+
 async function managerFor(ws: string, compat: boolean): Promise<PluginsManager> {
   const manager = new PluginsManager(
     ws,
@@ -128,6 +139,16 @@ describe("PluginsManager records where each listed plugin came from", () => {
     expect((await manager.list()).map((p) => p.name)).toEqual(["bare"]);
   });
 
+  it("a native CLI-form manifest declaring an entry yields one candidate in its folder", async () => {
+    const ws = workspace();
+    const dir = cliManifest(ws, "cli-echo", "echo", "index.mjs");
+    const manager = await managerFor(ws, false);
+
+    const candidates = manager.nativeEntryCandidates();
+    expect(candidates.map((c) => c.folder)).toEqual(["cli-echo"]);
+    expect(candidates[0]?.entryPath).toBe(join(dir, "index.mjs"));
+  });
+
   it("an entry of ../../escape.mjs refuses with path_traversal", async () => {
     const ws = workspace();
     manifest(ws, ".theokit", "evil", "evil", "../../escape.mjs");
@@ -179,6 +200,14 @@ describe("Agent.create imports a workspace manifest entry only when its folder i
 
     expect(await listedNames(ws)).toContain("echo");
     expect(existsSync(sentinel)).toBe(false);
+  });
+
+  it("fails Agent.create with plugin_entry_import_failed for a trusted CLI-form entry that is absent", async () => {
+    const ws = workspace();
+    cliManifest(ws, "cli-echo", "echo", "index.mjs");
+    vi.stubEnv("THEOKIT_TRUSTED_PROVIDERS", "cli-echo");
+
+    await expect(listedNames(ws)).rejects.toMatchObject({ code: "plugin_entry_import_failed" });
   });
 
   it("never imports a foreign-root plugin even when its folder name is trusted", async () => {

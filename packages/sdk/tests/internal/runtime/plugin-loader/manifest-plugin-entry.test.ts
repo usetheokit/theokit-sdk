@@ -147,10 +147,11 @@ describe("a trusted workspace manifest plugin's entry is imported", () => {
 
     const names = await sentToolNames();
 
+    expect(readFileSync(sentinelPath(), "utf8")).toHaveLength(1);
     expect(names).toContain("echo_token");
   });
 
-  it("lists a trusted manifest with no entry, adds no tool, and lets the run proceed", async () => {
+  it("a trusted manifest with no entry adds no tool to the run", async () => {
     echoManifest(undefined, "");
 
     const names = await sentToolNames();
@@ -174,6 +175,24 @@ describe("a broken trusted entry fails Agent.create with a typed error", () => {
 
     expect(error).toMatchObject({ code: "plugin_entry_shape" });
     expect((error as Error).message).toContain("echo");
+  });
+
+  it("refuses a general default export with no string name with plugin_entry_shape", async () => {
+    echoManifest("index.mjs", `export default { kind: "general", register() {} };`);
+
+    await expect(createAgent()).rejects.toMatchObject({
+      code: "plugin_entry_shape",
+      message: expect.stringContaining("echo"),
+    });
+  });
+
+  it("refuses a general default export with no register function with plugin_entry_shape", async () => {
+    echoManifest("index.mjs", `export default { kind: "general", name: "echo" };`);
+
+    await expect(createAgent()).rejects.toMatchObject({
+      code: "plugin_entry_shape",
+      message: expect.stringContaining("echo"),
+    });
   });
 
   it("refuses a module with only a named register export with plugin_entry_shape", async () => {
