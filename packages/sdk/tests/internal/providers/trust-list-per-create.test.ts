@@ -133,16 +133,32 @@ describe("the provider trust gate is read on each Agent.create", () => {
 
   it("a malformed trust file still trusts nothing on a later create", async () => {
     providerFixture("first");
-    providerFixture("second");
-    writeTrustFile(JSON.stringify(["first"]));
+    writeTrustFile(JSON.stringify(["first", "second"]));
     await createAndDispose();
     expect(existsSync(providerSentinel("first"))).toBe(true);
 
+    // "second" was trusted by the last good file: a reader falling back to it would import it.
+    providerFixture("second");
     writeTrustFile("{ not json !!");
     await withCapturedDiagnostics(async (messages) => {
       await createAndDispose();
       expect(existsSync(providerSentinel("second"))).toBe(false);
       expect(messages.join("")).toContain("not valid JSON");
+    });
+  });
+
+  it("warns about a malformed trust file once per create when no manifest has an entry", async () => {
+    providerFixture("lonely");
+    writeTrustFile("{ not json !!");
+    await withCapturedDiagnostics(async (messages) => {
+      const agent = await Agent.create({
+        apiKey: STUB_KEY,
+        model: { id: "o4-mini" },
+        providers: { routes: [{ capability: "chat", provider: "openai" }] },
+        local: { cwd: process.cwd(), settingSources: ["plugins"] },
+      });
+      await agent.dispose?.();
+      expect(messages.filter((m) => m.includes("not valid JSON"))).toHaveLength(1);
     });
   });
 });
