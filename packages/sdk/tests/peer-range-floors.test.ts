@@ -114,15 +114,10 @@ const MEASURED_FLOORS: Record<string, { floor: string; because: string }> = {
   // It could not be raised in the release that created 4.63.0. A floor names a version a consumer
   // can install, and that version did not exist yet; `dep-check`'s floor leg failed for one
   // release, correctly and out loud, saying so.
-  //
-  // The same holds for 5.10.0, the first SDK exporting `resolveMaxFacts` and `ceilingReachedError`,
-  // which sdk-memory imports since the memory ceiling. The peer is `workspace:^`, so its published
-  // floor is the SDK version of the release that publishes it, 5.10.0 for that release. While the
-  // workspace still carries 5.9.x, a pinned 5.10.0 here would fail on every commit before
-  // `changeset version` runs; raise it once 5.10.0 is the workspace version.
   "sdk-memory": {
-    floor: "4.63.0",
-    because: "imports members of internal/memory-store added in 4.63.0 (#463)",
+    floor: "5.10.0",
+    because:
+      "imports resolveMaxFacts and ceilingReachedError from internal/memory-store, first exported in @theokit/sdk 5.10.0",
   },
   // Same reason, and these two PASSED the CI leg — which is what makes them worth recording. That
   // leg builds each package against its floor, and neither of these typechecks the SDK's
