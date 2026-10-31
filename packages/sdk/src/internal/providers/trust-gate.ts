@@ -26,44 +26,44 @@ export function trustFilePath(): string {
  * approved-hooks posture) or the additive `THEOKIT_TRUSTED_PROVIDERS` env (comma-separated convenience).
  * Fail-closed: a missing or malformed trust file trusts NOTHING (a malformed file WARNs).
  */
-// PRE-EXISTING debt, exposed when M75 fixed the Biome config that used to abort before
-// sweeping these files (a nested root under refactor/). It is not new code and was not touched
-// by M75 or B-686 (moved verbatim from discovery.ts); tracked in usetheodev/theokit-sdk#151.
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: see the reason just above
 export function readTrustedNames(): Set<string> {
-  const trusted = new Set<string>();
-  const path = trustFilePath();
-  if (existsSync(path)) {
-    try {
-      const parsed: unknown = JSON.parse(readFileSync(path, "utf-8"));
-      if (Array.isArray(parsed)) {
-        let discarded = 0;
-        for (const name of parsed) {
-          if (typeof name === "string" && name.length > 0) trusted.add(name);
-          else discarded += 1;
-        }
-        // M47 review F5 — fail-closed AND fail-clear: a valid array with wrong-shaped entries
-        // (numbers, objects) silently trusting nothing would leave the user with only the generic
-        // per-plugin WARN and no clue the FILE shape is wrong.
-        if (discarded > 0) {
-          diag(
-            `[theokit-sdk] WARN: ${path} contains ${discarded} non-string entr${discarded === 1 ? "y" : "ies"} — discarded (entries must be plugin-name strings)\n`,
-          );
-        }
-      } else {
-        diag(
-          `[theokit-sdk] WARN: ${path} is not a JSON array — trusting NO provider plugins (fail-closed)\n`,
-        );
-      }
-    } catch {
-      diag(
-        `[theokit-sdk] WARN: ${path} is not valid JSON — trusting NO provider plugins (fail-closed)\n`,
-      );
-    }
-  }
+  const trusted = new Set(readTrustFile(trustFilePath()));
   for (const name of (process.env.THEOKIT_TRUSTED_PROVIDERS ?? "").split(",")) {
     const trimmed = name.trim();
     if (trimmed.length > 0) trusted.add(trimmed);
   }
   return trusted;
+}
+
+/** The names in the trust file; a missing file is empty, a malformed one is empty with a WARN. */
+function readTrustFile(path: string): string[] {
+  if (!existsSync(path)) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(path, "utf-8"));
+  } catch {
+    diag(
+      `[theokit-sdk] WARN: ${path} is not valid JSON — trusting NO provider plugins (fail-closed)\n`,
+    );
+    return [];
+  }
+  if (!Array.isArray(parsed)) {
+    diag(
+      `[theokit-sdk] WARN: ${path} is not a JSON array — trusting NO provider plugins (fail-closed)\n`,
+    );
+    return [];
+  }
+  const names = parsed.filter(
+    (name): name is string => typeof name === "string" && name.length > 0,
+  );
+  const discarded = parsed.length - names.length;
+  // M47 review F5 — fail-closed AND fail-clear: a valid array with wrong-shaped entries (numbers,
+  // objects) silently trusting nothing would leave the user with only the generic per-plugin WARN
+  // and no clue the FILE shape is wrong.
+  if (discarded > 0) {
+    diag(
+      `[theokit-sdk] WARN: ${path} contains ${discarded} non-string entr${discarded === 1 ? "y" : "ies"} — discarded (entries must be plugin-name strings)\n`,
+    );
+  }
+  return names;
 }
