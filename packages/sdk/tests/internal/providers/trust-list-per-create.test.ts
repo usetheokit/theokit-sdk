@@ -18,7 +18,11 @@ import { globalSingleton } from "../../../src/internal/global-singleton.js";
 import { _resetDiscovery } from "../../../src/internal/providers/discovery.js";
 import { _resetProvidersForTests } from "../../../src/internal/providers/registry.js";
 import { useTempCwd } from "../../helpers/temp-workspace.js";
-import { trustWorkspaceFolder } from "../../helpers/workspace-plugin-trust.js";
+import {
+  trustWorkspaceFolder,
+  workspaceTrustRecordPath,
+  writeWorkspaceTrustRecord,
+} from "../../helpers/workspace-plugin-trust.js";
 
 useTempCwd("theokit-trust-per-create-");
 
@@ -165,6 +169,19 @@ describe("the provider trust gate is read on each Agent.create", () => {
 });
 
 describe("the manifest trust gate is read on each Agent.create", () => {
+  it("reads no workspace trust record for an agent whose workspace has no manifest entry", async () => {
+    writeWorkspaceTrustRecord("{ not json !!");
+    await withCapturedDiagnostics(async (messages) => {
+      await Agent.create({
+        apiKey: STUB_KEY,
+        model: { id: "o4-mini" },
+        providers: { routes: [{ capability: "chat", provider: "openai" }] },
+        local: { cwd: process.cwd(), settingSources: ["plugins"] },
+      }).then((agent) => agent.dispose?.());
+      expect(messages.filter((m) => m.includes(workspaceTrustRecordPath()))).toEqual([]);
+    });
+  });
+
   it("imports a manifest plugin trusted between two creates on the second create only", async () => {
     const ws = mkdtempSync(join(tmpdir(), "theokit-trust-per-create-ws-"));
     try {
