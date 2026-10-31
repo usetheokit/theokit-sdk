@@ -24,7 +24,6 @@ import type { PersonalityPreset } from "../personality/types.js";
 import { PluginManager } from "../plugins/manager.js";
 import { extractCodePlugins } from "../plugins/plugin-guards.js";
 import type { Plugin } from "../plugins/types.js";
-import { readTrustedNames } from "../providers/trust-gate.js";
 import { resolveCompatSources } from "../runtime/compat/compat-config-file.js";
 import { reportUndeclaredSources } from "../runtime/compat/foreign-config-sources.js";
 import type { ProvidersManagerImpl } from "../runtime/config/providers-manager.js";
@@ -36,6 +35,7 @@ import type { MemoryFact } from "../runtime/memory-glue/memory-store.js";
 import { normalizeModel } from "../runtime/model-selection.js";
 import { importTrustedManifestPlugins } from "../runtime/plugin-loader/manifest-entry-import.js";
 import type { PluginMetadata, PluginsManager } from "../runtime/plugin-loader/plugins-manager.js";
+import { readTrustedWorkspaceFolders } from "../runtime/plugin-loader/workspace-plugin-trust.js";
 import { updateRegisteredAgent } from "../runtime/registry/agent-registry.js";
 import type { SkillsHandle, SkillsManager } from "../runtime/skills/skills-manager.js";
 import { loadSubagents } from "../runtime/skills/subagents-loader.js";
@@ -223,11 +223,11 @@ export class LocalAgent implements SDKAgent {
     });
   }
 
-  /** B-686 — the trust gate is read only when a native manifest declares an entry. */
+  /** B-686 — the workspace trust record is read only when a native manifest declares an entry. */
   private async importManifestPlugins(): Promise<Plugin[]> {
     const candidates = this.pluginsManager?.nativeEntryCandidates() ?? [];
     if (candidates.length === 0) return [];
-    return importTrustedManifestPlugins(candidates, readTrustedNames());
+    return importTrustedManifestPlugins(candidates, readTrustedWorkspaceFolders());
   }
 
   async initialize(): Promise<void> {

@@ -21,6 +21,7 @@ import { Agent } from "../../../../src/agent.js";
 import { globalSingleton } from "../../../../src/internal/global-singleton.js";
 import { _resetDiscovery } from "../../../../src/internal/providers/discovery.js";
 import { useTempCwd } from "../../../helpers/temp-workspace.js";
+import { trustWorkspaceFolder } from "../../../helpers/workspace-plugin-trust.js";
 
 useTempCwd("theokit-manifest-entry-");
 
@@ -47,10 +48,11 @@ function sentinelPath(): string {
   return join(cwd, "entry.sentinel");
 }
 
-/** Write a native manifest `echo` whose entry file has `body` after a sentinel append. */
+/** Write a trusted native manifest `echo` whose entry file has `body` after a sentinel append. */
 function echoManifest(entry: string | undefined, body: string): void {
   const dir = join(cwd, ".theokit", "plugins", "echo");
   mkdirSync(dir, { recursive: true });
+  trustWorkspaceFolder(dir);
   const entryLine = entry === undefined ? "" : `entry: ${entry}\n`;
   writeFileSync(
     join(dir, "PLUGIN.md"),
@@ -101,7 +103,6 @@ async function sentToolNames(): Promise<string[]> {
 beforeEach(() => {
   cwd = mkdtempSync(join(tmpdir(), "theokit-manifest-entry-ws-"));
   requests = [];
-  vi.stubEnv("THEOKIT_TRUSTED_PROVIDERS", "echo");
   vi.stubGlobal("fetch", async (input: string | URL | Request, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     if (typeof init?.body === "string" && url.endsWith("/chat/completions")) {

@@ -664,10 +664,11 @@ export interface AgentOptions {
    *   Plugin sources must also be active via `local.settingSources`. A folder
    *   under `<cwd>/.theokit/plugins/` whose `PLUGIN.md` names an `entry` has
    *   that entry imported and its default export (a `kind: "general"` plugin)
-   *   registered, but only when the FOLDER name is trusted through
-   *   `~/.theokit/plugins/trusted-providers.json` or `THEOKIT_TRUSTED_PROVIDERS`
-   *   (the provider trust gate, read on each `Agent.create`). An untrusted
-   *   folder is listed and never imported; foreign roots are never imported.
+   *   registered, but only when the folder's absolute realpath is listed in
+   *   `~/.theokit/plugins/trusted-workspace-plugins.json` (a JSON array, read on
+   *   each `Agent.create`). The provider trust list never authorizes a workspace
+   *   folder. An untrusted folder is listed and never imported; foreign roots
+   *   are never imported.
    * - **Code `Plugin` objects** — an array of `Plugin` instances, e.g.
    *   `plugins: [Handoff.asPlugin({ ... })]`. These are registered directly by
    *   the runtime (`extractCodePlugins`); no `settingSources` entry is needed.
