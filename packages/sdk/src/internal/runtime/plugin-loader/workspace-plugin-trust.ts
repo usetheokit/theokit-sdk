@@ -11,18 +11,18 @@
  * @internal
  */
 
-import { homedir } from "node:os";
-import { isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { diag } from "../../diagnostics.js";
-import { readTrustArray, type TrustArrayShape } from "../../providers/trust-gate.js";
+import { readTrustArray, type TrustArrayShape, trustFilePath } from "../../providers/trust-gate.js";
 
 const WORKSPACE_TRUST: TrustArrayShape = {
   subject: "workspace plugins",
   entries: "absolute folder realpaths",
 };
 
+/** Beside the provider trust file, in `~/.theokit/plugins/`. */
 export function workspaceTrustRecordPath(): string {
-  return join(homedir(), ".theokit", "plugins", "trusted-workspace-plugins.json");
+  return join(dirname(trustFilePath()), "trusted-workspace-plugins.json");
 }
 
 /** The folder realpaths the operator trusted; a relative entry is discarded with a WARN. */
