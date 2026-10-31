@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { ConfigurationError } from "../../../errors.js";
 import { loadMarkdownEntities } from "../../persistence/markdown-config-loader.js";
-import { pluginBundleRoots } from "../../persistence/paths.js";
+import { pluginBundleRoots, theokitConfigRoot } from "../../persistence/paths.js";
 import { safePathJoin } from "../../security/path-guard.js";
 import type { CompatSourceDeclaration } from "../compat/foreign-config-sources.js";
 import { readWorkspaceDir } from "../config/workspace-dir.js";
@@ -27,6 +27,18 @@ export interface PluginMetadata {
 }
 
 /**
+ * A listed plugin from the native root `.theokit/plugins` that declares an `entry` (B-686): the
+ * folder it lives in is the name the trust gate checks, and `entryPath` is guarded against traversal.
+ *
+ * @internal
+ */
+export interface ManifestEntryCandidate {
+  metadata: PluginMetadata;
+  folder: string;
+  entryPath: string;
+}
+
+/**
  * File-based plugin loader. Discovers `.theokit/plugins/*\/plugin.json`
  * manifests when `local.settingSources` includes `"plugins"`.
  *
@@ -34,6 +46,12 @@ export interface PluginMetadata {
  */
 export class PluginsManager {
   private plugins: PluginMetadata[] = [];
+  /**
+   * B-686 — where each listed object was discovered. Keyed by the object, not by name: two plugins
+   * may share a declared name across roots or folders, and a field would leak a host path through
+   * `plugins.list()`. `refresh()` replaces the objects, so stale origins are collected with them.
+   */
+  readonly #origin = new WeakMap<PluginMetadata, { root: string; folder: string }>();
 
   constructor(
     private readonly cwd: string,
@@ -76,6 +94,7 @@ export class PluginsManager {
         const cliMetadata = await loadPluginManifestFromJson(this.cwd, cliPath, folderName);
         if (this.enabled === undefined || this.enabled.includes(cliMetadata.name)) {
           this.plugins.push(cliMetadata);
+          this.#origin.set(cliMetadata, { root: pluginsRoot, folder: folderName });
         }
         continue;
       }
@@ -101,12 +120,26 @@ export class PluginsManager {
       if (this.enabled === undefined || this.enabled.includes(metadata.name)) {
         await this.assertEntryFileExists(metadata, folderName, pluginsRoot);
         this.plugins.push(metadata);
+        this.#origin.set(metadata, { root: pluginsRoot, folder: folderName });
       }
     }
   }
 
   list(): Promise<PluginMetadata[]> {
     return Promise.resolve(this.plugins);
+  }
+
+  /** Listed native-root plugins that declare an `entry`, in list order. Reads no file. */
+  nativeEntryCandidates(): ManifestEntryCandidate[] {
+    const nativeRoot = join(theokitConfigRoot(this.cwd), "plugins");
+    return this.plugins.flatMap((metadata) => {
+      const origin = this.#origin.get(metadata);
+      if (origin === undefined || origin.root !== nativeRoot || metadata.entry === undefined) {
+        return [];
+      }
+      const entryPath = safePathJoin(join(origin.root, origin.folder), metadata.entry);
+      return [{ metadata, folder: origin.folder, entryPath }];
+    });
   }
 
   private async assertEntryFileExists(
