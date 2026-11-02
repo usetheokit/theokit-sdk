@@ -7,6 +7,9 @@
  * numbers are this file's oracle for the option-off path, and the 4800-byte budget is the oracle
  * for the option-on path.
  *
+ * The forward from `SendOptions` to the loop inputs is pinned in
+ * `prune-aged-tool-results-send-path.test.ts`, the file that mocks the loop.
+ *
  * The loop-level cases drive the production loop and record each request AT REQUEST TIME: the
  * request's `messages` is the live transcript array, so serializing it after the run would show
  * every call as the final state.

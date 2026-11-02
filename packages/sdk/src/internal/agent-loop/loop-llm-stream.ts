@@ -187,6 +187,7 @@ export async function streamLlmTurn(
         const key = derivePromptCacheKey(inputs.agentId);
         return key !== undefined ? { promptCacheKey: key } : {};
       })(),
+      // B-564: the request gets a pruned copy; ctx.messages stays whole (the transcript is resent from it).
       messages: pruneToolResultsForRequest(ctx.messages, inputs.pruneToolResults),
       tools: ctx.tools.map(toLlmTool),
     },
