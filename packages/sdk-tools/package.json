@@ -47,6 +47,16 @@
       "require": {
         "types": "./dist/read-pdf.d.cts",
         "default": "./dist/read-pdf.cjs"
+        }
+      },
+    "./structured-output": {
+      "import": {
+        "types": "./dist/structured-output.d.ts",
+        "default": "./dist/structured-output.js"
+      },
+      "require": {
+        "types": "./dist/structured-output.d.cts",
+        "default": "./dist/structured-output.cjs"
       }
     },
     "./github-link-preview": {
