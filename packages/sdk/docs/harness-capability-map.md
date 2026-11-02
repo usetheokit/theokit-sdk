@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1247 export(s) across 48 entry point(s).
+1251 export(s) across 49 entry point(s).
 
 ## `@theokit/acp`
 
@@ -842,6 +842,15 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `createExtractDocumentTool` | function | Extract the text of a `.docx` inside the project root. |
 | `CreateExtractDocumentToolOptions` | interface | Options for {@link createExtractDocumentTool } . |
+
+## `@theokit/sdk-tools/github-link-preview`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `createGithubLinkPreviewTool` | function | Build the `github_link_preview` tool.  |
+| `CreateGithubLinkPreviewToolOptions` | interface | Options for {@link createGithubLinkPreviewTool } ; every one is optional. |
+| `GithubLinkKind` | type | What a previewed GitHub URL points at, taken from its path. |
+| `GithubLinkPreviewResult` | type | The JSON the `github_link_preview` tool returns: a preview, or a typed failure. |
 
 ## `@theokit/sdk-tools/read-pdf`
 

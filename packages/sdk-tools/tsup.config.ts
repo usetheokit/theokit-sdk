@@ -6,6 +6,7 @@ export default defineConfig({
     // Own entry, not the barrel: `dist/index.js` has a gzip budget (.bundle-budget.json).
     "extract-document": "src/extract-document-entry.ts",
     "read-pdf": "src/read-pdf-entry.ts",
+    "github-link-preview": "src/github-link-preview-entry.ts",
   },
   format: ["esm", "cjs"],
   dts: {
@@ -13,6 +14,7 @@ export default defineConfig({
       index: "src/index.ts",
       "extract-document": "src/extract-document-entry.ts",
       "read-pdf": "src/read-pdf-entry.ts",
+      "github-link-preview": "src/github-link-preview-entry.ts",
     },
   },
   sourcemap: true,
