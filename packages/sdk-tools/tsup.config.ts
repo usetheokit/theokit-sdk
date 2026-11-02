@@ -7,6 +7,7 @@ export default defineConfig({
     "extract-document": "src/extract-document-entry.ts",
     "read-pdf": "src/read-pdf-entry.ts",
     "github-link-preview": "src/github-link-preview-entry.ts",
+    "screenshot-logbook": "src/screenshot-logbook-entry.ts",
   },
   format: ["esm", "cjs"],
   dts: {
@@ -15,6 +16,7 @@ export default defineConfig({
       "extract-document": "src/extract-document-entry.ts",
       "read-pdf": "src/read-pdf-entry.ts",
       "github-link-preview": "src/github-link-preview-entry.ts",
+      "screenshot-logbook": "src/screenshot-logbook-entry.ts",
     },
   },
   sourcemap: true,
