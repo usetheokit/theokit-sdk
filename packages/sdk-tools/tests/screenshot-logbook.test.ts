@@ -164,7 +164,7 @@ describe("createScreenshotLogbookTool — recording and listing", () => {
   it("round_trips_a_caption_with_newlines_quotes_and_unicode", async () => {
     const { run } = logbook();
     image("a.png");
-    const caption = 'line one\nline "two"\r\n\tcafé ✓ 日本   end';
+    const caption = 'line one\nline "two"\r\n\tмир ✓ 日本   end';
 
     await run({ action: "record", path: "a.png", caption });
     const listed = await run({ action: "list" });
