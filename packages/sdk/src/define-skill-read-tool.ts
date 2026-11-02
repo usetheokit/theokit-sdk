@@ -109,6 +109,15 @@ async function readReferences(skillDir: string): Promise<Record<string, string> 
   return Object.keys(refs).length > 0 ? refs : undefined;
 }
 
+function readNamed(skills: ReadonlyArray<ReadableSkill>, name: string): string | Promise<string> {
+  const skill = skills.find((s) => s.name === name);
+  if (skill === undefined) {
+    const available = skills.map((s) => s.name).join(", ");
+    return `Skill "${name}" not found. Available skills: ${available.length > 0 ? available : "(none)"}.`;
+  }
+  return renderSkill(skill);
+}
+
 const SkillReadInputSchema = z.object({
   name: z.string().min(1, "skill_read: `name` is required."),
 });
@@ -173,12 +182,7 @@ function defineSkillReadTool(source: SkillReadSource): CustomTool {
     // promise: parse and the not-found answer stay exactly as synchronous as they were.
     handler: (input: Record<string, unknown>): string | Promise<string> => {
       const { name } = SkillReadInputSchema.parse(input);
-      const skill = skills.find((s) => s.name === name);
-      if (skill === undefined) {
-        const available = skills.map((s) => s.name).join(", ");
-        return `Skill "${name}" not found. Available skills: ${available.length > 0 ? available : "(none)"}.`;
-      }
-      return renderSkill(skill);
+      return readNamed(skills, name);
     },
   };
 }
@@ -198,12 +202,7 @@ function lazySkillReadTool(
     handler: async (input: Record<string, unknown>): Promise<string> => {
       const { name } = SkillReadInputSchema.parse(input);
       const skills = await source();
-      const skill = skills.find((s) => s.name === name);
-      if (skill === undefined) {
-        const available = skills.map((s) => s.name).join(", ");
-        return `Skill "${name}" not found. Available skills: ${available.length > 0 ? available : "(none)"}.`;
-      }
-      return renderSkill(skill);
+      return readNamed(skills, name);
     },
   };
 }
