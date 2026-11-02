@@ -148,7 +148,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `model_unavailable` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:75` +2 |
 | `network` | domain | MemoryAdapterError, buildErrorMetadata | `packages/memory-honcho/src/adapter.ts:258` +5 |
 | `network_error` | domain | NetworkError | `packages/sdk/src/internal/http.ts:99` |
-| `no_api_key` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-brave.ts:50` |
+| `no_api_key` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-brave.ts:50` +1 |
+| `no_base_url` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-searxng.ts:35` |
 | `no_memory_adapter` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:141` +2 |
 | `no_such_session` | domain | NoSuchSessionError | `packages/sdk/src/interactive/types.ts:41` +1 |
 | `no_text_answer` | domain | — | `packages/sdk/src/errors.ts:656` |
