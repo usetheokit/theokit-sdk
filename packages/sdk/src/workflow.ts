@@ -591,6 +591,7 @@ export {
   WorkflowOutputError,
   WorkflowParallelError,
   WorkflowResumeStepNotFoundError,
+  WorkflowResumeWorkflowMismatchError,
   WorkflowSnapshotNotFoundError,
   WorkflowStateError,
 } from "./workflow-errors.js";

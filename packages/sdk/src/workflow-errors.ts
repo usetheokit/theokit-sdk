@@ -216,6 +216,30 @@ export class WorkflowResumeStepNotFoundError extends TheokitAgentError {
 }
 
 /**
+ * Thrown by `Workflow.resume()` (and so by a `workflowResumeTool` tool) when the snapshot for the run
+ * id was written by a workflow of another name. The snapshot is left in the store, so the workflow
+ * that suspended the run can still resume it.
+ *
+ * Without this check the default store, one process-global memory store, would let workflow B run
+ * its own tail on workflow A's accumulated input whenever both declare a step with the suspended id.
+ * `name` is a label, not an identity: two workflows that share a name are not told apart here.
+ */
+export class WorkflowResumeWorkflowMismatchError extends TheokitAgentError {
+  override readonly name = "WorkflowResumeWorkflowMismatchError";
+  constructor(
+    public readonly runId: string,
+    public readonly snapshotWorkflowName: string,
+    public readonly workflowName: string,
+  ) {
+    super(
+      `Cannot resume run "${runId}" with workflow "${workflowName}": ` +
+        `the run was suspended by workflow "${snapshotWorkflowName}".`,
+      { code: "workflow_resume_workflow_mismatch", isRetryable: false },
+    );
+  }
+}
+
+/**
  * Aggregate failure from parallel branches.
  *
  * THE ONE PUBLIC WORKFLOW ERROR STILL OUTSIDE THE SDK HIERARCHY, deliberately. Its ten siblings were
