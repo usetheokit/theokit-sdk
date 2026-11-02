@@ -101,6 +101,7 @@ function buildSkills(args: BootstrapArgs, out: BootstrappedSubmanagers): void {
     // #524 — the same declaration the per-send manager reads. Omitting it here would make
     // `agent.skills` disagree with the system prompt about which skills exist.
     resolveCompatSources(args.options, args.workspaceCwd),
+    staticSkills?.bundledDirs,
   );
   const localSkills = out.skillsManager;
   out.skills = {

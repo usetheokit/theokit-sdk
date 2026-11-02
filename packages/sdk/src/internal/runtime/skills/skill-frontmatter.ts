@@ -34,6 +34,11 @@ export interface SkillFrontmatter {
   category?: string;
   dependencies?: string[];
   /**
+   * `requires-bins: git, rg` (B-546) — executables the skill needs on PATH. A skill whose binary is
+   * absent is not offered to the model; `skills.get(name)` still resolves it.
+   */
+  requiresBins?: string[];
+  /**
    * `disable-model-invocation: true` — the model is not told this skill exists.
    *
    * The SDK owns this boundary: a skill reaches the model through exactly one place,
@@ -133,6 +138,8 @@ function buildFrontmatter(
   if (hasContent(fields.category)) result.category = fields.category;
   const deps = parseDependencies(fields.dependencies);
   if (deps !== undefined) result.dependencies = deps;
+  const bins = parseDependencies(fields["requires-bins"]);
+  if (bins !== undefined) result.requiresBins = bins;
   const disable = readAuthorizationFlag(parsed, "disable-model-invocation", name);
   if (disable !== undefined) result.disableModelInvocation = disable;
   const invocable = readAuthorizationFlag(parsed, "user-invocable", name);

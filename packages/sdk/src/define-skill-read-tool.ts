@@ -144,7 +144,9 @@ async function renderSkill(skill: ReadableSkill): Promise<string> {
  *
  * @public
  */
-function defineSkillReadTool(skills: ReadonlyArray<ReadableSkill>): CustomTool {
+function defineSkillReadTool(source: SkillReadSource): CustomTool {
+  if (typeof source === "function") return lazySkillReadTool(source);
+  const skills = source;
   // Fail fast on duplicate names (Rule 8): a shadowed skill would be silently
   // unreachable and the "not found" list would show the name twice. Names are
   // addressed by exact, case-sensitive match — the same identity the <skills>
@@ -181,13 +183,38 @@ function defineSkillReadTool(skills: ReadonlyArray<ReadableSkill>): CustomTool {
   };
 }
 
+/** A fixed list, or a function re-evaluated on every call so later-discovered skills are readable. */
+export type SkillReadSource =
+  | ReadonlyArray<ReadableSkill>
+  | (() => ReadonlyArray<ReadableSkill> | Promise<ReadonlyArray<ReadableSkill>>);
+
+/** B-546 — the same tool over a source read at call time, not at construction. */
+function lazySkillReadTool(
+  source: () => ReadonlyArray<ReadableSkill> | Promise<ReadonlyArray<ReadableSkill>>,
+): CustomTool {
+  const fixed = defineSkillReadTool([]);
+  return {
+    ...fixed,
+    handler: async (input: Record<string, unknown>): Promise<string> => {
+      const { name } = SkillReadInputSchema.parse(input);
+      const skills = await source();
+      const skill = skills.find((s) => s.name === name);
+      if (skill === undefined) {
+        const available = skills.map((s) => s.name).join(", ");
+        return `Skill "${name}" not found. Available skills: ${available.length > 0 ? available : "(none)"}.`;
+      }
+      return renderSkill(skill);
+    },
+  };
+}
+
 /** SE36 — `SkillReadTool.create` replaces `defineSkillReadTool` (ADR 0015). @public  *
  * `SkillReadTool.create` returns a **`CustomTool`** — a skill-reading tool, not a
  * `SkillReadTool` instance.
  */
 export class SkillReadTool {
   private constructor() {}
-  static create(skills: ReadonlyArray<ReadableSkill>): CustomTool {
+  static create(skills: SkillReadSource): CustomTool {
     return defineSkillReadTool(skills);
   }
 }
