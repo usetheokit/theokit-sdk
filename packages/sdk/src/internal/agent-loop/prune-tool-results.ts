@@ -15,12 +15,12 @@
  */
 
 import { ConfigurationError } from "../../errors.js";
+import type { PruneToolResultsOptions } from "../../types/run.js";
 import type { LlmContentPart, LlmMessage } from "../llm/types.js";
 
-/** How old a tool result may get, in tool rounds, before its content is pruned from a request. */
-export interface PruneToolResultsOptions {
-  olderThanRounds: number;
-}
+// The contract type lives in `types/run.ts` (types never import internal/); re-exported here
+// for the loop types and the package barrel, as `tool-result-guard.ts` does.
+export type { PruneToolResultsOptions } from "../../types/run.js";
 
 function stubFor(olderThanRounds: number): string {
   return `[tool result pruned: older than ${olderThanRounds} rounds]`;
