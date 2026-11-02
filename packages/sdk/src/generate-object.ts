@@ -9,7 +9,14 @@ import {
   STRUCTURED_OUTPUT_MESSAGES,
   setupStructuredOutput,
 } from "./internal/structured-output-helpers.js";
-import type { AgentOptions, LocalOptions, ModelSelection, SDKAgent } from "./types/agent.js";
+import type {
+  AgentOptions,
+  BuiltinToolName,
+  LocalOptions,
+  MemorySettings,
+  ModelSelection,
+  SDKAgent,
+} from "./types/agent.js";
 import type { ProviderRoutingSettings } from "./types/providers.js";
 
 /**
@@ -64,6 +71,19 @@ export interface GenerateObjectOptions<T extends ZodType> {
    *   to raw.
    */
   errorStrategy?: "throw" | "return-partial" | "return-raw";
+  /**
+   * Builtin tools removed from every transient agent's catalogue (the reasoning-phase agent of
+   * `structuringModel` included), forwarded to {@link AgentOptions.withheldBuiltinTools}.
+   * Absent ⇒ unchanged default: the agent holds `shell`. Pass `["shell"]` for a step that must
+   * only produce JSON. The `output` tool is never withheld.
+   */
+  withheldBuiltinTools?: readonly BuiltinToolName[];
+  /**
+   * Memory settings for every transient agent of the call, forwarded to {@link AgentOptions.memory}.
+   * Absent ⇒ unchanged default (a session transcript is written). Pass `{ enabled: false }`
+   * for a step that must leave no transcript.
+   */
+  memory?: MemorySettings;
 }
 
 /**
@@ -132,6 +152,10 @@ async function runReasoningPhase<T extends ZodType>(
     ...(options.systemPrompt !== undefined ? { systemPrompt: options.systemPrompt } : {}),
     ...(options.apiKey !== undefined ? { apiKey: options.apiKey } : {}),
     ...(options.providers !== undefined ? { providers: options.providers } : {}),
+    ...(options.withheldBuiltinTools !== undefined
+      ? { withheldBuiltinTools: options.withheldBuiltinTools }
+      : {}),
+    ...(options.memory !== undefined ? { memory: options.memory } : {}),
   };
   const reasoningAgent = await deps.create(reasoningOptions);
   try {
@@ -206,6 +230,10 @@ export async function generateObjectImpl<T extends ZodType>(
     ...(options.systemPrompt !== undefined ? { systemPrompt: options.systemPrompt } : {}),
     ...(options.apiKey !== undefined ? { apiKey: options.apiKey } : {}),
     ...(options.providers !== undefined ? { providers: options.providers } : {}),
+    ...(options.withheldBuiltinTools !== undefined
+      ? { withheldBuiltinTools: options.withheldBuiltinTools }
+      : {}),
+    ...(options.memory !== undefined ? { memory: options.memory } : {}),
   });
   const agent = await deps.create(agentOptions);
 
