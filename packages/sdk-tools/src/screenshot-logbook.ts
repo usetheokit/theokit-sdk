@@ -54,7 +54,6 @@ export const DEFAULT_MAX_ENTRIES = 1000;
 const DEFAULT_LOG_PATH = "logbook/screenshots.jsonl";
 const DEFAULT_LIST_LIMIT = 20;
 
-/** One line of the log. `path` is root-relative with forward slashes; `recorded_at` is ISO 8601. */
 const entrySchema = z.object({
   id: z.number(),
   path: z.string(),
@@ -64,6 +63,7 @@ const entrySchema = z.object({
   recorded_at: z.string(),
 });
 
+/** One line of the log. `path` is root-relative with forward slashes; `recorded_at` is ISO 8601. */
 export type LogbookEntry = z.infer<typeof entrySchema>;
 
 /** Options for {@link createScreenshotLogbookTool}. Only `projectRoot` is required. */
