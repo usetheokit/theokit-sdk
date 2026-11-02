@@ -9,7 +9,14 @@ import {
   STRUCTURED_OUTPUT_MESSAGES,
   setupStructuredOutput,
 } from "./internal/structured-output-helpers.js";
-import type { AgentOptions, LocalOptions, ModelSelection, SDKAgent } from "./types/agent.js";
+import type {
+  AgentOptions,
+  BuiltinToolName,
+  LocalOptions,
+  MemorySettings,
+  ModelSelection,
+  SDKAgent,
+} from "./types/agent.js";
 import type { ProviderRoutingSettings } from "./types/providers.js";
 
 /**
@@ -36,6 +43,19 @@ export interface StreamObjectOptions<T extends ZodType> {
    * when the right env key is set under a different provider name.
    */
   providers?: ProviderRoutingSettings;
+  /**
+   * Builtin tools removed from the transient agent's catalogue, forwarded to
+   * {@link AgentOptions.withheldBuiltinTools}. Absent ⇒ unchanged default: the agent holds
+   * `shell`. Pass `["shell"]` for a step that must only produce JSON. The `output` tool is
+   * never withheld.
+   */
+  withheldBuiltinTools?: readonly BuiltinToolName[];
+  /**
+   * Memory settings for the transient agent, forwarded to {@link AgentOptions.memory}.
+   * Absent ⇒ unchanged default (a session transcript is written). Pass `{ enabled: false }`
+   * for a step that must leave no transcript.
+   */
+  memory?: MemorySettings;
 }
 
 /**
@@ -140,6 +160,10 @@ export async function* streamObjectImpl<T extends ZodType>(
     ...(options.systemPrompt !== undefined ? { systemPrompt: options.systemPrompt } : {}),
     ...(options.apiKey !== undefined ? { apiKey: options.apiKey } : {}),
     ...(options.providers !== undefined ? { providers: options.providers } : {}),
+    ...(options.withheldBuiltinTools !== undefined
+      ? { withheldBuiltinTools: options.withheldBuiltinTools }
+      : {}),
+    ...(options.memory !== undefined ? { memory: options.memory } : {}),
   });
   const agent = await deps.create(agentOptions);
   const userMessage = buildToolPrompt(options.prompt);

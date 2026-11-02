@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1245 export(s) across 47 entry point(s).
+1247 export(s) across 48 entry point(s).
 
 ## `@theokit/acp`
 
@@ -842,6 +842,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `createExtractDocumentTool` | function | Extract the text of a `.docx` inside the project root. |
 | `CreateExtractDocumentToolOptions` | interface | Options for {@link createExtractDocumentTool } . |
+
+## `@theokit/sdk-tools/read-pdf`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `createReadPdfTool` | function | Read the text of a PDF inside the project root. |
+| `CreateReadPdfToolOptions` | interface | Options for {@link createReadPdfTool } . |
 
 ## `@theokit/sdk/a2a`
 
