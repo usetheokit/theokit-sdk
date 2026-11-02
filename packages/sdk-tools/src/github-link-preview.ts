@@ -27,8 +27,10 @@ const OWNER_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 const REPO_PATTERN = /^[A-Za-z0-9._-]{1,100}$/;
 const NUMBER_PATTERN = /^[1-9][0-9]{0,9}$/;
 
+/** What a previewed GitHub URL points at, taken from its path. */
 export type GithubLinkKind = "repository" | "issue" | "pull_request";
 
+/** Options for {@link createGithubLinkPreviewTool}; every one is optional. */
 export interface CreateGithubLinkPreviewToolOptions {
   /** Fetch implementation with the global `fetch` signature (injectable for tests). */
   fetchImpl?: typeof fetch;
@@ -46,6 +48,7 @@ export interface CreateGithubLinkPreviewToolOptions {
   now?: () => number;
 }
 
+/** The JSON the `github_link_preview` tool returns: a preview, or a typed failure. */
 export type GithubLinkPreviewResult =
   | {
       ok: true;
