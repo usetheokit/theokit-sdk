@@ -148,16 +148,27 @@ function isGithubOrigin(parsed: URL): boolean {
   );
 }
 
+const SECTION_KINDS: Readonly<Record<string, GithubLinkKind>> = {
+  issues: "issue",
+  pull: "pull_request",
+};
+
+function isValidRepository(owner: string, repo: string): boolean {
+  return OWNER_PATTERN.test(owner) && REPO_PATTERN.test(repo) && repo !== "." && repo !== "..";
+}
+
+function numberedTarget(owner: string, repo: string, segments: string[]): GithubTarget | undefined {
+  const [, , section = "", number = ""] = segments;
+  const kind = Object.hasOwn(SECTION_KINDS, section) ? SECTION_KINDS[section] : undefined;
+  if (segments.length !== 4 || kind === undefined || !NUMBER_PATTERN.test(number)) return undefined;
+  return { kind, owner, repo, number };
+}
+
 function targetFromSegments(segments: string[]): GithubTarget | undefined {
-  const [owner = "", repo = "", section, number = ""] = segments;
-  if (!OWNER_PATTERN.test(owner) || !REPO_PATTERN.test(repo) || repo === "." || repo === "..") {
-    return undefined;
-  }
+  const [owner = "", repo = ""] = segments;
+  if (!isValidRepository(owner, repo)) return undefined;
   if (segments.length === 2) return { kind: "repository", owner, repo };
-  if (segments.length !== 4 || !NUMBER_PATTERN.test(number)) return undefined;
-  if (section === "issues") return { kind: "issue", owner, repo, number };
-  if (section === "pull") return { kind: "pull_request", owner, repo, number };
-  return undefined;
+  return numberedTarget(owner, repo, segments);
 }
 
 function parseGithubUrl(url: string): GithubTarget | undefined {
