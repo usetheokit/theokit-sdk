@@ -29,6 +29,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./extract-document": {
+      "import": {
+        "types": "./dist/extract-document.d.ts",
+        "default": "./dist/extract-document.js"
+      },
+      "require": {
+        "types": "./dist/extract-document.d.cts",
+        "default": "./dist/extract-document.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -45,11 +55,15 @@
   },
   "peerDependencies": {
     "@theokit/sdk": ">=5.0.0-next.1",
+    "mammoth": "^1.13.0",
     "simple-git": "^4.0.1",
     "vitest": ">=2.0.0",
     "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
+    "mammoth": {
+      "optional": true
+    },
     "simple-git": {
       "optional": true
     },
@@ -64,6 +78,7 @@
     "@theokit/sdk": "workspace:*",
     "@theokit/sdk-cache": "workspace:*",
     "@theokit/sdk-handoff": "workspace:*",
+    "mammoth": "^1.13.0",
     "zod": "^4.0.0"
   },
   "publishConfig": {
