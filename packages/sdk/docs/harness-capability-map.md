@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1242 export(s) across 47 entry point(s).
+1245 export(s) across 47 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1473,6 +1473,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WorkflowPersistenceOptions` | interface | Where suspend snapshots are kept.  |
 | `WorkflowResumeOptions` | interface | Arguments for `Workflow.resume()`.  |
 | `WorkflowResumeStepNotFoundError` | class | EC-8 absorbed — `currentStepId` from snapshot not found in resumed workflow. |
+| `workflowResumeTool` | function | B-677 — a {@link CustomTool } that resumes a suspended run of `workflow` by its run id, with an optional payload validated against the suspend step's schema.  |
+| `WorkflowResumeToolSpec` | interface | Spec for {@link workflowResumeTool } . |
+| `WorkflowResumeWorkflowMismatchError` | class | Thrown by `Workflow.resume()` (and so by a `workflowResumeTool` tool) when the snapshot for the run id was written by a workflow of another name.  |
 | `WorkflowRun` | interface | The terminal record of one run — what `Workflow.run()` resolves to, what `Workflow.resume()` returns, and what the `result` promise of `Workflow.stream()` settles with.  |
 | `WorkflowRunOptions` | interface | Per-run options for `Workflow.run()` and `Workflow.stream()`.  |
 | `WorkflowSnapshot` | interface | The persisted state of a suspended run: written when a step calls `StepContext.suspend()`, read back by `Workflow.resume()`.  |
@@ -1481,5 +1484,5 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `workflowStep` | function | SE30 — use a committed {@link Workflow } as a step inside another workflow.  |
 | `WorkflowStepDescription` | interface | theokit#161 — one step of a workflow, as a reflection surface sees it.  |
 | `WorkflowStream` | type | SE28 — the async iterator returned by `Workflow.stream()`.  |
-| `WorkflowToolError` | class | Raised by a {@link workflowAsTool } tool when the wrapped workflow run does not reach `status: "completed"` (a step failed, the run was cancelled/suspended).  |
+| `WorkflowToolError` | class | Raised by a {@link workflowAsTool } or {@link workflowResumeTool } tool when the run does not reach `status: "completed"` (a step failed, the run was cancelled, or it suspended without `reportSuspe... |
 
