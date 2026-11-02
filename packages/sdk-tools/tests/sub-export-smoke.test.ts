@@ -66,3 +66,15 @@ describe("@theokit/sdk/tools — sub-export barrel", () => {
     expect(typeof tool.handler).toBe("function");
   });
 });
+
+describe("@theokit/sdk-tools/github-link-preview — subpath entry (ADR D4)", () => {
+  it("exports_createGithubLinkPreviewTool", async () => {
+    const entry = await import("../src/github-link-preview-entry.js");
+    expect(typeof entry.createGithubLinkPreviewTool).toBe("function");
+    expect(entry.createGithubLinkPreviewTool().name).toBe("github_link_preview");
+  });
+
+  it("keeps createGithubLinkPreviewTool off the root barrel", () => {
+    expect("createGithubLinkPreviewTool" in Tools).toBe(false);
+  });
+});
