@@ -9,7 +9,7 @@ export default defineConfig({
     "github-link-preview": "src/github-link-preview-entry.ts",
     "screenshot-logbook": "src/screenshot-logbook-entry.ts",
     "structured-output": "src/structured-output-entry.ts",
-    "web-search-adapters": "src/web-search-adapters-entry.ts",
+    "web-search-adapters": "src/web-search-adapters.ts",
   },
   format: ["esm", "cjs"],
   dts: {
@@ -20,7 +20,7 @@ export default defineConfig({
       "github-link-preview": "src/github-link-preview-entry.ts",
       "screenshot-logbook": "src/screenshot-logbook-entry.ts",
       "structured-output": "src/structured-output-entry.ts",
-      "web-search-adapters": "src/web-search-adapters-entry.ts",
+      "web-search-adapters": "src/web-search-adapters.ts",
     },
   },
   sourcemap: true,
