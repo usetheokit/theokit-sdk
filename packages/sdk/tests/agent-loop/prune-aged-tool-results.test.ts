@@ -32,6 +32,7 @@ import type {
   LlmToolResultPart,
 } from "../../src/internal/llm/types.js";
 import { createRealLocalRun } from "../../src/internal/local-agent/real-local-run.js";
+import type { SendOptions } from "../../src/types/run.js";
 import { driveLoop } from "../helpers/agent-loop-driver.js";
 import { removeTempDirRobust } from "../helpers/temp-workspace.js";
 
@@ -94,13 +95,13 @@ describe("pruneToolResults through the real loop (B-564)", () => {
     return { recorded, seen, result };
   }
 
-  it("test_option_off_sends_the_measured_57_4282_and_8507_bytes", async () => {
+  it("option off sends the measured 57 4282 and 8507 bytes", async () => {
     const { recorded } = await run();
 
     expect(recorded.slice(0, 3).map((json) => json.length)).toEqual([57, 4282, 8507]);
   });
 
-  it("test_aged_round_1_result_is_a_stub_at_call_3_and_round_2_stays_whole", async () => {
+  it("aged round 1 result is a stub at call 3 and round 2 stays whole", async () => {
     const { seen } = await run({ olderThanRounds: 1 });
     const call3 = seen[2]?.messages ?? [];
 
@@ -117,19 +118,19 @@ describe("pruneToolResults through the real loop (B-564)", () => {
     expect(round2[0]?.content).toBe("a".repeat(4000));
   });
 
-  it("test_call_2_is_unchanged_because_round_1_is_not_yet_aged", async () => {
+  it("call 2 is unchanged because round 1 is not yet aged", async () => {
     const { recorded } = await run({ olderThanRounds: 1 });
 
     expect(recorded[1]?.length).toBe(4282);
   });
 
-  it("test_round_3_request_is_at_most_4800_bytes_with_olderThanRounds_1", async () => {
+  it("round 3 request is at most 4800 bytes with olderThanRounds 1", async () => {
     const { recorded } = await run({ olderThanRounds: 1 });
 
     expect(recorded[2]?.length).toBeLessThanOrEqual(4800);
   });
 
-  it("test_the_transcript_keeps_every_full_result_while_requests_are_pruned", async () => {
+  it("the transcript keeps every full result while requests are pruned", async () => {
     const { result } = await run({ olderThanRounds: 1 });
     const results = (result.conversation ?? []).flatMap((turn) =>
       JSON.stringify(turn).includes("a".repeat(4000)) ? [turn] : [],
@@ -160,13 +161,13 @@ function transcript(rounds: number): LlmMessage[] {
 }
 
 describe("pruneToolResultsForRequest (B-564 unit cases)", () => {
-  it("test_option_absent_returns_the_same_array", () => {
+  it("option absent returns the same array", () => {
     const messages = transcript(3);
 
     expect(pruneToolResultsForRequest(messages, undefined)).toBe(messages);
   });
 
-  it("test_the_input_is_not_mutated", () => {
+  it("the input is not mutated", () => {
     const messages = transcript(3);
     const before = structuredClone(messages);
 
@@ -175,7 +176,7 @@ describe("pruneToolResultsForRequest (B-564 unit cases)", () => {
     expect(messages).toEqual(before);
   });
 
-  it("test_pruning_the_same_messages_twice_is_byte_identical_for_a_resumed_session", () => {
+  it("pruning the same messages twice is byte identical for a resumed session", () => {
     const messages = transcript(4);
 
     const first = JSON.stringify(pruneToolResultsForRequest(messages, { olderThanRounds: 2 }));
@@ -186,7 +187,7 @@ describe("pruneToolResultsForRequest (B-564 unit cases)", () => {
     expect(second).toBe(first);
   });
 
-  it("test_text_only_feedback_messages_do_not_count_as_rounds_and_stay_unchanged", () => {
+  it("text only feedback messages do not count as rounds and stay unchanged", () => {
     const messages = transcript(3);
 
     const pruned = pruneToolResultsForRequest(messages, { olderThanRounds: 2 });
@@ -199,14 +200,14 @@ describe("pruneToolResultsForRequest (B-564 unit cases)", () => {
     }
   });
 
-  it("test_EC1_olderThanRounds_equal_to_or_beyond_history_prunes_nothing", () => {
+  it("EC-1 olderThanRounds equal to or beyond history prunes nothing", () => {
     const messages = transcript(3);
 
     expect(pruneToolResultsForRequest(messages, { olderThanRounds: 3 })).toEqual(messages);
     expect(pruneToolResultsForRequest(messages, { olderThanRounds: 10 })).toEqual(messages);
   });
 
-  it("test_EC2_an_aged_error_result_keeps_isError_and_its_toolUseId", () => {
+  it("EC-2 an aged error result keeps isError and its toolUseId", () => {
     const messages: LlmMessage[] = [
       {
         role: "user",
@@ -227,7 +228,7 @@ describe("pruneToolResultsForRequest (B-564 unit cases)", () => {
     ]);
   });
 
-  it("test_EC4_two_tool_results_in_one_message_are_one_round_and_are_stubbed_together", () => {
+  it("EC-4 two tool results in one message are one round and are stubbed together", () => {
     const messages: LlmMessage[] = [
       {
         role: "user",
@@ -259,7 +260,7 @@ describe("validatePruneToolResults (B-564 invalid cases)", () => {
     1.5,
     Number.NaN,
     -1,
-  ])("test_olderThanRounds_%s_is_a_ConfigurationError_naming_it", (value) => {
+  ])("olderThanRounds %s is a ConfigurationError naming it", (value) => {
     const attempt = () => validatePruneToolResults({ olderThanRounds: value });
 
     expect(attempt).toThrow(ConfigurationError);
@@ -267,13 +268,13 @@ describe("validatePruneToolResults (B-564 invalid cases)", () => {
     expect(attempt).toThrow(expect.objectContaining({ code: "invalid_prune_tool_results" }));
   });
 
-  it("test_EC3_an_option_without_olderThanRounds_or_with_a_string_is_a_typed_error", () => {
+  it("EC-3 an option without olderThanRounds or with a string is a typed error", () => {
     for (const option of [{}, { olderThanRounds: "3" }]) {
       expect(() => validatePruneToolResults(option as never)).toThrow(ConfigurationError);
     }
   });
 
-  it("test_an_absent_option_and_a_valid_one_pass", () => {
+  it("an absent option and a valid one pass", () => {
     expect(() => validatePruneToolResults(undefined)).not.toThrow();
     expect(() => validatePruneToolResults({ olderThanRounds: 1 })).not.toThrow();
   });
@@ -288,12 +289,11 @@ describe("SendOptions.pruneToolResults at the send boundary (B-564)", () => {
     0,
     1.5,
     Number.NaN,
-  ])("test_invalid_olderThanRounds_%s_fails_typed_before_any_provider_call", async (value) => {
+  ])("invalid olderThanRounds %s fails typed before any provider call", async (value) => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockRejectedValue(new Error("no provider call is expected"));
-    // Typed on SendOptions once T1.2 declares the field; until then the run ignores it.
-    const sendOptions = { pruneToolResults: { olderThanRounds: value } };
+    const sendOptions: SendOptions = { pruneToolResults: { olderThanRounds: value } };
 
     const run = createRealLocalRun({
       agentId: "prune-boundary",
