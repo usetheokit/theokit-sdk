@@ -47,8 +47,8 @@
       "require": {
         "types": "./dist/read-pdf.d.cts",
         "default": "./dist/read-pdf.cjs"
-        }
-      },
+      }
+    },
     "./structured-output": {
       "import": {
         "types": "./dist/structured-output.d.ts",
