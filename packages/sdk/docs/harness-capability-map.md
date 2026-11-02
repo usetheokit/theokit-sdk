@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1233 export(s) across 46 entry point(s).
+1240 export(s) across 46 entry point(s).
 
 ## `@theokit/acp`
 
@@ -771,6 +771,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `createSessionArtifactStore` | function | Create a generic artifact store rooted at `dir`.  |
 | `createShellTool` | function | Build the `shell_exec` tool: run a command through `/bin/sh -c` with `projectRoot` as the working directory.  |
 | `CreateShellToolOptions` | interface | `shell_exec` — built-in tool for coding agents.  |
+| `createTextToSpeechTool` | function | Build the `text_to_speech` tool over a caller-supplied provider.  |
+| `CreateTextToSpeechToolOptions` | interface | Options for {@link createTextToSpeechTool } .  |
 | `createTodolistTool` | function | Build the `todolist` tool: an in-memory checklist the agent keeps across the turns of one session.  |
 | `createUpdatePlanTool` | function | `update_plan` — built-in tool for coding agents.  |
 | `createViewImageTool` | function | Read an image from the project so the model can look at it. |
@@ -782,7 +784,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `createWriteFileTool` | function | Build the `write_file` tool.  |
 | `CreateWriteFileToolOptions` | interface | Options for {@link createWriteFileTool } .  |
 | `createWriteStdinTool` | function | Write to a live interactive session's stdin and read the output it produces. |
+| `DEFAULT_MAX_AUDIO_BYTES` | const | Default ceiling on the clip written to disk: 10 MiB, by analogy with `DEFAULT_MAX_IMAGE_BYTES`. |
 | `DEFAULT_MAX_IMAGE_BYTES` | const | Default ceiling: 5 MB on disk.  |
+| `DEFAULT_MAX_TEXT_CHARS` | const | Default ceiling on the text sent to the provider, in UTF-16 code units.  |
 | `DEFAULT_TOOL_GUIDANCE` | const | Curated hints for the common cross-tool error codes.  |
 | `denyCatastrophicCommands` | function | A policy that denies catastrophic commands by composing the M3-2 guardrail. |
 | `EnvContextOptions` | interface | Options for {@link buildEnvContext } .  |
@@ -812,6 +816,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SessionArtifactStore` | interface | A generic, id-keyed, atomic artifact store.  |
 | `SessionArtifactStoreOptions` | interface | Options for {@link createSessionArtifactStore } . |
 | `SsrfBlockedError` | class | Thrown when a host/redirect resolves to a blocked (private/reserved) address. |
+| `SynthesizedAudio` | interface | What the provider returns: the encoded clip and its mime type. |
+| `TextToSpeechCallback` | type | The speech provider {@link createTextToSpeechTool } calls.  |
+| `TextToSpeechResult` | type | The tool's result, before it is serialised to the JSON string the handler returns. |
 | `TodoItem` | interface | `todolist` — in-session task tracking for multi-step work.  |
 | `todoItemsToPlanNodes` | function | Convert structured todo items (from a `todolist` tool result's `items`, M4-5) into versioned `PlanNode`s for rendering.  |
 | `TodolistTool` | interface | The `todolist` tool object.  |
