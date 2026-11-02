@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1240 export(s) across 46 entry point(s).
+1242 export(s) across 47 entry point(s).
 
 ## `@theokit/acp`
 
@@ -835,6 +835,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `withName` | function | Return a new `CustomTool` exposed under a different `name`, sharing the SAME `inputSchema` + `handler` (alias parity).  |
 | `withShellExitGuidance` | function | Wrap `shell_exec` so a SOFT failure — `{ ok: true, exit_code != 0 }` (the TOOL ran, the COMMAND failed) — gains a `guidance` hint.  |
 | `withToolResultGuidance` | function | Wrap a `CustomTool` so its failed results gain a `guidance` hint from `guidance`.  |
+
+## `@theokit/sdk-tools/extract-document`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `createExtractDocumentTool` | function | Extract the text of a `.docx` inside the project root. |
+| `CreateExtractDocumentToolOptions` | interface | Options for {@link createExtractDocumentTool } . |
 
 ## `@theokit/sdk/a2a`
 
