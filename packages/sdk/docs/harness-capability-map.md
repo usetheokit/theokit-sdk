@@ -853,6 +853,15 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `GithubLinkKind` | type | What a previewed GitHub URL points at, taken from its path. |
 | `GithubLinkPreviewResult` | type | The JSON the `github_link_preview` tool returns: a preview, or a typed failure. |
 
+## `@theokit/sdk-tools/goal`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `createGoalTool` | function | Build the `goal` tool: the agent's one standing objective for a session, read back in later turns.  |
+| `CreateGoalToolOptions` | interface | Options for {@link createGoalTool } . |
+| `GoalState` | interface | A session's goal: its text, whether it is still active, and when it was set and completed. |
+| `GoalTool` | interface | The `goal` tool object.  |
+
 ## `@theokit/sdk-tools/read-pdf`
 
 | Symbol | Kind | Summary |
