@@ -33,13 +33,18 @@ import type {
 } from "../../src/internal/llm/types.js";
 import { createRealLocalRun } from "../../src/internal/local-agent/real-local-run.js";
 import type { SendOptions } from "../../src/types/run.js";
+import type { SessionMessage } from "../../src/types/session-message.js";
 import { driveLoop } from "../helpers/agent-loop-driver.js";
 import { removeTempDirRobust } from "../helpers/temp-workspace.js";
 
 const PRINT_4000_BYTES = "head -c 4000 /dev/zero | tr '\\0' a";
 
 /** Two shell rounds that each print 4000 bytes, then a text close: the DISCOVER script. */
-function twoShellRoundsThenText(recorded: string[], seen: LlmRequest[]): LlmClient {
+function twoShellRoundsThenText(
+  recorded: string[],
+  seen: LlmRequest[],
+  live: LlmMessage[][] = [],
+): LlmClient {
   let call = 0;
   return {
     name: "stub",
@@ -47,6 +52,9 @@ function twoShellRoundsThenText(recorded: string[], seen: LlmRequest[]): LlmClie
       call += 1;
       recorded.push(JSON.stringify(request.messages));
       seen.push({ ...request, messages: structuredClone(request.messages) });
+      // Shallow copy: the elements are the loop's own message objects, so a later in-place edit of
+      // the transcript shows through them (the clone above cannot show it).
+      live.push([...request.messages]);
       yield { type: "text_delta", text: "" };
       if (call <= 2) {
         return {
@@ -87,12 +95,13 @@ describe("pruneToolResults through the real loop (B-564)", () => {
   async function run(pruneToolResults?: { olderThanRounds: number }) {
     const recorded: string[] = [];
     const seen: LlmRequest[] = [];
+    const live: LlmMessage[][] = [];
     const { result } = await driveLoop(cwd, {
-      llm: twoShellRoundsThenText(recorded, seen),
+      llm: twoShellRoundsThenText(recorded, seen, live),
       userMessage: "go",
       ...(pruneToolResults !== undefined ? { pruneToolResults } : {}),
     });
-    return { recorded, seen, result };
+    return { recorded, seen, live, result };
   }
 
   it("option off sends the measured 57 4282 and 8507 bytes", async () => {
@@ -137,6 +146,20 @@ describe("pruneToolResults through the real loop (B-564)", () => {
     );
 
     expect(results.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("the loop's own message objects keep both full results after the pruned request", async () => {
+    const { live } = await run({ olderThanRounds: 1 });
+    // Request 2 and 3 hold the loop transcript's own objects; round 1's result sits at index 2.
+    const round1AtCall2 = toolResultsOf(live[1]?.[2]);
+    const round1AtCall3 = toolResultsOf(live[2]?.[2]);
+    const round2AtCall3 = toolResultsOf(live[2]?.[4]);
+
+    expect(round1AtCall2[0]?.content).toBe("a".repeat(4000));
+    expect(round1AtCall3[0]?.content).toContain("pruned");
+    expect(round2AtCall3[0]?.content).toBe("a".repeat(4000));
+    // The request-2 object for round 1 is the transcript's own: pruning request 3 must not edit it.
+    expect(round1AtCall2[0]?.content, "pruning mutated the loop transcript").toBe("a".repeat(4000));
   });
 });
 
@@ -254,12 +277,34 @@ describe("pruneToolResultsForRequest (B-564 unit cases)", () => {
   });
 });
 
+describe("pruneToolResultsForRequest invariants (B-564)", () => {
+  it("every tool_use keeps a tool_result with the same id after pruning", () => {
+    const pruned = pruneToolResultsForRequest(transcript(4), { olderThanRounds: 1 });
+    const useIds = pruned
+      .flatMap((m) => m.content)
+      .flatMap((p) => (p.type === "tool_use" ? [p.id] : []));
+    const resultIds = pruned.flatMap(toolResultsOf).map((p) => p.toolUseId);
+
+    expect(resultIds).toEqual(useIds);
+  });
+
+  it("a result shorter than the stub is still replaced, so that request part may grow", () => {
+    const pruned = pruneToolResultsForRequest(transcript(2), { olderThanRounds: 1 });
+    const aged = toolResultsOf(pruned[2])[0]?.content as string;
+
+    expect(aged).toBe("[tool result pruned: older than 1 rounds]");
+    expect(aged.length).toBeGreaterThan("result 1".length);
+  });
+});
+
 describe("validatePruneToolResults (B-564 invalid cases)", () => {
   it.each([
     0,
     1.5,
     Number.NaN,
     -1,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
   ])("olderThanRounds %s is a ConfigurationError naming it", (value) => {
     const attempt = () => validatePruneToolResults({ olderThanRounds: value });
 
@@ -269,7 +314,7 @@ describe("validatePruneToolResults (B-564 invalid cases)", () => {
   });
 
   it("EC-3 an option without olderThanRounds or with a string is a typed error", () => {
-    for (const option of [{}, { olderThanRounds: "3" }]) {
+    for (const option of [{}, { olderThanRounds: "3" }, { olderThanRounds: null }]) {
       expect(() => validatePruneToolResults(option as never)).toThrow(ConfigurationError);
     }
   });
@@ -277,6 +322,53 @@ describe("validatePruneToolResults (B-564 invalid cases)", () => {
   it("an absent option and a valid one pass", () => {
     expect(() => validatePruneToolResults(undefined)).not.toThrow();
     expect(() => validatePruneToolResults({ olderThanRounds: 1 })).not.toThrow();
+  });
+});
+
+describe("pruneToolResults on a resumed session (B-564)", () => {
+  /** A stored session of two tool rounds, as `replayMessages` rebuilds them from `parts`. */
+  const storedSession: SessionMessage[] = [1, 2].flatMap((round): SessionMessage[] => [
+    {
+      role: "assistant",
+      text: "",
+      parts: [{ type: "tool_use", id: `prior-${round}`, name: "shell", input: { command: "x" } }],
+    },
+    {
+      role: "user",
+      text: "",
+      parts: [{ type: "tool_result", toolUseId: `prior-${round}`, content: "a".repeat(4000) }],
+    },
+  ]);
+
+  async function firstRequestOf(pruneToolResults?: { olderThanRounds: number }) {
+    const cwd = await mkdtemp(join(tmpdir(), "theokit-prune-resume-"));
+    onTestFinished(async () => {
+      await removeTempDirRobust(cwd);
+    });
+    const { requests } = await driveLoop(cwd, {
+      userMessage: "continue",
+      priorMessages: storedSession,
+      ...(pruneToolResults !== undefined ? { pruneToolResults } : {}),
+    });
+    return requests[0]?.messages ?? [];
+  }
+
+  it("the first request of a resumed run stubs the aged replayed result", async () => {
+    const messages = await firstRequestOf({ olderThanRounds: 1 });
+    const results = messages.flatMap(toolResultsOf);
+
+    expect(results.map((part) => part.toolUseId)).toEqual(["prior-1", "prior-2"]);
+    expect(results[0]?.content).toBe("[tool result pruned: older than 1 rounds]");
+    expect(results[1]?.content).toBe("a".repeat(4000));
+  });
+
+  it("the same stored session without the option replays both results whole", async () => {
+    const messages = await firstRequestOf();
+
+    expect(messages.flatMap(toolResultsOf).map((part) => part.content)).toEqual([
+      "a".repeat(4000),
+      "a".repeat(4000),
+    ]);
   });
 });
 

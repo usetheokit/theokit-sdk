@@ -11,3 +11,6 @@ persists and resumes from stays whole, so the stub applies only to the request. 
 without it the request is unchanged. `olderThanRounds` must be an integer of at least 1. Any other
 value fails the send with `ConfigurationError` code `invalid_prune_tool_results` before any provider
 call. The option type is exported as `PruneToolResultsOptions`.
+Pruning trades request size against prefix-cache reuse: each new round stubs one more previously
+sent result, so on providers that cache message prefixes the cached prefix ends earlier. That cost
+was not measured.
