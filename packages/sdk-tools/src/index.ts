@@ -104,6 +104,15 @@ export {
 } from "./run-vitest.js";
 export { type CreateSearchTextToolOptions, createSearchTextTool } from "./search-text.js";
 export { type CreateShellToolOptions, createShellTool } from "./shell-exec.js";
+export {
+  type CreateTextToSpeechToolOptions,
+  createTextToSpeechTool,
+  DEFAULT_MAX_AUDIO_BYTES,
+  DEFAULT_MAX_TEXT_CHARS,
+  type SynthesizedAudio,
+  type TextToSpeechCallback,
+  type TextToSpeechResult,
+} from "./text-to-speech.js";
 export { type PlanNode, todoItemsToPlanNodes } from "./todo-plan-nodes.js";
 export { createTodolistTool, type TodoItem, type TodolistTool } from "./todolist.js";
 export {
