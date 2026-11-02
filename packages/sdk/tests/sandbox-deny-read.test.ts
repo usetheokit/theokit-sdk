@@ -10,7 +10,16 @@ import path from "node:path";
 
 import { afterAll, describe, expect, it } from "vitest";
 
-import { buildBwrapArgv, detectBwrap, realProbes } from "../src/sandbox/index.js";
+import {
+  buildBwrapArgv,
+  createSandboxBackend,
+  detectBwrap,
+  interactiveWrapCommand,
+  LinuxSandbox,
+  LocalSandbox,
+  realProbes,
+  SandboxNotAvailableError,
+} from "../src/sandbox/index.js";
 
 const LIVE = detectBwrap(realProbes).ok;
 const itLive = LIVE ? it : it.skip; // reason: needs bubblewrap on the host
@@ -116,5 +125,100 @@ describe("denyReadPaths against a live bwrap", () => {
     expect(dirIn.stdout).not.toContain("INNER-VALUE");
     expect(control.status).toBe(0);
     expect(control.stdout).toContain("OK-VALUE");
+  });
+});
+
+const FAKE_BIN = "/usr/bin/bwrap";
+const present = () => ({ ok: true as const, bin: FAKE_BIN });
+const absent = () => ({ ok: false as const, reason: "bwrap not found in PATH" });
+const quiet = () => undefined;
+
+describe("denyReadPaths through the backends", () => {
+  it("forwards_the_deny_list_to_the_wrapped_command", () => {
+    const viaClass = new LinuxSandbox(
+      { workDir },
+      { mode: "workspace-write", bin: FAKE_BIN, denyReadPaths: [denyFile] },
+    ).wrapCommand("true");
+    const viaInteractive = interactiveWrapCommand({
+      mode: "workspace-write",
+      detect: present,
+      denyReadPaths: [denyFile],
+    })("true", workDir);
+    const viaFactory = createSandboxBackend({
+      mode: "workspace-write",
+      workDir,
+      detect: present,
+      denyReadPaths: [denyFile],
+    });
+
+    for (const wrapped of [viaClass, viaInteractive]) {
+      expect(wrapped).toContain("/dev/null");
+      expect(wrapped).toContain(denyFile);
+    }
+    expect(viaFactory).toBeInstanceOf(LinuxSandbox);
+    expect((viaFactory as LinuxSandbox).wrapCommand("true")).toContain(`'/dev/null' '${denyFile}'`);
+  });
+
+  it("fails_closed_without_confinement", () => {
+    const opts = { denyReadPaths: [denyFile] };
+    // bwrap absent: a deny list never degrades to an unconfined run
+    expect(() =>
+      createSandboxBackend({
+        mode: "workspace-write",
+        workDir,
+        detect: absent,
+        warn: quiet,
+        ...opts,
+      }),
+    ).toThrow(SandboxNotAvailableError);
+    expect(() =>
+      interactiveWrapCommand({ mode: "workspace-write", detect: absent, warn: quiet, ...opts })(
+        "true",
+        workDir,
+      ),
+    ).toThrow(SandboxNotAvailableError);
+    // danger-full-access applies no sandbox, so no mask can be honoured
+    expect(() =>
+      createSandboxBackend({ mode: "danger-full-access", workDir, detect: present, ...opts }),
+    ).toThrow(TypeError);
+    expect(() =>
+      interactiveWrapCommand({ mode: "danger-full-access", detect: present, ...opts })(
+        "true",
+        workDir,
+      ),
+    ).toThrow(TypeError);
+    // an empty list keeps today's behaviour: the fallback to LocalSandbox
+    expect(
+      createSandboxBackend({
+        mode: "workspace-write",
+        workDir,
+        detect: absent,
+        warn: quiet,
+        denyReadPaths: [],
+      }),
+    ).toBeInstanceOf(LocalSandbox);
+  });
+
+  itLive("denies_a_file_and_a_directory_inside_the_sandbox_and_reads_them_outside", async () => {
+    const config = { workDir, timeoutMs: 10_000 };
+    const confined = new LinuxSandbox(config, {
+      mode: "workspace-write",
+      denyReadPaths: [denyFile, denyDir],
+    });
+    const open = new LocalSandbox(config);
+    const inner = path.join(denyDir, "inner.txt");
+
+    const fileIn = await confined.execute(`cat ${denyFile}`);
+    const dirIn = await confined.execute(`cat ${inner}`);
+    const fileOut = await open.execute(`cat ${denyFile}`);
+    const dirOut = await open.execute(`cat ${inner}`);
+
+    expect(fileIn.exitCode).not.toBe(0);
+    expect(fileIn.stdout).not.toContain("TOKEN-VALUE");
+    expect(dirIn.exitCode).not.toBe(0);
+    expect(dirIn.stdout).not.toContain("INNER-VALUE");
+    expect(fileOut.exitCode).toBe(0);
+    expect(fileOut.stdout).toContain("TOKEN-VALUE");
+    expect(dirOut.exitCode).toBe(0);
   });
 });

@@ -1,7 +1,8 @@
 import { realpathSync, statSync } from "node:fs";
 import path from "node:path";
 
-import type { SandboxMode } from "./bwrap.js";
+import type { BwrapDetection, SandboxMode } from "./bwrap.js";
+import { SandboxNotAvailableError } from "./types.js";
 
 /** Paths the confined shell must keep: masking one would remove the command's own working ground. */
 const KEPT_ROOTS_ALWAYS = ["/tmp"] as const;
@@ -71,4 +72,24 @@ export function denyReadFlags(
   return [...resolved].flatMap((target) =>
     statSync(target).isDirectory() ? ["--tmpfs", target] : ["--ro-bind", "/dev/null", target],
   );
+}
+
+/**
+ * Refuses a non-empty deny list that no confinement can honour, before a backend or a wrap exists:
+ * `danger-full-access` applies no sandbox (`TypeError`), and an undetected bubblewrap would fall back
+ * to an unconfined run, which is the leak the list exists to stop (`SandboxNotAvailableError`).
+ */
+export function refuseUnhonourableDenyRead(
+  paths: readonly string[] | undefined,
+  mode: SandboxMode,
+  detect: () => BwrapDetection,
+): void {
+  if (paths === undefined || paths.length === 0) return;
+  if (mode === "danger-full-access") denyReadFlags(paths, { mode, cwd: "/" }); // throws TypeError
+  const detection = detect();
+  if (!detection.ok) {
+    throw new SandboxNotAvailableError(
+      `denyReadPaths needs kernel confinement and it is unavailable (${detection.reason}); refusing to run unconfined`,
+    );
+  }
 }
