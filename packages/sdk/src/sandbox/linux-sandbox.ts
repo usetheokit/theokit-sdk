@@ -9,6 +9,7 @@ import { dirname, join } from "node:path";
 import { redactSecrets } from "../internal/security/redact.js";
 import type { BwrapDetection, SandboxMode } from "./bwrap.js";
 import { buildBwrapArgv, detectBwrapMemoized } from "./bwrap.js";
+import { denyReadFlags, refuseUnhonourableDenyRead } from "./deny-read.js";
 import { LocalSandbox } from "./local-sandbox.js";
 import { buildSeccompFilter } from "./seccomp.js";
 import {
@@ -57,10 +58,12 @@ export function wrapCommandForSandbox(
      * positive multiple of 8 bytes (a `TypeError` otherwise). Wins over `seccompPath`.
      */
     seccompProgram?: Uint8Array;
+    /** See `BwrapArgvOptions.denyReadPaths`. */
+    denyReadPaths?: readonly string[];
   },
   command: string,
 ): string | null {
-  const argv = buildBwrapArgv(mode, { cwd: opts.cwd, network: opts.network, env: opts.env });
+  const argv = buildBwrapArgv(mode, opts);
   if (argv === null) return null; // danger-full-access: bwrap skipped
   const bin = opts.bin ?? "bwrap";
   if (opts.seccompProgram !== undefined) {
@@ -113,7 +116,6 @@ export function allowlistedEnv(source: NodeJS.ProcessEnv = process.env): Record<
   }
   return out;
 }
-
 /**
  * Kernel-confined backend for Linux hosts: a `LocalSandbox` whose commands are rewritten as
  * `bwrap <policy flags> -- /bin/sh -c '<command>'` before they are spawned. Spawning, output caps,
@@ -148,10 +150,18 @@ export class LinuxSandbox extends LocalSandbox {
    * confined command could replace). `undefined` when the network is unrestricted or the arch is not
    * x86_64 (honest fallback). */
   private readonly seccompProgram: Uint8Array | undefined;
+  private readonly denyReadPaths: readonly string[] | undefined;
 
+  /** `denyReadPaths`: see `BwrapArgvOptions`; a list that cannot be honoured throws `TypeError` here. */
   constructor(
     config: SandboxConfig,
-    opts: { mode: SandboxMode; network?: boolean; bin?: string; env?: Record<string, string> },
+    opts: {
+      mode: SandboxMode;
+      network?: boolean;
+      bin?: string;
+      env?: Record<string, string>;
+      denyReadPaths?: readonly string[];
+    },
   ) {
     super(config);
     this.mode = opts.mode;
@@ -162,6 +172,8 @@ export class LinuxSandbox extends LocalSandbox {
     this.bin = opts.bin ?? "bwrap";
     this.env = opts.env ?? allowlistedEnv();
     this.seccompProgram = seccompProgramForNetwork(this.network);
+    this.denyReadPaths = opts.denyReadPaths;
+    denyReadFlags(this.denyReadPaths, { mode: this.mode, cwd: this.cwd }); // fail fast, not per command
   }
 
   /** Extracted for test visibility — delegates to the pure `wrapCommandForSandbox` (M57, single wrap SoT). */
@@ -174,6 +186,7 @@ export class LinuxSandbox extends LocalSandbox {
         env: this.env,
         bin: this.bin,
         seccompProgram: this.seccompProgram,
+        denyReadPaths: this.denyReadPaths,
       },
       command,
     );
@@ -335,6 +348,8 @@ export interface CreateSandboxBackendOptions {
   workDir?: string;
   network?: boolean;
   timeoutMs?: number;
+  /** Paths the shell cannot read. Never degrades to unconfined: throws `TypeError` or `SandboxNotAvailableError`. */
+  denyReadPaths?: readonly string[];
   /** Injectable for tests; defaults to the real 3-probe detection. */
   detect?: () => BwrapDetection;
   /** Injectable for tests; defaults to console.warn. */
@@ -350,6 +365,7 @@ export interface CreateSandboxBackendOptions {
  */
 export function createSandboxBackend(opts: CreateSandboxBackendOptions): SandboxBackend {
   const config: SandboxConfig = { workDir: opts.workDir, timeoutMs: opts.timeoutMs };
+  refuseUnhonourableDenyRead(opts.denyReadPaths, opts.mode, opts.detect ?? detectBwrapMemoized);
   if (opts.mode === "danger-full-access") return new LocalSandbox(config);
 
   const detection = (opts.detect ?? detectBwrapMemoized)();
@@ -364,7 +380,7 @@ export function createSandboxBackend(opts: CreateSandboxBackendOptions): Sandbox
     }
     return new LocalSandbox(config);
   }
-  return new LinuxSandbox(config, { mode: opts.mode, network: opts.network, bin: detection.bin });
+  return new LinuxSandbox(config, { ...opts, bin: detection.bin }); // the class reads mode, network, denyReadPaths
 }
 
 /**
@@ -427,6 +443,8 @@ export interface InteractiveWrapOptions {
   mode: SandboxMode;
   /** `true` keeps the network. Default `false`, same as non-interactive `run_shell`. */
   network?: boolean;
+  /** Paths the command cannot read. Throws on the wrap, never runs unconfined (as `CreateSandboxBackendOptions`). */
+  denyReadPaths?: readonly string[];
   /** Injectable for tests; defaults to the real memoized detection. */
   detect?: () => BwrapDetection;
   /** Injectable for tests; defaults to `console.warn` with redaction. */
@@ -445,6 +463,7 @@ export interface InteractiveWrapOptions {
  * and only when the absence is a failure (not when it is an opt-out).
  */
 function decideConfinement(opts: InteractiveWrapOptions): string | null {
+  refuseUnhonourableDenyRead(opts.denyReadPaths, opts.mode, opts.detect ?? detectBwrapMemoized);
   if (opts.mode === "danger-full-access") return null;
 
   const detection = (opts.detect ?? detectBwrapMemoized)();
@@ -492,6 +511,7 @@ export function interactiveWrapCommand(
         env: allowlistedEnv(),
         bin,
         seccompProgram: seccompProgramForNetwork(opts.network ?? false),
+        denyReadPaths: opts.denyReadPaths,
       },
       command,
     );
