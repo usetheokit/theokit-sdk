@@ -62,7 +62,7 @@ export function createRealLocalRun(options: CreateRealLocalRunOptions): Run {
 
 /**
  * #58 / #57 / B-564 — forward the per-tool timeout, the tool-result guard and aged tool-result
- * pruning so a consumer can enable them via SendOptions (not only internal AgentLoopInputs).
+ * pruning (the forward is pinned by tests/agent-loop/prune-aged-tool-results-send-path.test.ts) so a consumer can enable them via SendOptions (not only internal AgentLoopInputs).
  */
 function toolResultPolicyInputs(
   sendOptions: CreateRealLocalRunOptions["sendOptions"],
