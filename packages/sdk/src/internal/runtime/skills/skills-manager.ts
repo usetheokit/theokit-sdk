@@ -77,6 +77,11 @@ export class SkillsManager {
      * prompt-injection surface, not a convenience.
      */
     private readonly compatSources: readonly CompatSourceDeclaration[] = [],
+    /**
+     * B-546 — roots an application bundles in its own package. Ranked below every other root: the
+     * first declaration of a name wins, so a workspace skill shadows a bundled one.
+     */
+    private readonly bundledDirs: readonly string[] = [],
   ) {
     void _enabled;
   }
@@ -100,7 +105,7 @@ export class SkillsManager {
     // `description` the CLI writes; only the directory was never looked at.
     // A Claude Code plugin is a bundle whose `skills/` is what it contributes; bundles come after
     // the project's own roots so a project can shadow a skill a plugin ships without editing it.
-    const roots =
+    const ownRoots =
       this.skillsDir === undefined
         ? [
             ...projectConfigRoots(this.cwd, this.compatSources, "skills").map((root) =>
@@ -109,6 +114,7 @@ export class SkillsManager {
             ...(await pluginBundleDirs(this.cwd, this.compatSources)).map((b) => join(b, "skills")),
           ]
         : [this.skillsDir];
+    const roots = [...ownRoots, ...this.bundledDirs];
     const discovered: StoredSkill[] = [];
     const seen = new Set<string>();
     for (const root of roots) {
