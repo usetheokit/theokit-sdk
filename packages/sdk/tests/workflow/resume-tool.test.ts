@@ -8,8 +8,8 @@ import {
   WorkflowSnapshotNotFoundError,
   WorkflowToolError,
   workflowAsTool,
+  workflowResumeTool,
 } from "../../src/workflow.js";
-import { workflowResumeTool } from "../../src/workflow-as-tool.js";
 
 /**
  * B-677 — `workflowResumeTool(workflow, spec)` lets a model continue a run that a `workflowAsTool`
