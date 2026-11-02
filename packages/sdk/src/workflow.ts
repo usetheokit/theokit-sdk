@@ -573,7 +573,13 @@ export { __resetSnapshotStoresForTests } from "./internal/workflow/snapshot-stor
 export type * from "./types/workflow.js";
 // SE19 — exposing a Workflow AS an agent tool answers a different question from building one,
 // and lives in its own module. Re-exported so `@theokit/sdk/workflow` is unchanged.
-export { type WorkflowAsToolSpec, WorkflowToolError, workflowAsTool } from "./workflow-as-tool.js";
+export {
+  type WorkflowAsToolSpec,
+  type WorkflowResumeToolSpec,
+  WorkflowToolError,
+  workflowAsTool,
+  workflowResumeTool,
+} from "./workflow-as-tool.js";
 export {
   WorkflowAlreadyRunningError,
   WorkflowCompensateNotImplementedError,
@@ -585,6 +591,7 @@ export {
   WorkflowOutputError,
   WorkflowParallelError,
   WorkflowResumeStepNotFoundError,
+  WorkflowResumeWorkflowMismatchError,
   WorkflowSnapshotNotFoundError,
   WorkflowStateError,
 } from "./workflow-errors.js";

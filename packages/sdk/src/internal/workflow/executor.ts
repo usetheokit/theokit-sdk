@@ -23,6 +23,7 @@ import {
   WorkflowInputError,
   WorkflowOutputError,
   WorkflowResumeStepNotFoundError,
+  WorkflowResumeWorkflowMismatchError,
   WorkflowSnapshotNotFoundError,
   WorkflowStateError,
 } from "../../workflow-errors.js";
@@ -427,6 +428,11 @@ export async function resumeWorkflow<TO>(opts: WorkflowResumeOptions): Promise<W
   const snapshot = await store.load(opts.runId);
   if (snapshot === undefined) {
     throw new WorkflowSnapshotNotFoundError(opts.runId);
+  }
+  // Checked before the step lookup and before the delete: a run id from another workflow is refused
+  // and its snapshot stays for the workflow that wrote it.
+  if (snapshot.workflowName !== options.name) {
+    throw new WorkflowResumeWorkflowMismatchError(opts.runId, snapshot.workflowName, options.name);
   }
   // EC-8: verify the currentStepId exists in the supplied workflow.
   const stepIdx = steps.findIndex((s) => s.id === snapshot.currentStepId);
