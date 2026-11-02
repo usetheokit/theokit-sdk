@@ -19,10 +19,15 @@ const MODULE = path.join(import.meta.dirname, "..", "src", "sandbox", "linux-san
 
 type Signal = "SIGTERM" | "SIGINT";
 
-/** The host's shutdown: registered with once, asynchronous, and it ends the process itself. */
+/**
+ * The host's shutdown: registered with once, asynchronous, and it ends the process itself. On entry
+ * it prints whether any filter directory written so far still exists (the SDK cleanup runs first).
+ */
 function hostOnceHandler(signal: Signal): string[] {
   return [
     `process.once(${JSON.stringify(signal)}, async () => {`,
+    `  const present = (globalThis.b648Filters ?? []).some((f) => existsSync(dirname(f)));`,
+    `  console.log(present ? "DIR_PRESENT_AT_HOST_ENTRY" : "DIR_GONE_AT_HOST_ENTRY");`,
     `  await new Promise((r) => setTimeout(r, 200));`,
     `  console.log("DONE");`,
     `  process.exit(0);`,
@@ -30,7 +35,10 @@ function hostOnceHandler(signal: Signal): string[] {
   ];
 }
 
-const WRITE_FILTER = `console.log(seccompPathForArch("x64", () => {}));`;
+const WRITE_FILTER = [
+  `{ const f = seccompPathForArch("x64", () => {});`,
+  `  console.log(f); (globalThis.b648Filters ??= []).push(f); }`,
+].join("\n");
 
 /** Run `body` in a child that imports the SDK and then signals itself; each filter it writes is printed. */
 function runChild(signal: Signal, body: string[]) {
@@ -40,6 +48,8 @@ function runChild(signal: Signal, body: string[]) {
   writeFileSync(
     script,
     [
+      `import { existsSync } from "node:fs";`,
+      `import { dirname } from "node:path";`,
       `import { seccompPathForArch } from ${JSON.stringify(MODULE)};`,
       ...body,
       `process.kill(process.pid, ${JSON.stringify(signal)});`,
@@ -63,6 +73,7 @@ describe("B-648 — a host's process.once shutdown handler finishes", () => {
     // The SDK listener was installed: without the filter path the run measures nothing (EC-1).
     expect(r.filter, r.stderr).toMatch(/ab-seccomp-.*filter\.bpf$/);
     expect(r.stdout, "the re-raise cut off the host's shutdown").toContain("DONE");
+    expect(r.stdout, "the host ran before the SDK cleanup").toContain("DIR_GONE_AT_HOST_ENTRY");
     expect(r.signal).toBeNull();
     expect(r.status).toBe(0);
     expect(existsSync(r.filterDir), "the temp dir outlived the process").toBe(false);
@@ -72,6 +83,7 @@ describe("B-648 — a host's process.once shutdown handler finishes", () => {
     const r = runChild("SIGTERM", [WRITE_FILTER, ...hostOnceHandler("SIGTERM")]);
     expect(r.filter, r.stderr).toMatch(/ab-seccomp-.*filter\.bpf$/);
     expect(r.stdout, "the re-raise cut off the host's shutdown").toContain("DONE");
+    expect(r.stdout, "the host ran before the SDK cleanup").toContain("DIR_GONE_AT_HOST_ENTRY");
     expect(r.signal).toBeNull();
     expect(r.status).toBe(0);
     expect(existsSync(r.filterDir), "the temp dir outlived the process").toBe(false);
@@ -82,8 +94,22 @@ describe("B-648 — a host's process.once shutdown handler finishes", () => {
     expect(r.filters, r.stderr).toHaveLength(2);
     for (const filter of r.filters) expect(filter).toMatch(/ab-seccomp-.*filter\.bpf$/);
     expect(r.stdout, "the re-raise cut off the host's shutdown").toContain("DONE");
+    expect(r.stdout, "the host ran before the SDK cleanup").toContain("DIR_GONE_AT_HOST_ENTRY");
     expect(r.signal).toBeNull();
     expect(r.status).toBe(0);
+    for (const filter of r.filters) {
+      expect(existsSync(path.dirname(filter)), "a temp dir outlived the process").toBe(false);
+    }
+  });
+
+  it("a process that wrote two filters and has no handler of its own still ends by the signal", () => {
+    // Both SDK listeners are prepended; the second filter's runs first, reads one listener left
+    // (the first filter's) and does not re-raise; the last reads zero and re-raises (T1.1 invariant).
+    const r = runChild("SIGTERM", [WRITE_FILTER, WRITE_FILTER]);
+    expect(r.filters, r.stderr).toHaveLength(2);
+    for (const filter of r.filters) expect(filter).toMatch(/ab-seccomp-.*filter\.bpf$/);
+    expect(r.signal, "the process survived its SIGTERM").toBe("SIGTERM");
+    expect(r.stdout).not.toContain("SURVIVED");
     for (const filter of r.filters) {
       expect(existsSync(path.dirname(filter)), "a temp dir outlived the process").toBe(false);
     }
