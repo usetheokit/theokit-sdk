@@ -19,7 +19,7 @@ import {
   LocalSandbox,
   realProbes,
   SandboxNotAvailableError,
-} from "../src/sandbox/index.js";
+} from "../../src/sandbox/index.js";
 
 const LIVE = detectBwrap(realProbes).ok;
 const itLive = LIVE ? it : it.skip; // reason: needs bubblewrap on the host

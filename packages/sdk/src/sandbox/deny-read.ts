@@ -1,7 +1,6 @@
 import { realpathSync, statSync } from "node:fs";
 import path from "node:path";
-
-import type { BwrapDetection, SandboxMode } from "./bwrap.js";
+import type { BwrapDetection, SandboxMode } from "./types.js";
 import { SandboxNotAvailableError } from "./types.js";
 
 /** Paths the confined shell must keep: masking one would remove the command's own working ground. */
