@@ -843,6 +843,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `createExtractDocumentTool` | function | Extract the text of a `.docx` inside the project root. |
 | `CreateExtractDocumentToolOptions` | interface | Options for {@link createExtractDocumentTool } . |
 
+## `@theokit/sdk-tools/read-pdf`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `createReadPdfTool` | function | Read the text of a PDF inside the project root. |
+| `CreateReadPdfToolOptions` | interface | Options for {@link createReadPdfTool } . |
+
 ## `@theokit/sdk/a2a`
 
 | Symbol | Kind | Summary |
