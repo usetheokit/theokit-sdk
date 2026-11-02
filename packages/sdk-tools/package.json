@@ -59,6 +59,16 @@
         "default": "./dist/github-link-preview.cjs"
       }
     },
+    "./screenshot-logbook": {
+      "import": {
+        "types": "./dist/screenshot-logbook.d.ts",
+        "default": "./dist/screenshot-logbook.js"
+      },
+      "require": {
+        "types": "./dist/screenshot-logbook.d.cts",
+        "default": "./dist/screenshot-logbook.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
