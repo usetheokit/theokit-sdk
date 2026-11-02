@@ -29,6 +29,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./extract-document": {
+      "import": {
+        "types": "./dist/extract-document.d.ts",
+        "default": "./dist/extract-document.js"
+      },
+      "require": {
+        "types": "./dist/extract-document.d.cts",
+        "default": "./dist/extract-document.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
