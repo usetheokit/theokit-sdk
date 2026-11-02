@@ -263,5 +263,5 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `ws_global_missing` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:184` |
 | `ws_peer_missing` | domain | SubscriptionError | `packages/sdk/src/subscription/internal/ws-adapter-node.ts:48` |
 | `ws_transport_mismatch` | domain | SubscriptionError | `packages/sdk/src/subscription/internal/server-integration.ts:351` |
-| `zod_not_installed` | domain | ConfigurationError | `packages/sdk/src/internal/structured-output-helpers.ts:33` +1 |
+| `zod_not_installed` | domain | ConfigurationError | `packages/sdk/src/internal/structured-output-helpers.ts:40` +1 |
 
