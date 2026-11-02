@@ -477,7 +477,10 @@ export interface SendOptions {
    * run's agent loop sends (its `toolUseId` and `isError` kept; session compaction is not pruned); the transcript the run keeps, persists and resumes
    * from stays whole. `olderThanRounds` must be an integer of at least 1, else the send fails
    * with `ConfigurationError` code `invalid_prune_tool_results` before any provider call.
-   * Undefined = no pruning (the request is unchanged).
+   * Undefined = no pruning (the request is unchanged). Pruning trades request size against
+   * prefix-cache reuse: each new round turns one more previously sent result into a stub, so the
+   * request prefix changes from that message onward on providers that cache message prefixes.
+   * The cache-hit cost was not measured.
    *
    * @public
    */
