@@ -7,6 +7,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 
 import { denyReadFlags } from "./deny-read.js";
+import type { BwrapDetection, SandboxMode } from "./types.js";
 
 /*
  * M53 — bubblewrap argv + honest detection.
@@ -27,7 +28,7 @@ import { denyReadFlags } from "./deny-read.js";
  * configuration: `danger-full-access` means "do not wrap", and that is a decision belonging to the
  * confinement subsystem.
  */
-export type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
+export type { SandboxMode } from "./types.js";
 
 /**
  * The RW binds `workspace-write` installs (protocol.rs:1189-1214), plus the metadata protection that
@@ -174,7 +175,7 @@ export interface BwrapProbes {
  * `try`/`catch` catches nothing; callers warn and fall back to an unconfined
  * `LocalSandbox`.
  */
-export type BwrapDetection = { ok: true; bin: string } | { ok: false; reason: string };
+export type { BwrapDetection } from "./types.js";
 
 /** Honest detection — fail-closed on every probe; NEVER throws (callers WARN + fall back). */
 export function detectBwrap(probes: BwrapProbes = realProbes): BwrapDetection {
