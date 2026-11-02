@@ -40,6 +40,9 @@ function stubbed(message: LlmMessage, stub: string): LlmMessage {
 /**
  * Build the messages for one LLM request with aged tool results replaced by a stub.
  *
+ * Each new round stubs one more previously sent result, so on providers that cache message
+ * prefixes the cached prefix ends earlier; that cost was not measured.
+ *
  * @param messages - The loop transcript. Never mutated.
  * @param options - Absent means no pruning: the input array itself is returned, so the
  *   option-off request is byte-identical to the transcript.
