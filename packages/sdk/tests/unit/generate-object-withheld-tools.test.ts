@@ -5,11 +5,9 @@ import { generateObjectImpl } from "../../src/generate-object.js";
 import { effectiveToolNames } from "../../src/internal/runtime/validation/effective-tools.js";
 import type { AgentOptions, BuiltinToolName, SDKAgent } from "../../src/types/agent.js";
 
-/**
- * B-678 — `generateObject` forwards `withheldBuiltinTools` and `memory` to every transient agent it
- * creates, so a caller can run the structured-output step with no `shell` and no transcript. The
- * injected `deps.create` records every `AgentOptions` it receives; no model is called.
- */
+// B-678 — `generateObject` forwards `withheldBuiltinTools` and `memory` to every transient agent it
+// creates, so a caller can run the structured-output step with no `shell` and no transcript. The
+// injected `deps.create` records every `AgentOptions` it receives; no model is called.
 
 /** A fake `deps.create` that records options and, for the structuring agent, fires the output tool. */
 function makeDeps(created: AgentOptions[]) {
