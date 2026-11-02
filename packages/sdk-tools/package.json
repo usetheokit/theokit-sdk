@@ -57,6 +57,7 @@
     "@theokit/sdk": ">=5.0.0-next.1",
     "mammoth": "^1.13.0",
     "simple-git": "^4.0.1",
+    "unpdf": "^2.1.0",
     "vitest": ">=2.0.0",
     "zod": "^4.0.0"
   },
@@ -65,6 +66,9 @@
       "optional": true
     },
     "simple-git": {
+      "optional": true
+    },
+    "unpdf": {
       "optional": true
     },
     "vitest": {
@@ -79,6 +83,7 @@
     "@theokit/sdk-cache": "workspace:*",
     "@theokit/sdk-handoff": "workspace:*",
     "mammoth": "^1.13.0",
+    "unpdf": "^2.1.0",
     "zod": "^4.0.0"
   },
   "publishConfig": {
