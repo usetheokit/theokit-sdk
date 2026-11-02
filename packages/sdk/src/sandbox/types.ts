@@ -223,3 +223,9 @@ export async function resolveSandbox<Ctx>(
 ): Promise<SandboxBackend> {
   return provider instanceof SandboxBackend ? provider : provider(ctx);
 }
+
+/** Codex's three canonical sandbox modes; lives in this leaf module so bwrap.ts and deny-read.ts need not import each other. */
+export type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
+
+/** Result of probing for bubblewrap. Detection never throws. */
+export type BwrapDetection = { ok: true; bin: string } | { ok: false; reason: string };

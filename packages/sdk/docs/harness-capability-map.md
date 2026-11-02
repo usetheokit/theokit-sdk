@@ -1334,7 +1334,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `buildBwrapArgv` | function | Pure argv builder.  |
 | `buildSeccompFilter` | function | Build the cBPF seccomp program as a `Buffer` (each `sock_filter` = 8 bytes).  |
 | `BwrapArgvOptions` | interface | Everything {@link buildBwrapArgv } needs besides the {@link SandboxMode } .  |
-| `BwrapDetection` | type | Result of {@link detectBwrap } / {@link detectBwrapMemoized } , discriminated on `ok`: `{ ok: true, bin }` carries the absolute path of the validated `bwrap`, `{ ok: false, reason }` a human-readab... |
+| `BwrapDetection` | type | Result of probing for bubblewrap.  |
 | `BwrapProbes` | interface | Injectable probes — each mirrors one Codex availability check. |
 | `createSandboxBackend` | function | Honest factory: bwrap available + mode wants confinement → `LinuxSandbox` (kernel enforcement, running the VALIDATED absolute bin); `danger-full-access` → plain `LocalSandbox` silently (explicit op... |
 | `CreateSandboxBackendOptions` | interface | Options for `createSandboxBackend`, which probes for bubblewrap and returns a {@link LinuxSandbox } when confinement is genuinely available or a `LocalSandbox` when it is not — warning once when th... |
@@ -1358,7 +1358,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `restrictedSeccompPath` | function | M57 — the memoized x64-gated seccomp program, written once per process to a temp file. |
 | `SandboxBackend` | class | The execution capability handed to an agent tool, and the extension point for new environments.  |
 | `SandboxConfig` | interface | Construction-time settings shared by every {@link SandboxBackend } .  |
-| `SandboxMode` | type | Codex's three canonical modes.  |
+| `SandboxMode` | type | Codex's three canonical sandbox modes; lives in this leaf module so bwrap.ts and deny-read.ts need not import each other. |
 | `SandboxNotAvailableError` | class | A backend cannot be used at all: its runtime is missing or unusable.  |
 | `SandboxPosture` | interface | Durable sandbox posture for the UI — the honest answer to "am I kernel-enforced right now?". |
 | `SandboxProvider` | type | A backend OR a per-request resolver of one — mirrors `FilesystemProvider` / `InteractiveProvider`.  |
