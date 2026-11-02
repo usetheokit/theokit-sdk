@@ -4,10 +4,8 @@ import { z } from "zod";
 import { streamObjectImpl } from "../../src/stream-object.js";
 import type { AgentOptions, BuiltinToolName, SDKAgent } from "../../src/types/agent.js";
 
-/**
- * B-678 — `streamObject` forwards `withheldBuiltinTools` and `memory` to its transient agent. The
- * injected `deps.create` records every `AgentOptions` it receives; no model is called.
- */
+// B-678 — `streamObject` forwards `withheldBuiltinTools` and `memory` to its transient agent. The
+// injected `deps.create` records every `AgentOptions` it receives; no model is called.
 
 /** A fake `deps.create` whose run streams nothing and fires the output tool before it settles. */
 function makeDeps(created: AgentOptions[]) {
