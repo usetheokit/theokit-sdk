@@ -114,12 +114,15 @@ export function rememberSeccompFile(path: string, program: Buffer): void {
  * Remove `dir` when the process exits or is told to stop. A SIGINT or SIGTERM listener cancels
  * Node's default termination, so once the directory is gone the signal is raised again when no other
  * listener remains: the process ends as it would have, and a host's own handler still decides.
+ * The signal listener is prepended (B-648): run first, it still counts a host's `process.once`
+ * handler, which Node unregisters before calling it, whether the host registered before or after.
+ * A host that itself prepends a `once` handler after the filter still runs first and is not counted.
  */
 export function removeDirOnExit(dir: string): void {
   const cleanup = (): void => rmSync(dir, { recursive: true, force: true });
   process.once("exit", cleanup);
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
-    process.once(signal, () => {
+    process.prependOnceListener(signal, () => {
       cleanup();
       if (process.listenerCount(signal) === 0) process.kill(process.pid, signal);
     });
