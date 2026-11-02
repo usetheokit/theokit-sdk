@@ -52,6 +52,10 @@ describe("@theokit/sdk/tools — sub-export barrel", () => {
     expect(typeof Tools.createRunVitestTool).toBe("function");
   });
 
+  it("exports createTextToSpeechTool", () => {
+    expect(typeof Tools.createTextToSpeechTool).toBe("function");
+  });
+
   it("createGitDiffTool builds a working tool descriptor, not just a defined symbol", () => {
     const tool = Tools.createGitDiffTool({ projectRoot: "/tmp/does-not-need-to-exist" });
 
