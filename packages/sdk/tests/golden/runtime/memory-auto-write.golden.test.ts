@@ -89,14 +89,6 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-/**
- * What a consumer would read back from the store.
- *
- * This used to re-implement the `## Facts` parser inline, which meant it tested its own copy rather
- * than the SDK's reader — and it broke the moment the on-disk layout converged with Claude Code's
- * (one file per memory, `MEMORY.md` as the index) while the copy stayed behind. Delegating to
- * `readFactsFromMarkdown` is what makes this an assertion about the product.
- */
 /** Every path under `dir`, so two snapshots of one tree can be compared. */
 async function listTree(dir: string): Promise<string[]> {
   const out: string[] = [];
@@ -108,6 +100,14 @@ async function listTree(dir: string): Promise<string[]> {
   return out.sort();
 }
 
+/**
+ * What a consumer would read back from the store.
+ *
+ * This used to re-implement the `## Facts` parser inline, which meant it tested its own copy rather
+ * than the SDK's reader — and it broke the moment the on-disk layout converged with Claude Code's
+ * (one file per memory, `MEMORY.md` as the index) while the copy stayed behind. Delegating to
+ * `readFactsFromMarkdown` is what makes this an assertion about the product.
+ */
 async function readPersistedFacts(cwd: string): Promise<Array<{ text: string }>> {
   return readFactsFromMarkdown(cwd);
 }
