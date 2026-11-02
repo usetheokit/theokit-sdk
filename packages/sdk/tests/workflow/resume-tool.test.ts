@@ -5,6 +5,8 @@ import {
   __resetSnapshotStoresForTests,
   fn,
   Workflow,
+  WorkflowResumeStepNotFoundError,
+  WorkflowResumeWorkflowMismatchError,
   WorkflowSnapshotNotFoundError,
   WorkflowToolError,
   workflowAsTool,
@@ -140,5 +142,89 @@ describe("workflowResumeTool (B-677)", () => {
 
     expect(error).toBeInstanceOf(ZodError);
     expect((error as ZodError).issues.map((issue) => issue.path)).toEqual([["runId"]]);
+  });
+  it("refuses_a_run_id_suspended_by_another_workflow_and_keeps_its_snapshot", async () => {
+    const owner = approvalWorkflow();
+    const runId = await suspendedRunId(owner);
+    const other = Workflow.create({ name: "resume-tool-other" })
+      .then(fn<{ amount: number }, number>("draft", async (input) => input.amount))
+      .suspend({ id: "approve" })
+      .then(fn<unknown, string>("refund", async () => "refunded"))
+      .commit();
+    const wrongResume = workflowResumeTool(other, { name: "refund", description: "Refunds" });
+
+    const error = await Promise.resolve(
+      wrongResume.handler({ runId, payload: { approved: true } }),
+    ).catch((thrown: unknown) => thrown);
+
+    expect(error).toBeInstanceOf(WorkflowResumeWorkflowMismatchError);
+    expect(error).toMatchObject({
+      runId,
+      snapshotWorkflowName: "resume-tool-approval",
+      workflowName: "resume-tool-other",
+    });
+    const ownResume = workflowResumeTool(owner, { name: "approve", description: "Approves" });
+    expect(await ownResume.handler({ runId, payload: { approved: true } })).toBe(
+      'paid with {"approved":true}',
+    );
+  });
+
+  it("raises_step_not_found_when_the_workflow_lacks_the_suspended_step", async () => {
+    const runId = await suspendedRunId(approvalWorkflow());
+    const diverged = Workflow.create({ name: "resume-tool-approval" })
+      .then(fn<{ amount: number }, number>("draft", async (input) => input.amount))
+      .suspend({ id: "review" })
+      .commit();
+    const resume = workflowResumeTool(diverged, { name: "approve", description: "Approves" });
+
+    await expect(resume.handler({ runId, payload: { approved: true } })).rejects.toBeInstanceOf(
+      WorkflowResumeStepNotFoundError,
+    );
+  });
+
+  it("raises_a_workflow_tool_error_with_the_step_error_when_the_resumed_run_fails", async () => {
+    const workflow = Workflow.create({ name: "resume-tool-failing" })
+      .then(fn<{ amount: number }, number>("draft", async (input) => input.amount))
+      .suspend({ id: "approve" })
+      .then(
+        fn<unknown, string>("pay", async () => {
+          throw new Error("card declined");
+        }),
+      )
+      .commit();
+    const runId = await suspendedRunId(workflow);
+    const resume = workflowResumeTool(workflow, { name: "approve", description: "Approves" });
+
+    const error = await Promise.resolve(resume.handler({ runId })).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(WorkflowToolError);
+    expect((error as WorkflowToolError).workflowStatus).toBe("failed");
+    expect((error as WorkflowToolError).workflowError?.message).toContain("card declined");
+  });
+
+  it("rejects_a_missing_payload_when_the_suspend_step_declares_a_schema", async () => {
+    const workflow = approvalWorkflow();
+    const runId = await suspendedRunId(workflow);
+    const resume = workflowResumeTool(workflow, { name: "approve", description: "Approves" });
+
+    await expect(resume.handler({ runId })).rejects.toBeInstanceOf(ZodError);
+    expect(await resume.handler({ runId, payload: { approved: true } })).toBe(
+      'paid with {"approved":true}',
+    );
+  });
+
+  it("describes_the_run_id_and_payload_to_the_model", () => {
+    const resume = workflowResumeTool(approvalWorkflow(), {
+      name: "approve",
+      description: "Approves",
+    });
+    const properties = (
+      resume.inputSchema as { properties: Record<string, { description?: string }> }
+    ).properties;
+
+    expect(properties.runId?.description).toMatch(/runId/);
+    expect(properties.payload?.description).toMatch(/payload/i);
   });
 });

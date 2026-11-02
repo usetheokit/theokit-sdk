@@ -29,8 +29,9 @@ import type { WorkflowResumeOptions, WorkflowRun } from "./types/workflow.js";
 /* ─── SE19 — workflowAsTool (expose a Workflow as an agent tool) ─── */
 
 /**
- * Raised by a {@link workflowAsTool} tool when the wrapped workflow run does not
- * reach `status: "completed"` (a step failed, the run was cancelled/suspended).
+ * Raised by a {@link workflowAsTool} or {@link workflowResumeTool} tool when the
+ * run does not reach `status: "completed"` (a step failed, the run was cancelled,
+ * or it suspended without `reportSuspended`, which returns a report instead).
  * The dispatch converts it to a `tool_result(isError)`.
  *
  * @public
@@ -65,7 +66,8 @@ export interface WorkflowAsToolSpec<T extends ZodType> {
   /**
    * When `true`, a run that suspends returns `{"status":"suspended","runId":…,"stepId":…}` instead of
    * raising {@link WorkflowToolError}, so the model can hand the run id to a
-   * {@link workflowResumeTool}. The report carries ids only, never the suspended payload. Default `false`.
+   * {@link workflowResumeTool}. The report carries ids only, never the suspended payload; `stepId` is
+   * `null` for a run that carries no step result. Default `false`.
    */
   reportSuspended?: boolean;
 }
@@ -80,7 +82,16 @@ export interface WorkflowResumeToolSpec {
   reportSuspended?: boolean;
 }
 
-const resumeInputSchema = z.object({ runId: z.string().min(1), payload: z.unknown().optional() });
+const resumeInputSchema = z.object({
+  runId: z
+    .string()
+    .min(1)
+    .describe('The runId from a {"status":"suspended"} report of the tool that started the run.'),
+  payload: z
+    .unknown()
+    .optional()
+    .describe("The payload the suspended step asks for; omit it when the step declares none."),
+});
 
 // The suspending step is always the last stepResults entry; `null` keeps the report at three keys
 // for a run that carries none.
@@ -102,7 +113,8 @@ function toToolResult(run: WorkflowRun, toolName: string, reportSuspended: boole
  * The handler validates the model's args against `spec.inputSchema`, runs the
  * workflow, and returns its output (a string as-is, else JSON). A run that does not
  * reach `status: "completed"` raises a typed {@link WorkflowToolError} (workflow
- * step errors do NOT throw — they surface via `run.status === "failed"`).
+ * step errors do NOT throw — they surface via `run.status === "failed"`), except a
+ * suspended run with `spec.reportSuspended`, which returns the suspended report.
  *
  * Accepts any `{ run }`-shaped workflow (structural), so it never imports the
  * `Workflow` class directly.
@@ -131,7 +143,9 @@ export function workflowAsTool<T extends ZodType, TOutput = unknown>(
  * optional payload validated against the suspend step's schema. It returns the run's output like
  * {@link workflowAsTool}; a run that suspends again keeps the same run id and is reported or raised
  * per `spec.reportSuspended`. Snapshot errors (`WorkflowSnapshotNotFoundError` for an unknown or
- * already-resumed id) and payload validation errors propagate to the dispatch.
+ * already-resumed id, `WorkflowResumeWorkflowMismatchError` for a run another workflow suspended,
+ * `WorkflowResumeStepNotFoundError` when `workflow` lacks the suspended step) and payload validation
+ * errors propagate to the dispatch.
  *
  * `workflow` must be the committed instance from `Workflow.create().commit()`. The default snapshot
  * store is in memory and process-local: a host that resumes across processes configures a persistent

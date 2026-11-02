@@ -12,3 +12,8 @@ step's schema, and returns the run's output. The run id stays the same across re
 suspension is told apart by its `stepId`. Without the opt-in a suspended run still raises. The tool
 resumes any run id it is given: who may approve a run is the host's decision. The default snapshot
 store is in memory and process-local.
+
+`Workflow.resume`, and so the resume tool, now refuses a run id whose snapshot was written by a
+workflow of another name with the typed `WorkflowResumeWorkflowMismatchError` and leaves the snapshot
+for the workflow that suspended it. Before, a workflow sharing the suspended step id ran its own tail on
+the other workflow's input. A report's `stepId` is `null` for a run that carries no step result.
