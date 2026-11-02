@@ -39,6 +39,16 @@
         "default": "./dist/extract-document.cjs"
       }
     },
+    "./read-pdf": {
+      "import": {
+        "types": "./dist/read-pdf.d.ts",
+        "default": "./dist/read-pdf.js"
+      },
+      "require": {
+        "types": "./dist/read-pdf.d.cts",
+        "default": "./dist/read-pdf.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
