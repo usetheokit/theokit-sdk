@@ -2,6 +2,7 @@ import { ConfigurationError } from "../../errors.js";
 import type { SDKMessage } from "../../types/messages.js";
 import type { Run, RunOperation, RunStatus } from "../../types/run.js";
 import { type AgentLoopInputs, runAgentLoop } from "../agent-loop/loop.js";
+import { validatePruneToolResults } from "../agent-loop/prune-tool-results.js";
 import { anySignal } from "../concurrency/abort-utils.js";
 import { withToolWhitelist } from "../concurrency/async-local-storage.js";
 import {
@@ -75,6 +76,7 @@ function buildLoopInputs(
       { code: "invalid_max_iterations" },
     );
   }
+  validatePruneToolResults(options.sendOptions.pruneToolResults);
   const { primary, effectiveModelId } = resolveRunProvider(options);
   const fallback = options.agentOptions.providers?.fallback;
   // M4: thread the single explicit `apiKey` into the pool for `primary` so an
@@ -174,6 +176,9 @@ function buildLoopInputs(
       : {}),
     ...(options.sendOptions.toolResultGuard !== undefined
       ? { toolResultGuard: options.sendOptions.toolResultGuard }
+      : {}),
+    ...(options.sendOptions.pruneToolResults !== undefined
+      ? { pruneToolResults: options.sendOptions.pruneToolResults }
       : {}),
     // M1-2: per-send iteration ceiling (validated above). The loop reads
     // inputs.maxIterations (default 8 when unset).
