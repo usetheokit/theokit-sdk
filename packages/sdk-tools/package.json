@@ -79,6 +79,16 @@
         "default": "./dist/screenshot-logbook.cjs"
       }
     },
+    "./web-search-adapters": {
+      "import": {
+        "types": "./dist/web-search-adapters.d.ts",
+        "default": "./dist/web-search-adapters.js"
+      },
+      "require": {
+        "types": "./dist/web-search-adapters.d.cts",
+        "default": "./dist/web-search-adapters.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
