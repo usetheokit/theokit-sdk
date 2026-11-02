@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-253 distinct code(s).
+254 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -248,7 +248,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `work_threw` | domain | — | `packages/sdk/src/internal/task/registry.ts:295` |
 | `workflow_already_committed` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:269` |
 | `workflow_already_running` | domain | — | `packages/sdk/src/workflow-errors.ts:141` |
-| `workflow_compensate_not_implemented` | domain | — | `packages/sdk/src/workflow-errors.ts:246` +1 |
+| `workflow_compensate_not_implemented` | domain | — | `packages/sdk/src/workflow-errors.ts:270` +1 |
 | `workflow_duplicate_step_id` | domain | — | `packages/sdk/src/workflow-errors.ts:31` |
 | `workflow_input_invalid` | domain | — | `packages/sdk/src/workflow-errors.ts:48` |
 | `workflow_max_iterations_exceeded` | domain | — | `packages/sdk/src/workflow-errors.ts:181` |
@@ -256,9 +256,10 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `workflow_not_serializable` | domain | — | `packages/sdk/src/workflow-errors.ts:195` +1 |
 | `workflow_output_invalid` | domain | — | `packages/sdk/src/workflow-errors.ts:65` |
 | `workflow_resume_step_not_found` | domain | — | `packages/sdk/src/workflow-errors.ts:210` +1 |
+| `workflow_resume_workflow_mismatch` | domain | — | `packages/sdk/src/workflow-errors.ts:234` +1 |
 | `workflow_snapshot_not_found` | domain | — | `packages/sdk/src/workflow-errors.ts:159` |
 | `workflow_state_invalid` | domain | — | `packages/sdk/src/workflow-errors.ts:82` |
-| `workflow_tool_failed` | domain | WorkflowToolError | `packages/sdk/src/workflow-as-tool.ts:40` +2 |
+| `workflow_tool_failed` | domain | WorkflowToolError | `packages/sdk/src/workflow-as-tool.ts:41` +2 |
 | `ws_global_missing` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:184` |
 | `ws_peer_missing` | domain | SubscriptionError | `packages/sdk/src/subscription/internal/ws-adapter-node.ts:48` |
 | `ws_transport_mismatch` | domain | SubscriptionError | `packages/sdk/src/subscription/internal/server-integration.ts:351` |
