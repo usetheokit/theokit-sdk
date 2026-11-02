@@ -87,6 +87,16 @@
       "require": {
         "types": "./dist/web-search-adapters.d.cts",
         "default": "./dist/web-search-adapters.cjs"
+        }
+      },
+    "./goal": {
+      "import": {
+        "types": "./dist/goal.d.ts",
+        "default": "./dist/goal.js"
+      },
+      "require": {
+        "types": "./dist/goal.d.cts",
+        "default": "./dist/goal.cjs"
       }
     },
     "./package.json": "./package.json"

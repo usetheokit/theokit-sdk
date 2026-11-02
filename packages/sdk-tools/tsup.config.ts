@@ -10,6 +10,7 @@ export default defineConfig({
     "screenshot-logbook": "src/screenshot-logbook-entry.ts",
     "structured-output": "src/structured-output-entry.ts",
     "web-search-adapters": "src/web-search-adapters.ts",
+    goal: "src/goal-entry.ts",
   },
   format: ["esm", "cjs"],
   dts: {
@@ -21,6 +22,7 @@ export default defineConfig({
       "screenshot-logbook": "src/screenshot-logbook-entry.ts",
       "structured-output": "src/structured-output-entry.ts",
       "web-search-adapters": "src/web-search-adapters.ts",
+      goal: "src/goal-entry.ts",
     },
   },
   sourcemap: true,
