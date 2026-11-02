@@ -49,6 +49,16 @@
         "default": "./dist/read-pdf.cjs"
       }
     },
+    "./github-link-preview": {
+      "import": {
+        "types": "./dist/github-link-preview.d.ts",
+        "default": "./dist/github-link-preview.js"
+      },
+      "require": {
+        "types": "./dist/github-link-preview.d.cts",
+        "default": "./dist/github-link-preview.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
