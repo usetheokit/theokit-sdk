@@ -1,7 +1,14 @@
 import { createRequire } from "node:module";
 import type { z as ZodNamespace, ZodType } from "zod";
 import { ConfigurationError } from "../errors.js";
-import type { AgentOptions, CustomTool, LocalOptions, ModelSelection } from "../types/agent.js";
+import type {
+  AgentOptions,
+  BuiltinToolName,
+  CustomTool,
+  LocalOptions,
+  MemorySettings,
+  ModelSelection,
+} from "../types/agent.js";
 import type { ProviderRoutingSettings } from "../types/providers.js";
 import { toJsonSchema } from "./zod-to-json-schema.js";
 
@@ -67,7 +74,8 @@ export function makeOutputTool(
 
 /**
  * Assemble the AgentOptions for the transient agent. Shared shape:
- * model + local + tools[output] + systemPrompt + apiKey.
+ * model + local + tools[output] + systemPrompt + apiKey, plus the caller's withheld builtins
+ * and memory settings when supplied (B-678).
  */
 export function buildTransientAgentOptions(params: {
   // SE8 — accepts the bare-string shorthand; forwarded to AgentOptions.model
@@ -78,6 +86,8 @@ export function buildTransientAgentOptions(params: {
   systemPrompt?: string;
   apiKey?: string;
   providers?: ProviderRoutingSettings;
+  withheldBuiltinTools?: readonly BuiltinToolName[];
+  memory?: MemorySettings;
 }): AgentOptions {
   return {
     model: params.model,
@@ -88,6 +98,10 @@ export function buildTransientAgentOptions(params: {
       "You produce structured output by calling the `output` tool exactly once. Match the JSON schema.",
     ...(params.apiKey !== undefined ? { apiKey: params.apiKey } : {}),
     ...(params.providers !== undefined ? { providers: params.providers } : {}),
+    ...(params.withheldBuiltinTools !== undefined
+      ? { withheldBuiltinTools: params.withheldBuiltinTools }
+      : {}),
+    ...(params.memory !== undefined ? { memory: params.memory } : {}),
   };
 }
 
