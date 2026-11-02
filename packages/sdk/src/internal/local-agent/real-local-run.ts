@@ -60,6 +60,26 @@ export function createRealLocalRun(options: CreateRealLocalRunOptions): Run {
   return handle;
 }
 
+/**
+ * #58 / #57 / B-564 — forward the per-tool timeout, the tool-result guard and aged tool-result
+ * pruning so a consumer can enable them via SendOptions (not only internal AgentLoopInputs).
+ */
+function toolResultPolicyInputs(
+  sendOptions: CreateRealLocalRunOptions["sendOptions"],
+): Pick<AgentLoopInputs, "perToolTimeoutMs" | "toolResultGuard" | "pruneToolResults"> {
+  return {
+    ...(sendOptions.perToolTimeoutMs !== undefined
+      ? { perToolTimeoutMs: sendOptions.perToolTimeoutMs }
+      : {}),
+    ...(sendOptions.toolResultGuard !== undefined
+      ? { toolResultGuard: sendOptions.toolResultGuard }
+      : {}),
+    ...(sendOptions.pruneToolResults !== undefined
+      ? { pruneToolResults: sendOptions.pruneToolResults }
+      : {}),
+  };
+}
+
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: spread-conditional builders for optional fields (systemPrompt, onStep, onDelta, priorMessages, memoryTools, customTools, pluginManager) are the canonical pattern for shaping AgentLoopInputs; splitting hurts readability.
 function buildLoopInputs(
   options: CreateRealLocalRunOptions,
@@ -169,17 +189,7 @@ function buildLoopInputs(
     ...(options.sendOptions.onRunEvent !== undefined
       ? { runEventSink: options.sendOptions.onRunEvent }
       : {}),
-    // #58 / #57 — forward the per-tool timeout + tool-result guard so a consumer
-    // can enable them via SendOptions (not only internal AgentLoopInputs).
-    ...(options.sendOptions.perToolTimeoutMs !== undefined
-      ? { perToolTimeoutMs: options.sendOptions.perToolTimeoutMs }
-      : {}),
-    ...(options.sendOptions.toolResultGuard !== undefined
-      ? { toolResultGuard: options.sendOptions.toolResultGuard }
-      : {}),
-    ...(options.sendOptions.pruneToolResults !== undefined
-      ? { pruneToolResults: options.sendOptions.pruneToolResults }
-      : {}),
+    ...toolResultPolicyInputs(options.sendOptions),
     // M1-2: per-send iteration ceiling (validated above). The loop reads
     // inputs.maxIterations (default 8 when unset).
     ...(maxIterations !== undefined ? { maxIterations } : {}),
