@@ -21,7 +21,7 @@ import {
   wrapWithSeccompProgram,
 } from "./seccomp-delivery.js";
 import { shellEscapePosix } from "./shell-escape.js";
-import type { SandboxBackend, SandboxConfig } from "./types.js";
+import type { SandboxBackend, SandboxConfig, SandboxNetworkPolicy } from "./types.js";
 
 /*
  * M53 — kernel-enforced sandbox backend, injected into `createShellTool({ sandbox })`.
@@ -151,6 +151,12 @@ export class LinuxSandbox extends LocalSandbox {
    * x86_64 (honest fallback). */
   private readonly seccompProgram: Uint8Array | undefined;
   private readonly denyReadPaths: readonly string[] | undefined;
+  /**
+   * `"none"` exactly when the wrap passes `--unshare-net` (see `buildBwrapArgv`): a confined mode and
+   * `network` not set. With `network: true`, or under `danger-full-access` where nothing is wrapped,
+   * the command reaches whatever the host does.
+   */
+  override readonly networkPolicy: SandboxNetworkPolicy;
 
   /** `denyReadPaths`: see `BwrapArgvOptions`; a list that cannot be honoured throws `TypeError` here. */
   constructor(
@@ -166,6 +172,10 @@ export class LinuxSandbox extends LocalSandbox {
     super(config);
     this.mode = opts.mode;
     this.network = opts.network ?? false;
+    this.networkPolicy =
+      this.network || this.mode === "danger-full-access"
+        ? { mode: "unrestricted" }
+        : { mode: "none" };
     this.cwd = config.workDir ?? process.cwd();
     // MEDIUM-1: run the VALIDATED absolute binary from detection (anti-hijack), never bare `bwrap`
     // which the outer shell would re-resolve via $PATH at spawn time (TOCTOU / hijack window).
