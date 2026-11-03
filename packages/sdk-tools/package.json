@@ -87,8 +87,8 @@
       "require": {
         "types": "./dist/web-search-adapters.d.cts",
         "default": "./dist/web-search-adapters.cjs"
-        }
-      },
+      }
+    },
     "./goal": {
       "import": {
         "types": "./dist/goal.d.ts",
