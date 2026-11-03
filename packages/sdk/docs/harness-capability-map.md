@@ -871,6 +871,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `LogbookEntry` | type | One line of the log.  |
 | `ScreenshotLogbookResult` | type | The tool's result, before it is serialised to the JSON string the handler returns. |
 
+<<<<<<< HEAD
 ## `@theokit/sdk-tools/structured-output`
 
 | Symbol | Kind | Summary |
@@ -879,6 +880,16 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CreateStructuredOutputToolOptions` | interface | Options for {@link createStructuredOutputTool } .  |
 | `StructuredOutputIssue` | interface | One validation issue: the dotted path to the field (empty for the root) and zod's message. |
 | `StructuredOutputResult` | type | The tool's result, before it is serialised to the JSON string the handler returns. |
+=======
+## `@theokit/sdk-tools/web-search-adapters`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `createSearxngWebSearchAdapter` | function | Build a `WebSearchCallback` backed by a SearXNG instance.  |
+| `CreateSearxngWebSearchAdapterOptions` | interface | Options for {@link createSearxngWebSearchAdapter } . |
+| `createTavilyWebSearchAdapter` | function | Build a `WebSearchCallback` backed by the Tavily Search API.  |
+| `CreateTavilyWebSearchAdapterOptions` | interface | Options for {@link createTavilyWebSearchAdapter } . |
+>>>>>>> 385732e1 (docs(sdk): regenerate the capability map and error codes after the rebase onto workspace)
 
 ## `@theokit/sdk/a2a`
 
