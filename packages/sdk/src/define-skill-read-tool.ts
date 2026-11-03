@@ -109,6 +109,15 @@ async function readReferences(skillDir: string): Promise<Record<string, string> 
   return Object.keys(refs).length > 0 ? refs : undefined;
 }
 
+function readNamed(skills: ReadonlyArray<ReadableSkill>, name: string): string | Promise<string> {
+  const skill = skills.find((s) => s.name === name);
+  if (skill === undefined) {
+    const available = skills.map((s) => s.name).join(", ");
+    return `Skill "${name}" not found. Available skills: ${available.length > 0 ? available : "(none)"}.`;
+  }
+  return renderSkill(skill);
+}
+
 const SkillReadInputSchema = z.object({
   name: z.string().min(1, "skill_read: `name` is required."),
 });
@@ -144,7 +153,9 @@ async function renderSkill(skill: ReadableSkill): Promise<string> {
  *
  * @public
  */
-function defineSkillReadTool(skills: ReadonlyArray<ReadableSkill>): CustomTool {
+function defineSkillReadTool(source: SkillReadSource): CustomTool {
+  if (typeof source === "function") return lazySkillReadTool(source);
+  const skills = source;
   // Fail fast on duplicate names (Rule 8): a shadowed skill would be silently
   // unreachable and the "not found" list would show the name twice. Names are
   // addressed by exact, case-sensitive match — the same identity the <skills>
@@ -171,12 +182,27 @@ function defineSkillReadTool(skills: ReadonlyArray<ReadableSkill>): CustomTool {
     // promise: parse and the not-found answer stay exactly as synchronous as they were.
     handler: (input: Record<string, unknown>): string | Promise<string> => {
       const { name } = SkillReadInputSchema.parse(input);
-      const skill = skills.find((s) => s.name === name);
-      if (skill === undefined) {
-        const available = skills.map((s) => s.name).join(", ");
-        return `Skill "${name}" not found. Available skills: ${available.length > 0 ? available : "(none)"}.`;
-      }
-      return renderSkill(skill);
+      return readNamed(skills, name);
+    },
+  };
+}
+
+/** A fixed list, or a function re-evaluated on every call so later-discovered skills are readable. */
+export type SkillReadSource =
+  | ReadonlyArray<ReadableSkill>
+  | (() => ReadonlyArray<ReadableSkill> | Promise<ReadonlyArray<ReadableSkill>>);
+
+/** B-546 — the same tool over a source read at call time, not at construction. */
+function lazySkillReadTool(
+  source: () => ReadonlyArray<ReadableSkill> | Promise<ReadonlyArray<ReadableSkill>>,
+): CustomTool {
+  const fixed = defineSkillReadTool([]);
+  return {
+    ...fixed,
+    handler: async (input: Record<string, unknown>): Promise<string> => {
+      const { name } = SkillReadInputSchema.parse(input);
+      const skills = await source();
+      return readNamed(skills, name);
     },
   };
 }
@@ -187,7 +213,7 @@ function defineSkillReadTool(skills: ReadonlyArray<ReadableSkill>): CustomTool {
  */
 export class SkillReadTool {
   private constructor() {}
-  static create(skills: ReadonlyArray<ReadableSkill>): CustomTool {
+  static create(skills: SkillReadSource): CustomTool {
     return defineSkillReadTool(skills);
   }
 }

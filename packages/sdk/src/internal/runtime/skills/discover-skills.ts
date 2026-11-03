@@ -21,6 +21,8 @@ export interface Skill {
   source: string;
   category?: string;
   dependencies?: string[];
+  /** `requires-bins` — executables that must be on PATH for the model to be offered this skill. */
+  requiresBins?: string[];
   /** `disable-model-invocation: true` — the model is never told this skill exists. */
   disableModelInvocation?: boolean;
   /** `user-invocable: false` — carried for a host that has a picker; this SDK has no such surface. */
@@ -134,6 +136,7 @@ function tryParseSkill(
     // The authorization flags travel with the record. Dropping them here would reproduce the defect
     // one layer down: the parser would read the declaration and the discovery result would not
     // carry it, which is indistinguishable from never having parsed it.
+    if (frontmatter.requiresBins !== undefined) skill.requiresBins = frontmatter.requiresBins;
     if (frontmatter.disableModelInvocation !== undefined) {
       skill.disableModelInvocation = frontmatter.disableModelInvocation;
     }

@@ -2,6 +2,7 @@ import type { AgentOptions, ModelSelection, SystemPromptContext } from "../../..
 import { resolveCompatSources } from "../compat/compat-config-file.js";
 import type { FileContextManager } from "../context/context-manager.js";
 import type { MemoryFact } from "../memory-glue/memory-store.js";
+import { binaryOnPath } from "../skills/binary-on-path.js";
 import { SkillsManager } from "../skills/skills-manager.js";
 import { reasoningActive } from "./native-reasoning.js";
 import type { SystemPromptPipeline } from "./pipeline.js";
@@ -58,6 +59,7 @@ export async function resolveSendSkills(
     settings.skillsDir,
     settings.inline,
     resolveCompatSources(inputs.options, inputs.workspaceCwd),
+    settings.bundledDirs,
   );
   // `initialize()` skips the filesystem scan when project sources are off (fast
   // path — inline-only), so a per-send resolver is cheap for inline skills.
@@ -94,6 +96,11 @@ export async function buildSystemPromptContext(
     // skill a human may run and the model may not propose.
     skills: skills
       .filter((skill) => skill.disableModelInvocation !== true)
+      // B-546 — a skill that declares a binary this host lacks would be offered and then fail.
+      .filter(
+        (skill) =>
+          skill.requiresBins === undefined || skill.requiresBins.every((bin) => binaryOnPath(bin)),
+      )
       .map((skill) => ({ name: skill.name, description: skill.description })),
     userMessage: userText,
     memory: memoryFacts.map((fact) => ({ text: fact.text })),
