@@ -88,8 +88,10 @@ export class SkillsManager {
 
   async initialize(): Promise<void> {
     // M22 — inline skills work even without project setting sources (they need no filesystem).
+    // B-546 — bundled roots are the application's own package, not project settings, so they are
+    // read even when project sources are off.
     if (!this.settingSourcesIncludeProject) {
-      this.skills = this.mergeInline([]);
+      this.skills = this.mergeInline(await this.discoverFrom(this.bundledDirs));
       return;
     }
     await this.refresh();
@@ -114,7 +116,10 @@ export class SkillsManager {
             ...(await pluginBundleDirs(this.cwd, this.compatSources)).map((b) => join(b, "skills")),
           ]
         : [this.skillsDir];
-    const roots = [...ownRoots, ...this.bundledDirs];
+    this.skills = this.mergeInline(await this.discoverFrom([...ownRoots, ...this.bundledDirs]));
+  }
+
+  private async discoverFrom(roots: readonly string[]): Promise<StoredSkill[]> {
     const discovered: StoredSkill[] = [];
     const seen = new Set<string>();
     for (const root of roots) {
@@ -128,7 +133,7 @@ export class SkillsManager {
         discovered.push(skill);
       }
     }
-    this.skills = this.mergeInline(discovered);
+    return discovered;
   }
 
   /** M22 — merge inline skills over discovered ones; inline wins on a name conflict. */
