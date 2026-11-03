@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1262 export(s) across 51 entry point(s).
+1266 export(s) across 52 entry point(s).
 
 ## `@theokit/acp`
 
@@ -871,7 +871,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `LogbookEntry` | type | One line of the log.  |
 | `ScreenshotLogbookResult` | type | The tool's result, before it is serialised to the JSON string the handler returns. |
 
-<<<<<<< HEAD
 ## `@theokit/sdk-tools/structured-output`
 
 | Symbol | Kind | Summary |
@@ -880,7 +879,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CreateStructuredOutputToolOptions` | interface | Options for {@link createStructuredOutputTool } .  |
 | `StructuredOutputIssue` | interface | One validation issue: the dotted path to the field (empty for the root) and zod's message. |
 | `StructuredOutputResult` | type | The tool's result, before it is serialised to the JSON string the handler returns. |
-=======
+
 ## `@theokit/sdk-tools/web-search-adapters`
 
 | Symbol | Kind | Summary |
@@ -889,7 +888,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CreateSearxngWebSearchAdapterOptions` | interface | Options for {@link createSearxngWebSearchAdapter } . |
 | `createTavilyWebSearchAdapter` | function | Build a `WebSearchCallback` backed by the Tavily Search API.  |
 | `CreateTavilyWebSearchAdapterOptions` | interface | Options for {@link createTavilyWebSearchAdapter } . |
->>>>>>> 385732e1 (docs(sdk): regenerate the capability map and error codes after the rebase onto workspace)
 
 ## `@theokit/sdk/a2a`
 
