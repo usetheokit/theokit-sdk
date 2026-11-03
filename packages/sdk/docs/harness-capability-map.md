@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1257 export(s) across 50 entry point(s).
+1258 export(s) across 50 entry point(s).
 
 ## `@theokit/acp`
 
@@ -308,6 +308,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ProviderRoutingSettings` | interface | Provider routing configuration accepted by `Agent.create()` via {@link AgentOptions.providers } . |
 | `ProviderTransform` | interface | M41 — the one OPTIONAL behavior seam on a provider profile.  |
 | `ProviderTransformContext` | interface | M41 (agent-builder provider framework) — the context a provider's `transform` receives per request.  |
+| `PruneToolResultsOptions` | interface | B-564 — how old a tool result may get, in tool rounds, before its content is pruned from the next LLM request (`SendOptions.pruneToolResults`).  |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
 | `readManagedSettings` | function | Read the deployed policy, or `{}` when none is.  |
 | `readSessionMessages` | function | Read the messages a session already contains, for a surface that needs to re-render it.  |
