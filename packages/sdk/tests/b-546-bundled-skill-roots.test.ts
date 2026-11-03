@@ -4,9 +4,14 @@ import { delimiter, join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { SkillReadTool } from "../src/define-skill-read-tool.js";
+import { bootstrapSubmanagers } from "../src/internal/local-agent/local-agent-bootstrap.js";
 import { SkillsManager } from "../src/internal/runtime/skills/skills-manager.js";
 import type { LocalAssemblyInputs } from "../src/internal/runtime/system-prompt/local-assembly.js";
-import { buildSystemPromptContext } from "../src/internal/runtime/system-prompt/local-assembly.js";
+import {
+  assembleSystemPromptForSend,
+  buildSystemPromptContext,
+} from "../src/internal/runtime/system-prompt/local-assembly.js";
+import { SystemPromptPipeline } from "../src/internal/runtime/system-prompt/pipeline.js";
 import { removeTempDirRobustSync } from "./helpers/temp-workspace.js";
 
 /**
@@ -91,5 +96,46 @@ describe("B-546 lazy skill reader", () => {
 
     const out = await tool.handler({ name: "late" });
     expect(out).toContain("Body of late (arrived later).");
+  });
+});
+
+describe("B-546 bundled roots through the public option", () => {
+  it("lists a bundled skill from SkillsSettings.bundledDirs when project setting sources are off", async () => {
+    const ws = tempDir("b546-ws-");
+    const bundled = tempDir("b546-pub-bundled-");
+    writeSkill(bundled, "shipped", "ships with the app");
+
+    const sub = bootstrapSubmanagers({
+      options: { skills: { bundledDirs: [bundled] } },
+      workspaceCwd: ws,
+      settingSourcesIncludeProject: false,
+      settingSourcesIncludePlugins: false,
+    } as unknown as Parameters<typeof bootstrapSubmanagers>[0]);
+    await sub.skillsManager?.initialize();
+
+    expect((await sub.skills?.list())?.map((s) => s.name)).toEqual(["shipped"]);
+  });
+
+  it("hands bundledDirs from a per-send resolver to the manager it builds", async () => {
+    const bundled = tempDir("b546-resolver-bundled-");
+    writeSkill(bundled, "from-resolver", "bundled via resolver");
+    const inputs = {
+      agentId: "a",
+      workspaceCwd: tempDir("b546-resolver-ws-"),
+      model: undefined,
+      options: { skills: () => ({ bundledDirs: [bundled] }) },
+      settingSourcesIncludeProject: false,
+      systemPromptPipeline: SystemPromptPipeline.default(),
+    } as unknown as LocalAssemblyInputs;
+
+    const prompt = await assembleSystemPromptForSend({
+      inputs,
+      userText: "hi",
+      baseSystemPrompt: undefined,
+      memoryFacts: [],
+      activeMemorySummary: undefined,
+    });
+
+    expect(prompt).toContain("from-resolver");
   });
 });
