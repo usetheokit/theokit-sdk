@@ -1,5 +1,45 @@
 # Changelog
 
+## 5.13.0
+
+### Minor Changes
+
+- [#783](https://github.com/usetheokit/theokit-sdk/pull/783) [`a390f10`](https://github.com/usetheokit/theokit-sdk/commit/a390f101a28e7207fdff9b50891b1defcb89bcde) Thanks [@usetheodev](https://github.com/usetheodev)! - The manifest plugin entry of a trusted workspace plugin folder is now imported. A folder under `<cwd>/.theokit/plugins/<folder>/` whose `PLUGIN.md` names an `entry` used to be listed by `agent.plugins.list()` and never imported, so the tools its `register` adds never reached a run. With `local.settingSources` including `"plugins"`, `Agent.create` now imports that entry and registers its default export, which must be a `kind: "general"` plugin, alongside `AgentOptions.plugins`.
+  
+  Trust is by the folder's absolute realpath, in a trust record of its own: `~/.theokit/plugins/trusted-workspace-plugins.json`, a JSON array of folder realpaths, read on every `Agent.create`. The provider trust list (`trusted-providers.json`, `THEOKIT_TRUSTED_PROVIDERS`) does not authorize a workspace folder, so a repository you cloned cannot get its code run by naming a folder after a provider you trust. A relative entry is discarded with a warning, and a record that is not a valid JSON array trusts nothing. An untrusted folder is listed, never imported, and diagnosed once per process with the realpath to add. Plugins found under a foreign root (`compatSources`, such as `.claude/plugins`) are never imported, and neither `agent.reload()` nor a manifest without an `entry` imports anything. A changed entry needs a process restart, since Node caches the module.
+  
+  The provider trust gate is now read on every `Agent.create` too: a provider plugin trusted between two creates is imported by the second, and each provider is still imported at most once per process. The untrusted-provider warning no longer says to restart.
+  
+  A trusted entry that cannot be used fails `Agent.create` with a `ConfigurationError` naming the plugin: `plugin_entry_import_failed` when the module throws on import (the thrown error is the `cause`), and `plugin_entry_shape` when its default export is not a general plugin with a `name` and a `register` function.
+
+- [#801](https://github.com/usetheokit/theokit-sdk/pull/801) [`bcac0e7`](https://github.com/usetheokit/theokit-sdk/commit/bcac0e702d99bb7e2a491c5c96e5f14b051cef2c) Thanks [@usetheodev](https://github.com/usetheodev)! - Add `denyReadPaths` to the `@theokit/sdk/sandbox` backends (`LinuxSandbox`, `createSandboxBackend`, `interactiveWrapCommand`, `wrapCommandForSandbox` and `buildBwrapArgv`) so a `workspace-write` or `read-only` shell cannot read named absolute paths. A directory is masked with `--tmpfs` and reads as empty, a file with `--ro-bind /dev/null` and reads as permission denied; the mask is placed after the writable binds, so it also hides a path inside the workspace or `/tmp`. A masked file still appears in the listing of its directory. A list that cannot be honoured throws instead of running unconfined: `TypeError` for a relative or missing path, a path that contains the workspace, `/tmp` or `/`, or any list under `danger-full-access`, and `SandboxNotAvailableError` when bubblewrap is absent. Without the option nothing changes.
+
+- [#805](https://github.com/usetheokit/theokit-sdk/pull/805) [`742f101`](https://github.com/usetheokit/theokit-sdk/commit/742f101d28034188070b0da822cdee414fdefbde) Thanks [@usetheodev](https://github.com/usetheodev)! - A custom `SandboxBackend` can now release what it holds with `dispose()` (a no-op by default, safe to call twice) and state its egress with an optional `networkPolicy` of type `SandboxNetworkPolicy`; `LocalSandbox` declares `unrestricted` and `LinuxSandbox` declares `none` when the network is unshared (`usetheokit/theokit#1130`). `@theokit/sdk/sandbox` also exports `shellEscapePosix`, so a command line built outside a backend subclass can quote its arguments (`usetheokit/theokit#1131`).
+
+- [#793](https://github.com/usetheokit/theokit-sdk/pull/793) [`2e5c1e4`](https://github.com/usetheokit/theokit-sdk/commit/2e5c1e4e8c04509606e4c3b96191a96751b1b73b) Thanks [@usetheodev](https://github.com/usetheodev)! - `Agent.generateObject` and `Agent.streamObject` accept `withheldBuiltinTools` and `memory`, forwarded to the transient agent each call creates. Pass `withheldBuiltinTools: ["shell"]` and `memory: { enabled: false }` for a JSON-only step that must hold no shell and write no transcript; the `output` tool stays available. With `structuringModel`, the reasoning-phase agent receives the same options. Without them nothing changes: the transient agent holds `shell` and writes a transcript as before.
+
+- [#791](https://github.com/usetheokit/theokit-sdk/pull/791) [`3fba608`](https://github.com/usetheokit/theokit-sdk/commit/3fba60809c872395bc26525ad8bdad6655caefc0) Thanks [@usetheodev](https://github.com/usetheodev)! - A model can now continue a suspended workflow run. `workflowAsTool` used to raise `WorkflowToolError`
+  for a run that suspended and never handed the model the run id, and no tool called `Workflow.resume`.
+  Its spec gains an opt-in `reportSuspended`: a suspended run then returns
+  `{"status":"suspended","runId":"…","stepId":"…"}`, ids only, never the suspended payload. The new
+  `workflowResumeTool(workflow, { name, description, reportSuspended? })`, exported from
+  `@theokit/sdk/workflow`, resumes that run by id with an optional payload validated against the suspend
+  step's schema, and returns the run's output. The run id stays the same across resumes, so a second
+  suspension is told apart by its `stepId`. Without the opt-in a suspended run still raises. The tool
+  resumes any run id it is given: who may approve a run is the host's decision. The default snapshot
+  store is in memory and process-local.
+  
+  `Workflow.resume`, and so the resume tool, now refuses a run id whose snapshot was written by a
+  workflow of another name with the typed `WorkflowResumeWorkflowMismatchError` and leaves the snapshot
+  for the workflow that suspended it. Before, a workflow sharing the suspended step id ran its own tail on
+  the other workflow's input. A report's `stepId` is `null` for a run that carries no step result.
+
+### Patch Changes
+
+- [#781](https://github.com/usetheokit/theokit-sdk/pull/781) [`c300464`](https://github.com/usetheokit/theokit-sdk/commit/c3004649223dcddb5582746977a622f0aef03d09) Thanks [@usetheodev](https://github.com/usetheodev)! - A local run cancelled while its MCP servers start up no longer starts the MCP servers after the one whose handshake was in progress. Until now every remaining server was still initialized, and each stdio server spawned its child process, after the cancel. The handshake already in progress still finishes, and the run still closes every MCP client it owns.
+
+- [#785](https://github.com/usetheokit/theokit-sdk/pull/785) [`4a9ab1c`](https://github.com/usetheokit/theokit-sdk/commit/4a9ab1c608fdb2903837054ed59ad3976e2e2906) Thanks [@usetheodev](https://github.com/usetheodev)! - The seccomp temp-dir cleanup of `seccompPathForArch` and `restrictedSeccompPath` no longer cuts off a host's shutdown handler registered with `process.once`: it runs first, removes its directory, and leaves the ending to the host. The directory is now gone before the host's handler starts; a process with no handler of its own still ends by the signal. One order is not covered: a host that itself prepends a `once` handler (`process.prependOnceListener`) after the first sandboxed command runs before the cleanup and is not counted, so the signal is raised again while its shutdown runs.
+
 ## 5.12.1
 
 ### Patch Changes
