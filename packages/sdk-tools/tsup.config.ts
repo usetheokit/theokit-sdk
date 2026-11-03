@@ -3,11 +3,20 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: {
     index: "src/index.ts",
+    // Own entry, not the barrel: `dist/index.js` has a gzip budget (.bundle-budget.json).
+    "extract-document": "src/extract-document-entry.ts",
+    "read-pdf": "src/read-pdf-entry.ts",
+    "github-link-preview": "src/github-link-preview-entry.ts",
+    "screenshot-logbook": "src/screenshot-logbook-entry.ts",
   },
   format: ["esm", "cjs"],
   dts: {
     entry: {
       index: "src/index.ts",
+      "extract-document": "src/extract-document-entry.ts",
+      "read-pdf": "src/read-pdf-entry.ts",
+      "github-link-preview": "src/github-link-preview-entry.ts",
+      "screenshot-logbook": "src/screenshot-logbook-entry.ts",
     },
   },
   sourcemap: true,

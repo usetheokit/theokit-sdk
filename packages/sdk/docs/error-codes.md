@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-251 distinct code(s).
+254 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -40,7 +40,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `cloud_custom_tools_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/cloud-agent/cloud-agent.ts:154` +1 |
 | `cloud_incompatible_function_resolver` | domain | ConfigurationError | `packages/sdk/src/internal/cloud-agent/cloud-tool-parity.ts:43` +2 |
 | `cloud_incompatible_mcp_stdio_local` | domain | ConfigurationError | `packages/sdk/src/internal/cloud-agent/cloud-tool-parity.ts:74` |
-| `cloud_plugin_path_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:159` +1 |
+| `cloud_plugin_path_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:195` +1 |
 | `cloud_run_http_error` | domain | NetworkError | `packages/sdk/src/internal/cloud-agent/real-cloud-run.ts:156` |
 | `cloud_run_unknown_status` | domain | NetworkError | `packages/sdk/src/internal/cloud-agent/real-cloud-run.ts:285` +1 |
 | `cloud_runtime_pre_release` | domain | ConfigurationError | `packages/sdk/src/agent.ts:419` +2 |
@@ -80,7 +80,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `handoff_target_invalid` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:116` |
 | `handoff_target_required` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:111` |
 | `hitl_timeout` | domain | HitlTimeoutError | `packages/sdk/src/internal/runtime/tools/hitl-middleware.ts:42` +1 |
-| `hook_denied` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent.ts:455` |
+| `hook_denied` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent.ts:467` |
 | `hooks_invalid_command` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:415` |
 | `hooks_json_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:252` +2 |
 | `hooks_read_error` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:243` |
@@ -172,12 +172,14 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `personality_not_found` | domain | ConfigurationError | `packages/sdk/src/internal/personality/switch.ts:60` |
 | `personality_reserved_name` | domain | ConfigurationError | `packages/sdk/src/internal/personality/registry.ts:110` |
 | `pipeline_duplicate_provider` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/system-prompt/pipeline.ts:33` |
-| `plugin_entry_missing` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:134` |
+| `plugin_entry_import_failed` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/manifest-entry-import.ts:78` |
+| `plugin_entry_missing` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:170` |
+| `plugin_entry_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/manifest-entry-import.ts:85` |
 | `plugin_frontmatter_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugin-frontmatter.ts:39` |
 | `plugin_late_register_kind` | domain | ConfigurationError | `packages/sdk/src/internal/plugins/manager.ts:103` |
-| `plugin_manifest_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:185` |
-| `plugin_manifest_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:191` |
-| `plugin_missing_manifest` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:176` +2 |
+| `plugin_manifest_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:221` |
+| `plugin_manifest_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:227` |
+| `plugin_missing_manifest` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:212` +2 |
 | `programmatic_hooks_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:99` |
 | `provider_unresolved` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:107` +2 |
 | `quota_exceeded` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:148` |
@@ -189,9 +191,9 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `run_cancelled` | domain | — | `packages/sdk/src/errors.ts:656` |
 | `run_not_found` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:426` |
 | `runtime_exclusive` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:90` |
-| `sandbox_derived_helper_failed` | domain | ConfigurationError | `packages/sdk/src/sandbox/types.ts:185` +1 |
-| `sandbox_not_available` | domain | SandboxNotAvailableError | `packages/sdk/src/sandbox/types.ts:92` +1 |
-| `sandbox_security` | domain | SandboxSecurityError | `packages/sdk/src/sandbox/types.ts:73` +1 |
+| `sandbox_derived_helper_failed` | domain | ConfigurationError | `packages/sdk/src/sandbox/types.ts:223` +1 |
+| `sandbox_not_available` | domain | SandboxNotAvailableError | `packages/sdk/src/sandbox/types.ts:108` +1 |
+| `sandbox_security` | domain | SandboxSecurityError | `packages/sdk/src/sandbox/types.ts:89` +1 |
 | `schema_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:99` +5 |
 | `server_error` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:92` +1 |
 | `session_busy` | domain | — | `packages/sdk/src/internal/persistence/session-writer.ts:56` +1 |
@@ -246,7 +248,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `work_threw` | domain | — | `packages/sdk/src/internal/task/registry.ts:295` |
 | `workflow_already_committed` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:269` |
 | `workflow_already_running` | domain | — | `packages/sdk/src/workflow-errors.ts:141` |
-| `workflow_compensate_not_implemented` | domain | — | `packages/sdk/src/workflow-errors.ts:246` +1 |
+| `workflow_compensate_not_implemented` | domain | — | `packages/sdk/src/workflow-errors.ts:270` +1 |
 | `workflow_duplicate_step_id` | domain | — | `packages/sdk/src/workflow-errors.ts:31` |
 | `workflow_input_invalid` | domain | — | `packages/sdk/src/workflow-errors.ts:48` |
 | `workflow_max_iterations_exceeded` | domain | — | `packages/sdk/src/workflow-errors.ts:181` |
@@ -254,11 +256,12 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `workflow_not_serializable` | domain | — | `packages/sdk/src/workflow-errors.ts:195` +1 |
 | `workflow_output_invalid` | domain | — | `packages/sdk/src/workflow-errors.ts:65` |
 | `workflow_resume_step_not_found` | domain | — | `packages/sdk/src/workflow-errors.ts:210` +1 |
+| `workflow_resume_workflow_mismatch` | domain | — | `packages/sdk/src/workflow-errors.ts:234` +1 |
 | `workflow_snapshot_not_found` | domain | — | `packages/sdk/src/workflow-errors.ts:159` |
 | `workflow_state_invalid` | domain | — | `packages/sdk/src/workflow-errors.ts:82` |
-| `workflow_tool_failed` | domain | WorkflowToolError | `packages/sdk/src/workflow-as-tool.ts:40` +2 |
+| `workflow_tool_failed` | domain | WorkflowToolError | `packages/sdk/src/workflow-as-tool.ts:41` +2 |
 | `ws_global_missing` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:184` |
 | `ws_peer_missing` | domain | SubscriptionError | `packages/sdk/src/subscription/internal/ws-adapter-node.ts:48` |
 | `ws_transport_mismatch` | domain | SubscriptionError | `packages/sdk/src/subscription/internal/server-integration.ts:351` |
-| `zod_not_installed` | domain | ConfigurationError | `packages/sdk/src/internal/structured-output-helpers.ts:33` +1 |
+| `zod_not_installed` | domain | ConfigurationError | `packages/sdk/src/internal/structured-output-helpers.ts:40` +1 |
 

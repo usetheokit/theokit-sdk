@@ -58,6 +58,22 @@ export interface SandboxConfig {
 }
 
 /**
+ * What a {@link SandboxBackend} states about its outbound network. It is a statement the backend
+ * makes about itself, for a caller that wants to ask before it trusts: this package enforces nothing
+ * from it, and a custom backend is responsible for the claim being true.
+ *
+ * `"unrestricted"` means a command can reach whatever the host can. `"none"` means it cannot reach
+ * the network at all. `"allowlist"` means it can reach only the destinations in `allow`, written as
+ * the backend's own firewall spells them (usually domain names); the field is meaningful only with
+ * that mode. A backend that says nothing leaves `networkPolicy` undefined, which is not the same as
+ * `"unrestricted"`: it means the backend makes no claim either way.
+ */
+export interface SandboxNetworkPolicy {
+  readonly mode: "unrestricted" | "allowlist" | "none";
+  readonly allow?: readonly string[];
+}
+
+/**
  * A backend refused a command on policy grounds — the environment works, and it said no. Carries a
  * stable `code: "sandbox_security"` for callers that prefer not to match on the class.
  *
@@ -111,11 +127,26 @@ export class SandboxNotAvailableError extends TheokitAgentError {
  * a reason to pin one. For genuinely untrusted code you want a container or VM backend, which this
  * package does not ship — write it against these two methods.
  *
+ * Two optional members let a backend say more about itself. {@link SandboxBackend.networkPolicy}
+ * states its egress: `LocalSandbox` declares `"unrestricted"`, `LinuxSandbox` declares `"none"` when
+ * bubblewrap unshares the network, and a backend that does not override it states nothing. Nothing in
+ * this package enforces an allowlist, so `"allowlist"` is only ever a claim a custom backend makes
+ * for itself. {@link SandboxBackend.dispose} releases what the backend holds, and the owner of the
+ * backend calls it.
+ *
  * Because the derived helpers assemble shell command lines (arguments escaped for POSIX `sh`), a
  * backend whose `execute` is not a POSIX shell must override them as well.
  */
 export abstract class SandboxBackend {
   protected config: SandboxConfig;
+
+  /**
+   * What this backend states about its outbound network, or `undefined` when it states nothing.
+   * Read it to check an isolation claim before trusting a backend; do not read `undefined` as
+   * "unrestricted". A subclass sets it as a field, and it is a statement only: the backend must
+   * enforce it itself.
+   */
+  declare readonly networkPolicy?: SandboxNetworkPolicy;
 
   constructor(config: SandboxConfig = {}) {
     this.config = {
@@ -130,6 +161,13 @@ export abstract class SandboxBackend {
   abstract execute(command: string, opts?: { timeoutMs?: number }): Promise<ExecuteResult>;
 
   abstract uploadFile(path: string, content: string | Buffer): Promise<void>;
+
+  /**
+   * Releases whatever the backend holds, such as a VM or a container. The default does nothing,
+   * which is correct for a backend that holds nothing, so existing subclasses need no change. Safe
+   * to call more than once. The owner of the backend calls it; nothing in this package does.
+   */
+  async dispose(): Promise<void> {}
 
   async readFile(path: string): Promise<string> {
     const result = await this.execute(`cat ${this.shellEscape(path)}`);
@@ -223,3 +261,9 @@ export async function resolveSandbox<Ctx>(
 ): Promise<SandboxBackend> {
   return provider instanceof SandboxBackend ? provider : provider(ctx);
 }
+
+/** Codex's three canonical sandbox modes; lives in this leaf module so bwrap.ts and deny-read.ts need not import each other. */
+export type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
+
+/** Result of probing for bubblewrap. Detection never throws. */
+export type BwrapDetection = { ok: true; bin: string } | { ok: false; reason: string };

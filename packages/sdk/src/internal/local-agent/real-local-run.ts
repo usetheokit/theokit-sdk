@@ -275,6 +275,7 @@ class RealLocalRun extends FixtureRunBase {
 
   private async initializeMcp(inputs: AgentLoopInputs): Promise<void> {
     for (const [name, client] of inputs.mcp.entries()) {
+      if (this.terminated) break; // B-504: a cancelled run starts no further MCP server
       try {
         await client.initialize();
       } catch (cause) {

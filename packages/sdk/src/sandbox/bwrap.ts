@@ -6,6 +6,9 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
+import { denyReadFlags } from "./deny-read.js";
+import type { BwrapDetection, SandboxMode } from "./types.js";
+
 /*
  * M53 — bubblewrap argv + honest detection.
  *
@@ -25,7 +28,7 @@ import path from "node:path";
  * configuration: `danger-full-access` means "do not wrap", and that is a decision belonging to the
  * confinement subsystem.
  */
-export type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
+export type { SandboxMode } from "./types.js";
 
 /**
  * The RW binds `workspace-write` installs (protocol.rs:1189-1214), plus the metadata protection that
@@ -87,6 +90,13 @@ export interface BwrapArgvOptions {
    * sandboxed child. Omitted ⇒ inherit the parent env (backward-compatible; SDK scrub still applies).
    */
   env?: Record<string, string>;
+  /**
+   * Absolute paths the confined command must not read. Each is resolved through symlinks and masked
+   * after the writable binds: a directory becomes empty, a file reads as permission denied. A masked
+   * file still shows in the listing of its directory. Throws `TypeError` for a relative or missing
+   * path, one that contains the workspace, `/tmp` or `/`, and any list under `danger-full-access`.
+   */
+  denyReadPaths?: readonly string[];
 }
 
 /**
@@ -94,9 +104,10 @@ export interface BwrapArgvOptions {
  * or `null` when the policy skips the sandbox entirely (`danger-full-access`).
  */
 export function buildBwrapArgv(mode: SandboxMode, opts: BwrapArgvOptions): string[] | null {
+  const cwd = path.resolve(opts.cwd);
+  const denyFlags = denyReadFlags(opts.denyReadPaths, { mode, cwd }); // throws before the null below
   if (mode === "danger-full-access") return null; // bwrap skipped entirely (bwrap.rs:245-252)
 
-  const cwd = path.resolve(opts.cwd);
   const gitDir = path.join(cwd, ".git");
   const hasGit = opts.gitDirExists ?? existsSync(gitDir);
 
@@ -130,6 +141,7 @@ export function buildBwrapArgv(mode: SandboxMode, opts: BwrapArgvOptions): strin
 
   if (mode === "workspace-write") pushWorkspaceBinds(argv, cwd, hasGit, gitDir);
   // read-only: zero writable roots (protocol.rs:1176) — nothing to add
+  argv.push(...denyFlags); // after the writable binds so a mask inside the workspace or /tmp wins
 
   argv.push("--chdir", cwd, "--");
   return argv;
@@ -163,7 +175,7 @@ export interface BwrapProbes {
  * `try`/`catch` catches nothing; callers warn and fall back to an unconfined
  * `LocalSandbox`.
  */
-export type BwrapDetection = { ok: true; bin: string } | { ok: false; reason: string };
+export type { BwrapDetection } from "./types.js";
 
 /** Honest detection — fail-closed on every probe; NEVER throws (callers WARN + fall back). */
 export function detectBwrap(probes: BwrapProbes = realProbes): BwrapDetection {

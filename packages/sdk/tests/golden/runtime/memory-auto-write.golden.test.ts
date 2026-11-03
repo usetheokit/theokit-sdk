@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,6 +9,7 @@ import {
   extractMemoryFact,
   isMemoryWritePrompt,
 } from "../../../src/internal/runtime/memory-glue/memory-store.js";
+import { flushSessionWrites } from "../../../src/internal/session/agent-session.js";
 import { sseFrame } from "../../helpers/anthropic-sse.js";
 import { removeTempDirRobust } from "../../helpers/temp-workspace.js";
 
@@ -26,6 +27,9 @@ function systemText(system: unknown): string | undefined {
 /**
  * Behaviour gate for memory auto-write-on-send (ADR D1/D2 of v1-completeness).
  */
+
+type AgentOptions = Parameters<typeof Agent.create>[0];
+type SdkAgent = Awaited<ReturnType<typeof Agent.create>>;
 
 interface Captured {
   body: Record<string, unknown> | undefined;
@@ -85,6 +89,17 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
+/** Every path under `dir`, so two snapshots of one tree can be compared. */
+async function listTree(dir: string): Promise<string[]> {
+  const out: string[] = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    out.push(path);
+    if (entry.isDirectory()) out.push(...(await listTree(path)));
+  }
+  return out.sort();
+}
+
 /**
  * What a consumer would read back from the store.
  *
@@ -119,6 +134,25 @@ describe("isMemoryWritePrompt / extractMemoryFact (shared helpers)", () => {
 describe("LocalAgent.send memory auto-write", () => {
   let cwd: string | undefined;
   let server: Server | undefined;
+  let agents: SdkAgent[] = [];
+
+  async function createAgent(options: AgentOptions): Promise<SdkAgent> {
+    const agent = await Agent.create(options);
+    agents.push(agent);
+    return agent;
+  }
+
+  /**
+   * `wait()` resolves before the run's transcript reaches `$THEOKIT_HOME/projects/<cwd>`, and the
+   * setup file removes that home after every test. With the write still in flight the removal
+   * fails with `ENOTEMPTY` (CI on PR #784, 2026-11-02), so each agent is disposed, which drains
+   * its writes, before the home goes.
+   */
+  async function releaseAgents(): Promise<void> {
+    const released = agents;
+    agents = [];
+    await Promise.all(released.map((agent) => agent.dispose()));
+  }
 
   beforeEach(async () => {
     cwd = await mkdtemp(join(tmpdir(), "theokit-memwrite-"));
@@ -129,6 +163,7 @@ describe("LocalAgent.send memory auto-write", () => {
   });
 
   afterEach(async () => {
+    await releaseAgents();
     cwd = undefined;
     if (server !== undefined) {
       await new Promise<void>((r) => server?.close(() => r()));
@@ -149,7 +184,7 @@ describe("LocalAgent.send memory auto-write", () => {
   it("persists the Remember: fact on a real-runtime send", async () => {
     if (cwd === undefined) throw new Error("missing workspace");
     await mountStub();
-    const agent = await Agent.create({
+    const agent = await createAgent({
       apiKey: "user-real-memwrite",
       model: { id: "claude-sonnet-4-6" },
       local: { cwd, settingSources: ["project"] },
@@ -164,7 +199,7 @@ describe("LocalAgent.send memory auto-write", () => {
   it("recalls the just-written fact within the same send (re-read before assembly)", async () => {
     if (cwd === undefined) throw new Error("missing workspace");
     const captured = await mountStub();
-    const agent = await Agent.create({
+    const agent = await createAgent({
       apiKey: "user-real-memwrite-recall",
       model: { id: "claude-sonnet-4-6" },
       local: { cwd, settingSources: ["project"] },
@@ -180,7 +215,7 @@ describe("LocalAgent.send memory auto-write", () => {
   it("skips persistence when the pattern does not match", async () => {
     if (cwd === undefined) throw new Error("missing workspace");
     await mountStub();
-    const agent = await Agent.create({
+    const agent = await createAgent({
       apiKey: "user-real-memwrite-skip",
       model: { id: "claude-sonnet-4-6" },
       local: { cwd, settingSources: ["project"] },
@@ -200,7 +235,7 @@ describe("LocalAgent.send memory auto-write", () => {
     await mkdirFn(join(cwd, ".theokit"), { recursive: true });
     await writeFile(join(cwd, ".theokit", "memory"), "blocker");
     const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
-    const agent = await Agent.create({
+    const agent = await createAgent({
       apiKey: "user-real-memwrite-fail",
       model: { id: "claude-sonnet-4-6" },
       local: { cwd, settingSources: ["project"] },
@@ -215,7 +250,7 @@ describe("LocalAgent.send memory auto-write", () => {
   it("skips persistence when the extracted fact is empty (EC-3)", async () => {
     if (cwd === undefined) throw new Error("missing workspace");
     await mountStub();
-    const agent = await Agent.create({
+    const agent = await createAgent({
       apiKey: "user-real-memwrite-empty",
       model: { id: "claude-sonnet-4-6" },
       local: { cwd, settingSources: ["project"] },
@@ -229,7 +264,7 @@ describe("LocalAgent.send memory auto-write", () => {
   it("skips persistence when memory is not enabled (EC-4)", async () => {
     if (cwd === undefined) throw new Error("missing workspace");
     await mountStub();
-    const agent = await Agent.create({
+    const agent = await createAgent({
       apiKey: "user-real-memwrite-disabled",
       model: { id: "claude-sonnet-4-6" },
       local: { cwd, settingSources: ["project"] },
@@ -240,9 +275,26 @@ describe("LocalAgent.send memory auto-write", () => {
     expect(facts).toHaveLength(0);
   });
 
+  it("leaves no transcript write in flight for the home teardown once its agents are released", async () => {
+    if (cwd === undefined) throw new Error("missing workspace");
+    const home = process.env.THEOKIT_HOME;
+    if (home === undefined) throw new Error("THEOKIT_HOME is not sandboxed");
+    const agent = await createAgent({
+      apiKey: "theo_test_memwrite_teardown",
+      model: { id: "google/gemini-2.0-flash-001" },
+      local: { cwd, settingSources: ["project"] },
+      memory: { enabled: true },
+    });
+    await (await agent.send("What's the magic number?")).wait();
+    await releaseAgents();
+    const atRelease = await listTree(home);
+    await flushSessionWrites();
+    expect(await listTree(home)).toEqual(atRelease);
+  });
+
   it("writes the fact exactly once in fixture mode (no double-write, EC-2)", async () => {
     if (cwd === undefined) throw new Error("missing workspace");
-    const agent = await Agent.create({
+    const agent = await createAgent({
       apiKey: "theo_test_memwrite_fixture",
       model: { id: "google/gemini-2.0-flash-001" },
       local: { cwd, settingSources: ["project"] },

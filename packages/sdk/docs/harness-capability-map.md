@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1233 export(s) across 46 entry point(s).
+1259 export(s) across 50 entry point(s).
 
 ## `@theokit/acp`
 
@@ -771,6 +771,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `createSessionArtifactStore` | function | Create a generic artifact store rooted at `dir`.  |
 | `createShellTool` | function | Build the `shell_exec` tool: run a command through `/bin/sh -c` with `projectRoot` as the working directory.  |
 | `CreateShellToolOptions` | interface | `shell_exec` — built-in tool for coding agents.  |
+| `createTextToSpeechTool` | function | Build the `text_to_speech` tool over a caller-supplied provider.  |
+| `CreateTextToSpeechToolOptions` | interface | Options for {@link createTextToSpeechTool } .  |
 | `createTodolistTool` | function | Build the `todolist` tool: an in-memory checklist the agent keeps across the turns of one session.  |
 | `createUpdatePlanTool` | function | `update_plan` — built-in tool for coding agents.  |
 | `createViewImageTool` | function | Read an image from the project so the model can look at it. |
@@ -782,7 +784,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `createWriteFileTool` | function | Build the `write_file` tool.  |
 | `CreateWriteFileToolOptions` | interface | Options for {@link createWriteFileTool } .  |
 | `createWriteStdinTool` | function | Write to a live interactive session's stdin and read the output it produces. |
+| `DEFAULT_MAX_AUDIO_BYTES` | const | Default ceiling on the clip written to disk: 10 MiB, by analogy with `DEFAULT_MAX_IMAGE_BYTES`. |
 | `DEFAULT_MAX_IMAGE_BYTES` | const | Default ceiling: 5 MB on disk.  |
+| `DEFAULT_MAX_TEXT_CHARS` | const | Default ceiling on the text sent to the provider, in UTF-16 code units.  |
 | `DEFAULT_TOOL_GUIDANCE` | const | Curated hints for the common cross-tool error codes.  |
 | `denyCatastrophicCommands` | function | A policy that denies catastrophic commands by composing the M3-2 guardrail. |
 | `EnvContextOptions` | interface | Options for {@link buildEnvContext } .  |
@@ -812,6 +816,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SessionArtifactStore` | interface | A generic, id-keyed, atomic artifact store.  |
 | `SessionArtifactStoreOptions` | interface | Options for {@link createSessionArtifactStore } . |
 | `SsrfBlockedError` | class | Thrown when a host/redirect resolves to a blocked (private/reserved) address. |
+| `SynthesizedAudio` | interface | What the provider returns: the encoded clip and its mime type. |
+| `TextToSpeechCallback` | type | The speech provider {@link createTextToSpeechTool } calls.  |
+| `TextToSpeechResult` | type | The tool's result, before it is serialised to the JSON string the handler returns. |
 | `TodoItem` | interface | `todolist` — in-session task tracking for multi-step work.  |
 | `todoItemsToPlanNodes` | function | Convert structured todo items (from a `todolist` tool result's `items`, M4-5) into versioned `PlanNode`s for rendering.  |
 | `TodolistTool` | interface | The `todolist` tool object.  |
@@ -828,6 +835,40 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `withName` | function | Return a new `CustomTool` exposed under a different `name`, sharing the SAME `inputSchema` + `handler` (alias parity).  |
 | `withShellExitGuidance` | function | Wrap `shell_exec` so a SOFT failure — `{ ok: true, exit_code != 0 }` (the TOOL ran, the COMMAND failed) — gains a `guidance` hint.  |
 | `withToolResultGuidance` | function | Wrap a `CustomTool` so its failed results gain a `guidance` hint from `guidance`.  |
+
+## `@theokit/sdk-tools/extract-document`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `createExtractDocumentTool` | function | Extract the text of a `.docx` inside the project root. |
+| `CreateExtractDocumentToolOptions` | interface | Options for {@link createExtractDocumentTool } . |
+
+## `@theokit/sdk-tools/github-link-preview`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `createGithubLinkPreviewTool` | function | Build the `github_link_preview` tool.  |
+| `CreateGithubLinkPreviewToolOptions` | interface | Options for {@link createGithubLinkPreviewTool } ; every one is optional. |
+| `GithubLinkKind` | type | What a previewed GitHub URL points at, taken from its path. |
+| `GithubLinkPreviewResult` | type | The JSON the `github_link_preview` tool returns: a preview, or a typed failure. |
+
+## `@theokit/sdk-tools/read-pdf`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `createReadPdfTool` | function | Read the text of a PDF inside the project root. |
+| `CreateReadPdfToolOptions` | interface | Options for {@link createReadPdfTool } . |
+
+## `@theokit/sdk-tools/screenshot-logbook`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `createScreenshotLogbookTool` | function | Build the `screenshot_logbook` tool over a log under `projectRoot`.  |
+| `CreateScreenshotLogbookToolOptions` | interface | Options for {@link createScreenshotLogbookTool } .  |
+| `DEFAULT_MAX_CAPTION_CHARS` | const | Default ceiling on a caption, in UTF-16 code units.  |
+| `DEFAULT_MAX_ENTRIES` | const | Default ceiling on the entries one log holds; it bounds the cost of each rewrite.  |
+| `LogbookEntry` | type | One line of the log.  |
+| `ScreenshotLogbookResult` | type | The tool's result, before it is serialised to the JSON string the handler returns. |
 
 ## `@theokit/sdk/a2a`
 
@@ -1293,7 +1334,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `buildBwrapArgv` | function | Pure argv builder.  |
 | `buildSeccompFilter` | function | Build the cBPF seccomp program as a `Buffer` (each `sock_filter` = 8 bytes).  |
 | `BwrapArgvOptions` | interface | Everything {@link buildBwrapArgv } needs besides the {@link SandboxMode } .  |
-| `BwrapDetection` | type | Result of {@link detectBwrap } / {@link detectBwrapMemoized } , discriminated on `ok`: `{ ok: true, bin }` carries the absolute path of the validated `bwrap`, `{ ok: false, reason }` a human-readab... |
+| `BwrapDetection` | type | Result of probing for bubblewrap.  |
 | `BwrapProbes` | interface | Injectable probes — each mirrors one Codex availability check. |
 | `createSandboxBackend` | function | Honest factory: bwrap available + mode wants confinement → `LinuxSandbox` (kernel enforcement, running the VALIDATED absolute bin); `danger-full-access` → plain `LocalSandbox` silently (explicit op... |
 | `CreateSandboxBackendOptions` | interface | Options for `createSandboxBackend`, which probes for bubblewrap and returns a {@link LinuxSandbox } when confinement is genuinely available or a `LocalSandbox` when it is not — warning once when th... |
@@ -1317,13 +1358,15 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `restrictedSeccompPath` | function | M57 — the memoized x64-gated seccomp program, written once per process to a temp file. |
 | `SandboxBackend` | class | The execution capability handed to an agent tool, and the extension point for new environments.  |
 | `SandboxConfig` | interface | Construction-time settings shared by every {@link SandboxBackend } .  |
-| `SandboxMode` | type | Codex's three canonical modes.  |
+| `SandboxMode` | type | Codex's three canonical sandbox modes; lives in this leaf module so bwrap.ts and deny-read.ts need not import each other. |
+| `SandboxNetworkPolicy` | interface | What a {@link SandboxBackend } states about its outbound network.  |
 | `SandboxNotAvailableError` | class | A backend cannot be used at all: its runtime is missing or unusable.  |
 | `SandboxPosture` | interface | Durable sandbox posture for the UI — the honest answer to "am I kernel-enforced right now?". |
 | `SandboxProvider` | type | A backend OR a per-request resolver of one — mirrors `FilesystemProvider` / `InteractiveProvider`.  |
 | `SandboxSecurityError` | class | A backend refused a command on policy grounds — the environment works, and it said no.  |
 | `SeccompOptions` | interface | Input to {@link buildSeccompFilter } — the one axis the generated cBPF program varies on.  |
 | `seccompPathForArch` | function | M63 — the restricted-network seccomp program is DETERMINISTIC, so write it ONCE per process and reuse the path across every LinuxSandbox (no per-instance temp accumulation).  |
+| `shellEscapePosix` | function | Quotes `arg` as one word for POSIX `sh`, for a command line you build yourself and hand to `SandboxBackend.execute`.  |
 | `wrapCommandForSandbox` | function | M57 — the single source of truth for the sandbox command wrap.  |
 | `writableRootsFor` | function | U-6 — the roots a mode may write to, answerable WITHOUT spawning anything.  |
 
@@ -1459,6 +1502,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WorkflowPersistenceOptions` | interface | Where suspend snapshots are kept.  |
 | `WorkflowResumeOptions` | interface | Arguments for `Workflow.resume()`.  |
 | `WorkflowResumeStepNotFoundError` | class | EC-8 absorbed — `currentStepId` from snapshot not found in resumed workflow. |
+| `workflowResumeTool` | function | B-677 — a {@link CustomTool } that resumes a suspended run of `workflow` by its run id, with an optional payload validated against the suspend step's schema.  |
+| `WorkflowResumeToolSpec` | interface | Spec for {@link workflowResumeTool } . |
+| `WorkflowResumeWorkflowMismatchError` | class | Thrown by `Workflow.resume()` (and so by a `workflowResumeTool` tool) when the snapshot for the run id was written by a workflow of another name.  |
 | `WorkflowRun` | interface | The terminal record of one run — what `Workflow.run()` resolves to, what `Workflow.resume()` returns, and what the `result` promise of `Workflow.stream()` settles with.  |
 | `WorkflowRunOptions` | interface | Per-run options for `Workflow.run()` and `Workflow.stream()`.  |
 | `WorkflowSnapshot` | interface | The persisted state of a suspended run: written when a step calls `StepContext.suspend()`, read back by `Workflow.resume()`.  |
@@ -1467,5 +1513,5 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `workflowStep` | function | SE30 — use a committed {@link Workflow } as a step inside another workflow.  |
 | `WorkflowStepDescription` | interface | theokit#161 — one step of a workflow, as a reflection surface sees it.  |
 | `WorkflowStream` | type | SE28 — the async iterator returned by `Workflow.stream()`.  |
-| `WorkflowToolError` | class | Raised by a {@link workflowAsTool } tool when the wrapped workflow run does not reach `status: "completed"` (a step failed, the run was cancelled/suspended).  |
+| `WorkflowToolError` | class | Raised by a {@link workflowAsTool } or {@link workflowResumeTool } tool when the run does not reach `status: "completed"` (a step failed, the run was cancelled, or it suspended without `reportSuspe... |
 

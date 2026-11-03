@@ -52,6 +52,10 @@ describe("@theokit/sdk/tools — sub-export barrel", () => {
     expect(typeof Tools.createRunVitestTool).toBe("function");
   });
 
+  it("exports createTextToSpeechTool", () => {
+    expect(typeof Tools.createTextToSpeechTool).toBe("function");
+  });
+
   it("createGitDiffTool builds a working tool descriptor, not just a defined symbol", () => {
     const tool = Tools.createGitDiffTool({ projectRoot: "/tmp/does-not-need-to-exist" });
 
@@ -60,5 +64,17 @@ describe("@theokit/sdk/tools — sub-export barrel", () => {
     expect(tool.description.length).toBeGreaterThan(0);
     expect(tool.inputSchema).toBeDefined();
     expect(typeof tool.handler).toBe("function");
+  });
+});
+
+describe("@theokit/sdk-tools/github-link-preview — subpath entry (ADR D4)", () => {
+  it("exports_createGithubLinkPreviewTool", async () => {
+    const entry = await import("../src/github-link-preview-entry.js");
+    expect(typeof entry.createGithubLinkPreviewTool).toBe("function");
+    expect(entry.createGithubLinkPreviewTool().name).toBe("github_link_preview");
+  });
+
+  it("keeps createGithubLinkPreviewTool off the root barrel", () => {
+    expect("createGithubLinkPreviewTool" in Tools).toBe(false);
   });
 });
