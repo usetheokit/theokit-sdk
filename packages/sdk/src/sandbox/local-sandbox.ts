@@ -20,7 +20,12 @@ import { writeFile as fsWriteFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { resolveChildEnv } from "../internal/runtime/lifecycle/env-policy.js";
-import { type ExecuteResult, SandboxBackend, type SandboxConfig } from "./types.js";
+import {
+  type ExecuteResult,
+  SandboxBackend,
+  type SandboxConfig,
+  type SandboxNetworkPolicy,
+} from "./types.js";
 
 /**
  * Runs a command with `/bin/sh -c` on the host. NOT an isolation boundary — the
@@ -55,6 +60,9 @@ import { type ExecuteResult, SandboxBackend, type SandboxConfig } from "./types.
  *    reach of any command the agent runs.
  */
 export class LocalSandbox extends SandboxBackend {
+  /** Runs on the host, so the network is whatever the host's is. */
+  override readonly networkPolicy: SandboxNetworkPolicy = { mode: "unrestricted" };
+
   constructor(config: SandboxConfig = {}) {
     super(config);
   }

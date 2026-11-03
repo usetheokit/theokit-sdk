@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1257 export(s) across 50 entry point(s).
+1259 export(s) across 50 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1359,12 +1359,14 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SandboxBackend` | class | The execution capability handed to an agent tool, and the extension point for new environments.  |
 | `SandboxConfig` | interface | Construction-time settings shared by every {@link SandboxBackend } .  |
 | `SandboxMode` | type | Codex's three canonical sandbox modes; lives in this leaf module so bwrap.ts and deny-read.ts need not import each other. |
+| `SandboxNetworkPolicy` | interface | What a {@link SandboxBackend } states about its outbound network.  |
 | `SandboxNotAvailableError` | class | A backend cannot be used at all: its runtime is missing or unusable.  |
 | `SandboxPosture` | interface | Durable sandbox posture for the UI — the honest answer to "am I kernel-enforced right now?". |
 | `SandboxProvider` | type | A backend OR a per-request resolver of one — mirrors `FilesystemProvider` / `InteractiveProvider`.  |
 | `SandboxSecurityError` | class | A backend refused a command on policy grounds — the environment works, and it said no.  |
 | `SeccompOptions` | interface | Input to {@link buildSeccompFilter } — the one axis the generated cBPF program varies on.  |
 | `seccompPathForArch` | function | M63 — the restricted-network seccomp program is DETERMINISTIC, so write it ONCE per process and reuse the path across every LinuxSandbox (no per-instance temp accumulation).  |
+| `shellEscapePosix` | function | Quotes `arg` as one word for POSIX `sh`, for a command line you build yourself and hand to `SandboxBackend.execute`.  |
 | `wrapCommandForSandbox` | function | M57 — the single source of truth for the sandbox command wrap.  |
 | `writableRootsFor` | function | U-6 — the roots a mode may write to, answerable WITHOUT spawning anything.  |
 

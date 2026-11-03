@@ -52,11 +52,13 @@ export {
   RepoProvisionError,
 } from "./provision.js";
 export { buildSeccompFilter, type SeccompOptions } from "./seccomp.js";
+export { shellEscapePosix } from "./shell-escape.js";
 export {
   type ExecuteResult,
   resolveSandbox,
   SandboxBackend,
   type SandboxConfig,
+  type SandboxNetworkPolicy,
   SandboxNotAvailableError,
   type SandboxProvider,
   SandboxSecurityError,
