@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.28.0
+
+### Minor Changes
+
+- [#794](https://github.com/usetheokit/theokit-sdk/pull/794) [`1c7ec5b`](https://github.com/usetheokit/theokit-sdk/commit/1c7ec5ba2c717b3a8375e09d16614f084f5c68ef) Thanks [@usetheodev](https://github.com/usetheodev)! - Add `createGithubLinkPreviewTool`, imported from `@theokit/sdk-tools/github-link-preview`. It gives an
+  agent a `github_link_preview` tool that turns a github.com repository, issue or pull request URL into
+  `{ ok, kind, url, title, state, summary }`: `open`, `closed` or `merged` for issues and pull requests,
+  `active` or `archived` for repositories. The tool never requests the model's URL. It validates owner,
+  repository and number and calls one fixed `https://api.github.com` endpoint built from them, with
+  redirects refused. Defaults: a 10-second timeout covering the body read, a 1 MiB body cap and a
+  500-character summary; the timeout and summary length are options. The `token` option is optional,
+  reaches only that request and never appears in a result. Every failure is a typed result
+  (`unsupported_url`, `redirect_blocked`, `not_found`, `rate_limited` with `retry_after_seconds`,
+  `upstream_error`, `timeout`, `fetch_failed`, `invalid_response`), never a throw. The tool ships from its
+  own subpath because the root bundle has no room in its size budget.
+
+- [#796](https://github.com/usetheokit/theokit-sdk/pull/796) [`4264514`](https://github.com/usetheokit/theokit-sdk/commit/4264514840471fcb836964b6dbbff9440fb0cbe5) Thanks [@usetheodev](https://github.com/usetheodev)! - Add `screenshot_logbook`, a built-in tool that keeps a captioned log of images already inside the project root, imported from the subpath `@theokit/sdk-tools/screenshot-logbook` (`createScreenshotLogbookTool`). Action `record` appends an entry (root-relative path, media type, size, caption, time) for a png, jpeg, gif or webp file; action `list` returns the latest entries and the total. The log is a JSON Lines file under the project root (`logbook/screenshots.jsonl` by default) that holds references, never image bytes, and is rewritten through a temp file and a rename. Recording the same image twice gives two entries. Captions default to at most 500 characters and a log to at most 1000 entries (`maxCaptionChars`, `maxEntries`). Records on one tool instance run one at a time; two processes or two instances writing one log are not serialised and can lose an entry. Paths outside the root or under a secret segment are refused, and every failure is a typed result (`invalid_input`, `path_traversal`, `caption_too_long`, `unsupported_image_type`, `image_not_found`, `empty_image`, `log_full`, `log_corrupt`, `write_failed`) that leaves the log unchanged.
+
+- [#787](https://github.com/usetheokit/theokit-sdk/pull/787) [`e681e9d`](https://github.com/usetheokit/theokit-sdk/commit/e681e9d98a8ff56d9bd92cf49f117b867311896c) Thanks [@usetheodev](https://github.com/usetheodev)! - `createTextToSpeechTool` adds a `text_to_speech` tool. The speech provider is the consumer's: the
+  factory takes a `synthesize(text)` callback that returns the encoded clip and its mime type, and
+  the tool holds no key and opens no socket. The clip is written atomically to a file under the
+  project root (`audio/` by default, created when absent), with the same path confinement and
+  secret-segment refusal as `view_image` and `read_file`. The model receives the relative path, the
+  mime type and the byte count, never the audio. Text over 4096 characters and clips over 10 MiB are
+  refused by default (`maxTextChars`, `maxAudioBytes`), as are unlisted mime types and empty audio;
+  every failure is a typed result and leaves no file behind.
+
+### Patch Changes
+
+- [#789](https://github.com/usetheokit/theokit-sdk/pull/789) [`87c5e88`](https://github.com/usetheokit/theokit-sdk/commit/87c5e8832e37ab0cbbc33a4615096d1f3ec2dc6d) Thanks [@usetheodev](https://github.com/usetheodev)! - Add `extract_document`, a built-in tool that returns the text of a `.docx` inside the project root, imported from the subpath `@theokit/sdk-tools/extract-document` (`createExtractDocumentTool`). Paths outside the root, absolute paths and secret paths are refused before any file is opened, and failures are typed results (`unsupported_document_type`, `not_found`, `not_a_document`, `document_too_large`, `document_unreadable`, `document_engine_missing`). Text is cut at `maxChars` with `truncated` set. The engine is the optional peer `mammoth` (`npm install mammoth`), loaded on first call; pass `extractText` to use another engine.
+
+- [#793](https://github.com/usetheokit/theokit-sdk/pull/793) [`8635229`](https://github.com/usetheokit/theokit-sdk/commit/8635229e593b4eb6769d038934f918377b1c03e9) Thanks [@usetheodev](https://github.com/usetheodev)! - New `createReadPdfTool`, imported from the subpath `@theokit/sdk-tools/read-pdf`: a `read_pdf` built-in that gives an agent the text of a PDF inside the
+  project root, with its page count and character count. It refuses traversal, absolute paths outside
+  the root, secret paths and symlinks that escape the root before opening a file, and returns typed
+  `not_found`, `not_a_pdf`, `pdf_too_large`, `pdf_unreadable` and `pdf_engine_missing` results
+  instead of throwing. The text is cut at `maxChars` (default 100000) with `truncated` set; files over
+  `maxBytes` (default 10 MB) are refused unread.
+  
+  Text extraction uses `unpdf`, a new optional peer loaded on the first call: install it with
+  `npm install unpdf` to use the default engine. Without it the tool returns `pdf_engine_missing`
+  with that command and the load error. Pass `extractText` to use another engine. `unpdf` 2.x
+  declares Node >=24 in its `engines`; the tool's tests pass with it on Node 22.12.
+  
+  The tool ships from its own entry, not from the package root, so `@theokit/sdk-tools` itself does
+  not grow: `import { createReadPdfTool } from "@theokit/sdk-tools/read-pdf"`.
+
 ## 0.27.6
 
 ### Patch Changes
