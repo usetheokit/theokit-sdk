@@ -413,6 +413,12 @@ export interface SkillsSettings {
    */
   skillsDir?: string;
   /**
+   * B-546 — directories (each containing `<name>/SKILL.md`) an application ships inside its own
+   * package. They are read AFTER the project roots and plugin bundles, so a workspace skill of the
+   * same name always wins, and they are kept even when `skillsDir` replaces the default roots.
+   */
+  bundledDirs?: string[];
+  /**
    * M22 — code-defined skills (from `createSkill`) merged with the discovered ones. An inline skill
    * overrides a discovered file skill of the same name.
    */

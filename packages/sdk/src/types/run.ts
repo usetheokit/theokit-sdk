@@ -31,6 +31,18 @@ export interface ToolResultGuardOptions {
 }
 
 /**
+ * B-564 — how old a tool result may get, in tool rounds, before its content is pruned from the
+ * next LLM request (`SendOptions.pruneToolResults`). Contract type owned by `types/`; the
+ * implementation lives in `internal/agent-loop/prune-tool-results.ts`, which re-exports this.
+ *
+ * @public
+ */
+export interface PruneToolResultsOptions {
+  /** Keep the newest `olderThanRounds` tool rounds whole; an integer of at least 1. */
+  olderThanRounds: number;
+}
+
+/**
  * Lifecycle status of a {@link Run}.
  *
  * @public
@@ -310,7 +322,7 @@ export interface SDKUserMessage {
  *
  * ## Which options do I need?
  *
- * Twenty-one optional fields with genuinely different audiences, so most callers read all of them to
+ * Twenty-two optional fields with genuinely different audiences, so most callers read all of them to
  * find their two. This table is the fix that was chosen; the alternative — nesting the groups under
  * `observe?` and `toolPolicy?` and carrying the flat keys as deprecated aliases for one major — would
  * have added surface to remove surface, and the harm here is the READING cost, not a representable
@@ -320,7 +332,7 @@ export interface SDKUserMessage {
  * | If you are… | you want |
  * |---|---|
  * | rendering a live UI | `onDelta`, `onStep`, `onRunEvent` |
- * | applying a policy | `permissionMode`, `activeTools`, `toolChoice`, `toolResultGuard`, `perToolTimeoutMs` |
+ * | applying a policy | `permissionMode`, `activeTools`, `toolChoice`, `toolResultGuard`, `pruneToolResults`, `perToolTimeoutMs` |
  * | running an eval or a harness | `maxIterations`, `completionCheck`, `doomLoop`, `signal` |
  * | orchestrating agents | `origin`, `task`, `context` |
  * | overriding this one send | `model`, `systemPrompt`, `tools`, `mcpServers`, `contextPaths`, `local` |
@@ -459,6 +471,20 @@ export interface SendOptions {
    * @public
    */
   toolResultGuard?: ToolResultGuardOptions;
+  /**
+   * B-564 — opt-in pruning of aged tool results. With `{ olderThanRounds: n }`, the content of
+   * every tool result older than `n` tool rounds is replaced by a short stub in each request the
+   * run's agent loop sends (its `toolUseId` and `isError` kept; session compaction is not pruned); the transcript the run keeps, persists and resumes
+   * from stays whole. `olderThanRounds` must be an integer of at least 1, else the send fails
+   * with `ConfigurationError` code `invalid_prune_tool_results` before any provider call.
+   * Undefined = no pruning (the request is unchanged). Pruning trades request size against
+   * prefix-cache reuse: each new round turns one more previously sent result into a stub, so the
+   * request prefix changes from that message onward on providers that cache message prefixes.
+   * The cache-hit cost was not measured.
+   *
+   * @public
+   */
+  pruneToolResults?: PruneToolResultsOptions;
   /**
    * Opt-in task wrapping (ADRs D363, D374). When truthy, the entire
    * run is registered as a `Task` in the SDK's observable registry —

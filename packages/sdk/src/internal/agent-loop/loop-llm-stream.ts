@@ -14,6 +14,7 @@ import { HISTOGRAM_NAMES } from "../telemetry/span-names.js";
 import { stripThinkBlocks } from "../tool-dispatch/strip-think.js";
 import type { LoopContext } from "./loop-context-init.js";
 import { buildAssistantEvent, buildThinkingEvent } from "./message-builders.js";
+import { pruneToolResultsForRequest } from "./prune-tool-results.js";
 import type { ResolvedTool } from "./tool-dispatch.js";
 import type { AgentLoopInputs } from "./types.js";
 
@@ -186,7 +187,8 @@ export async function streamLlmTurn(
         const key = derivePromptCacheKey(inputs.agentId);
         return key !== undefined ? { promptCacheKey: key } : {};
       })(),
-      messages: ctx.messages,
+      // B-564: the request gets a pruned copy; ctx.messages stays whole (the transcript is resent from it).
+      messages: pruneToolResultsForRequest(ctx.messages, inputs.pruneToolResults),
       tools: ctx.tools.map(toLlmTool),
     },
     signal,

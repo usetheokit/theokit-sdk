@@ -165,6 +165,11 @@ export interface AgentLoopInputs {
    */
   toolResultGuard?: import("./tool-result-guard.js").ToolResultGuardOptions;
   /**
+   * B-564 — opt-in pruning of aged tool results from each LLM request (a copy; the transcript
+   * keeps full results). Undefined = no pruning.
+   */
+  pruneToolResults?: import("./prune-tool-results.js").PruneToolResultsOptions;
+  /**
    * Production-Readiness #4 (ADRs D315-D317): tool lifecycle observability
    * callbacks forwarded from `AgentOptions`. Wrapped around tool dispatch
    * so cost-tracking + audit log can correlate start/end/error events via
