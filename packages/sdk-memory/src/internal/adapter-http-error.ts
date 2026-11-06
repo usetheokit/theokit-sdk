@@ -225,10 +225,7 @@ function mapOpenAiStatusToCode(status: number, body: unknown): ErrorCode {
     return "quota_exceeded";
   }
 
-  if (
-    status === 404 &&
-    MISSING_MODEL_MESSAGE.test(extractOpenAiErrorMessage(body) ?? "")
-  ) {
+  if (status === 404 && MISSING_MODEL_MESSAGE.test(extractOpenAiErrorMessage(body) ?? "")) {
     return "model_unavailable";
   }
 

@@ -320,7 +320,9 @@ describe("mapOpenAICompatibleError — provider text (B-539)", () => {
     });
 
   it("carries the provider's text on a 400", () => {
-    const err = call(400, { error: { code: "invalid_value", message: "dimensions must be <= 1536" } });
+    const err = call(400, {
+      error: { code: "invalid_value", message: "dimensions must be <= 1536" },
+    });
     expect(err.message).toContain("dimensions must be <= 1536");
   });
 
@@ -332,7 +334,9 @@ describe("mapOpenAICompatibleError — provider text (B-539)", () => {
   });
 
   it("redacts secrets and bounds the text", () => {
-    const err = call(400, { error: { message: `bad key sk-${"a".repeat(40)} ${"x".repeat(2000)}` } });
+    const err = call(400, {
+      error: { message: `bad key sk-${"a".repeat(40)} ${"x".repeat(2000)}` },
+    });
     expect(err.message).not.toContain("a".repeat(40));
     expect(err.message.length).toBeLessThan(700);
   });
