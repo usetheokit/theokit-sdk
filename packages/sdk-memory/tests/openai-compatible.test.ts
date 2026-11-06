@@ -308,3 +308,32 @@ describe("sdk-memory openai-compatible runtime (iter 73)", () => {
     expect(stats.cacheHits).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe("mapOpenAICompatibleError — provider text (B-539)", () => {
+  const call = (status: number, body: unknown) =>
+    mapOpenAICompatibleError({
+      providerId: "test",
+      status,
+      body,
+      headers: undefined,
+      endpoint: "https://example.test/v1/embeddings",
+    });
+
+  it("carries the provider's text on a 400", () => {
+    const err = call(400, { error: { code: "invalid_value", message: "dimensions must be <= 1536" } });
+    expect(err.message).toContain("dimensions must be <= 1536");
+  });
+
+  it("carries the model text on an OpenRouter 404 and maps it to model_unavailable", () => {
+    const err = call(404, { error: { code: 404, message: "No endpoints found for acme/foo" } });
+    expect(err).toBeInstanceOf(ConfigurationError);
+    expect(err.message).toContain("model_unavailable");
+    expect(err.message).toContain("acme/foo");
+  });
+
+  it("redacts secrets and bounds the text", () => {
+    const err = call(400, { error: { message: `bad key sk-${"a".repeat(40)} ${"x".repeat(2000)}` } });
+    expect(err.message).not.toContain("a".repeat(40));
+    expect(err.message.length).toBeLessThan(700);
+  });
+});
