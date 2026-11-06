@@ -113,6 +113,8 @@ export interface StoredOAuthCredential {
   /** Epoch ms the access token expires. */
   expires: number;
   account_id?: string;
+  /** The provider's OpenID ID token, when its token endpoint returned one (#821). */
+  id_token?: string;
 }
 
 /**
@@ -144,6 +146,8 @@ export interface OAuthTokens {
   /** Epoch ms the access token expires. */
   expires: number;
   accountId?: string;
+  /** The OpenID ID token, when the token endpoint returned one (#821). */
+  idToken?: string;
 }
 
 /** Injected HTTP + clock effects — deterministic in tests, real in production. */

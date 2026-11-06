@@ -32,6 +32,7 @@ function parseTokenResponse(body: unknown, now: number): OAuthTokens {
     refresh_token?: unknown;
     expires_in?: unknown;
     account_id?: unknown;
+    id_token?: unknown;
   };
   if (typeof b.access_token !== "string" || b.access_token.length === 0) {
     throw new AuthCallbackError(
@@ -51,6 +52,7 @@ function parseTokenResponse(body: unknown, now: number): OAuthTokens {
     refresh: b.refresh_token,
     expires: now + expiresIn * 1000,
     ...(typeof b.account_id === "string" ? { accountId: b.account_id } : {}),
+    ...(typeof b.id_token === "string" && b.id_token.length > 0 ? { idToken: b.id_token } : {}),
   };
 }
 
@@ -139,6 +141,7 @@ export function persistOAuthTokens(
       refresh: tokens.refresh,
       expires: tokens.expires,
       ...(tokens.accountId !== undefined ? { account_id: tokens.accountId } : {}),
+      ...(tokens.idToken !== undefined ? { id_token: tokens.idToken } : {}),
     },
     store,
     env,
@@ -193,9 +196,12 @@ export async function ensureFreshCredential(
       // `parseTokenResponse` leaves `fresh.accountId` undefined. Prefer a freshly-derived id, else PRESERVE
       // the stored one (account_id is stable) — otherwise the Codex `ChatGPT-Account-Id` header empties after
       // the first refresh and the backend 401/403s.
+      // The refresh response may carry no ID token; keep the stored one rather than lose it (#821).
+      const idToken = fresh.idToken ?? stored.id_token;
       const merged: OAuthTokens = {
         ...fresh,
         accountId: fresh.accountId ?? stored.account_id,
+        ...(idToken !== undefined ? { idToken } : {}),
       };
       persistOAuthTokens(resolved.provider, merged, opts.store, env);
       return merged;

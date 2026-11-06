@@ -103,6 +103,7 @@ const oauthFileSchema = z
     refresh: z.string().min(1),
     expires: z.number(),
     account_id: z.string().optional(),
+    id_token: z.string().min(1).optional(),
   })
   .strict();
 
@@ -240,6 +241,7 @@ function buildStorePayload(
       refresh: cred.refresh,
       expires: cred.expires,
       ...(cred.account_id !== undefined ? { account_id: cred.account_id } : {}),
+      ...(cred.id_token !== undefined ? { id_token: cred.id_token } : {}),
     };
   }
   if (typeof cred.apiKey !== "string" || cred.apiKey.length === 0) {
@@ -253,7 +255,7 @@ function buildStorePayload(
  * file in the same directory with `wx` (O_EXCL), fsync, close, chmod, then `rename` (atomic on POSIX) —
  * so a crash mid-write leaves whatever was there untouched, and a pre-planted symlink cannot capture the
  * key. The api variant persists the unchanged `{provider, api_key}` (back-compat, no `type` key); the
- * oauth variant persists `{type:'oauth', provider, access, refresh, expires, account_id?}`.
+ * oauth variant persists `{type:'oauth', provider, access, refresh, expires, account_id?, id_token?}`.
  */
 export function writeCredential(
   cred: { provider: string; apiKey: string } | StoredOAuthCredential,
