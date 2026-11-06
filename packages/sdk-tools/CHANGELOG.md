@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.29.0
+
+### Minor Changes
+
+- [#859](https://github.com/usetheokit/theokit-sdk/pull/859) [`0b76797`](https://github.com/usetheokit/theokit-sdk/commit/0b767975a8076a82c7834b5b11a032083fd06a51) Thanks [@usetheodev](https://github.com/usetheodev)! - `createGoalTool`, from the `@theokit/sdk-tools/goal` subpath, adds a `goal` tool that keeps one
+  standing goal per session across turns, for an objective that outlives a single turn (a checklist
+  stays with `todolist`). Its actions are `set`, `get`, `complete` and `clear`. `set` replaces an
+  existing goal and returns the previous text; `complete` on a finished goal is refused. Goals are
+  keyed by the run's `ctx.threadId`, so one tool object serves many sessions, and calls without a
+  thread id share one default goal. The goal lives in memory only and does not survive a restart.
+  Goal text is trimmed and capped at 2000 characters by default (`maxGoalChars`); every failure is a
+  typed result (`missing_goal`, `goal_too_long`, `no_goal`, `already_done`, `invalid_action`), never
+  a throw. It ships from its own subpath rather than the package root, so the root bundle stays
+  within its gzip budget.
+
+- [#859](https://github.com/usetheokit/theokit-sdk/pull/859) [`9a4adbf`](https://github.com/usetheokit/theokit-sdk/commit/9a4adbf4d751049d46ccd00dbfba1e3d02f7e0ab) Thanks [@usetheodev](https://github.com/usetheodev)! - `@theokit/sdk-tools/web-search-adapters` adds two providers for `createWebSearchTool`:
+  `createTavilyWebSearchAdapter` (a bearer-key POST; the key comes from `{ apiKey }` or
+  `TAVILY_API_KEY`) and `createSearxngWebSearchAdapter` (a keyless GET against your own instance;
+  the base URL comes from `{ baseUrl }` or `SEARXNG_BASE_URL`, and the instance must have the json
+  format enabled). Both reject on a non-OK status, so the tool reports `search_failed`, and return an
+  empty list for a 200 body without results. They ship from their own subpath so the root bundle
+  stays inside its size budget. The request and response shapes follow each provider's public
+  documentation and were not exercised against a live service.
+
+### Patch Changes
+
+- [#859](https://github.com/usetheokit/theokit-sdk/pull/859) [`9024a16`](https://github.com/usetheokit/theokit-sdk/commit/9024a16627657411c8be0d5e367f665f3e07c9a6) Thanks [@usetheodev](https://github.com/usetheodev)! - Add `structured_output`, a built-in tool that returns the model's object only when it validates against the consumer's zod schema, imported from the subpath `@theokit/sdk-tools/structured-output` (`createStructuredOutputTool({ schema })`). A valid call returns `{ ok: true, output }` with the parsed value; an invalid or non-object call returns the typed `invalid_structured_output` result with up to `maxIssues` `{ path, message }` issues and the full `issue_count`, and never throws. A schema that is not an object, or a `maxIssues` that is not a positive integer, fails at construction. The tool does not end the agent turn: the host stops on `ok: true`.
+
 ## 0.28.0
 
 ### Minor Changes
