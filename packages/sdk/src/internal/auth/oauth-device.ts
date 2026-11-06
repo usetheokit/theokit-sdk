@@ -174,6 +174,9 @@ export async function pollDeviceToken(
         refresh: data.refresh_token ?? data.access_token,
         expires: deps.now() + expiresIn * 1000,
         ...(accountId !== undefined ? { accountId } : {}),
+        ...(typeof data.id_token === "string" && data.id_token.length > 0
+          ? { idToken: data.id_token }
+          : {}),
       };
     }
 

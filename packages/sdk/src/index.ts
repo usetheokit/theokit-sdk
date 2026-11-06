@@ -108,6 +108,8 @@ export {
   type GenerateObjectResult,
 } from "./generate-object.js";
 export { GOAL_CONTINUATION_MARKER, type GoalLoopAgent, runGoalLoop } from "./goal-loop.js";
+// B-564 — aged tool-result pruning options (SendOptions.pruneToolResults).
+export type { PruneToolResultsOptions } from "./internal/agent-loop/prune-tool-results.js";
 // #57 — tool-result content guard options (SendOptions.toolResultGuard).
 export type { ToolResultGuardOptions } from "./internal/agent-loop/tool-result-guard.js";
 // BudgetTracker interface (SDK 2.0 Phase 2 / T2.1 foundation — ADR D1).

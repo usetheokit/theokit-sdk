@@ -77,14 +77,21 @@ export class SkillsManager {
      * prompt-injection surface, not a convenience.
      */
     private readonly compatSources: readonly CompatSourceDeclaration[] = [],
+    /**
+     * B-546 — roots an application bundles in its own package. Ranked below every other root: the
+     * first declaration of a name wins, so a workspace skill shadows a bundled one.
+     */
+    private readonly bundledDirs: readonly string[] = [],
   ) {
     void _enabled;
   }
 
   async initialize(): Promise<void> {
     // M22 — inline skills work even without project setting sources (they need no filesystem).
+    // B-546 — bundled roots are the application's own package, not project settings, so they are
+    // read even when project sources are off.
     if (!this.settingSourcesIncludeProject) {
-      this.skills = this.mergeInline([]);
+      this.skills = this.mergeInline(await this.discoverFrom(this.bundledDirs));
       return;
     }
     await this.refresh();
@@ -100,7 +107,7 @@ export class SkillsManager {
     // `description` the CLI writes; only the directory was never looked at.
     // A Claude Code plugin is a bundle whose `skills/` is what it contributes; bundles come after
     // the project's own roots so a project can shadow a skill a plugin ships without editing it.
-    const roots =
+    const ownRoots =
       this.skillsDir === undefined
         ? [
             ...projectConfigRoots(this.cwd, this.compatSources, "skills").map((root) =>
@@ -109,6 +116,10 @@ export class SkillsManager {
             ...(await pluginBundleDirs(this.cwd, this.compatSources)).map((b) => join(b, "skills")),
           ]
         : [this.skillsDir];
+    this.skills = this.mergeInline(await this.discoverFrom([...ownRoots, ...this.bundledDirs]));
+  }
+
+  private async discoverFrom(roots: readonly string[]): Promise<StoredSkill[]> {
     const discovered: StoredSkill[] = [];
     const seen = new Set<string>();
     for (const root of roots) {
@@ -122,7 +133,7 @@ export class SkillsManager {
         discovered.push(skill);
       }
     }
-    this.skills = this.mergeInline(discovered);
+    return discovered;
   }
 
   /** M22 — merge inline skills over discovered ones; inline wins on a name conflict. */

@@ -1,6 +1,6 @@
 {
   "name": "@theokit/sdk-tools",
-  "version": "0.27.6",
+  "version": "0.28.0",
   "description": "Built-in tools for @theokit/sdk agents — file system, git, subprocess, search-text, vitest runner.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/usetheokit/theokit-sdk#readme",
@@ -49,6 +49,16 @@
         "default": "./dist/read-pdf.cjs"
       }
     },
+    "./structured-output": {
+      "import": {
+        "types": "./dist/structured-output.d.ts",
+        "default": "./dist/structured-output.js"
+      },
+      "require": {
+        "types": "./dist/structured-output.d.cts",
+        "default": "./dist/structured-output.cjs"
+      }
+    },
     "./github-link-preview": {
       "import": {
         "types": "./dist/github-link-preview.d.ts",
@@ -67,6 +77,26 @@
       "require": {
         "types": "./dist/screenshot-logbook.d.cts",
         "default": "./dist/screenshot-logbook.cjs"
+      }
+    },
+    "./web-search-adapters": {
+      "import": {
+        "types": "./dist/web-search-adapters.d.ts",
+        "default": "./dist/web-search-adapters.js"
+      },
+      "require": {
+        "types": "./dist/web-search-adapters.d.cts",
+        "default": "./dist/web-search-adapters.cjs"
+      }
+    },
+    "./goal": {
+      "import": {
+        "types": "./dist/goal.d.ts",
+        "default": "./dist/goal.js"
+      },
+      "require": {
+        "types": "./dist/goal.d.cts",
+        "default": "./dist/goal.cjs"
       }
     },
     "./package.json": "./package.json"

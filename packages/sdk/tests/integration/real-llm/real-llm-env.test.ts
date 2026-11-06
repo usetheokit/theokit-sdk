@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import { Agent } from "../../../src/index.js";
+import { useTempCwd } from "../../helpers/temp-workspace.js";
 import { resolveRealLlmEnv } from "./_helpers/real-llm-env.js";
 
 /**
@@ -53,7 +56,8 @@ describe("the gate opens", () => {
     expect(handle.provider).toBe("openrouter");
     expect(handle.apiKey).toBe("sk-or-test");
     // The MODEL still comes from the provider asked for — the fallback changes routing, not intent.
-    expect(handle.model).toBe("anthropic/claude-3-5-haiku-latest");
+    // The `openrouter/` prefix carries the routing (#719).
+    expect(handle.model).toBe("openrouter/anthropic/claude-haiku-4.5");
   });
 
   it("honours an explicit model override", () => {
@@ -62,6 +66,34 @@ describe("the gate opens", () => {
     expect(resolveRealLlmEnv("openrouter", { model: "meta/llama-3.1-8b" }).model).toBe(
       "meta/llama-3.1-8b",
     );
+  });
+});
+
+describe("the OpenRouter fallback routes where it says it does", () => {
+  // Agent.create persists state under process.cwd(); keep it out of the package.
+  useTempCwd();
+
+  // A shape-valid OpenRouter key. Agent.create checks the key's shape and makes no request,
+  // so nothing here reaches a model.
+  const FAKE_OPENROUTER_KEY = "sk-or-v1-0000000000000000000000000000";
+
+  it("hands back a model and key that Agent.create accepts for the provider it fell back from", async () => {
+    // #719: with only OPENROUTER_API_KEY set, the handle said `provider: "openrouter"` but its model
+    // was `anthropic/...`, so Agent.create checked the OpenRouter key against the native Anthropic
+    // provider and threw malformed_api_key in every anthropic-* suite.
+    process.env.OPENROUTER_API_KEY = FAKE_OPENROUTER_KEY;
+    const handle = resolveRealLlmEnv("anthropic");
+    expect(handle.provider).toBe("openrouter");
+
+    const agent = await Agent.create({ apiKey: handle.apiKey, model: { id: handle.model } });
+    await agent.dispose();
+  });
+
+  it("names OpenRouter in the model id, so the route does not depend on the key's prefix", () => {
+    process.env.OPENROUTER_API_KEY = FAKE_OPENROUTER_KEY;
+
+    expect(resolveRealLlmEnv("anthropic").model).toBe("openrouter/anthropic/claude-haiku-4.5");
+    expect(resolveRealLlmEnv("openai").model).toBe("openrouter/openai/gpt-4o-mini");
   });
 });
 

@@ -78,3 +78,14 @@ describe("@theokit/sdk-tools/github-link-preview — subpath entry (ADR D4)", ()
     expect("createGithubLinkPreviewTool" in Tools).toBe(false);
   });
 });
+
+describe("@theokit/sdk-tools/structured-output — subpath entry (ADR D3)", () => {
+  it("exports_createStructuredOutputTool", async () => {
+    const entry = await import("../src/structured-output-entry.js");
+    expect(typeof entry.createStructuredOutputTool).toBe("function");
+  });
+
+  it("keeps createStructuredOutputTool off the root barrel", () => {
+    expect("createStructuredOutputTool" in Tools).toBe(false);
+  });
+});

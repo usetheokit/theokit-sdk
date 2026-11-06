@@ -13,6 +13,12 @@ import { Agent } from "../../src/agent.js";
 import { Subscription } from "../../src/subscription/define-subscription.js";
 import { SubscriptionRuntime } from "../../src/subscription/internal/subscription-runtime.js";
 import { subscribe } from "../../src/subscription/theokit-subscribe.js";
+import { useTempCwd } from "../helpers/temp-workspace.js";
+
+// Agent.streamObject below names no cwd, so it defaulted to process.cwd(), which during a test run
+// is the package itself: every keyed run left a session file in packages/sdk/.theokit/memory/ and
+// the global teardown failed the whole suite for it.
+useTempCwd();
 
 const SKIP =
   process.env.OPENROUTER_API_KEY === undefined ||
