@@ -1,5 +1,39 @@
 # Changelog
 
+## 5.14.0
+
+### Minor Changes
+
+- [#859](https://github.com/usetheokit/theokit-sdk/pull/859) [`3f2e8fb`](https://github.com/usetheokit/theokit-sdk/commit/3f2e8fbdd14a06dc2bf65a0a97265b339d388843) Thanks [@usetheodev](https://github.com/usetheodev)! - An application can ship skills in its own package and gate them on a binary. `skills.bundledDirs`
+  lists extra skill roots read after the project roots and plugin bundles, so a workspace skill of the
+  same name always wins. A skill declaring `requires-bins: git, rg` in its frontmatter is not offered
+  to the model while one of those executables is absent from PATH; `skills.get(name)` still resolves
+  it. `SkillReadTool.create` also accepts a function returning the skills, evaluated on every call, so
+  a skill discovered after the agent was created is readable by the model.
+
+- [#859](https://github.com/usetheokit/theokit-sdk/pull/859) [`8469d37`](https://github.com/usetheokit/theokit-sdk/commit/8469d37b56e3c4551f90b8707c55d4ed79c5621b) Thanks [@usetheodev](https://github.com/usetheodev)! - The OAuth ID token is now kept from the token response to the credential file ([#821](https://github.com/usetheokit/theokit-sdk/issues/821)). `exchangeCode`,
+  `refreshOAuthTokens`, `pollDeviceToken` and `openaiDeviceLogin` return it as `OAuthTokens.idToken` when
+  the provider sends a non-empty `id_token`, `persistOAuthTokens` writes it as `id_token`, and
+  `readStoredOAuth` reads it back on `StoredOAuthCredential.id_token`. `ensureFreshCredential` keeps the
+  stored ID token when a refresh response has none and stores the new one when it has one. It used to be
+  read only to derive the account id and then dropped, so a consumer that drives the Codex CLI, which reads
+  the plan and account from the ID token's claims, had to run its own login. A provider that sends no ID
+  token gets exactly the file it got before. A file that holds an `id_token` is refused by the read schema
+  of earlier SDK versions, so a store shared with an older reader should stay on one version.
+
+- [#859](https://github.com/usetheokit/theokit-sdk/pull/859) [`f43cea5`](https://github.com/usetheokit/theokit-sdk/commit/f43cea503a2af8a2ca3ed842dbd0bb6d5732f7e9) Thanks [@usetheodev](https://github.com/usetheodev)! - A run can now stop resending old tool results to the model. Every tool result used to be resent on
+  every later LLM call of a run, so a run whose tools print a lot grew its request by that output on
+  every round. The new per-send option `pruneToolResults: { olderThanRounds: n }` replaces the
+  content of each tool result older than `n` tool rounds with a short stub in the request the agent
+  loop sends. The stub keeps the result's `toolUseId` and `isError`. The transcript the run keeps,
+  persists and resumes from stays whole, so the stub applies only to the request. The option is off by default, and
+  without it the request is unchanged. `olderThanRounds` must be an integer of at least 1. Any other
+  value fails the send with `ConfigurationError` code `invalid_prune_tool_results` before any provider
+  call. The option type is exported as `PruneToolResultsOptions`.
+  Pruning trades request size against prefix-cache reuse: each new round stubs one more previously
+  sent result, so on providers that cache message prefixes the cached prefix ends earlier. That cost
+  was not measured.
+
 ## 5.13.0
 
 ### Minor Changes
