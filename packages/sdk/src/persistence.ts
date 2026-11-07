@@ -108,6 +108,10 @@ export type {
   ResilientSqliteDb,
 } from "./internal/persistence/sqlite-open.js";
 export { isCorruptionError, openSqliteResilient } from "./internal/persistence/sqlite-open.js";
+export {
+  SqliteSessionStore,
+  type SqliteSessionStoreOptions,
+} from "./internal/persistence/sqlite-session-store.js";
 export type { WalApplyResult } from "./internal/persistence/sqlite-wal.js";
 export { applyWalWithFallback } from "./internal/persistence/sqlite-wal.js";
 // M81 — transcript operations the consumer used to perform by hand INSIDE this store.
@@ -133,7 +137,3 @@ export {
 } from "./internal/persistence/transcript-ops.js";
 // M94 — the record shape stops being `Record<string, unknown>`; the consumer used to litter casts.
 export type { TranscriptBlock, TranscriptMessage } from "./types/session-record.js";
-export {
-  SqliteSessionStore,
-  type SqliteSessionStoreOptions,
-} from "./internal/persistence/sqlite-session-store.js";

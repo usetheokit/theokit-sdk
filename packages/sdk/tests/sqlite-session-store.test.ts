@@ -1,4 +1,4 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -25,12 +25,14 @@ describe("B-596 — SqliteSessionStore", () => {
     expect(await b.readRecords("x")).toEqual(recs);
     expect(await b.readRecords("y")).toEqual([{ n: 9 }]);
     await b.dispose();
+    await rm(dir, { recursive: true, force: true });
   });
 
   it("writes a session through an agent and resumes it from a fresh store", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "theokit-sqlite-cwd-"));
     const baseDir = await mkdtemp(join(tmpdir(), "theokit-sqlite-home-"));
-    const filePath = join(baseDir, "sessions.db");
+    const dbDir = await mkdtemp(join(tmpdir(), "theokit-sqlite-db-"));
+    const filePath = join(dbDir, "sessions.db");
     const agent = await Agent.create({
       apiKey: "theo_test_sqlite_store",
       model: { id: "claude-sonnet-4-6" },
@@ -45,5 +47,6 @@ describe("B-596 — SqliteSessionStore", () => {
     });
     const messages = await Agent.transcript(resumed.agentId);
     expect(messages.map((m) => m.text)).toEqual(["ping?", "pong."]);
+    await rm(dbDir, { recursive: true, force: true });
   });
 });
