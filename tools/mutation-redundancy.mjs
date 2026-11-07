@@ -6,12 +6,12 @@
 // To measure (needs network + native build), from the repo root:
 //   pnpm install --frozen-lockfile
 //   pnpm --filter @theokit/sdk exec stryker run --mutate 'src/internal/llm/**/*.ts'   # whole module, not changed lines
-//   pnpm run mutation:redundancy                                                      # reads reports/mutation/slice.json
+//   pnpm run mutation:redundancy                                                      # reads reports/mutation/mutation.json
 // Add one `--mutate` glob per changed module (default config covers only src/internal/llm/**).
 // Then fold each listed candidate into an existing it.each table and re-run both commands; the
 // fold is accepted only when killedMutants is unchanged.
 //
-// B-626: measure suite redundancy from a Stryker JSON report (reports/mutation/slice.json).
+// B-626: measure suite redundancy from a Stryker JSON report (reports/mutation/mutation.json).
 // A test is "redundant" when it kills no mutant that another test does not also kill. The share is
 // only a *measured* number when the report covers whole changed modules (pass `--mutate` to
 // stryker); over changed line ranges it is an upper bound. Nothing here deletes a test: redundant
@@ -75,7 +75,7 @@ export function measureRedundancy(report) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
-  const path = process.argv[2] ?? "reports/mutation/slice.json";
+  const path = process.argv[2] ?? "reports/mutation/mutation.json";
   const r = measureRedundancy(JSON.parse(readFileSync(path, "utf8")));
   console.log(
     `tests=${r.tests} killedMutants=${r.killedMutants} noUniqueKill=${r.noUniqueKill} share=${(r.share * 100).toFixed(1)}%`,
