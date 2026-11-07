@@ -83,7 +83,8 @@ describe("run.stream() init order (B-501)", () => {
       toolInputDelta("{}") +
       blockStop() +
       messageStop("tool_use");
-    const final = messageStart() + textBlockStart() + textDelta("done") + blockStop() + messageStop();
+    const final =
+      messageStart() + textBlockStart() + textDelta("done") + blockStop() + messageStop();
     const types = await streamTypes([toolTurn, final], true);
     expect(types[0]).toBe("system");
     expect(types[1]).toBe("user");
