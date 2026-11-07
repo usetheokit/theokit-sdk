@@ -9,8 +9,6 @@ import type { MemoryFact, MemoryKind } from "../types.js";
  *   - **REM**  — cluster thematically related facts (cosine ≥ 0.75).
  *   - **deep** — pick a representative bullet per cluster (longest text
  *                wins) and emit consolidated markdown notes.
- *
- * @internal
  */
 
 export interface DedupResult {

@@ -67,8 +67,12 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
  * of its copies, `sdk/src/internal/memory/dreaming/` and `sdk-memory/src/internal/dreaming/`, which
  * still live side by side under the SDK 2.0 split (#306). Raised by decision rather than earned;
  * B-444 consolidates the two copies and brings the budget back down.
+ *
+ * 2689 -> 2550 on 2026-11-07: B-444. `sdk-memory`'s dreaming phases and sweep now re-export the
+ * SDK's (`@theokit/sdk/internal/memory-store`) instead of copying them, as the diary already did.
+ * jscpd over the two dreaming directories: 178 lines in 9 clones -> 0. Pinned in the same commit.
  */
-const BUDGET_LINES = Number(process.env.MAX_DUPLICATED_LINES ?? 2689);
+const BUDGET_LINES = Number(process.env.MAX_DUPLICATED_LINES ?? 2550);
 
 const out = mkdtempSync(join(tmpdir(), "jscpd-gate-"));
 try {

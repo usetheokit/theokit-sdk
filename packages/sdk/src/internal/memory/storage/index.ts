@@ -24,6 +24,21 @@ export {
   entryHash,
   renderDiaryEntry,
 } from "../dreaming/diary.js";
+// The sweep itself (B-444): phases and orchestrator were a second copy in the satellite, and the
+// copy had already drifted (it lacked the protected-kind dedup policy and `memoryRoot`).
+export {
+  type Cluster,
+  type ClusterResult,
+  type DedupResult,
+  deepPhase,
+  lightPhase,
+  remPhase,
+} from "../dreaming/phases.js";
+export {
+  type DreamingOptions,
+  type DreamingResult,
+  runDreamingSweep,
+} from "../dreaming/run.js";
 // Path helpers the satellite also needs. Each was a copy on both sides, and each is a pure function
 // over the memory root — the cheapest possible thing to share and the least excusable to duplicate.
 export { defaultIndexPath } from "../index-db.js";
