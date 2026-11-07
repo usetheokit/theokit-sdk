@@ -297,8 +297,16 @@ function wrapSpan(span: OTelSpan, openSpans: Set<OTelSpan>): OTelSpan {
     setAttributes: (attrs) => safe(() => span.setAttributes(redactAttrs(attrs)), undefined),
     addEvent: (name, attrs) =>
       safe(() => span.addEvent(name, attrs ? redactAttrs(attrs) : undefined), undefined),
-    setStatus: (status) => safe(() => span.setStatus(status), undefined),
-    recordException: (err) => safe(() => span.recordException(err), undefined),
+    setStatus: (status) => safe(
+        () =>
+          span.setStatus(
+            status.message === undefined
+              ? status
+              : { ...status, message: redactSecrets(status.message) },
+          ),
+        undefined,
+      ),
+    recordException: (err) => safe(() => span.recordException(redactException(err)), undefined),
     end: (endTime) => {
       safe(() => span.end(endTime), undefined);
       openSpans.delete(span);
@@ -332,6 +340,22 @@ export function _redactAttrsForTests<
   T extends Record<string, string | number | boolean | undefined>,
 >(attrs: T): T {
   return redactAttrs(attrs);
+}
+
+/**
+ * Copy an exception with its message and stack masked. OTel's `recordException`
+ * exports `message` and `stack` as event attributes, so they need the same
+ * redaction as every other attribute. The caller's error object is not mutated.
+ */
+function redactException(err: unknown): unknown {
+  if (typeof err === "string") return redactSecrets(err);
+  if (err instanceof Error) {
+    const copy = new Error(redactSecrets(err.message));
+    copy.name = err.name;
+    if (err.stack !== undefined) copy.stack = redactSecrets(err.stack);
+    return copy;
+  }
+  return err;
 }
 
 function redactAttrValue<T extends string | number | boolean | undefined>(value: T): T {
