@@ -15,6 +15,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { computeCost } from "../../../src/internal/budget/compute-cost.js";
 import { setDiagnosticsSink } from "../../../src/internal/diagnostics.js";
 import { OpenAIClient } from "../../../src/internal/llm/openai.js";
+import { ResponsesApiClient } from "../../../src/internal/llm/responses.js";
 import type { LlmFinish } from "../../../src/internal/llm/types.js";
 
 function sseStream(frames: string[]): Response {
@@ -172,5 +173,53 @@ describe("chat-completions usage the provider sent malformed reaches the #372 bo
     expect(finish.cacheReadTokens).toBeUndefined();
     expect(finish.inputTokens).toBe(100);
     expect(messages.some((m) => m.includes("unusable cacheReadTokens"))).toBe(true);
+  });
+});
+
+async function responsesFinishOf(usage: Record<string, unknown>): Promise<LlmFinish> {
+  const body = `data: ${JSON.stringify({ type: "response.completed", response: { usage } })}\n\ndata: [DONE]\n\n`;
+  const client = new ResponsesApiClient({
+    apiKey: "sk-test",
+    fetch: (async () => sseStream([body])) as typeof fetch,
+  });
+  const generator = client.stream(
+    {
+      model: "anthropic/claude-haiku-4.5",
+      messages: [{ role: "user", content: [{ type: "text", text: "ping" }] }],
+    },
+    new AbortController().signal,
+  );
+  while (true) {
+    const next = await generator.next();
+    if (next.done === true) return next.value;
+  }
+}
+
+describe("Responses usage keeps the cached slice out of inputTokens", () => {
+  it("a cached turn is billed at the cache-read rate only", async () => {
+    const finish = await responsesFinishOf({
+      input_tokens: 2100,
+      output_tokens: 8,
+      input_tokens_details: { cached_tokens: 2048 },
+    });
+    expect(finish.inputTokens).toBe(52);
+    expect(finish.cacheReadTokens).toBe(2048);
+    // Same rates and buckets as the chat-completions case; the gross 2100 would give 0.002345.
+    expect(costOf(finish)).toBeCloseTo(0.000297, 9);
+  });
+
+  it("cache counts above input_tokens floor inputTokens at zero", async () => {
+    const finish = await responsesFinishOf({
+      input_tokens: 100,
+      output_tokens: 1,
+      input_tokens_details: { cached_tokens: 150 },
+    });
+    expect(finish.inputTokens).toBe(0);
+  });
+
+  it("a turn with no cached tokens keeps input_tokens as inputTokens", async () => {
+    const finish = await responsesFinishOf({ input_tokens: 11, output_tokens: 4 });
+    expect(finish.inputTokens).toBe(11);
+    expect(finish.cacheReadTokens).toBeUndefined();
   });
 });
