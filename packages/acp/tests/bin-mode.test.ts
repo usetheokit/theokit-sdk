@@ -1,5 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { chmodSync, cpSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -10,13 +18,17 @@ const TOOL = join(PKG, "..", "..", "tools", "ensure-bin-executable.mjs");
 
 // These read the real working tree and never repair it: a lost bit must stay visible.
 describe("theokit-acp.mjs executable bit", () => {
-  it("is committed as 100755 in the git index", () => {
-    const out = execFileSync("git", ["ls-files", "-s", "--", "bin/theokit-acp.mjs"], {
-      cwd: PKG,
-      encoding: "utf8",
-    });
-    expect(out.startsWith("100755 ")).toBe(true);
-  });
+  // A tarball checkout has no .git; there is no index to read, so skip rather than fail.
+  it.skipIf(!existsSync(join(PKG, "..", "..", ".git")))(
+    "is committed as 100755 in the git index",
+    () => {
+      const out = execFileSync("git", ["ls-files", "-s", "--", "bin/theokit-acp.mjs"], {
+        cwd: PKG,
+        encoding: "utf8",
+      });
+      expect(out.startsWith("100755 ")).toBe(true);
+    },
+  );
 
   it("has the owner execute bit on disk", () => {
     expect(statSync(BIN).mode & 0o100).toBe(0o100);

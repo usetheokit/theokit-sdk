@@ -16,5 +16,11 @@ for (const rel of rels) {
   const file = join(pkgDir, rel);
   if (!existsSync(file)) continue;
   const mode = statSync(file).mode;
-  if ((mode & 0o100) === 0) chmodSync(file, mode | 0o755);
+  if ((mode & 0o100) === 0) {
+    chmodSync(file, mode | 0o755);
+    // Loud on purpose: a lost bit means something rewrote a committed file; do not hide it.
+    console.warn(
+      `[ensure-bin-executable] ${rel} had lost its execute bit (restored) — find what rewrote it.`,
+    );
+  }
 }
