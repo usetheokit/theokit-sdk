@@ -156,10 +156,20 @@ export async function initLoopContext(inputs: AgentLoopInputs): Promise<LoopCont
     ),
     buildUserEvent(inputs),
   ]);
-  // theokit#140 - attach the run's subscriber, if it supplied one. Attached AFTER the seed so the
-  // two events that exist before the loop starts arrive through the batch path like they always
-  // did; re-delivering them live would be a behaviour change for no gain.
-  if (inputs.onLoopEvent !== undefined) events.subscribe(inputs.onLoopEvent);
+  // theokit#140 - attach the run's subscriber, if it supplied one.
+  // B-501 - the seed (system, user) is handed to the subscriber first. It used to arrive only through
+  // the end-of-run batch path, so `run.stream()` yielded it AFTER the assistant message.
+  if (inputs.onLoopEvent !== undefined) {
+    const sink = inputs.onLoopEvent;
+    for (const seeded of events) {
+      try {
+        sink(seeded);
+      } catch {
+        // Same contract as a live push: a throwing sink never breaks the loop; the batch path delivers it.
+      }
+    }
+    events.subscribe(sink);
+  }
   // #523 — this used to map each turn to `[{ type: "text", text: msg.text }]`, and `text` is the FLAT
   // projection: a tool call folds to `[tool call] NAME`. So a resumed session handed the model its
   // own prior turn as prose containing the marker, and the model reproduced the pattern instead of
