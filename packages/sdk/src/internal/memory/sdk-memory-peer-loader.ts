@@ -43,6 +43,8 @@ export interface SdkMemoryModule {
   /** Mirrors @theokit/sdk-memory's runDreamingSweep entrypoint. */
   runDreamingSweep(opts: {
     cwd: string;
+    /** The memory root to sweep; the peer defaults to `<cwd>/.theokit/memory` when absent. */
+    memoryRoot?: string;
     // biome-ignore lint/suspicious/noExplicitAny: structural mirror
     embedding: any;
     dedupThreshold?: number;
