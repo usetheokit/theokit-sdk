@@ -108,6 +108,10 @@ export type {
   ResilientSqliteDb,
 } from "./internal/persistence/sqlite-open.js";
 export { isCorruptionError, openSqliteResilient } from "./internal/persistence/sqlite-open.js";
+export {
+  SqliteSessionStore,
+  type SqliteSessionStoreOptions,
+} from "./internal/persistence/sqlite-session-store.js";
 export type { WalApplyResult } from "./internal/persistence/sqlite-wal.js";
 export { applyWalWithFallback } from "./internal/persistence/sqlite-wal.js";
 // M81 — transcript operations the consumer used to perform by hand INSIDE this store.
