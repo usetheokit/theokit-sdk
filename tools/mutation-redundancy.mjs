@@ -7,35 +7,48 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-/** @param {any} report Stryker mutation-testing-report-schema JSON */
-export function measureRedundancy(report) {
+function testNames(report) {
   const names = new Map();
-  for (const [file, { tests = [] }] of Object.entries(report.testFiles ?? {})) {
-    for (const t of tests) names.set(t.id, { id: t.id, name: t.name, file });
+  for (const [file, entry] of Object.entries(report.testFiles ?? {})) {
+    for (const t of entry.tests ?? []) names.set(t.id, { id: t.id, name: t.name, file });
   }
-  const killsBy = new Map(); // test id -> Set(mutant key)
-  let killedMutants = 0;
-  for (const [path, { mutants = [] }] of Object.entries(report.files ?? {})) {
-    for (const m of mutants) {
-      if (m.status !== "Killed" && m.status !== "Timeout") continue;
-      const killers = [...new Set(m.killedBy ?? [])];
-      if (killers.length === 0) continue;
-      killedMutants++;
-      const key = `${path}#${m.id}`;
-      for (const id of killers) {
-        if (!killsBy.has(id)) killsBy.set(id, new Set());
-        killsBy.get(id).add(key);
-      }
+  return names;
+}
+
+const isKill = (m) => (m.status === "Killed" || m.status === "Timeout") && m.killedBy?.length > 0;
+
+function* killedMutants(report) {
+  for (const [path, entry] of Object.entries(report.files ?? {})) {
+    for (const m of (entry.mutants ?? []).filter(isKill)) {
+      yield { key: `${path}#${m.id}`, killers: [...new Set(m.killedBy)] };
     }
   }
-  // unique kill = mutant killed by exactly one test
+}
+
+/** test id -> Set of killed mutant keys (Killed and Timeout only). */
+function killsByTest(report) {
+  const killsBy = new Map();
+  let killedMutantCount = 0;
+  for (const { key, killers } of killedMutants(report)) {
+    killedMutantCount++;
+    for (const id of killers) killsBy.set(id, (killsBy.get(id) ?? new Set()).add(key));
+  }
+  return { killsBy, killedMutants: killedMutantCount };
+}
+
+/** @param {any} report Stryker mutation-testing-report-schema JSON */
+export function measureRedundancy(report) {
+  const names = testNames(report);
+  const { killsBy, killedMutants } = killsByTest(report);
   const killerCount = new Map();
-  for (const set of killsBy.values()) for (const k of set) killerCount.set(k, (killerCount.get(k) ?? 0) + 1);
+  for (const set of killsBy.values()) {
+    for (const k of set) killerCount.set(k, (killerCount.get(k) ?? 0) + 1);
+  }
   const ids = new Set([...names.keys(), ...killsBy.keys()]);
   const rows = [...ids].map((id) => {
     const kills = killsBy.get(id) ?? new Set();
-    const unique = [...kills].filter((k) => killerCount.get(k) === 1).length;
-    return { ...(names.get(id) ?? { id, name: id, file: "?" }), kills: kills.size, uniqueKills: unique };
+    const uniqueKills = [...kills].filter((k) => killerCount.get(k) === 1).length;
+    return { ...(names.get(id) ?? { id, name: id, file: "?" }), kills: kills.size, uniqueKills };
   });
   const noUnique = rows.filter((r) => r.uniqueKills === 0);
   return {
@@ -43,13 +56,17 @@ export function measureRedundancy(report) {
     killedMutants,
     noUniqueKill: noUnique.length,
     share: rows.length === 0 ? 0 : noUnique.length / rows.length,
-    candidates: noUnique.sort((a, b) => a.file.localeCompare(b.file) || a.name.localeCompare(b.name)),
+    candidates: noUnique.sort(
+      (a, b) => a.file.localeCompare(b.file) || a.name.localeCompare(b.name),
+    ),
   };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   const path = process.argv[2] ?? "reports/mutation/slice.json";
   const r = measureRedundancy(JSON.parse(readFileSync(path, "utf8")));
-  console.log(`tests=${r.tests} killedMutants=${r.killedMutants} noUniqueKill=${r.noUniqueKill} share=${(r.share * 100).toFixed(1)}%`);
+  console.log(
+    `tests=${r.tests} killedMutants=${r.killedMutants} noUniqueKill=${r.noUniqueKill} share=${(r.share * 100).toFixed(1)}%`,
+  );
   for (const c of r.candidates) console.log(`  ${c.file} :: ${c.name} (kills ${c.kills})`);
 }
