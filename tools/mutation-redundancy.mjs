@@ -1,4 +1,16 @@
 #!/usr/bin/env node
+// B-626 — NOT YET MEASURED: Stryker could not run in the sandbox this was written in (no network,
+// so @stryker-mutator/core was not installed and better-sqlite3 could not build). The 90.6% figure
+// from the S-003 audit is therefore still only an upper bound, and no test was folded or deleted.
+//
+// To measure (needs network + native build), from the repo root:
+//   pnpm install --frozen-lockfile
+//   pnpm --filter @theokit/sdk exec stryker run --mutate 'src/internal/llm/**/*.ts'   # whole module, not changed lines
+//   pnpm run mutation:redundancy                                                      # reads reports/mutation/slice.json
+// Add one `--mutate` glob per changed module (default config covers only src/internal/llm/**).
+// Then fold each listed candidate into an existing it.each table and re-run both commands; the
+// fold is accepted only when killedMutants is unchanged.
+//
 // B-626: measure suite redundancy from a Stryker JSON report (reports/mutation/slice.json).
 // A test is "redundant" when it kills no mutant that another test does not also kill. The share is
 // only a *measured* number when the report covers whole changed modules (pass `--mutate` to

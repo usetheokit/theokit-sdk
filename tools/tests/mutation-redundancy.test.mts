@@ -28,4 +28,22 @@ describe("measureRedundancy", () => {
   it("handles an empty report", () => {
     expect(measureRedundancy({}).share).toBe(0);
   });
+
+  it("ignores Survived mutants and counts a test with no kills and no name entry", () => {
+    const r = measureRedundancy({
+      testFiles: { "a.test.ts": { tests: [{ id: "t1", name: "one" }] } },
+      files: {
+        "src/x.ts": {
+          mutants: [
+            { id: "1", status: "Survived", killedBy: ["t1"] },
+            { id: "2", status: "Killed", killedBy: ["ghost"] },
+          ],
+        },
+      },
+    });
+    expect(r.killedMutants).toBe(1);
+    expect(r.tests).toBe(2);
+    expect(r.candidates.map((c: { name: string }) => c.name)).toEqual(["one"]);
+    expect(r.candidates[0].kills).toBe(0);
+  });
 });
