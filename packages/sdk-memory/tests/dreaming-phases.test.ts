@@ -82,7 +82,7 @@ describe("sdk-memory dreaming-phases (iter 54)", () => {
         c: [0, 1, 0], // orthogonal → keep
       });
       // Near-duplicate dedup applies to `project` facts only (one implementation, shared with the SDK).
-      const project = (text: string): MemoryFact => ({ text, kind: "project" });
+      const project = (text: string) => ({ text, kind: "project" }) as MemoryFact;
       const result: DedupResult = await lightPhase(
         [project("a"), project("b"), project("c")],
         embedding,
