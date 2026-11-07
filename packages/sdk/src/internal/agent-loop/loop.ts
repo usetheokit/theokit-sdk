@@ -336,24 +336,17 @@ async function runIteration(
 
 /**
  * Report one turn's tokens to the run's BudgetTracker. `inputTokens` is the uncached slice on every
- * client, and BudgetUsageEvent has only "input" and "output", so the input event carries the whole
- * prompt: uncached plus both cache buckets (F-dom-5).
+ * client; the two cache buckets go out as their own events so a USD tracker can price them at their
+ * own rates, and a token tracker still sums the whole prompt (F-dom-5).
  */
 function trackTurnUsage(inputs: AgentLoopInputs, llmOutput: LlmTurnOutput): void {
   const tracker = inputs.budgetTracker;
   if (tracker === undefined) return;
   const model = inputs.model.id ?? "auto";
-  trackEvent(tracker, { tokens: promptTokens(llmOutput), model, type: "input" });
+  trackEvent(tracker, { tokens: llmOutput.inputTokens ?? 0, model, type: "input" });
+  trackEvent(tracker, { tokens: llmOutput.cacheReadTokens ?? 0, model, type: "cache_read" });
+  trackEvent(tracker, { tokens: llmOutput.cacheWriteTokens ?? 0, model, type: "cache_write" });
   trackEvent(tracker, { tokens: llmOutput.outputTokens ?? 0, model, type: "output" });
-}
-
-/** The whole prompt of one turn: the uncached slice plus both cache buckets. */
-function promptTokens(llmOutput: LlmTurnOutput): number {
-  return (
-    (llmOutput.inputTokens ?? 0) +
-    (llmOutput.cacheReadTokens ?? 0) +
-    (llmOutput.cacheWriteTokens ?? 0)
-  );
 }
 
 /**
