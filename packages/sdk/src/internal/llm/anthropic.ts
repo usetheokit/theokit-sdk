@@ -204,6 +204,14 @@ const CONTENT_FRAMES: ReadonlySet<string> = new Set([
   "message_delta",
 ]);
 
+/** V8's SyntaxError message quotes short inputs; keep only the error's name in the cause. */
+function redactedParseCause(err: unknown): Error {
+  const name = err instanceof Error ? err.name : "Error";
+  const cause = new Error(`${name}: frame body is not valid JSON (body withheld)`);
+  cause.name = name;
+  return cause;
+}
+
 /**
  * Parse one SSE frame. A frame `JSON.parse` refuses is never dropped silently: a content frame
  * throws a retryable `NetworkError` (`stream_malformed_frame`), and any other frame (`message_start`
@@ -220,7 +228,7 @@ function parseAnthropicFrame(record: { event: string; data: string }): Anthropic
     if (CONTENT_FRAMES.has(event)) {
       throw new NetworkError(
         `Anthropic SSE ${event} frame (${size}) is not valid JSON; the turn would lose content`,
-        { code: "stream_malformed_frame", cause: parseErr },
+        { code: "stream_malformed_frame", cause: redactedParseCause(parseErr) },
       );
     }
     diag(
