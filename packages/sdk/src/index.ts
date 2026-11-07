@@ -156,6 +156,10 @@ export { JudgeCredentialError } from "./internal/judge/judge-call.js";
 // without racing. Stability guarantee: signature stable until sdk-core
 // v3.0.
 export { withCwdMutex } from "./internal/persistence/cwd-mutex.js";
+export {
+  SqliteSessionStore,
+  type SqliteSessionStoreOptions,
+} from "./internal/persistence/sqlite-session-store.js";
 // Plugin & extension system (v1.8 — ADRs D97-D109)
 // EC-Cache absorbed: PreUserSendContext + PostAssistantReplyContext + PreUserSendResult
 // added to barrel so extracted packages (sdk-cache, sdk-handoff) can type their

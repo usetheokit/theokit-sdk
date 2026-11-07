@@ -133,3 +133,7 @@ export {
 } from "./internal/persistence/transcript-ops.js";
 // M94 — the record shape stops being `Record<string, unknown>`; the consumer used to litter casts.
 export type { TranscriptBlock, TranscriptMessage } from "./types/session-record.js";
+export {
+  SqliteSessionStore,
+  type SqliteSessionStoreOptions,
+} from "./internal/persistence/sqlite-session-store.js";

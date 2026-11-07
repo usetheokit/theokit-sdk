@@ -730,16 +730,26 @@ async function openLocalStore(reg: {
   model?: { id: string };
   // #301 — `sessionDir` is the option; `baseDir` is its deprecated alias, and a
   // registered agent may carry either depending on when it was created.
-  options: { model?: string | { id: string }; local?: { sessionDir?: string; baseDir?: string } };
+  options: {
+    model?: string | { id: string };
+    local?: {
+      sessionDir?: string;
+      baseDir?: string;
+      sessionStore?: import("./types/session-store.js").SessionStore;
+    };
+  };
 }): Promise<{
   cwd: string;
   model: string;
-  store: import("./internal/persistence/fs-session-store.js").FsSessionStore;
+  store: import("./types/session-store.js").SessionStore;
 }> {
   const cwd = reg.cwd ?? process.cwd();
   const optModel = reg.options.model;
   const model =
     reg.model?.id ?? (typeof optModel === "string" ? optModel : optModel?.id) ?? "unknown";
+  // An injected store (e.g. SqliteSessionStore) is where the transcript lives; do not read a JSONL file instead.
+  const injected = reg.options.local?.sessionStore;
+  if (injected !== undefined) return { cwd, model, store: injected };
   const { FsSessionStore } = await import("./internal/persistence/fs-session-store.js");
   const { defaultBaseDir, expandTilde } = await import(
     "./internal/persistence/session-transcript.js"
