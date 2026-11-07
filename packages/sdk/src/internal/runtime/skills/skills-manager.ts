@@ -64,7 +64,7 @@ export class SkillsManager {
 
   constructor(
     private readonly cwd: string,
-    _enabled: string[] | undefined,
+    private readonly enabled: string[] | undefined,
     private readonly settingSourcesIncludeProject: boolean,
     // M22 — optional custom skills directory + inline (code-defined) skills.
     private readonly skillsDir?: string,
@@ -82,9 +82,7 @@ export class SkillsManager {
      * first declaration of a name wins, so a workspace skill shadows a bundled one.
      */
     private readonly bundledDirs: readonly string[] = [],
-  ) {
-    void _enabled;
-  }
+  ) {}
 
   async initialize(): Promise<void> {
     // M22 — inline skills work even without project setting sources (they need no filesystem).
@@ -143,10 +141,16 @@ export class SkillsManager {
     return [...discovered.filter((s) => !inlineNames.has(s.name)), ...this.inline];
   }
 
+  private visible(): StoredSkill[] {
+    const allowed = this.enabled;
+    return allowed === undefined
+      ? this.skills
+      : this.skills.filter((s) => allowed.includes(s.name));
+  }
+
   list(): Promise<SkillMetadata[]> {
-    // Return every discovered skill — `enabled` is a runtime hint for which
-    // skills the parent agent may invoke, not a visibility filter.
-    return Promise.resolve(this.skills);
+    // B-547 — `enabled`, when set, restricts which skills exist for the agent at all.
+    return Promise.resolve(this.visible());
   }
 
   /**
@@ -156,7 +160,7 @@ export class SkillsManager {
    * enabled skill matches (malformed skills were already excluded at discovery).
    */
   async get(name: string): Promise<SkillDetail | undefined> {
-    const skill = this.skills.find((s) => s.name === name);
+    const skill = this.visible().find((s) => s.name === name);
     if (skill === undefined) return undefined;
     // Inline skills carry the body; filesystem skills re-read it from `source`.
     const instructions =

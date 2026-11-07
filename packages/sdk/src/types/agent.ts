@@ -395,7 +395,8 @@ export type SystemPromptResolver = (ctx: SystemPromptContext) => string | Promis
  */
 export interface SkillsSettings {
   /**
-   * Names of skills the parent agent may invoke. When omitted, every
+   * Names of skills the local runtime loads: a skill not named here cannot be listed or read.
+   * When omitted, every
    * discovered skill is enabled.
    */
   enabled?: string[];
