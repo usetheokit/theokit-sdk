@@ -1,4 +1,4 @@
-import { NetworkError } from "../../errors.js";
+import { NetworkError, TheokitAgentError } from "../../errors.js";
 import type { AgentOptions, ModelSelection } from "../../types/agent.js";
 import type { SDKAssistantMessage, SDKMessage, SDKStatusMessage } from "../../types/messages.js";
 import type { Run, RunOperation, RunStatus, SDKUserMessage, SendOptions } from "../../types/run.js";
@@ -129,7 +129,10 @@ class RealCloudRun extends FixtureRunBase {
       await this.consumeStream(response);
     } catch (cause) {
       if (this.terminated) return;
-      this.fail(cause instanceof Error ? cause.message : String(cause));
+      this.fail(
+        cause instanceof Error ? cause.message : String(cause),
+        cause instanceof TheokitAgentError ? cause : undefined,
+      );
     }
   }
 
@@ -218,13 +221,17 @@ class RealCloudRun extends FixtureRunBase {
     };
   }
 
-  private fail(message: string, code?: string): void {
+  private fail(message: string, cause?: TheokitAgentError): void {
     const event: SDKAssistantMessage = this.buildAssistantEvent(message);
     this.script.events.push(event satisfies SDKMessage);
     this.notifyNewEvents();
     this.script.result = message;
     if (this.script.errorDetail === undefined) {
-      this.script.errorDetail = { message, ...(code !== undefined ? { code } : {}) };
+      this.script.errorDetail = {
+        message,
+        ...(cause?.code !== undefined ? { code: cause.code } : {}),
+        ...(cause !== undefined ? { cause } : {}),
+      };
     }
     this.transitionTo("error" satisfies RunStatus);
   }
