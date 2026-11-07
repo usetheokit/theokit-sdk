@@ -54,9 +54,24 @@ export const BUILTIN_PRICING: Readonly<Record<string, ModelPricing>> = Object.fr
   "openai/gpt-4-turbo": { inputPerMillionUsd: 10, outputPerMillionUsd: 30 },
   "openai/gpt-3.5-turbo": { inputPerMillionUsd: 0.5, outputPerMillionUsd: 1.5 },
   // Anthropic / Claude
-  "anthropic/claude-3-5-sonnet-latest": { inputPerMillionUsd: 3, outputPerMillionUsd: 15, cacheReadPerMillionUsd: 0.3, cacheWritePerMillionUsd: 3.75 },
-  "anthropic/claude-3-5-haiku-latest": { inputPerMillionUsd: 0.8, outputPerMillionUsd: 4, cacheReadPerMillionUsd: 0.08, cacheWritePerMillionUsd: 1 },
-  "anthropic/claude-3-opus-latest": { inputPerMillionUsd: 15, outputPerMillionUsd: 75, cacheReadPerMillionUsd: 1.5, cacheWritePerMillionUsd: 18.75 },
+  "anthropic/claude-3-5-sonnet-latest": {
+    inputPerMillionUsd: 3,
+    outputPerMillionUsd: 15,
+    cacheReadPerMillionUsd: 0.3,
+    cacheWritePerMillionUsd: 3.75,
+  },
+  "anthropic/claude-3-5-haiku-latest": {
+    inputPerMillionUsd: 0.8,
+    outputPerMillionUsd: 4,
+    cacheReadPerMillionUsd: 0.08,
+    cacheWritePerMillionUsd: 1,
+  },
+  "anthropic/claude-3-opus-latest": {
+    inputPerMillionUsd: 15,
+    outputPerMillionUsd: 75,
+    cacheReadPerMillionUsd: 1.5,
+    cacheWritePerMillionUsd: 18.75,
+  },
   // Google
   "google/gemini-1.5-pro": { inputPerMillionUsd: 1.25, outputPerMillionUsd: 5 },
   "google/gemini-1.5-flash": { inputPerMillionUsd: 0.075, outputPerMillionUsd: 0.3 },
@@ -85,7 +100,10 @@ export function computeUsdCost(
   return (tokens / 1_000_000) * ratePerMillion;
 }
 
-function rateFor(entry: ModelPricing, type: "input" | "output" | "cache_read" | "cache_write"): number {
+function rateFor(
+  entry: ModelPricing,
+  type: "input" | "output" | "cache_read" | "cache_write",
+): number {
   if (type === "output") return entry.outputPerMillionUsd;
   if (type === "cache_read") return entry.cacheReadPerMillionUsd ?? entry.inputPerMillionUsd;
   if (type === "cache_write") return entry.cacheWritePerMillionUsd ?? entry.inputPerMillionUsd;
