@@ -99,7 +99,10 @@ function buildChain(options: ProviderRouterOptions): LlmClient[] {
   addClient(options.primary, options.baseUrl);
   // No `perCallBaseUrl`: each fallback resolves its own endpoint from its profile and its own
   // `*_API_BASE_URL`, which is what makes a fallback a different destination rather than a retry.
-  for (const fallback of options.fallback ?? []) addClient(fallback);
+  for (const fallback of options.fallback ?? []) {
+    warnUnknownFallback(fallback);
+    addClient(fallback);
+  }
   if (clients.length === 0) {
     // Normalized exactly as `addClient` does, so a name that differs from a lowercase profile only
     // in case stays a registered provider and keeps the credentials hint below.
@@ -377,6 +380,17 @@ function warnUnknownProvidersInApiKeys(apiKeys: Record<string, string[]> | undef
       );
     }
   }
+}
+
+/** A fallback naming no registered profile is dropped by `addClient`; say so, once per name. */
+function warnUnknownFallback(name: string): void {
+  const key = `fallback:${normalizeProviderName(name)}`;
+  if (warnedProviders.has(key)) return;
+  if (getProviderProfile(normalizeProviderName(name)) !== undefined) return;
+  warnedProviders.add(key);
+  diag(
+    `[theokit-sdk] providers.fallback: unknown provider "${name}" (no profile registered) — dropped from the fallback chain\n`,
+  );
 }
 
 /** Test-only reset. @internal */
