@@ -28,6 +28,7 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createUsdBudgetTracker } from "@theokit/sdk-budget";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { runAgentLoop } from "../../src/internal/agent-loop/loop.js";
 import { createCounterBudgetTracker } from "../../src/internal/budget/tracker/budget-tracker-counter.js";
@@ -148,11 +149,70 @@ describe("BudgetTracker.track() wiring, against the production runIteration", ()
     });
 
     expect(track).toHaveBeenNthCalledWith(1, {
-      tokens: 2100,
+      tokens: 52,
       model: "openai/gpt-4o-mini",
       type: "input",
     });
+    expect(track).toHaveBeenNthCalledWith(2, {
+      tokens: 2000,
+      model: "openai/gpt-4o-mini",
+      type: "cache_read",
+    });
+    expect(track).toHaveBeenNthCalledWith(3, {
+      tokens: 48,
+      model: "openai/gpt-4o-mini",
+      type: "cache_write",
+    });
     expect(tracker.getTotal().tokens).toBe(2108);
+  });
+
+  it("a maxTokens budget counts uncached and both cache buckets", async () => {
+    const tracker = createUsdBudgetTracker({ maxTokens: 2000 });
+    await drive({
+      tracker,
+      inputTokens: 52,
+      outputTokens: 8,
+      cacheReadTokens: 2000,
+      cacheWriteTokens: 48,
+    });
+    expect(tracker.getTotal().tokens).toBe(2108);
+    expect(tracker.check()).toMatchObject({ allowed: false, reason: "token_limit" });
+  });
+
+  it("a USD budget prices cache reads at the cache-read rate", async () => {
+    const model = "anthropic/claude-test";
+    const tracker = createUsdBudgetTracker({
+      pricing: {
+        [model]: { inputPerMillionUsd: 3, outputPerMillionUsd: 15, cacheReadPerMillionUsd: 0.3 },
+      },
+    });
+    await drive({
+      tracker,
+      model: { id: model },
+      inputTokens: 52,
+      outputTokens: 8,
+      cacheReadTokens: 2048,
+    });
+    const expected = (52 * 3 + 2048 * 0.3 + 8 * 15) / 1_000_000;
+    expect(tracker.getTotalUsd()).toBeCloseTo(expected, 12);
+  });
+
+  it("a USD budget prices cache writes at the cache-write rate", async () => {
+    const model = "anthropic/claude-test";
+    const tracker = createUsdBudgetTracker({
+      pricing: {
+        [model]: { inputPerMillionUsd: 3, outputPerMillionUsd: 15, cacheWritePerMillionUsd: 3.75 },
+      },
+    });
+    await drive({
+      tracker,
+      model: { id: model },
+      inputTokens: 10,
+      outputTokens: 8,
+      cacheWriteTokens: 1000,
+    });
+    const expected = (10 * 3 + 1000 * 3.75 + 8 * 15) / 1_000_000;
+    expect(tracker.getTotalUsd()).toBeCloseTo(expected, 12);
   });
 
   it("test_a_fully_cached_prompt_still_fires_the_input_event", async () => {
@@ -163,7 +223,7 @@ describe("BudgetTracker.track() wiring, against the production runIteration", ()
 
     await drive({ tracker, inputTokens: 0, outputTokens: 5, cacheReadTokens: 4096 });
 
-    expect(track.mock.calls[0]?.[0]).toMatchObject({ tokens: 4096, type: "input" });
+    expect(track.mock.calls[0]?.[0]).toMatchObject({ tokens: 4096, type: "cache_read" });
   });
 
   it("test_zero_input_skips_the_input_event", async () => {
@@ -337,11 +397,12 @@ describe("BudgetTracker.track() wiring, against the production runIteration", ()
 
     await drive({ tracker, llm: responses, model: { id: "openai/gpt-5.5" } });
 
-    expect(track).toHaveBeenNthCalledWith(1, {
-      tokens: 11,
-      model: "openai/gpt-5.5",
-      type: "input",
-    });
+    expect(track.mock.calls.map((c) => c[0].type)).toEqual([
+      "input",
+      "cache_read",
+      "cache_write",
+      "output",
+    ]);
     expect(tracker.getTotal().tokens).toBe(13);
   });
 

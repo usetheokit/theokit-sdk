@@ -15,7 +15,7 @@
 /**
  * The two rates needed to price one model, in USD per 1,000,000 tokens.
  *
- * List prices only — this package models no cached-input discount, no batch tier and no negotiated
+ * List prices only — cache rates are optional per model (unset means the input rate), no batch tier and no negotiated
  * rate, so a cost computed here is an upper bound for anyone on a discount and simply wrong for a
  * provider that bills per request.
  *
@@ -26,6 +26,10 @@ export interface ModelPricing {
   readonly inputPerMillionUsd: number;
   /** USD per 1,000,000 output tokens. */
   readonly outputPerMillionUsd: number;
+  /** USD per 1,000,000 cache-read tokens. Omitted: cache reads are priced at the input rate. */
+  readonly cacheReadPerMillionUsd?: number;
+  /** USD per 1,000,000 cache-write tokens. Omitted: cache writes are priced at the input rate. */
+  readonly cacheWritePerMillionUsd?: number;
 }
 
 /**
@@ -50,9 +54,9 @@ export const BUILTIN_PRICING: Readonly<Record<string, ModelPricing>> = Object.fr
   "openai/gpt-4-turbo": { inputPerMillionUsd: 10, outputPerMillionUsd: 30 },
   "openai/gpt-3.5-turbo": { inputPerMillionUsd: 0.5, outputPerMillionUsd: 1.5 },
   // Anthropic / Claude
-  "anthropic/claude-3-5-sonnet-latest": { inputPerMillionUsd: 3, outputPerMillionUsd: 15 },
-  "anthropic/claude-3-5-haiku-latest": { inputPerMillionUsd: 0.8, outputPerMillionUsd: 4 },
-  "anthropic/claude-3-opus-latest": { inputPerMillionUsd: 15, outputPerMillionUsd: 75 },
+  "anthropic/claude-3-5-sonnet-latest": { inputPerMillionUsd: 3, outputPerMillionUsd: 15, cacheReadPerMillionUsd: 0.3, cacheWritePerMillionUsd: 3.75 },
+  "anthropic/claude-3-5-haiku-latest": { inputPerMillionUsd: 0.8, outputPerMillionUsd: 4, cacheReadPerMillionUsd: 0.08, cacheWritePerMillionUsd: 1 },
+  "anthropic/claude-3-opus-latest": { inputPerMillionUsd: 15, outputPerMillionUsd: 75, cacheReadPerMillionUsd: 1.5, cacheWritePerMillionUsd: 18.75 },
   // Google
   "google/gemini-1.5-pro": { inputPerMillionUsd: 1.25, outputPerMillionUsd: 5 },
   "google/gemini-1.5-flash": { inputPerMillionUsd: 0.075, outputPerMillionUsd: 0.3 },
@@ -71,12 +75,19 @@ export const BUILTIN_PRICING: Readonly<Record<string, ModelPricing>> = Object.fr
 export function computeUsdCost(
   pricing: Readonly<Record<string, ModelPricing>>,
   model: string,
-  type: "input" | "output",
+  type: "input" | "output" | "cache_read" | "cache_write",
   tokens: number,
 ): number | undefined {
   const entry = pricing[model];
   if (entry === undefined) return undefined;
-  const ratePerMillion = type === "input" ? entry.inputPerMillionUsd : entry.outputPerMillionUsd;
+  const ratePerMillion = rateFor(entry, type);
   if (!Number.isFinite(tokens) || tokens <= 0) return 0;
   return (tokens / 1_000_000) * ratePerMillion;
+}
+
+function rateFor(entry: ModelPricing, type: "input" | "output" | "cache_read" | "cache_write"): number {
+  if (type === "output") return entry.outputPerMillionUsd;
+  if (type === "cache_read") return entry.cacheReadPerMillionUsd ?? entry.inputPerMillionUsd;
+  if (type === "cache_write") return entry.cacheWritePerMillionUsd ?? entry.inputPerMillionUsd;
+  return entry.inputPerMillionUsd;
 }
