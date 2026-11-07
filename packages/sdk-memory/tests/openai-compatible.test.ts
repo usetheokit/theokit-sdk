@@ -84,6 +84,11 @@ describe("sdk-memory adapter-http-error (iter 73)", () => {
       expect(out.length).toBe(2048 + 1); // 2048 chars + 1-char ellipsis
       expect(out.endsWith("…")).toBe(true);
     });
+    it("test_redacts_a_key_straddling_the_2048_cut", () => {
+      const FAKE = "sk-proj-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+      const out = truncateRaw(`${"x".repeat(2036)}${FAKE}`) as string;
+      expect(out).not.toContain("sk-proj");
+    });
     it("test_redacts_known_credential_patterns", () => {
       const FAKE = "sk-proj-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
       const out = truncateRaw(`{"token": "${FAKE}"}`) as string;
