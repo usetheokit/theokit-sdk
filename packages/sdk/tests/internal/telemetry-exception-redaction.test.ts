@@ -6,7 +6,10 @@ import {
 } from "@opentelemetry/sdk-trace-base";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { _resetTelemetryCacheForTests, createTelemetry } from "../../src/internal/telemetry/tracer.js";
+import {
+  _resetTelemetryCacheForTests,
+  createTelemetry,
+} from "../../src/internal/telemetry/tracer.js";
 
 const SECRET = "sk-abcdef0123456789ghijklmn";
 let exporter: InMemorySpanExporter;

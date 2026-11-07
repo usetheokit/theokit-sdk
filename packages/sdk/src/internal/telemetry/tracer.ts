@@ -297,7 +297,8 @@ function wrapSpan(span: OTelSpan, openSpans: Set<OTelSpan>): OTelSpan {
     setAttributes: (attrs) => safe(() => span.setAttributes(redactAttrs(attrs)), undefined),
     addEvent: (name, attrs) =>
       safe(() => span.addEvent(name, attrs ? redactAttrs(attrs) : undefined), undefined),
-    setStatus: (status) => safe(
+    setStatus: (status) =>
+      safe(
         () =>
           span.setStatus(
             status.message === undefined
