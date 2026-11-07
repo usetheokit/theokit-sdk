@@ -32,4 +32,26 @@ describe("a resumed agent and its memory ceiling", () => {
     const serialized = stripSecretsFromOptions({ model: "m", memory: { enabled: true } });
     expect(serialized.memory).toEqual({ enabled: true });
   });
+
+  it("serialises memory.directory and fromSerialized returns it", () => {
+    const serialized = stripSecretsFromOptions({
+      model: "m",
+      memory: { enabled: true, directory: "/abs/mem" },
+    });
+    expect(serialized.memory).toEqual({ enabled: true, directory: "/abs/mem" });
+    const restored = fromSerialized({
+      agentId: "a",
+      runtime: "local",
+      createdAt: 0,
+      lastModified: 0,
+      archived: false,
+      options: serialized,
+    } as Parameters<typeof fromSerialized>[0]);
+    expect(restored.options.memory?.directory).toBe("/abs/mem");
+  });
+
+  it("produces no directory key when none was declared", () => {
+    const serialized = stripSecretsFromOptions({ model: "m", memory: { enabled: true } });
+    expect(Object.keys(serialized.memory ?? {})).not.toContain("directory");
+  });
 });

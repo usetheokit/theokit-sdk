@@ -20,8 +20,6 @@ import { deepPhase, lightPhase, remPhase } from "./phases.js";
  *
  * All file writes go through `replaceFileAtomic` (EC-3) and the entire sweep
  * holds the per-cwd mutex so a `Remember:` append can't race it.
- *
- * @internal
  */
 
 export interface DreamingOptions {
