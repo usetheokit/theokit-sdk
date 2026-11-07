@@ -15,7 +15,8 @@ export function collectModes(root) {
     const bin = join(pkgs, pkg, "bin");
     if (!existsSync(bin)) continue;
     for (const f of readdirSync(bin).sort()) {
-      if (f.endsWith(".mjs")) modes[`packages/${pkg}/bin/${f}`] = statSync(join(bin, f)).mode & 0o7777;
+      if (f.endsWith(".mjs"))
+        modes[`packages/${pkg}/bin/${f}`] = statSync(join(bin, f)).mode & 0o7777;
     }
   }
   return modes;
@@ -44,7 +45,8 @@ export function main(argv, root = process.cwd()) {
       return 1;
     }
     const diffs = diffModes(JSON.parse(readFileSync(snap, "utf8")), collectModes(root));
-    for (const d of diffs) console.error(`mode changed: ${d.file} ${oct(d.before)} -> ${oct(d.after)}`);
+    for (const d of diffs)
+      console.error(`mode changed: ${d.file} ${oct(d.before)} -> ${oct(d.after)}`);
     return diffs.length ? 1 : 0;
   }
   console.error("usage: check-bin-modes.mjs snapshot|verify [snapshot-file]");
