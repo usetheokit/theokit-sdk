@@ -68,8 +68,9 @@ export function parseRetryAfter(headers: Headers | undefined): number | undefine
 export function truncateRaw(body: unknown): unknown {
   if (body === null || body === undefined) return undefined;
   const s = typeof body === "string" ? body : JSON.stringify(body);
-  const truncated = s.length <= RAW_MAX_BYTES ? s : `${s.slice(0, RAW_MAX_BYTES)}…`;
-  return redactSecrets(truncated);
+  // Redact before the cut so a key straddling the limit cannot slip past the patterns.
+  const redacted = redactSecrets(s);
+  return redacted.length <= RAW_MAX_BYTES ? redacted : `${redacted.slice(0, RAW_MAX_BYTES)}…`;
 }
 
 /**
