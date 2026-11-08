@@ -1,7 +1,9 @@
 /**
- * B-494: the `theokit-acp` bin must stay executable. A tool that rewrites the file in place
- * (a Stryker run restores content, not mode) leaves 100644 on disk and a `old mode 100755` diff.
- * Asserts both the committed mode (git index) and the on-disk owner execute bit.
+ * B-494: the `theokit-acp` bin must stay executable. Asserts both the committed mode (git index)
+ * and the on-disk owner execute bit. `pnpm build` and `pnpm --filter @theokit/acp test` do not
+ * change the mode (verified at HEAD); the known in-place rewriter is `stryker run`, which
+ * `pnpm run mutation` already brackets with tools/check-bin-modes.mjs (B-445). This test guards
+ * every other path (a bare `stryker run`, a stray chmod, a bad commit).
  */
 import { execFileSync } from "node:child_process";
 import { statSync } from "node:fs";
