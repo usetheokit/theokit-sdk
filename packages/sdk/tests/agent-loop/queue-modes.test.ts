@@ -6,12 +6,13 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { Agent } from "../../src/agent.js";
 import { runAgentLoop } from "../../src/internal/agent-loop/loop.js";
 import type { LlmClient, LlmEvent, LlmFinish, LlmRequest } from "../../src/internal/llm/types.js";
 import { joinCollected, TurnSteerQueue } from "../../src/internal/local-agent/send-queue.js";
 import { HooksExecutor } from "../../src/internal/runtime/hooks/hooks-executor.js";
+import type { Run } from "../../src/types/run.js";
 import { removeTempDirRobust } from "../helpers/temp-workspace.js";
 
 /** Every user-text the model was shown, per request. */
@@ -102,8 +103,10 @@ describe("queue helpers", () => {
 
 describe("Agent.send queueMode", () => {
   let sends = 0;
+  let texts: string[] = [];
   async function makeAgent(): Promise<Awaited<ReturnType<typeof Agent.create>>> {
     sends = 0;
+    texts = [];
     const cwd = await mkdtemp(join(tmpdir(), "theokit-qm-cwd-"));
     const baseDir = await mkdtemp(join(tmpdir(), "theokit-qm-home-"));
     return Agent.create({
@@ -113,6 +116,14 @@ describe("Agent.send queueMode", () => {
       onBeforeSend: () => {
         sends += 1;
       },
+      inputProcessors: [
+        {
+          id: "record",
+          processInput: (ctx) => {
+            texts.push(ctx.message);
+          },
+        },
+      ],
     });
   }
 
@@ -126,6 +137,7 @@ describe("Agent.send queueMode", () => {
     expect(rb).toBe(rc);
     expect(rb).not.toBe(r1);
     expect(sends).toBe(2); // "first", then ONE batched turn for b + c
+    expect(texts).toEqual(["first", "b\n\nc"]);
   });
 
   it("collect with nothing running is an ordinary send", async () => {
@@ -140,5 +152,32 @@ describe("Agent.send queueMode", () => {
     const r = await agent.send("solo", { queueMode: "steer" });
     await r.wait();
     expect(sends).toBe(1);
+  });
+
+  it("steer during a running turn joins that turn and falls back to a followup when undrained", async () => {
+    let agent: Awaited<ReturnType<typeof Agent.create>> | undefined;
+    let steered: Promise<Run> | undefined;
+    const cwd = await mkdtemp(join(tmpdir(), "theokit-qm-cwd-"));
+    const sessionDir = await mkdtemp(join(tmpdir(), "theokit-qm-home-"));
+    sends = 0;
+    texts = [];
+    agent = await Agent.create({
+      apiKey: "theo_test_queue_modes",
+      model: { id: "claude-sonnet-4-6" },
+      local: { cwd, sessionDir },
+      inputProcessors: [{ id: "record", processInput: (ctx) => void texts.push(ctx.message) }],
+      onBeforeSend: () => {
+        sends += 1;
+        // Runs inside the first turn, after it took the send lock.
+        if (sends === 1) steered = agent?.send("steer me", { queueMode: "steer" });
+      },
+    });
+    const first = await agent.send("first");
+    const joined = await steered;
+    expect(joined).toBe(first); // steer resolved to the RUNNING turn's Run
+    await first.wait();
+    // The fixture runtime has no loop to drain the queue, so the message is answered as a followup.
+    await vi.waitFor(() => expect(sends).toBe(2));
+    expect(texts).toEqual(["first", "steer me"]);
   });
 });

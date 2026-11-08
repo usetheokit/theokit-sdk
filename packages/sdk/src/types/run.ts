@@ -306,15 +306,15 @@ export type SDKImage =
   | { url: string; dimension?: SDKImageDimension }
   | { data: string; mimeType: string; dimension?: SDKImageDimension };
 
+/** How a message sent during a running turn is queued. See {@link SendOptions.queueMode}. @public */
+export type QueueMode = "followup" | "steer" | "collect";
+
 /**
  * Structured form of `agent.send()`'s message argument. Use it to send images
  * alongside text.
  *
  * @public
  */
-/** How a message sent during a running turn is queued. See {@link SendOptions.queueMode}. @public */
-export type QueueMode = "followup" | "steer" | "collect";
-
 export interface SDKUserMessage {
   text: string;
   images?: SDKImage[];

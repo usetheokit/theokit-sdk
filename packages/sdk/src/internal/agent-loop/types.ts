@@ -66,19 +66,19 @@ export interface ResolvedTool {
   ) => ToolHandlerResult | Promise<ToolHandlerResult>;
 }
 
-/**
- * Shared agent-loop types. Kept in their own module so the dispatch helpers
- * can import `AgentLoopInputs` without pulling the whole orchestrator file.
- *
- * @internal
- */
-
 export interface SteerQueue {
   /** Take every pending message. */
   drain(): string[];
   /** Like `drain`, but atomically refuses further pushes when nothing was pending. */
   drainOrClose(): string[];
 }
+
+/**
+ * Shared agent-loop types. Kept in their own module so the dispatch helpers
+ * can import `AgentLoopInputs` without pulling the whole orchestrator file.
+ *
+ * @internal
+ */
 
 export interface AgentLoopInputs {
   /**
