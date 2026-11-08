@@ -108,7 +108,9 @@ describe("a run that fails on a provider 401", () => {
 
       expect(fetchStub).toHaveBeenCalled();
       expect(result.status).toBe("error");
-      expect(result.error?.message).toBe("openrouter API error: auth_failed (HTTP 401)");
+      expect(result.error?.message).toBe(
+        "openrouter API error: auth_failed (HTTP 401): User not found.",
+      );
       expect(result.error?.code).toBe("auth_failed");
       expect(result.error?.cause).toBeInstanceOf(AuthenticationError);
     } finally {
@@ -248,7 +250,7 @@ describe("a run that fails on a provider 401", () => {
     expect(fetchStub).toHaveBeenCalled();
     expect(rejected).toBeInstanceOf(AgentRunError);
     expect((rejected as AgentRunError).message).toBe(
-      "openrouter API error: auth_failed (HTTP 401)",
+      "openrouter API error: auth_failed (HTTP 401): User not found.",
     );
     expect((rejected as AgentRunError).code).toBe("auth_failed");
     expect((rejected as AgentRunError).cause).toBeInstanceOf(AuthenticationError);

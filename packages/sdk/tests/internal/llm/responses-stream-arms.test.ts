@@ -175,11 +175,9 @@ describe("ResponsesApiClient.stream — the arms the golden fixtures do not reac
     expect(events).toEqual([{ type: "error", message: "upstream exploded" }]);
   });
 
-  it("keeps the provider's words out of the thrown error, and gives them to the consumer as an event", async () => {
-    // Measured, not assumed: the throw carries the mapped classification only — "openai API error:
-    // server_error (HTTP 502)" — and never the provider's own string. That is the redaction the
-    // production comment claims, and it means the yielded event is the ONLY channel carrying the
-    // message. Asserting both halves is what stops either from being deleted as redundant.
+  it("carries the provider's words in the thrown error, and gives them to the consumer as an event", async () => {
+    // The throw carries the mapped classification plus the provider's (redacted, capped) text, and
+    // the yielded event carries the text too. Asserting both stops either from being deleted.
     const body = sse({
       type: "error",
       message: "quota for org sk-leak-1234 exhausted",
@@ -201,7 +199,9 @@ describe("ResponsesApiClient.stream — the arms the golden fixtures do not reac
       .catch((e: unknown) => e);
 
     expect(thrown).toBeInstanceOf(TheokitAgentError);
-    expect((thrown as Error).message).not.toContain("sk-leak-1234");
+    expect((thrown as Error).message).toBe(
+      "openai API error: server_error (HTTP 502): quota for org sk-leak-1234 exhausted",
+    );
     expect((thrown as TheokitAgentError).code).toBe("openai_server_error");
     expect(events).toEqual([{ type: "error", message: "quota for org sk-leak-1234 exhausted" }]);
   });
