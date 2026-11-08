@@ -829,6 +829,18 @@ export interface AgentOptions {
    */
   onBeforeCreate?: (event: { conversationId: string; userId?: string }) => Promise<void> | void;
   /**
+   * Start a fresh conversation when the agent has been idle this many minutes.
+   *
+   * Checked at the start of a local `send`: when more than this long has passed since the previous
+   * `send` on the same agent began, the in-memory conversation is cleared first, so the model
+   * receives no prior messages and `onBeforeSend` reports `previousMessageCount: 0`. Absent (the
+   * default), or not a positive finite number, never resets. The first send of a process has no
+   * previous send, so it never resets. The on-disk transcript is not deleted.
+   *
+   * @public
+   */
+  sessionIdleResetMinutes?: number;
+  /**
    * Fires before each `agent.send`. `previousMessageCount` is the count of
    * messages already persisted BEFORE the current send adds the user
    * message. Throw to block.
