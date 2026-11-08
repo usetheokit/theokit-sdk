@@ -125,6 +125,28 @@ function validateMcpServers(options: AgentOptions): void {
         { code: "cloud_stdio_cwd_rejected" },
       );
     }
+    rejectUnhonourableAuth(name, config, options.cloud !== undefined);
+  }
+}
+
+/**
+ * An HTTP MCP server's `auth` is honoured only as `auth.oauth` on a local agent (the SDK runs the
+ * flow and sends the bearer). Any other `auth` would be called without credentials, so it is refused.
+ */
+function rejectUnhonourableAuth(name: string, config: McpServerConfig, cloud: boolean): void {
+  const auth = (config as { auth?: { oauth?: unknown } }).auth;
+  if (auth === undefined) return;
+  if (auth.oauth === undefined) {
+    throw new ConfigurationError(
+      `MCP server "${name}" declares auth without auth.oauth, which the SDK cannot honour; use auth.oauth or set an Authorization header`,
+      { code: "mcp_auth_unsupported" },
+    );
+  }
+  if (cloud) {
+    throw new ConfigurationError(
+      `MCP server "${name}" declares auth.oauth, which the SDK cannot run for a cloud agent`,
+      { code: "mcp_auth_unsupported" },
+    );
   }
 }
 

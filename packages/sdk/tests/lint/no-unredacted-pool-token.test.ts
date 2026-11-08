@@ -31,6 +31,7 @@ const ALLOWLIST = new Set<string>([
   // type — `OAuthTokens.accessToken`, not `PooledCredential.accessToken`).
   // OAuth tokens have their own redaction discipline via D68.
   "internal/mcp/oauth.ts",
+  "internal/mcp/oauth-bearer.ts",
   "internal/mcp/oauth-types.ts",
   "internal/mcp/token-storage.ts",
   "internal/mcp/oauth-flow.ts",
