@@ -94,7 +94,7 @@ describe("an unregistered primary provider", () => {
   });
 
   it("lists_providers_in_locale_order_not_utf16_code_unit_order", () => {
-    for (const name of ["zeta", "épsilon"]) {
+    for (const name of ["zeta", "\u00e9psilon"]) {
       registerProvider({
         name,
         apiMode: "chat_completions",
@@ -109,9 +109,9 @@ describe("an unregistered primary provider", () => {
       ", ",
     );
 
-    // The default string sort puts "zeta" (U+007A) before "épsilon" (U+00E9); locale order does not.
-    expect(listed.indexOf("épsilon")).toBeGreaterThanOrEqual(0);
-    expect(listed.indexOf("épsilon")).toBeLessThan(listed.indexOf("zeta"));
+    // The default string sort puts "zeta" (U+007A) before "\u00e9psilon" (U+00E9); locale order does not.
+    expect(listed.indexOf("\u00e9psilon")).toBeGreaterThanOrEqual(0);
+    expect(listed.indexOf("\u00e9psilon")).toBeLessThan(listed.indexOf("zeta"));
     expect(listed).toEqual([...listed].sort((a, b) => a.localeCompare(b)));
   });
 
