@@ -337,9 +337,8 @@ export class Agent {
    *   The agent-builder's M85 interrupt rotates the session id to work around a
    *   constraint that does not exist.
    *
-   * - `close()` marks the handle disposed WITHOUT evicting the cache entry. It is
-   *   internal and unused today; if it becomes reachable, this bullet stops being true
-   *   for that path.
+   * - `close()` marks the handle disposed AND drops its cache entry, so the next call
+   *   builds a fresh handle.
    *
    * @public
    */
