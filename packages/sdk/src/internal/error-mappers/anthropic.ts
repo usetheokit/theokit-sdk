@@ -10,6 +10,9 @@
  *                                       mentions context length, else
  *                                       `"invalid_request"`; or
  *                                       `"content_filtered"` for policy.)
+ *   404     → `ConfigurationError`    (`code: "model_unavailable"` when the
+ *                                       body is a `not_found_error` naming a
+ *                                       model; other 404s stay `unknown`.)
  *   408     → `NetworkError`          (`code: "timeout"`)
  *   5xx     → `NetworkError`          (`code: "server_error"` — covers 529
  *                                       overloaded_error common at peak
@@ -58,7 +61,7 @@ export function mapAnthropicError(args: MapAnthropicErrorArgs): TheokitAgentErro
   if (status === 429) {
     return new RateLimitError(message, { code: "anthropic_rate_limit", metadata });
   }
-  if (status === 400) {
+  if (status === 400 || code === "model_unavailable") {
     return new ConfigurationError(message, {
       code: `anthropic_${code}`,
       metadata,
@@ -83,24 +86,37 @@ export function mapAnthropicError(args: MapAnthropicErrorArgs): TheokitAgentErro
  * copied here, and the copy could not reach `quota_exceeded` at all.
  */
 function mapAnthropicStatusToCode(status: number, body: unknown): ErrorCode {
-  if (status === 400) {
-    const text = JSON.stringify(body ?? "").toLowerCase();
-    if (
-      text.includes("context") &&
-      (text.includes("too long") || text.includes("too_long") || text.includes("length"))
-    ) {
-      return "context_too_long";
-    }
-    if (
-      text.includes("filtered") ||
-      text.includes("content policy") ||
-      text.includes("content_policy")
-    ) {
-      return "content_filtered";
-    }
-    return "invalid_request";
-  }
+  if (status === 400) return classify400(body);
+  if (status === 404 && isModelNotFound(body)) return "model_unavailable";
   return httpStatusToErrorCode(status);
+}
+
+function classify400(body: unknown): ErrorCode {
+  const text = JSON.stringify(body ?? "").toLowerCase();
+  if (
+    text.includes("context") &&
+    (text.includes("too long") || text.includes("too_long") || text.includes("length"))
+  ) {
+    return "context_too_long";
+  }
+  if (
+    text.includes("filtered") ||
+    text.includes("content policy") ||
+    text.includes("content_policy")
+  ) {
+    return "content_filtered";
+  }
+  return "invalid_request";
+}
+
+// Anthropic answers an unknown model with 404 `not_found_error` and message `model: <id>`.
+function isModelNotFound(body: unknown): boolean {
+  const error = (body as { error?: { type?: unknown; message?: unknown } } | null)?.error;
+  return (
+    error?.type === "not_found_error" &&
+    typeof error.message === "string" &&
+    /^model\b/i.test(error.message)
+  );
 }
 
 function formatMessage(status: number, code: ErrorCode): string {
