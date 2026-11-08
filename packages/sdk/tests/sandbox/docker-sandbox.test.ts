@@ -46,6 +46,22 @@ describe("DockerSandbox (fake docker)", () => {
     await sb.uploadFile("sub/f.txt", "a");
   });
 
+  it("removes the container when an upload times out", async () => {
+    const t = recorder(null as unknown as number, true);
+    await expect(new DockerSandbox({ runner: t.runner }).uploadFile("f", "a")).rejects.toThrow(
+      /uploadFile failed/,
+    );
+    expect(t.calls[1]?.args.slice(0, 2)).toEqual(["rm", "-f"]);
+  });
+
+  it("defaults to a private temp workDir, not host /tmp", async () => {
+    const { calls, runner } = recorder();
+    await new DockerSandbox({ runner, user: "1:1" }).execute("true");
+    const v = calls[0]?.args[calls[0].args.indexOf("-v") + 1] ?? "";
+    expect(v).not.toMatch(/^\/tmp:/);
+    expect(v).toContain("theokit-docker-ws-");
+  });
+
   it("reports an unavailable docker instead of running on the host", async () => {
     const runner: DockerRunner = async () => {
       throw new Error("ENOENT");
@@ -66,28 +82,36 @@ function dockerUsable(): boolean {
 }
 
 // Real backend: runs only where a Docker daemon with alpine:3 is present (skipped otherwise).
-describe.skipIf(!dockerUsable())("DockerSandbox (real docker)", () => {
-  it("cannot write outside its workspace", async () => {
-    const ws = mkdtempSync(join(tmpdir(), "dsb-ws-"));
-    const outside = mkdtempSync(join(tmpdir(), "dsb-out-"));
-    try {
-      const sb = new DockerSandbox({ workDir: ws });
-      const ok = await sb.execute("echo inside > in.txt");
-      expect(ok.exitCode).toBe(0);
-      expect(readFileSync(join(ws, "in.txt"), "utf-8")).toBe("inside\n");
-      const bad = await sb.execute(
-        `echo x > /etc/pwned; echo x > /usr/pwned; echo x > ${outside}/pwned; echo x > ../pwned`,
-      );
-      expect(bad.exitCode).toBe(1);
-      expect(existsSync(join(outside, "pwned"))).toBe(false);
-      expect(existsSync(join(ws, "..", "pwned"))).toBe(false);
-      expect((await sb.execute("test -e /etc/pwned")).exitCode).toBe(1);
-      expect((await sb.execute("test -e /usr/pwned")).exitCode).toBe(1);
-      await sb.uploadFile("a/b.txt", "hello");
-      expect(readFileSync(join(ws, "a/b.txt"), "utf-8")).toBe("hello");
-    } finally {
-      rmSync(ws, { recursive: true, force: true });
-      rmSync(outside, { recursive: true, force: true });
-    }
-  }, 60_000);
-});
+// THEOKIT_REQUIRE_DOCKER=1 (set it in a Docker-equipped CI job) turns the skip into a failure.
+describe.skipIf(!dockerUsable() && process.env.THEOKIT_REQUIRE_DOCKER !== "1")(
+  "DockerSandbox (real docker)",
+  () => {
+    it("has docker when required", () => {
+      expect(dockerUsable()).toBe(true);
+    });
+
+    it("cannot write outside its workspace", async () => {
+      const ws = mkdtempSync(join(tmpdir(), "dsb-ws-"));
+      const outside = mkdtempSync(join(tmpdir(), "dsb-out-"));
+      try {
+        const sb = new DockerSandbox({ workDir: ws });
+        const ok = await sb.execute("echo inside > in.txt");
+        expect(ok.exitCode).toBe(0);
+        expect(readFileSync(join(ws, "in.txt"), "utf-8")).toBe("inside\n");
+        const bad = await sb.execute(
+          `echo x > /etc/pwned; echo x > /usr/pwned; echo x > ${outside}/pwned; echo x > ../pwned`,
+        );
+        expect(bad.exitCode).toBe(1);
+        expect(existsSync(join(outside, "pwned"))).toBe(false);
+        expect(existsSync(join(ws, "..", "pwned"))).toBe(false);
+        expect((await sb.execute("test -e /etc/pwned")).exitCode).toBe(1);
+        expect((await sb.execute("test -e /usr/pwned")).exitCode).toBe(1);
+        await sb.uploadFile("a/b.txt", "hello");
+        expect(readFileSync(join(ws, "a/b.txt"), "utf-8")).toBe("hello");
+      } finally {
+        rmSync(ws, { recursive: true, force: true });
+        rmSync(outside, { recursive: true, force: true });
+      }
+    }, 60_000);
+  },
+);

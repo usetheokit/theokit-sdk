@@ -4,6 +4,9 @@
  * capabilities are dropped and the process runs as the host user, so a shell command cannot write
  * outside `workDir` (it can still change files inside it).
  *
+ * Without `workDir` a fresh temp directory is mounted. `exitCode` follows the protocol (0, 1, or 124
+ * on timeout), not the command's own code.
+ *
  * Needs a reachable Docker daemon and an image with a POSIX `sh`. A missing Docker surfaces as
  * `SandboxNotAvailableError` from `execute`/`uploadFile` instead of silently running on the host.
  *
@@ -12,7 +15,9 @@
 
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { posix, resolve as resolveHost } from "node:path";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, posix, resolve as resolveHost } from "node:path";
 
 import {
   type ExecuteResult,
@@ -93,7 +98,11 @@ export class DockerSandbox extends SandboxBackend {
   private readonly user: string | undefined;
 
   constructor(config: DockerSandboxConfig = {}) {
-    super(config);
+    // No workDir ⇒ a fresh private directory, never the host /tmp.
+    super({
+      ...config,
+      workDir: config.workDir ?? mkdtempSync(join(tmpdir(), "theokit-docker-ws-")),
+    });
     this.image = config.image ?? "alpine:3";
     this.network = config.network ?? false;
     this.networkPolicy = { mode: this.network ? "unrestricted" : "none" };
