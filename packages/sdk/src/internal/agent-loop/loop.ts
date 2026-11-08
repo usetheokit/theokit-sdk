@@ -78,6 +78,7 @@ export async function runAgentLoop(inputs: AgentLoopInputs): Promise<AgentLoopOu
     // `done` finish from a silent truncation at the iteration ceiling.
     let lastTurnDecision: "continue" | "done" | "error" | undefined;
     while (budget.shouldContinue()) {
+      injectSteered(ctx, inputs.steerQueue?.drain());
       if (inputs.budgetTracker !== undefined) {
         // Fail-CLOSED gate: a tracker that throws denies the iteration
         // instead of silently proceeding past budget (arch-review L1).
@@ -101,7 +102,15 @@ export async function runAgentLoop(inputs: AgentLoopInputs): Promise<AgentLoopOu
       if (usingGrace) budget.useGraceCall();
       const decision = await runIteration(inputs, ctx);
       lastTurnDecision = decision;
-      if (decision === "done") break;
+      if (decision === "done") {
+        // A steered message that landed during the final call keeps the run going; otherwise the
+        // queue closes in the same tick, so nothing can slip in between.
+        const late = inputs.steerQueue?.drainOrClose() ?? [];
+        if (late.length === 0) break;
+        injectSteered(ctx, late);
+        budget.consume();
+        continue;
+      }
       if (decision === "error") {
         ctx.finalStatus = "error";
         break;
@@ -318,6 +327,12 @@ async function finishOrReflect(
   if (await reflectAfterStop(inputs, ctx)) return "continue";
   ctx.finalStatus = "finished";
   return "done";
+}
+
+/** Append steered texts to the transcript as user messages for the next LLM call. */
+function injectSteered(ctx: LoopContext, texts: readonly string[] | undefined): void {
+  if (texts === undefined) return;
+  for (const text of texts) ctx.messages.push({ role: "user", content: [{ type: "text", text }] });
 }
 
 async function runIteration(

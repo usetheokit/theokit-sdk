@@ -312,6 +312,9 @@ export type SDKImage =
  *
  * @public
  */
+/** How a message sent during a running turn is queued. See {@link SendOptions.queueMode}. @public */
+export type QueueMode = "followup" | "steer" | "collect";
+
 export interface SDKUserMessage {
   text: string;
   images?: SDKImage[];
@@ -334,7 +337,7 @@ export interface SDKUserMessage {
  * | rendering a live UI | `onDelta`, `onStep`, `onRunEvent` |
  * | applying a policy | `permissionMode`, `activeTools`, `toolChoice`, `toolResultGuard`, `pruneToolResults`, `perToolTimeoutMs` |
  * | running an eval or a harness | `maxIterations`, `completionCheck`, `doomLoop`, `signal` |
- * | orchestrating agents | `origin`, `task`, `context` |
+ * | orchestrating agents | `origin`, `task`, `context`, `queueMode` |
  * | overriding this one send | `model`, `systemPrompt`, `tools`, `mcpServers`, `contextPaths`, `local` |
  *
  * Every field appears in exactly one row, and
@@ -345,6 +348,18 @@ export interface SDKUserMessage {
  * @public
  */
 export interface SendOptions {
+  /**
+   * What to do with this message when the agent is ALREADY running a turn (local runtime only; a
+   * cloud agent always queues as `"followup"`). With no turn running, every mode just starts one.
+   *
+   * - `"followup"` (default) — wait for the running turn, then run as its own turn.
+   * - `"steer"` — inject the text into the RUNNING turn as a user message, picked up before the
+   *   model's next call (after the current tool round). Resolves to the running turn's `Run`. If
+   *   the turn ends before it can pick the message up, it runs as a followup turn instead.
+   * - `"collect"` — batch every `"collect"` message sent while a turn runs into ONE followup turn
+   *   (texts joined by a blank line). Every collecting caller resolves to that same batched `Run`.
+   */
+  queueMode?: QueueMode;
   /**
    * Per-send model override. SE8 — accepts a bare-string id shorthand
    * (`"openai/gpt-4o-mini"`, normalized to `{ id }`) OR a {@link ModelSelection}

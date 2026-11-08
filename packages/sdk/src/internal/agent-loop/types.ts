@@ -73,6 +73,13 @@ export interface ResolvedTool {
  * @internal
  */
 
+export interface SteerQueue {
+  /** Take every pending message. */
+  drain(): string[];
+  /** Like `drain`, but atomically refuses further pushes when nothing was pending. */
+  drainOrClose(): string[];
+}
+
 export interface AgentLoopInputs {
   /**
    * Consecutive tool-error streak that terminates the run. Default 3.
@@ -132,6 +139,12 @@ export interface AgentLoopInputs {
    * (legacy behavior).
    */
   signal?: AbortSignal;
+  /**
+   * Steer queue (`SendOptions.queueMode: "steer"`). The loop drains it before each LLM call and,
+   * when the model would finish, once more — a message found there keeps the run going. It closes
+   * the queue when the loop ends so a late message is refused rather than lost.
+   */
+  steerQueue?: SteerQueue;
   /**
    * M7 — caller-supplied run `context` from `SendOptions.context`, forwarded to
    * every tool handler's `ctx.context`. Shared config (e.g. `projectRoot`) is set

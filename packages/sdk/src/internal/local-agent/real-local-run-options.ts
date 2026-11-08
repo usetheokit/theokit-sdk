@@ -53,6 +53,8 @@ export interface CreateRealLocalRunOptions {
    */
   subagents?: Record<string, AgentDefinition>;
   sendOptions: SendOptions;
+  /** Steer queue of the turn this run belongs to (`SendOptions.queueMode: "steer"`). */
+  steerQueue?: import("../agent-loop/types.js").SteerQueue;
   workspaceCwd: string;
   hooks: HooksExecutor;
   /** T4.1 — PluginManager threaded from LocalAgent for plugin tools + pre_tool_call hooks. */

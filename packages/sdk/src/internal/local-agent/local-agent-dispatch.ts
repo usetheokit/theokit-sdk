@@ -9,7 +9,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { AgentDefinition, AgentOptions, ModelSelection } from "../../types/agent.js";
 import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
-import type { MemoryToolSpec } from "../agent-loop/types.js";
+import type { MemoryToolSpec, SteerQueue } from "../agent-loop/types.js";
 import { resolveApiKey } from "../env.js";
 import { theokitConfigRoot } from "../persistence/paths.js";
 import type { PersonalityPreset } from "../personality/types.js";
@@ -41,6 +41,7 @@ export function buildRealRunOptions(args: {
   memoryTools: ReadonlyArray<MemoryToolSpec> | undefined;
   personalityToolWhitelist?: ReadonlyArray<string>;
   personalityName?: string;
+  steerQueue?: SteerQueue;
 }): Parameters<typeof createRealLocalRun>[0] {
   return {
     agentId: args.inputs.agentId,
@@ -63,6 +64,7 @@ export function buildRealRunOptions(args: {
       ? { personalityToolWhitelist: args.personalityToolWhitelist }
       : {}),
     ...(args.personalityName !== undefined ? { personalityName: args.personalityName } : {}),
+    ...(args.steerQueue !== undefined ? { steerQueue: args.steerQueue } : {}),
   };
 }
 
@@ -102,6 +104,7 @@ export async function dispatchLocalRun(args: {
   priorMessages: ReadonlyArray<{ role: "user" | "assistant"; text: string }>;
   memoryTools: ReadonlyArray<MemoryToolSpec> | undefined;
   activePreset: PersonalityPreset | undefined;
+  steerQueue?: SteerQueue;
 }): Promise<Run> {
   const apiKey = resolveApiKey(args.inputs.options.apiKey);
   if (shouldUseRealLocalRuntime(apiKey)) {
@@ -113,6 +116,7 @@ export async function dispatchLocalRun(args: {
         systemPrompt: args.systemPrompt,
         priorMessages: args.priorMessages,
         memoryTools: args.memoryTools,
+        ...(args.steerQueue !== undefined ? { steerQueue: args.steerQueue } : {}),
         ...(args.activePreset?.tools !== undefined
           ? { personalityToolWhitelist: args.activePreset.tools }
           : {}),

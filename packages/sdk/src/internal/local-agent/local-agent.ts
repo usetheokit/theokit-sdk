@@ -14,6 +14,7 @@ import type {
 import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
 import type { AgentOperation } from "../../types/sdk-agent.js";
 import type { SessionStore } from "../../types/session-store.js";
+import { diagFailure } from "../diagnostics.js";
 import { generateLocalAgentId } from "../ids.js";
 import { withCwdMutex } from "../persistence/cwd-mutex.js";
 import { FsSessionStore } from "../persistence/fs-session-store.js";
@@ -78,6 +79,13 @@ import {
 import { type DispatchRunArgs, executeSendLocked } from "./local-agent-send.js";
 import { registerRunAsTask } from "./local-agent-task-wrap.js";
 import { reportUnknownLocalOptions } from "./local-option-keys.js";
+import {
+  type ActiveTurn,
+  type CollectBatch,
+  hasImages,
+  joinCollected,
+  TurnSteerQueue,
+} from "./send-queue.js";
 
 /**
  * Local SDKAgent implementation. Owns the workspace cwd plus the file-based
@@ -135,6 +143,9 @@ export class LocalAgent implements SDKAgent {
   private readonly settingSourcesIncludePlugins: boolean;
   private resolvedSubagents: Record<string, AgentDefinition> = {};
   private disposed = false;
+  private activeTurn: ActiveTurn | undefined;
+  private inflight = 0;
+  private collectBatch: CollectBatch | undefined;
   private invalidationPending: { reason: string; at: number } | undefined;
   readonly skillsManager: SkillsManager | undefined;
   readonly pluginsManager: PluginsManager | undefined;
@@ -316,9 +327,58 @@ export class LocalAgent implements SDKAgent {
     // concurrent sends to the SAME agentId cannot interleave user/assistant
     // records mid-turn AND `agent.dispose()` can never return before the
     // summary write finishes (ADR D20).
+    return this.enqueueSend(message, options, sendSpan);
+  }
+
+  /** Queue one send behind the lock, or fold it into the running turn / pending batch. */
+  private enqueueSend(
+    message: string | SDKUserMessage,
+    options: SendOptions,
+    sendSpan: OTelSpan,
+  ): Promise<Run> {
+    const mode = options.queueMode ?? "followup";
+    const text = typeof message === "string" ? message : message.text;
+    const active = this.activeTurn;
+    // steer: only text can be injected, and only while the running turn still accepts it.
+    if (
+      mode === "steer" &&
+      active !== undefined &&
+      !hasImages(message) &&
+      active.steer.push(text)
+    ) {
+      sendSpan.end();
+      return active.run;
+    }
+    if (mode === "collect" && this.collectBatch !== undefined) {
+      this.collectBatch.messages.push(message);
+      sendSpan.end();
+      return this.collectBatch.run;
+    }
+    const key = `agent-send:${this.agentId}`;
+    this.inflight += 1;
+    const release = (): void => {
+      this.inflight -= 1;
+    };
+    if (mode === "collect" && this.inflight > 1) {
+      const messages: Array<string | SDKUserMessage> = [message];
+      const run = new Promise<Run>((resolve, reject) => {
+        void withCwdMutex(key, () => {
+          this.collectBatch = undefined;
+          return this.runLockedSendCycle(
+            joinCollected(messages),
+            options,
+            sendSpan,
+            resolve,
+            reject,
+          ).finally(release);
+        });
+      });
+      this.collectBatch = { messages, run };
+      return run;
+    }
     return new Promise<Run>((resolve, reject) => {
-      void withCwdMutex(`agent-send:${this.agentId}`, () =>
-        this.runLockedSendCycle(message, options, sendSpan, resolve, reject),
+      void withCwdMutex(key, () =>
+        this.runLockedSendCycle(message, options, sendSpan, resolve, reject).finally(release),
       );
     });
   }
@@ -336,6 +396,14 @@ export class LocalAgent implements SDKAgent {
     return declared !== undefined ? { contextWindow: declared } : {};
   }
 
+  /** A steered message the loop never picked up (run errored, was cancelled) still gets answered. */
+  private followUpUnsteered(leftover: string[]): void {
+    if (leftover.length === 0) return;
+    this.send(leftover.join("\n\n")).catch((err) =>
+      diagFailure(`[theokit-sdk] steered message followup failed: ${String(err)}`),
+    );
+  }
+
   private async runLockedSendCycle(
     message: string | SDKUserMessage,
     options: SendOptions,
@@ -345,18 +413,31 @@ export class LocalAgent implements SDKAgent {
   ): Promise<void> {
     const userText = typeof message === "string" ? message : message.text;
     let run: Run;
+    const steer = new TurnSteerQueue();
+    let res: (r: Run) => void = () => undefined;
+    let rej: (e: unknown) => void = () => undefined;
+    const turnRun = new Promise<Run>((a, b) => {
+      res = a;
+      rej = b;
+    });
+    turnRun.catch(() => undefined); // only steering callers observe this
+    this.activeTurn = { steer, run: turnRun };
     try {
       run = await this.sendLocked(message, options);
     } catch (err) {
       sendSpan.recordException(err);
       sendSpan.setStatus({ code: 2, message: err instanceof Error ? err.message : String(err) });
       sendSpan.end();
+      this.activeTurn = undefined;
+      rej(err);
       reject(err);
       return;
     }
     // T3.2: opt-in Task wrapping (ADRs D363/D374).
     if (options.task !== undefined) registerRunAsTask(run, this.agentId, options.task, userText);
-    resolve(callerView(run, this.options.throwOnError));
+    const view = callerView(run, this.options.throwOnError);
+    res(view);
+    resolve(view);
     try {
       await runPostRunLifecycle({
         run,
@@ -380,6 +461,8 @@ export class LocalAgent implements SDKAgent {
       });
     } finally {
       sendSpan.end();
+      this.activeTurn = undefined;
+      this.followUpUnsteered(steer.closeAndTake());
     }
   }
 
@@ -510,6 +593,7 @@ export class LocalAgent implements SDKAgent {
       priorMessages,
       memoryTools,
       activePreset: this.activePreset(),
+      ...(this.activeTurn !== undefined ? { steerQueue: this.activeTurn.steer } : {}),
     });
   }
 
