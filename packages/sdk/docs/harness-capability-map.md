@@ -574,8 +574,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CircuitBreaker` | class | Stops calling a recall path that keeps timing out.  |
 | `CircuitBreakerOptions` | interface | Consecutive-timeout circuit breaker for Active Memory recall.  |
 | `claudeProjectMemoryDir` | function | Where the Claude Code CLI keeps THIS project's memories.  |
-| `Cluster` | interface |  |
-| `ClusterResult` | interface |  |
+| `Cluster` | interface | A group of semantically similar facts, with the text chosen to represent them. |
+| `ClusterResult` | interface | What clustering produced: the clusters and how many facts the per-sweep cap left out. |
 | `cohereMemoryEmbeddingProviderAdapter` | const | Cohere embeddings.  |
 | `collectMarkdownFiles` | function | Every markdown file the memory corpus holds: the index, the per-memory files, `notes/`, `wiki/` and `sessions/`, each tagged with the bucket `memory_search`'s `corpus` filters on.  |
 | `CreateAdapterOptions` | interface | Per-call overrides handed to {@link MemoryEmbeddingProviderAdapter.create } .  |
@@ -607,7 +607,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `discoverSessionFiles` | function | Every session summary under `<memory root>/sessions`, as `{ absolutePath, relPath }` records.  |
 | `discoverWikiFiles` | function | Every wiki supplement under `<memory root>/wiki`, as `{ absolutePath, relPath }` records.  |
 | `DreamingOptions` | interface | Dreaming sweep orchestrator (ADR D7 of memory-system-peer-project-parity).  |
-| `DreamingResult` | interface |  |
+| `DreamingResult` | interface | Outcome of one dreaming sweep: counts before and after, and the note written. |
 | `dropVectorIndex` | function | Drop the `embeddings` table, discarding every stored vector.  |
 | `EmbedAllArgs` | interface | Inputs for {@link embedMissingChunks } : the open database and the embedding runtime to call. |
 | `EmbeddingCache` | interface | The cache contract the shared runtime writes through.  |
@@ -699,7 +699,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `resolveMemoryRoot` | function | The memory root for this agent: `memory.directory` when set, the project store otherwise.  |
 | `runActiveMemory` | function | Run one blocking recall before the system prompt is assembled, and report what happened.  |
 | `RunActiveMemoryArgs` | interface | Everything {@link runActiveMemory } needs for one attempt.  |
-| `runDreamingSweep` | function |  |
+| `runDreamingSweep` | function | Run one dreaming sweep (dedupe, cluster, write a consolidated note), serialised per `cwd`. |
 | `SCHEMA_STATEMENTS` | const | SQLite schema for the memory index.  |
 | `SearchOptions` | interface | Search tuning.  |
 | `SessionFile` | interface | Session summary discovery (ADR D20).  |
@@ -771,7 +771,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CreateRunVitestToolOptions` | interface | `run_vitest` — built-in tool for coding agents.  |
 | `createSearchTextTool` | function | Build the `search_text` tool: scan file CONTENTS across the tree.  |
 | `CreateSearchTextToolOptions` | interface | `search_text` — built-in tool for coding agents.  |
-| `createSecretsTool` | function |  |
+| `createSecretsTool` | function | Create a tool that resolves `{{secret:NAME}}` references and masks secret values in output. |
 | `CreateSecretsToolOptions` | interface | `secrets` — lets an agent USE a stored secret without the value reaching the model.  |
 | `createSessionArtifactStore` | function | Create a generic artifact store rooted at `dir`.  |
 | `createShellTool` | function | Build the `shell_exec` tool: run a command through `/bin/sh -c` with `projectRoot` as the working directory.  |
@@ -818,7 +818,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ResolveAndScreenOptions` | interface | Options for {@link resolveAndScreen } . |
 | `screenedFetch` | function | Fetch `url` with SSRF screening: screens the host (unless `allowPrivateHosts`), sets `redirect:"manual"`, and re-screens every redirect hop (rejecting a hop to a blocked host or a non-http(s) targe... |
 | `ScreenedFetchOptions` | interface | Options for {@link screenedFetch } . |
-| `SecretsTool` | interface |  |
+| `SecretsTool` | interface | A secrets tool: a custom tool that can also wrap other tools with secret resolution. |
 | `SessionArtifactStore` | interface | A generic, id-keyed, atomic artifact store.  |
 | `SessionArtifactStoreOptions` | interface | Options for {@link createSessionArtifactStore } . |
 | `SsrfBlockedError` | class | Thrown when a host/redirect resolves to a blocked (private/reserved) address. |
@@ -1144,8 +1144,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `asMemoryRoot` | function | Treat a directory as a memory root without resolving one.  |
 | `ceilingReachedError` | function | The refusal of a new fact at a store's declared ceiling: where the store is, how many facts it holds, the ceiling, and what to consolidate.  |
 | `claudeProjectMemoryDir` | function | Where the Claude Code CLI keeps THIS project's memories.  |
-| `Cluster` | interface |  |
-| `ClusterResult` | interface |  |
+| `Cluster` | interface | A group of semantically similar facts, with the text chosen to represent them. |
+| `ClusterResult` | interface | What clustering produced: the clusters and how many facts the per-sweep cap left out. |
 | `collectMarkdownFiles` | function | Every markdown file the memory corpus holds: the index, the per-memory files, `notes/`, `wiki/` and `sessions/`, each tagged with the bucket `memory_search`'s `corpus` filters on.  |
 | `DedupResult` | interface | Dreaming/REM phase logic.  |
 | `deepPhase` | function | Deep phase — render consolidated markdown for the dreamed note. |
@@ -1156,7 +1156,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `discoverSessionFiles` | function | Every session summary under `<memory root>/sessions`, as `{ absolutePath, relPath }` records.  |
 | `discoverWikiFiles` | function | Every wiki supplement under `<memory root>/wiki`, as `{ absolutePath, relPath }` records.  |
 | `DreamingOptions` | interface | Dreaming sweep orchestrator (ADR D7 of memory-system-peer-project-parity).  |
-| `DreamingResult` | interface |  |
+| `DreamingResult` | interface | Outcome of one dreaming sweep: counts before and after, and the note written. |
 | `entryHash` | function | A stable hash of one entry's counts, so two sweeps that did the same work read as the same work.  |
 | `indexBudgetWarning` | function | What to say about an index that the interop partner will truncate, or `undefined` when there is nothing true to say.  |
 | `lanceStoragePath` | function | `<memory root>/lance`.  |
@@ -1178,7 +1178,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `renderDiaryEntry` | function | One diary entry as the markdown that gets appended: a timestamp heading, the short entry hash, and the counts the sweep produced.  |
 | `resolveMaxFacts` | function | The ceiling a caller declared, or `undefined` when none was declared.  |
 | `resolveMemoryRoot` | function | The memory root for this agent: `memory.directory` when set, the project store otherwise.  |
-| `runDreamingSweep` | function |  |
+| `runDreamingSweep` | function | Run one dreaming sweep (dedupe, cluster, write a consolidated note), serialised per `cwd`. |
 | `SessionFile` | interface | Session summary discovery (ADR D20).  |
 | `sessionsDir` | function | `<memory root>/sessions`.  |
 | `SessionSummaryInput` | interface | Per-run session summary writer (ADR D20).  |
@@ -1385,9 +1385,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `detectBwrap` | function | Honest detection — fail-closed on every probe; NEVER throws (callers WARN + fall back). |
 | `detectBwrapMemoized` | function | `detectBwrap` with memoization — what production should call.  |
 | `DockerRunner` | type | Seam for tests: runs `docker <args>`, optionally feeding `input` to stdin. |
-| `DockerRunResult` | interface |  |
-| `DockerSandbox` | class |  |
-| `DockerSandboxConfig` | interface |  |
+| `DockerRunResult` | interface | Result of one `docker` invocation: captured output, exit code and whether it timed out. |
+| `DockerSandbox` | class | Sandbox backend that runs each command in a throwaway Docker container. |
+| `DockerSandboxConfig` | interface | Configuration for {@link DockerSandbox } . |
 | `ExecuteResult` | interface | What a {@link SandboxBackend } returns for one command.  |
 | `interactiveWrapCommand` | function | The composition the interactive path needs — the counterpart of `createSandboxBackend`.  |
 | `InteractiveWrapOptions` | interface | Options for `interactiveWrapCommand`, the PTY counterpart of `createSandboxBackend`.  |
