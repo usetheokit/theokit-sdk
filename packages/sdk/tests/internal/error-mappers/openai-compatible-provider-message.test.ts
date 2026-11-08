@@ -126,12 +126,12 @@ describe("mapOpenAICompatibleError on a 400", () => {
     [500, "server_error"],
     [503, "server_error"],
     [418, "unknown"],
-  ])("keeps_the_message_of_every_other_status_without_the_provider_text: %i", (status, code) => {
+  ])("appends_the_provider_text_to_the_message_of_every_other_status: %i", (status, code) => {
     const err = mapStatus("openrouter", status, {
-      error: { message: "provider text that must not appear", code: status },
+      error: { message: "provider text", code: status },
     });
 
-    expect(err.message).toBe(`openrouter API error: ${code} (HTTP ${status})`);
+    expect(err.message).toBe(`openrouter API error: ${code} (HTTP ${status}): provider text`);
   });
 
   it("never_throws_on_a_400_body_of_any_shape", () => {
