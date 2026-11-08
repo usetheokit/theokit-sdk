@@ -454,7 +454,8 @@ export async function continueOrTerminate(
     }
   }
   pushToolConversationSteps(ctx, llmOutput.toolCalls, toolResults);
-  if ((await inspectDoomLoop(inputs, ctx, llmOutput.toolCalls)) === "stop") return "done";
+  if ((await inspectDoomLoop(inputs, ctx, llmOutput.toolCalls, toolResults)) === "stop")
+    return "done";
   return handleToolErrorContinuation(inputs, ctx, toolResults);
 }
 
@@ -469,9 +470,19 @@ async function inspectDoomLoop(
   inputs: AgentLoopInputs,
   ctx: LoopContext,
   toolCalls: LlmToolCallPart[],
+  toolResults: LlmContentPart[],
 ): Promise<"stop" | "continue"> {
   if (ctx.doomLoop === undefined) return "continue";
-  const verdict = firstDoomLoopVerdict(ctx.doomLoop, toolCalls);
+  const resultById = new Map<string, string>();
+  for (const part of toolResults) {
+    if (part.type === "tool_result") {
+      resultById.set(part.toolUseId, JSON.stringify([part.content, part.isError === true]));
+    }
+  }
+  const verdict = firstDoomLoopVerdict(
+    ctx.doomLoop,
+    toolCalls.map((c) => ({ name: c.name, input: c.input, result: resultById.get(c.id) })),
+  );
   if (verdict.kind === "hard") {
     ctx.stoppedByDoomLoop = true;
     await emitAssistantTextStep(
