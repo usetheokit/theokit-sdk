@@ -25,7 +25,21 @@ const REGISTRY = globalSingleton(
 );
 const ALIASES = globalSingleton("theokit-sdk.providers.aliases", () => new Map<string, string>());
 
-export function registerProvider(profile: ProviderProfile): void {
+/** Routes look every provider name up in lowercase, so the registry keys by lowercase too. */
+function key(name: string): string {
+  return name.toLowerCase();
+}
+
+/**
+ * Registers `profile` under its lowercase name and lowercase aliases, because routes look provider
+ * names up in lowercase: a profile named `AcmeAI` with alias `AcmeX` is reached by either spelling.
+ */
+export function registerProvider(input: ProviderProfile): void {
+  const profile: ProviderProfile = {
+    ...input,
+    name: key(input.name),
+    ...(input.aliases === undefined ? {} : { aliases: input.aliases.map(key) }),
+  };
   if (REGISTRY.has(profile.name)) {
     diag(`[theokit-sdk] Provider "${profile.name}" overridden by user plugin.\n`);
   }
@@ -41,8 +55,8 @@ export function registerProvider(profile: ProviderProfile): void {
 }
 
 export function getProviderProfile(name: string): ProviderProfile | undefined {
-  const canonical = ALIASES.get(name) ?? name;
-  return REGISTRY.get(canonical);
+  const lower = key(name);
+  return REGISTRY.get(ALIASES.get(lower) ?? lower);
 }
 
 export function listProviders(): ProviderProfile[] {
