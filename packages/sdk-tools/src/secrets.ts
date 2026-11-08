@@ -25,6 +25,7 @@ export interface CreateSecretsToolOptions {
   description?: string;
 }
 
+/** A secrets tool: a custom tool that can also wrap other tools with secret resolution. */
 export interface SecretsTool extends CustomTool {
   /** Wrap another tool so `{{secret:NAME}}` references in its input are resolved and its output is masked. */
   withSecrets(tool: CustomTool): CustomTool;
@@ -32,6 +33,7 @@ export interface SecretsTool extends CustomTool {
 
 const REF = /\{\{secret:([A-Za-z0-9_.-]+)\}\}/g;
 
+/** Create a tool that resolves `{{secret:NAME}}` references and masks secret values in output. */
 export function createSecretsTool(opts: CreateSecretsToolOptions): SecretsTool {
   const store = (): Record<string, string> =>
     typeof opts.secrets === "function" ? opts.secrets() : opts.secrets;

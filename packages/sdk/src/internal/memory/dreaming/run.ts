@@ -36,6 +36,7 @@ export interface DreamingOptions {
   now?: () => number;
 }
 
+/** Outcome of one dreaming sweep: counts before and after, and the note written. */
 export interface DreamingResult {
   status: "ok" | "skipped" | "error";
   factsBefore: number;
@@ -51,6 +52,7 @@ export interface DreamingResult {
   factsLeftOut?: number;
 }
 
+/** Run one dreaming sweep (dedupe, cluster, write a consolidated note), serialised per `cwd`. */
 export function runDreamingSweep(options: DreamingOptions): Promise<DreamingResult> {
   return withCwdMutex(`dream:${options.cwd}`, () => runInner(options));
 }

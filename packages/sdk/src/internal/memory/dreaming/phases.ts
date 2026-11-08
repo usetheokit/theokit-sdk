@@ -16,11 +16,13 @@ export interface DedupResult {
   duplicatesRemoved: number;
 }
 
+/** A group of semantically similar facts, with the text chosen to represent them. */
 export interface Cluster {
   representativeText: string;
   members: ReadonlyArray<MemoryFact>;
 }
 
+/** What clustering produced: the clusters and how many facts the per-sweep cap left out. */
 export interface ClusterResult {
   clusters: Cluster[];
   /** How many input facts past the per-sweep cap were not clustered; 0 when none were. */
