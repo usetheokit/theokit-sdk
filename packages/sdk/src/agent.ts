@@ -63,6 +63,9 @@ let streamObjectImport: Promise<typeof import("./stream-object.js")> | undefined
  */
 export type AgentPromptResult = RunResult;
 
+/** In-flight `Agent.getOrCreate` builds, keyed by agent id (single-flight). */
+const getOrCreateInFlight = new Map<string, Promise<SDKAgent>>();
+
 /**
  * Static façade for creating and managing Theo agents.
  *
@@ -347,9 +350,23 @@ export class Agent {
     const cached = Agent.registry.get(agentId);
     if (cached !== undefined) return cached;
 
-    const fresh = await getOrCreateUncached(agentId, options);
-    Agent.registry.set(agentId, fresh);
-    return fresh;
+    // Single-flight: concurrent calls for one id share one build, so two live agents never
+    // run over one transcript. The entry is dropped when the build settles (success or failure),
+    // so a failed build is retried by the next call. Works with `maxAgents: 0` too.
+    const inFlight = getOrCreateInFlight.get(agentId);
+    if (inFlight !== undefined) return inFlight;
+
+    const build = (async (): Promise<SDKAgent> => {
+      const fresh = await getOrCreateUncached(agentId, options);
+      Agent.registry.set(agentId, fresh);
+      return fresh;
+    })();
+    getOrCreateInFlight.set(agentId, build);
+    try {
+      return await build;
+    } finally {
+      if (getOrCreateInFlight.get(agentId) === build) getOrCreateInFlight.delete(agentId);
+    }
   }
 
   /**
