@@ -103,11 +103,6 @@ export {
   type VitestSummary,
 } from "./run-vitest.js";
 export { type CreateSearchTextToolOptions, createSearchTextTool } from "./search-text.js";
-export {
-  type CreateSecretsToolOptions,
-  createSecretsTool,
-  type SecretsTool,
-} from "./secrets.js";
 export { type CreateShellToolOptions, createShellTool } from "./shell-exec.js";
 export {
   type CreateTextToSpeechToolOptions,

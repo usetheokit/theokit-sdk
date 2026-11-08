@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1293 export(s) across 53 entry point(s).
+1293 export(s) across 54 entry point(s).
 
 ## `@theokit/acp`
 
@@ -772,8 +772,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CreateRunVitestToolOptions` | interface | `run_vitest` — built-in tool for coding agents.  |
 | `createSearchTextTool` | function | Build the `search_text` tool: scan file CONTENTS across the tree.  |
 | `CreateSearchTextToolOptions` | interface | `search_text` — built-in tool for coding agents.  |
-| `createSecretsTool` | function | Create a tool that resolves `{{secret:NAME}}` references and masks secret values in output. |
-| `CreateSecretsToolOptions` | interface | `secrets` — lets an agent USE a stored secret without the value reaching the model.  |
 | `createSessionArtifactStore` | function | Create a generic artifact store rooted at `dir`.  |
 | `createShellTool` | function | Build the `shell_exec` tool: run a command through `/bin/sh -c` with `projectRoot` as the working directory.  |
 | `CreateShellToolOptions` | interface | `shell_exec` — built-in tool for coding agents.  |
@@ -819,7 +817,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ResolveAndScreenOptions` | interface | Options for {@link resolveAndScreen } . |
 | `screenedFetch` | function | Fetch `url` with SSRF screening: screens the host (unless `allowPrivateHosts`), sets `redirect:"manual"`, and re-screens every redirect hop (rejecting a hop to a blocked host or a non-http(s) targe... |
 | `ScreenedFetchOptions` | interface | Options for {@link screenedFetch } . |
-| `SecretsTool` | interface | A secrets tool: a custom tool that can also wrap other tools with secret resolution. |
 | `SessionArtifactStore` | interface | A generic, id-keyed, atomic artifact store.  |
 | `SessionArtifactStoreOptions` | interface | Options for {@link createSessionArtifactStore } . |
 | `SsrfBlockedError` | class | Thrown when a host/redirect resolves to a blocked (private/reserved) address. |
@@ -885,6 +882,14 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `DEFAULT_MAX_ENTRIES` | const | Default ceiling on the entries one log holds; it bounds the cost of each rewrite.  |
 | `LogbookEntry` | type | One line of the log.  |
 | `ScreenshotLogbookResult` | type | The tool's result, before it is serialised to the JSON string the handler returns. |
+
+## `@theokit/sdk-tools/secrets`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `createSecretsTool` | function | Create a tool that resolves `{{secret:NAME}}` references and masks secret values in output. |
+| `CreateSecretsToolOptions` | interface | `secrets` — lets an agent USE a stored secret without the value reaching the model.  |
+| `SecretsTool` | interface | A secrets tool: a custom tool that can also wrap other tools with secret resolution. |
 
 ## `@theokit/sdk-tools/structured-output`
 
