@@ -1,7 +1,6 @@
 // Tail of the queue per key. Module-scoped on purpose — see `withCwdMutex` below, which is where
-// the contract is documented. Entries are never removed, so the Map holds one promise per distinct
-// key for the life of the process; keys are expected to come from a bounded set (a file path, a
-// subsystem name), not from unbounded user input.
+// the contract is documented. An entry is removed once its key has no call pending, so the Map
+// holds only keys with work in flight, however many distinct keys were ever used.
 const tails = new Map<string, Promise<unknown>>();
 
 /**
@@ -32,8 +31,8 @@ const tails = new Map<string, Promise<unknown>>();
  * `@theokit/sdk` rather than reimplementing it, precisely so the Map is the same one: a per-package
  * copy would give each package its own queue and let their writes race.
  *
- * The Map is module-scoped, so nothing survives a process restart or a fresh module instance, and
- * its entries are never removed — pass keys from a bounded set rather than from arbitrary input.
+ * The Map is module-scoped, so nothing survives a process restart or a fresh module instance.
+ * An entry is dropped as soon as its key has no call pending.
  * Signature and semantics will not change before sdk-core v3.0.
  *
  * @public
@@ -41,14 +40,21 @@ const tails = new Map<string, Promise<unknown>>();
 export function withCwdMutex<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const prev = tails.get(key) ?? Promise.resolve();
   const next = prev.then(fn, fn); // run fn whether prev fulfilled or rejected
-  // Save the new tail. Store the .then() chain that swallows the result so a
-  // failure here doesn't poison subsequent waiters.
-  tails.set(
-    key,
-    next.then(
-      () => undefined,
-      () => undefined,
-    ),
+  // Save the new tail. It swallows the result so a failure here doesn't poison subsequent
+  // waiters, and it removes the key once it is still the newest tail (no call is queued behind
+  // it), so the Map holds entries only for keys with a call pending.
+  const tail: Promise<unknown> = next.then(
+    () => undefined,
+    () => undefined,
   );
+  tails.set(key, tail);
+  void tail.then(() => {
+    if (tails.get(key) === tail) tails.delete(key);
+  });
   return next;
+}
+
+/** Number of keys with a call pending. Test-only observation of the queue map. */
+export function pendingCwdMutexKeyCount(): number {
+  return tails.size;
 }
