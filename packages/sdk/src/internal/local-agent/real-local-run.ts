@@ -193,6 +193,7 @@ function buildLoopInputs(
     // M1-2: per-send iteration ceiling (validated above). The loop reads
     // inputs.maxIterations (default 8 when unset).
     ...(maxIterations !== undefined ? { maxIterations } : {}),
+    ...(options.drainSteering !== undefined ? { drainSteering: options.drainSteering } : {}),
     // Doom-loop guard config (default on; `false` disables, object tunes thresholds).
     ...(options.sendOptions.doomLoop !== undefined
       ? { doomLoop: options.sendOptions.doomLoop }

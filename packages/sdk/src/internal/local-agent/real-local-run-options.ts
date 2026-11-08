@@ -57,6 +57,8 @@ export interface CreateRealLocalRunOptions {
   hooks: HooksExecutor;
   /** T4.1 — PluginManager threaded from LocalAgent for plugin tools + pre_tool_call hooks. */
   pluginManager?: import("../plugins/manager.js").PluginManager;
+  /** Takes the messages steered into this turn (`queueMode: "steer"`). */
+  drainSteering?: () => string[];
   /** Pre-resolved system prompt threaded by `LocalAgent.send`. */
   systemPrompt?: string;
   onStep?: SendOptions["onStep"];

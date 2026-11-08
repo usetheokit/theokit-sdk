@@ -314,10 +314,19 @@ async function finishOrReflect(
   ctx: LoopContext,
   llmOutput: LlmTurnOutput,
 ): Promise<"continue" | "done"> {
+  if (injectSteering(inputs, ctx)) return "continue";
   if (shouldNudgeAndContinue(ctx, llmOutput)) return "continue";
   if (await reflectAfterStop(inputs, ctx)) return "continue";
   ctx.finalStatus = "finished";
   return "done";
+}
+
+/** Appends messages steered into this turn as user messages; true when any arrived. */
+export function injectSteering(inputs: AgentLoopInputs, ctx: LoopContext): boolean {
+  const steered = inputs.drainSteering?.() ?? [];
+  for (const text of steered)
+    ctx.messages.push({ role: "user", content: [{ type: "text", text }] });
+  return steered.length > 0;
 }
 
 async function runIteration(
@@ -327,6 +336,7 @@ async function runIteration(
   // #65 — pre/post_llm_call hooks (previously dead) fire around each LLM turn.
   const hookCtx = { agentId: inputs.agentId, runId: inputs.runId };
   await inputs.pluginManager?.runPreLlmCallHooks(hookCtx);
+  injectSteering(inputs, ctx);
   const llmOutput = await streamLlmTurn(inputs, ctx);
   await inputs.pluginManager?.runPostLlmCallHooks(hookCtx);
   accumulateUsage(ctx.usage, llmOutput);

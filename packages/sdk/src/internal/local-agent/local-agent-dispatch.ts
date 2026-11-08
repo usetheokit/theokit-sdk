@@ -30,6 +30,8 @@ export interface DispatchInputs {
   pluginManager: PluginManager;
   resolvedSubagents: Record<string, AgentDefinition>;
   settingSourcesIncludeProject: boolean;
+  /** Takes the messages steered into the running turn (see `send-queue.ts`). */
+  drainSteering?: () => string[];
 }
 
 export function buildRealRunOptions(args: {
@@ -52,6 +54,9 @@ export function buildRealRunOptions(args: {
     workspaceCwd: args.inputs.workspaceCwd,
     hooks: args.inputs.hooksExecutor,
     pluginManager: args.inputs.pluginManager,
+    ...(args.inputs.drainSteering !== undefined
+      ? { drainSteering: args.inputs.drainSteering }
+      : {}),
     ...(args.systemPrompt !== undefined ? { systemPrompt: args.systemPrompt } : {}),
     ...(args.options.onStep !== undefined ? { onStep: args.options.onStep } : {}),
     ...(args.options.onDelta !== undefined ? { onDelta: args.options.onDelta } : {}),

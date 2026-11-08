@@ -334,7 +334,7 @@ export interface SDKUserMessage {
  * | rendering a live UI | `onDelta`, `onStep`, `onRunEvent` |
  * | applying a policy | `permissionMode`, `activeTools`, `toolChoice`, `toolResultGuard`, `pruneToolResults`, `perToolTimeoutMs` |
  * | running an eval or a harness | `maxIterations`, `completionCheck`, `doomLoop`, `signal` |
- * | orchestrating agents | `origin`, `task`, `context` |
+ * | orchestrating agents | `origin`, `task`, `context`, `queueMode` |
  * | overriding this one send | `model`, `systemPrompt`, `tools`, `mcpServers`, `contextPaths`, `local` |
  *
  * Every field appears in exactly one row, and
@@ -345,6 +345,19 @@ export interface SDKUserMessage {
  * @public
  */
 export interface SendOptions {
+  /**
+   * What to do when this send arrives while a turn of the same agent is still running.
+   *
+   * - `"followup"` (default): queue behind the running turn and run as its own turn.
+   * - `"steer"`: inject the message into the running turn before its next model call; resolves
+   *   with that running turn's `Run`. (Local agents with a real model only.)
+   * - `"collect"`: hold the message; everything collected while the turn runs is sent as ONE
+   *   followup turn (texts joined by a blank line, options of the first collected send) once it
+   *   ends. Every collecting caller resolves with that batched `Run`.
+   *
+   * With no turn running, every mode is an ordinary send.
+   */
+  queueMode?: "followup" | "steer" | "collect";
   /**
    * Per-send model override. SE8 — accepts a bare-string id shorthand
    * (`"openai/gpt-4o-mini"`, normalized to `{ id }`) OR a {@link ModelSelection}

@@ -48,7 +48,7 @@ import {
 import { SystemPromptPipeline } from "../runtime/system-prompt/pipeline.js";
 import { resolveSystemPromptForSend } from "../runtime/system-prompt/system-prompt.js";
 import { validateToolCatalog } from "../runtime/validation/validate-agent-options.js";
-import { hydrateSession } from "../session/index.js";
+import { appendSessionMessage, hydrateSession } from "../session/index.js";
 import { SPAN_NAMES } from "../telemetry/span-names.js";
 import { createTelemetry, type OTelSpan, type TelemetryHandle } from "../telemetry/tracer.js";
 import { bootstrapSubmanagers, registerLocalAgent } from "./local-agent-bootstrap.js";
@@ -78,6 +78,7 @@ import {
 import { type DispatchRunArgs, executeSendLocked } from "./local-agent-send.js";
 import { registerRunAsTask } from "./local-agent-task-wrap.js";
 import { reportUnknownLocalOptions } from "./local-option-keys.js";
+import { SendQueue } from "./send-queue.js";
 
 /**
  * Local SDKAgent implementation. Owns the workspace cwd plus the file-based
@@ -316,11 +317,37 @@ export class LocalAgent implements SDKAgent {
     // concurrent sends to the SAME agentId cannot interleave user/assistant
     // records mid-turn AND `agent.dispose()` can never return before the
     // summary write finishes (ADR D20).
-    return new Promise<Run>((resolve, reject) => {
-      void withCwdMutex(`agent-send:${this.agentId}`, () =>
-        this.runLockedSendCycle(message, options, sendSpan, resolve, reject),
-      );
+    // Queue modes: a steer/collect send that arrives mid-turn never takes the lock.
+    const queued = this.#queue.intercept(message, options);
+    if (queued !== undefined) {
+      sendSpan.end();
+      return queued;
+    }
+    let resolve!: (run: Run) => void;
+    let reject!: (err: unknown) => void;
+    const run = new Promise<Run>((res, rej) => {
+      resolve = res;
+      reject = rej;
     });
+    const ticket = this.#queue.enter(run);
+    void withCwdMutex(`agent-send:${this.agentId}`, async () => {
+      this.#queue.start(ticket);
+      try {
+        await this.runLockedSendCycle(message, options, sendSpan, resolve, reject);
+      } finally {
+        this.#queue.finish((m, o) => this.send(m, o));
+      }
+    });
+    return run;
+  }
+
+  readonly #queue = new SendQueue();
+
+  /** Steered messages join the transcript when the loop takes them. */
+  #drainSteering(): string[] {
+    const taken = this.#queue.drain();
+    for (const text of taken) appendSessionMessage(this.agentId, { role: "user", text });
+    return taken;
   }
 
   /**
@@ -502,6 +529,7 @@ export class LocalAgent implements SDKAgent {
         pluginManager: this.pluginManagerCode,
         resolvedSubagents: this.resolvedSubagents,
         settingSourcesIncludeProject: this.settingSourcesIncludeProject,
+        drainSteering: () => this.#drainSteering(),
       },
       message,
       sendOptions: options,

@@ -122,6 +122,8 @@ export interface AgentLoopInputs {
   /** Doom-loop guard config (from `SendOptions.doomLoop`): `false` disables; an object tunes the
    *  soft/hard thresholds; absent = on with defaults (3/5). See `doom-loop-tracker.ts`. */
   doomLoop?: import("./doom-loop-tracker.js").DoomLoopOption;
+  /** Takes the messages steered into the running turn; the loop appends them as user turns. */
+  drainSteering?: () => string[];
   /**
    * Production-Readiness #5 (ADR D318): caller-supplied `AbortSignal` from
    * `SendOptions.signal`, plus the agent's lifecycle controller. When fired
