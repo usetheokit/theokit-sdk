@@ -119,6 +119,9 @@ describe("denyReadPaths against a live bwrap", () => {
     const dirIn = run(`cat ${path.join(denyDir, "inner.txt")}`);
     const control = run(`cat ${path.join(workDir, "ok.txt")}`);
 
+    const outside = spawnSync("/bin/sh", ["-c", `cat ${denyFile}`], { encoding: "utf8" });
+    expect(outside.status).toBe(0);
+    expect(outside.stdout).toContain("TOKEN-VALUE");
     expect(fileIn.status).not.toBe(0);
     expect(fileIn.stdout).not.toContain("TOKEN-VALUE");
     expect(dirIn.status).not.toBe(0);
