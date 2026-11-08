@@ -2,12 +2,11 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-
+import type { MemoryRoot } from "../src/internal/memory/storage/memory-root.js";
 import {
   sessionSummaryPath,
   writeSessionSummary,
 } from "../src/internal/memory/storage/session-summary-writer.js";
-import type { MemoryRoot } from "../src/internal/memory/storage/memory-root.js";
 
 describe("session summary writer", () => {
   let dir: string | undefined;
