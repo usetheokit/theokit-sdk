@@ -37,6 +37,7 @@ import { importTrustedManifestPlugins } from "../runtime/plugin-loader/manifest-
 import type { PluginMetadata, PluginsManager } from "../runtime/plugin-loader/plugins-manager.js";
 import { readTrustedWorkspaceFolders } from "../runtime/plugin-loader/workspace-plugin-trust.js";
 import { updateRegisteredAgent } from "../runtime/registry/agent-registry.js";
+import { liveAgentRegistry } from "../runtime/registry/live-agent-registry.js";
 import type { SkillsHandle, SkillsManager } from "../runtime/skills/skills-manager.js";
 import { loadSubagents } from "../runtime/skills/subagents-loader.js";
 import {
@@ -514,6 +515,8 @@ export class LocalAgent implements SDKAgent {
 
   close(): void {
     this.disposed = true;
+    // A closed handle refuses work, so it must not be served by the next getOrCreate.
+    liveAgentRegistry.forget(this.agentId);
   }
 
   async reload(): Promise<void> {
