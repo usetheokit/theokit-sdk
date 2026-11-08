@@ -31,6 +31,7 @@ import {
 /** Where the host `workDir` appears inside the container. */
 const CONTAINER_WORKDIR = "/workspace";
 
+/** Result of one `docker` invocation: captured output, exit code and whether it timed out. */
 export interface DockerRunResult {
   stdout: string;
   stderr: string;
@@ -44,6 +45,7 @@ export type DockerRunner = (
   opts: { input?: string | Buffer; timeoutMs: number; maxOutputBytes: number },
 ) => Promise<DockerRunResult>;
 
+/** Configuration for {@link DockerSandbox}. */
 export interface DockerSandboxConfig extends SandboxConfig {
   /** Image to run. Must contain `sh`. Default `alpine:3`. */
   image?: string;
@@ -89,6 +91,7 @@ function defaultRunner(bin: string): DockerRunner {
     });
 }
 
+/** Sandbox backend that runs each command in a throwaway Docker container. */
 export class DockerSandbox extends SandboxBackend {
   override readonly networkPolicy: SandboxNetworkPolicy;
   private readonly image: string;
