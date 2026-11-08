@@ -20,6 +20,8 @@ import { Agent } from "../../src/agent.js";
 import {
   AgentRunError,
   AuthenticationError,
+  isTransientError,
+  NetworkError,
   TheokitAgentError,
   UnknownAgentError,
 } from "../../src/errors.js";
@@ -273,7 +275,7 @@ describe("a cloud run that the platform refuses", () => {
         );
         return;
       }
-      res.statusCode = 500;
+      res.statusCode = 503;
       res.end("platform down");
     });
     await new Promise<void>((resolve) => server?.listen(0, "127.0.0.1", () => resolve()));
@@ -307,7 +309,9 @@ describe("a cloud run that the platform refuses", () => {
         (error: unknown) => error,
       );
 
-      expect(rejected).toBeInstanceOf(TheokitAgentError);
+      expect(rejected).toBeInstanceOf(NetworkError);
+      expect((rejected as NetworkError).code).toBe("cloud_run_http_error");
+      expect(isTransientError(rejected)).toBe(true);
       expect(rejected).toBe((await readRunResolving(run)).error?.cause);
     } finally {
       await agent.dispose();
