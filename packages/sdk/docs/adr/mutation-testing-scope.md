@@ -1,6 +1,6 @@
 # Mutation testing covers only the B-026 spike over `src/internal/llm`
 
-- Status: accepted
+- Status: superseded by B-445 (Stryker scope extended to `packages/sdk/src`, see below)
 - Date: 2026-10-17
 - Decided by: human/paulo
 - Soft cap dismissed: `auditor_unavailable_d4` (code-quality D4, mutation testing), for B-380
@@ -13,7 +13,7 @@ B-026. It was never wired into a gate. Its scope is narrow on purpose:
 
 - `mutate` is `src/internal/llm/**/*.ts`, nothing else;
 - it is meant to run from `packages/sdk` (`pnpm --filter exec`), so `jsonReporter.fileName` is
-  `../../reports/mutation/slice.json`;
+  `../../reports/mutation/slice.json` (now `reports/mutation/mutation.json`);
 - `inPlace: true` is required because `packages/sdk/vitest.setup.ts` imports
   `../../tools/preflight-native-bindings.mjs`, which escapes the package, so a sandbox copy fails
   before it collects a test. The same commit records that `inPlace` restores file content but not
@@ -54,3 +54,13 @@ integration suites are still the only evidence for it.
   only through this record.
 - The record stops applying once the backlog item that extends Stryker lands. At that point it
   should be marked superseded.
+
+## Superseded (B-445)
+
+This record is superseded by the record of the new scope: `stryker.config.json` now mutates
+`packages/sdk/src/**/*.ts`, runs from the repository root and writes
+`reports/mutation/mutation.json`, which is where the D4 detector reads it. So D4 reports a score for
+items under `packages/sdk/src`, and the `auditor_unavailable_d4` dismissal above no longer applies.
+`inPlace` still drops file modes, so `pnpm run mutation` snapshots the mode of every
+`packages/*/bin/*.mjs` first and `tools/check-bin-modes.mjs verify` fails the run if any changed.
+The full-scope run was not executed where this was written (no dependencies installed).

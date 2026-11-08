@@ -1,6 +1,5 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { isAbsolute } from "node:path";
-
 import { ConfigurationError, NetworkError } from "../../errors.js";
 import type {
   McpHttpServerConfig,
@@ -10,6 +9,7 @@ import type {
 import { resolveChildEnv } from "../runtime/lifecycle/env-policy.js";
 import { safePathJoin } from "../security/path-guard.js";
 import { DEFAULT_MCP_TIMEOUT_MS, handshakeAwareTimeout } from "./handshake-timeout.js";
+import { resolveBearer } from "./oauth-bearer.js";
 
 /**
  * Real MCP client implementing the subset of the 2024-11-05 spec used by the
@@ -460,7 +460,9 @@ class HttpMcpClient extends BaseMcpClient {
    * override contract predates this change and is the only escape a user has while a server
    * misbehaves.
    */
-  private buildHeaders(): Record<string, string> {
+  private async buildHeaders(): Promise<Record<string, string>> {
+    const auth = this.config.auth;
+    const bearer = auth?.oauth !== undefined ? await resolveBearer(this.name, auth) : undefined;
     return {
       "content-type": "application/json",
       // Streamable HTTP asks for BOTH media types. Declaring only `application/json` makes a
@@ -469,6 +471,7 @@ class HttpMcpClient extends BaseMcpClient {
       // Present only for a STATEFUL server. For a stateless one nothing is sent — inventing a
       // header would trade one broken transport for another.
       ...(this.sessionId !== undefined ? { "mcp-session-id": this.sessionId } : {}),
+      ...(bearer !== undefined ? { authorization: bearer } : {}),
       ...(this.config.headers ?? {}),
     };
   }
@@ -514,7 +517,7 @@ class HttpMcpClient extends BaseMcpClient {
   protected async request(method: string, params: Record<string, unknown>): Promise<unknown> {
     const id = this.nextId++;
     const payload: RpcRequest = { jsonrpc: "2.0", id, method, params };
-    const headers = this.buildHeaders();
+    const headers = await this.buildHeaders();
     const timeoutMs = this.config.requestTimeoutMs ?? DEFAULT_MCP_TIMEOUT_MS;
     let response: Response;
     try {

@@ -71,6 +71,32 @@ describe("real Anthropic client", () => {
     expect(result.outputTokens).toBe(3);
   });
 
+  it("a malformed content frame's error and cause do not quote the frame body", async () => {
+    const marker = "sk-live-secret";
+    const stubFetch: typeof fetch = async () =>
+      sseStream([`event: content_block_delta\ndata: ${marker}\n\n`]);
+    const client = new AnthropicClient({ apiKey: "sk-test", fetch: stubFetch });
+    const generator = client.stream(
+      {
+        model: "claude-sonnet-4-6",
+        messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
+        tools: [],
+      },
+      new AbortController().signal,
+    );
+    let caught: unknown;
+    try {
+      while (true) if ((await generator.next()).done === true) break;
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    const err = caught as Error;
+    expect(err.message).not.toContain(marker);
+    expect(err.cause).toBeDefined();
+    expect(String(err.cause)).not.toContain(marker);
+  });
+
   it("surfaces HTTP 401 as AuthenticationError with full metadata (post-D67 mapper)", async () => {
     const stubFetch: typeof fetch = async () =>
       new Response('{"error":{"type":"authentication_error","message":"bad key"}}', {

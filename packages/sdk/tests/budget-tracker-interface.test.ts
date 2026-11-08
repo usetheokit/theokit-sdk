@@ -31,8 +31,10 @@ describe("BudgetTracker interface (Phase 2 / T2.1 foundation)", () => {
     expect(typeof withTime.at).toBe("string");
   });
 
-  it("test_event_type_is_input_or_output_only", () => {
-    expectTypeOf<BudgetUsageEvent["type"]>().toEqualTypeOf<"input" | "output">();
+  it("test_event_type_is_input_output_or_a_cache_bucket", () => {
+    expectTypeOf<BudgetUsageEvent["type"]>().toEqualTypeOf<
+      "input" | "output" | "cache_read" | "cache_write"
+    >();
   });
 
   it("test_check_shape — allowed + optional reason + detail", () => {

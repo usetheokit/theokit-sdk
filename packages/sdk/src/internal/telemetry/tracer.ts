@@ -297,8 +297,17 @@ function wrapSpan(span: OTelSpan, openSpans: Set<OTelSpan>): OTelSpan {
     setAttributes: (attrs) => safe(() => span.setAttributes(redactAttrs(attrs)), undefined),
     addEvent: (name, attrs) =>
       safe(() => span.addEvent(name, attrs ? redactAttrs(attrs) : undefined), undefined),
-    setStatus: (status) => safe(() => span.setStatus(status), undefined),
-    recordException: (err) => safe(() => span.recordException(err), undefined),
+    setStatus: (status) =>
+      safe(
+        () =>
+          span.setStatus(
+            status.message === undefined
+              ? status
+              : { ...status, message: redactSecrets(status.message) },
+          ),
+        undefined,
+      ),
+    recordException: (err) => safe(() => span.recordException(redactException(err)), undefined),
     end: (endTime) => {
       safe(() => span.end(endTime), undefined);
       openSpans.delete(span);
@@ -332,6 +341,20 @@ export function _redactAttrsForTests<
   T extends Record<string, string | number | boolean | undefined>,
 >(attrs: T): T {
   return redactAttrs(attrs);
+}
+
+/** Redacted copy of an exception (message + stack); never mutates the caller's error. */
+function redactException(err: unknown): unknown {
+  if (typeof err === "string") return redactSecrets(err);
+  if (typeof err !== "object" || err === null) return err;
+  const src = err as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const k of ["name", "code", "message", "stack"]) {
+    const v = src[k];
+    if (typeof v === "string") out[k] = redactSecrets(v);
+    else if (typeof v === "number") out[k] = v;
+  }
+  return out;
 }
 
 function redactAttrValue<T extends string | number | boolean | undefined>(value: T): T {

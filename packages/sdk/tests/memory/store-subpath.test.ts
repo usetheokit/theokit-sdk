@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as diary from "../../src/internal/memory/dreaming/diary.js";
+import * as phases from "../../src/internal/memory/dreaming/phases.js";
+import * as run from "../../src/internal/memory/dreaming/run.js";
 import * as indexDb from "../../src/internal/memory/index-db.js";
 import * as helpers from "../../src/internal/memory/index-manager-helpers.js";
 import * as lance from "../../src/internal/memory/lance-index.js";
@@ -66,6 +68,8 @@ describe("the internal/memory-store sub-path", () => {
       ...helpers,
       ...indexDb,
       ...diary,
+      ...phases,
+      ...run,
       ...lance,
       ...migrate,
     } as Record<string, unknown>;

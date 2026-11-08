@@ -108,6 +108,9 @@ export default defineConfig({
       "subagents-loader": "src/subagents-loader.ts",
       cron: "src/cron.ts",
       workflow: "src/workflow.ts",
+      // Same pipeline as `index`, so `SqliteSessionStore` (private member, nominal) is emitted once
+      // into a shared chunk instead of twice (#914).
+      persistence: "src/persistence.ts",
       "server/auth/index": "src/server/auth/index.ts",
       "server/errors-envelope": "src/server/errors-envelope.ts",
     },

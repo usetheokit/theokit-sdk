@@ -11,6 +11,7 @@ export default defineConfig({
     "structured-output": "src/structured-output-entry.ts",
     "web-search-adapters": "src/web-search-adapters.ts",
     goal: "src/goal-entry.ts",
+    secrets: "src/secrets-entry.ts",
   },
   format: ["esm", "cjs"],
   dts: {
@@ -23,6 +24,7 @@ export default defineConfig({
       "structured-output": "src/structured-output-entry.ts",
       "web-search-adapters": "src/web-search-adapters.ts",
       goal: "src/goal-entry.ts",
+      secrets: "src/secrets-entry.ts",
     },
   },
   sourcemap: true,

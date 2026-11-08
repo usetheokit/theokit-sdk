@@ -77,8 +77,8 @@ export async function writeSessionSummary(input: SessionSummaryInput): Promise<v
   const path = sessionSummaryPath(input.memoryRoot, input.runId);
   await mkdir(sessionsDir(input.memoryRoot), { recursive: true });
 
-  const safeUser = redactSecrets(truncate(input.userText));
-  const safeAssistant = redactSecrets(truncate(input.assistantText));
+  const safeUser = truncate(redactSecrets(input.userText));
+  const safeAssistant = truncate(redactSecrets(input.assistantText));
   const iso = new Date(input.at).toISOString();
 
   const body = [

@@ -21,6 +21,9 @@ export interface DoomLoopVerdict {
 export interface DoomLoopConfig {
   softThreshold: number;
   hardThreshold: number;
+  /** Consecutive same-tool calls with CHANGING arguments but an unchanged result (argument churn).
+   *  Soft nudge at `churnThreshold - 2`, hard stop at `churnThreshold`. */
+  churnThreshold: number;
 }
 
 /** Public config on a send: `false` disables the guard; an object tunes the thresholds; absent = on. */
@@ -32,16 +35,17 @@ export function createDoomLoopTracker(option?: DoomLoopOption): DoomLoopTracker 
   return new DoomLoopTracker(option);
 }
 
-const DEFAULT_CONFIG: DoomLoopConfig = { softThreshold: 3, hardThreshold: 5 };
+const DEFAULT_CONFIG: DoomLoopConfig = { softThreshold: 3, hardThreshold: 5, churnThreshold: 6 };
 
 /** Fail-fast on caller misconfig: both thresholds must be positive integers. A `0` / negative /
  *  non-integer would silently misbehave (stop on turn 1, or never fire). `soft >= hard` is NOT
  *  rejected — it is a valid "stop hard with no earlier nudge" config (hard is checked first, so it
  *  just wins and the nudge is suppressed), which also keeps `{ hardThreshold: N }` ergonomic. @internal */
-function assertValidThresholds(soft: number, hard: number): void {
+function assertValidThresholds(soft: number, hard: number, churn: number): void {
   for (const [label, value] of [
     ["softThreshold", soft],
     ["hardThreshold", hard],
+    ["churnThreshold", churn],
   ] as const) {
     if (!Number.isInteger(value) || value < 1) {
       throw new ConfigurationError(
@@ -88,19 +92,46 @@ export class DoomLoopTracker {
   readonly #config: DoomLoopConfig;
   #lastSignature = "";
   #count = 0;
+  #lastName = "";
+  #lastResult: string | undefined;
+  #churn = 0;
 
   constructor(config?: Partial<DoomLoopConfig>) {
     const softThreshold = config?.softThreshold ?? DEFAULT_CONFIG.softThreshold;
     const hardThreshold = config?.hardThreshold ?? DEFAULT_CONFIG.hardThreshold;
-    assertValidThresholds(softThreshold, hardThreshold);
-    this.#config = { softThreshold, hardThreshold };
+    const churnThreshold = config?.churnThreshold ?? DEFAULT_CONFIG.churnThreshold;
+    assertValidThresholds(softThreshold, hardThreshold, churnThreshold);
+    this.#config = { softThreshold, hardThreshold, churnThreshold };
   }
 
-  inspect(call: { name: string; input: unknown }): DoomLoopVerdict {
+  inspect(call: { name: string; input: unknown; result?: string }): DoomLoopVerdict {
     const signature = signatureOf(call);
-    this.#count = signature === this.#lastSignature ? this.#count + 1 : 1;
+    const identical = signature === this.#lastSignature;
+    const churning =
+      !identical &&
+      call.name === this.#lastName &&
+      call.result !== undefined &&
+      call.result === this.#lastResult;
+    this.#churn = churning ? this.#churn + 1 : 1;
+    this.#lastName = call.name;
+    this.#lastResult = call.result;
+    this.#count = identical ? this.#count + 1 : 1;
     this.#lastSignature = signature;
     const count = this.#count;
+    const churn = this.#churn;
+    const churnHard = this.#config.churnThreshold;
+    if (churn >= churnHard) {
+      return {
+        kind: "hard",
+        message: `Detected argument churn: ${churn} consecutive calls to \`${call.name}\` with different arguments and no change in the result; stopping to avoid a loop.`,
+      };
+    }
+    if (churn > 1 && churn === Math.max(2, churnHard - 2)) {
+      return {
+        kind: "soft",
+        message: `Detected argument churn: ${churn} consecutive calls to \`${call.name}\` with different arguments and no change in the result; try a different approach.`,
+      };
+    }
     if (count >= this.#config.hardThreshold) {
       return {
         kind: "hard",
@@ -120,6 +151,9 @@ export class DoomLoopTracker {
   reset(): void {
     this.#lastSignature = "";
     this.#count = 0;
+    this.#lastName = "";
+    this.#lastResult = undefined;
+    this.#churn = 0;
   }
 }
 
@@ -131,7 +165,7 @@ export class DoomLoopTracker {
  */
 export function firstDoomLoopVerdict(
   tracker: DoomLoopTracker,
-  calls: readonly { name: string; input: unknown }[],
+  calls: readonly { name: string; input: unknown; result?: string }[],
 ): DoomLoopVerdict {
   let escalation: DoomLoopVerdict = { kind: "ok" };
   for (const call of calls) {

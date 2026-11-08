@@ -19,6 +19,28 @@ function headers(record: Record<string, string> = {}): Headers {
 }
 
 describe("mapAnthropicError", () => {
+  it("404 not_found_error for a model → ConfigurationError model_unavailable", () => {
+    const err = mapAnthropicError({
+      status: 404,
+      body: { type: "error", error: { type: "not_found_error", message: "model: claude-gone" } },
+      headers: headers(),
+      endpoint: "/v1/messages",
+    });
+    expect(err).toBeInstanceOf(ConfigurationError);
+    expect(err.code).toBe("anthropic_model_unavailable");
+    expect(err.metadata?.code).toBe("model_unavailable");
+  });
+
+  it("404 for something else stays UnknownAgentError", () => {
+    const err = mapAnthropicError({
+      status: 404,
+      body: { error: { type: "not_found_error", message: "file: abc" } },
+      headers: headers(),
+      endpoint: "/v1/files",
+    });
+    expect(err).toBeInstanceOf(UnknownAgentError);
+  });
+
   it("401 → AuthenticationError with metadata.code='auth_failed'", () => {
     const err = mapAnthropicError({
       status: 401,

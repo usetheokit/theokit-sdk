@@ -99,6 +99,16 @@
         "default": "./dist/goal.cjs"
       }
     },
+    "./secrets": {
+      "import": {
+        "types": "./dist/secrets.d.ts",
+        "default": "./dist/secrets.js"
+      },
+      "require": {
+        "types": "./dist/secrets.d.cts",
+        "default": "./dist/secrets.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [

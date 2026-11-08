@@ -41,6 +41,10 @@ import {
 import { redactSecrets } from "./memory-types.js";
 
 const RAW_MAX_BYTES = 2048;
+const PROVIDER_DETAIL_MAX_CHARS = 512;
+// OpenRouter answers a model it does not serve with HTTP 404 and a numeric `error.code`,
+// so only the message tells it apart from a 404 for a wrong path.
+const MISSING_MODEL_MESSAGE = /no endpoints found/i;
 
 /**
  * Parse `retry-after` header in numeric-seconds form. HTTP-date form
@@ -64,8 +68,9 @@ export function parseRetryAfter(headers: Headers | undefined): number | undefine
 export function truncateRaw(body: unknown): unknown {
   if (body === null || body === undefined) return undefined;
   const s = typeof body === "string" ? body : JSON.stringify(body);
-  const truncated = s.length <= RAW_MAX_BYTES ? s : `${s.slice(0, RAW_MAX_BYTES)}…`;
-  return redactSecrets(truncated);
+  // Redact before the cut so a key straddling the limit cannot slip past the patterns.
+  const redacted = redactSecrets(s);
+  return redacted.length <= RAW_MAX_BYTES ? redacted : `${redacted.slice(0, RAW_MAX_BYTES)}…`;
 }
 
 /**
@@ -137,8 +142,18 @@ export function mapOpenAICompatibleError(args: MapOpenAiErrorArgs): TheokitAgent
   if (status === 429) {
     return new RateLimitError(message, { code: `${providerId}_rate_limit`, metadata });
   }
+  if (status === 404 && code === "model_unavailable") {
+    // The model id lives only in the provider's text, so this case carries it.
+    const detailed = formatMessage(providerId, status, code, boundedProviderDetail(body));
+    return new ConfigurationError(detailed, {
+      code: `${providerId}_model_unavailable`,
+      metadata,
+    });
+  }
   if (status === 400) {
-    return new ConfigurationError(message, { code: `${providerId}_${code}`, metadata });
+    // A 400 is fixed by changing the request, and only the provider's text says what to change.
+    const detailed = formatMessage(providerId, status, code, boundedProviderDetail(body));
+    return new ConfigurationError(detailed, { code: `${providerId}_${code}`, metadata });
   }
   if (status === 408) {
     return new NetworkError(message, { code: `${providerId}_timeout`, metadata });
@@ -147,6 +162,23 @@ export function mapOpenAICompatibleError(args: MapOpenAiErrorArgs): TheokitAgent
     return new NetworkError(message, { code: `${providerId}_server_error`, metadata });
   }
   return new UnknownAgentError(message, { code: `${providerId}_unknown`, metadata });
+}
+
+function extractOpenAiErrorMessage(body: unknown): string | undefined {
+  if (body === null || typeof body !== "object") return undefined;
+  const err = (body as { error?: { message?: unknown } }).error;
+  if (err === undefined || err === null) return undefined;
+  return typeof err.message === "string" ? err.message : undefined;
+}
+
+// Redaction runs before the cut so a key cut short cannot slip past the credential patterns.
+function boundedProviderDetail(body: unknown): string | undefined {
+  const raw = extractOpenAiErrorMessage(body);
+  if (raw === undefined || raw.trim() === "") return undefined;
+  const redacted = redactSecrets(raw);
+  return redacted.length <= PROVIDER_DETAIL_MAX_CHARS
+    ? redacted
+    : `${redacted.slice(0, PROVIDER_DETAIL_MAX_CHARS)}…`;
 }
 
 function extractOpenAiErrorCode(body: unknown): string | undefined {
@@ -194,6 +226,10 @@ function mapOpenAiStatusToCode(status: number, body: unknown): ErrorCode {
     return "quota_exceeded";
   }
 
+  if (status === 404 && MISSING_MODEL_MESSAGE.test(extractOpenAiErrorMessage(body) ?? "")) {
+    return "model_unavailable";
+  }
+
   if (status === 401 || status === 403) return "auth_failed";
   if (status === 429) return "rate_limit";
   if (status === 408) return "timeout";
@@ -202,6 +238,12 @@ function mapOpenAiStatusToCode(status: number, body: unknown): ErrorCode {
   return "unknown";
 }
 
-function formatMessage(providerId: string, status: number, code: ErrorCode): string {
-  return `${providerId} API error: ${code} (HTTP ${status})`;
+function formatMessage(
+  providerId: string,
+  status: number,
+  code: ErrorCode,
+  detail?: string,
+): string {
+  const base = `${providerId} API error: ${code} (HTTP ${status})`;
+  return detail === undefined || detail === "" ? base : `${base}: ${detail}`;
 }
