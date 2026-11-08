@@ -36,8 +36,8 @@ import { normalizeModel } from "../runtime/model-selection.js";
 import { importTrustedManifestPlugins } from "../runtime/plugin-loader/manifest-entry-import.js";
 import type { PluginMetadata, PluginsManager } from "../runtime/plugin-loader/plugins-manager.js";
 import { readTrustedWorkspaceFolders } from "../runtime/plugin-loader/workspace-plugin-trust.js";
-import { liveAgentRegistry } from "../runtime/registry/live-agent-registry.js";
 import { updateRegisteredAgent } from "../runtime/registry/agent-registry.js";
+import { liveAgentRegistry } from "../runtime/registry/live-agent-registry.js";
 import type { SkillsHandle, SkillsManager } from "../runtime/skills/skills-manager.js";
 import { loadSubagents } from "../runtime/skills/subagents-loader.js";
 import {
