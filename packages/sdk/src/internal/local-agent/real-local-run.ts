@@ -189,6 +189,7 @@ function buildLoopInputs(
     ...(options.sendOptions.onRunEvent !== undefined
       ? { runEventSink: options.sendOptions.onRunEvent }
       : {}),
+    ...(options.steerQueue !== undefined ? { steerQueue: options.steerQueue } : {}),
     ...toolResultPolicyInputs(options.sendOptions),
     // M1-2: per-send iteration ceiling (validated above). The loop reads
     // inputs.maxIterations (default 8 when unset).
