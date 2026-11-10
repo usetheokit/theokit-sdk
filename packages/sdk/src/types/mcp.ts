@@ -31,6 +31,13 @@ export type McpStdioServerConfig = {
    * policy and always wins. Pass `"all"` to restore full inheritance.
    */
   envPolicy?: EnvPolicy;
+  /**
+   * Run the calls a model makes to this server's tools in ONE step one at a time, in the order the
+   * model listed them, instead of at once. Set it for a stateful server whose tools act on shared
+   * state, such as a browser MCP server where a snapshot must wait for the navigation before it.
+   * Calls to other servers or non-MCP tools in the same step are not held behind it. Default `false`.
+   */
+  sequential?: boolean;
 };
 
 /**
@@ -85,6 +92,13 @@ export type McpHttpServerConfig = {
    * `NetworkError` (`code: "mcp_timeout"`). Default 30_000.
    */
   requestTimeoutMs?: number;
+  /**
+   * Run the calls a model makes to this server's tools in ONE step one at a time, in the order the
+   * model listed them, instead of at once. Set it for a stateful server whose tools act on shared
+   * state, such as a browser MCP server where a snapshot must wait for the navigation before it.
+   * Calls to other servers or non-MCP tools in the same step are not held behind it. Default `false`.
+   */
+  sequential?: boolean;
 };
 
 /**

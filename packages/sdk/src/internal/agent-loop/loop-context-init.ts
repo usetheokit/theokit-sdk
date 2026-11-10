@@ -316,6 +316,7 @@ async function collectTools(
         origin: "mcp",
         mcpServerName: serverName,
         mcpToolName: tool.name,
+        ...(client.sequential === true ? { mcpSequential: true } : {}),
       });
     }
   }
