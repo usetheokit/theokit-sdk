@@ -44,8 +44,9 @@ const HERMES_PARAM = /<parameter=\s*([^>\s]+)\s*>([\s\S]*?)<\/parameter>/g;
 
 /** Gemini's text form of a tool call: `<ctrl42>call\nprint(default_api.NAME(k="v", ...))`. The call must
  *  end the content or be followed by another control token, so a mid-prose mention is never matched. */
-const CTRL_BLOCK =
-  /<ctrl42>call\s*print\(\s*default_api\.([A-Za-z_]\w*)\(([\s\S]*?)\)\s*\)(?=\s*(?:<ctrl\d+>|$))/g;
+const CTRL_CALL_SRC = String.raw`print\(\s*default_api\.([A-Za-z_]\w*)\(([\s\S]*?)\)\s*\)(?=\s*(?:print\(\s*default_api\.|<ctrl\d+>|$))`;
+/** One `<ctrl42>call` marker followed by one or more `print(default_api.…)` lines. */
+const CTRL_BLOCK = new RegExp(`<ctrl42>call\\s*((?:${CTRL_CALL_SRC}\\s*)+)(?=<ctrl\\d+>|$)`, "g");
 const CTRL_MARKER = "<ctrl42>call";
 const CTRL_PREFIX = "print(default_api.";
 
@@ -58,6 +59,8 @@ export interface HermesExtractResult {
    *  block whose name is not a tool in the current request. Empty when no allowlist was applied or
    *  nothing was gated out. The caller logs these so a guard firing is observable in production. */
   droppedNames: string[];
+  /** Names of the leaked-call formats recovered (e.g. `gemini-ctrl42`); empty when none. */
+  formats: string[];
 }
 
 /**
@@ -83,18 +86,22 @@ export function extractHermesToolCalls(
     name.length > 0 && (allowedToolNames === undefined || allowedToolNames.has(name));
   const toolCalls: LlmToolCallPart[] = [];
   const droppedNames: string[] = [];
+  const formats = new Set<string>();
   for (const block of content.matchAll(CTRL_BLOCK)) {
-    const name = block[1] ?? "";
-    if (!isPromoted(name)) {
-      if (allowedToolNames !== undefined) droppedNames.push(name);
-      continue;
+    for (const call of (block[1] ?? "").matchAll(new RegExp(CTRL_CALL_SRC, "g"))) {
+      const name = call[1] ?? "";
+      if (!isPromoted(name)) {
+        if (allowedToolNames !== undefined) droppedNames.push(name);
+        continue;
+      }
+      toolCalls.push({
+        type: "tool_use",
+        id: makeId(),
+        name,
+        input: parseCtrlArgs(call[2] ?? ""),
+      });
+      formats.add("gemini-ctrl42");
     }
-    toolCalls.push({
-      type: "tool_use",
-      id: makeId(),
-      name,
-      input: parseCtrlArgs(block[2] ?? ""),
-    });
   }
   for (const block of content.matchAll(HERMES_BLOCK)) {
     const name = (block[1] ?? "").trim();
@@ -103,6 +110,7 @@ export function extractHermesToolCalls(
       if (name.length > 0 && allowedToolNames !== undefined) droppedNames.push(name);
       continue;
     }
+    formats.add("hermes");
     toolCalls.push({
       type: "tool_use",
       id: makeId(),
@@ -116,12 +124,22 @@ export function extractHermesToolCalls(
     toolCalls.length === 0
       ? content
       : content
-          .replace(CTRL_BLOCK, (full, rawName) => (isPromoted(rawName ?? "") ? "" : full))
+          .replace(CTRL_BLOCK, (_full: string, calls: string) =>
+            keepUnpromotedCtrl(calls, isPromoted),
+          )
           .replace(HERMES_BLOCK, (full, rawName) =>
             isPromoted((rawName ?? "").trim()) ? "" : full,
           )
           .trim();
-  return { toolCalls, residualText, droppedNames };
+  return { toolCalls, residualText, droppedNames, formats: [...formats] };
+}
+
+/** Residual text for one ctrl42 block: the calls that were not promoted stay as text. */
+function keepUnpromotedCtrl(calls: string, isPromoted: (name: string) => boolean): string {
+  const kept = [...calls.matchAll(new RegExp(CTRL_CALL_SRC, "g"))]
+    .filter((c) => !isPromoted(c[1] ?? ""))
+    .map((c) => c[0]);
+  return kept.length === 0 ? "" : `<ctrl42>call\n${kept.join("\n")}`;
 }
 
 const CTRL_ARG = /\s*([A-Za-z_]\w*)\s*=\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[^,]+)\s*(?:,|$)/y;

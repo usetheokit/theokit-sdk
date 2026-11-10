@@ -532,3 +532,28 @@ describe("OpenAIStreamAccumulator — Gemini <ctrl42>call text (#953)", () => {
     expect(deltas.join("")).toBe(text);
   });
 });
+
+describe("extractHermesToolCalls — Gemini multi-call <ctrl42>call text (#939)", () => {
+  const TEXT =
+    "<ctrl42>call\nprint(default_api.computer(action='screenshot', question='Take a screenshot.'))\nprint(default_api.computer(action='mouse_move', x=300, y=300))\nprint(default_api.computer(action='type', text='vj38reey'))\nprint(default_api.computer(action='screenshot', question='Take a screenshot.'))";
+
+  it("recovers all four calls in order with keyword args and names the format", () => {
+    let n = 0;
+    const r = extractHermesToolCalls(TEXT, () => `id-${++n}`, new Set(["computer"]));
+    expect(r.toolCalls.map((c) => c.input)).toEqual([
+      { action: "screenshot", question: "Take a screenshot." },
+      { action: "mouse_move", x: 300, y: 300 },
+      { action: "type", text: "vj38reey" },
+      { action: "screenshot", question: "Take a screenshot." },
+    ]);
+    expect(r.formats).toEqual(["gemini-ctrl42"]);
+    expect(r.residualText).toBe("");
+  });
+
+  it("does not run an undeclared tool and leaves it as text", () => {
+    const r = extractHermesToolCalls(TEXT, () => "id", new Set(["other"]));
+    expect(r.toolCalls).toEqual([]);
+    expect(r.residualText).toBe(TEXT);
+    expect(r.droppedNames).toHaveLength(4);
+  });
+});
