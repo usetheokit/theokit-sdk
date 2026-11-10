@@ -23,7 +23,7 @@ import {
 import { extractHermesToolCalls, StreamSuppressionBuffer } from "./hermes-tool-extract.js";
 import { toOpenAIMessages } from "./openai-messages.js";
 import { encodeOpenRouterSystemContent } from "./openrouter-system.js";
-import { parseSseStream } from "./sse.js";
+import { parseSseStream, withResponseHeadersTimeout } from "./sse.js";
 import { wrapTransportError } from "./transport-error.js";
 import type {
   LlmClient,
@@ -54,6 +54,8 @@ export interface OpenAIClientOptions {
   baseUrl?: string;
   organization?: string;
   fetch?: typeof fetch;
+  /** Bound (ms) on the wait for response headers; default 30 000, `<= 0` disables. */
+  responseHeadersTimeoutMs?: number;
   /**
    * Provider name for error mapping dispatch (T1.1, ADR D185). When set
    * to `"ollama"`, transport and HTTP errors go through `mapOllamaTransportError`
@@ -140,7 +142,10 @@ export class OpenAIClient implements LlmClient {
     // empty env var) degrades to the LEGACY path (byte-identical to pre-M45 string concat) and fails, typed,
     // at the first fetch — never poisoning the whole provider chain at construction time.
     this.chatPath = options.chatCompletionsPath ?? deriveChatPath(this.baseUrl);
-    this.fetchImpl = boundFetch(options.fetch);
+    this.fetchImpl = withResponseHeadersTimeout(
+      boundFetch(options.fetch),
+      options.responseHeadersTimeoutMs,
+    );
   }
 
   /**

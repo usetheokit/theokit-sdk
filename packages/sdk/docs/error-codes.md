@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-257 distinct code(s).
+258 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -191,6 +191,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `redirect_blocked` | domain | — | `packages/sdk-tools/src/internal/network-guard.ts:38` |
 | `repo_provision_failed` | domain | — | `packages/sdk/src/sandbox/provision.ts:33` |
 | `reserved_env_prefix` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:110` |
+| `response_headers_timeout` | domain | NetworkError | `packages/sdk/src/internal/llm/sse.ts:57` |
 | `run_cancelled` | domain | — | `packages/sdk/src/errors.ts:656` |
 | `run_not_found` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:442` |
 | `runtime_exclusive` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:90` |
@@ -207,9 +208,9 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `sse_http_error` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:147` |
 | `sse_server_error` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:155` |
 | `ssrf_blocked` | domain | — | `packages/sdk-tools/src/internal/network-guard.ts:23` |
-| `stream_idle_timeout` | domain | NetworkError | `packages/sdk/src/internal/llm/sse.ts:95` |
-| `stream_malformed_frame` | domain | NetworkError | `packages/sdk/src/internal/llm/anthropic.ts:229` |
-| `stream_truncated` | domain | NetworkError | `packages/sdk/src/internal/llm/anthropic.ts:189` +1 |
+| `stream_idle_timeout` | domain | NetworkError | `packages/sdk/src/internal/llm/sse.ts:145` |
+| `stream_malformed_frame` | domain | NetworkError | `packages/sdk/src/internal/llm/anthropic.ts:234` |
+| `stream_truncated` | domain | NetworkError | `packages/sdk/src/internal/llm/anthropic.ts:194` +1 |
 | `subagent_foreign_runtime_field` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/subagents-loader.ts:245` |
 | `subagent_mcp_unsupported_local` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/subagents-loader.ts:272` |
 | `subagent_missing_description` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:166` |

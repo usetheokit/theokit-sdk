@@ -23,6 +23,56 @@ export interface SseRecord {
  */
 export const DEFAULT_SSE_IDLE_MS = 60_000;
 
+/**
+ * Default bound (ms) on the wait for a response's HEADERS. Without it that wait falls to undici's
+ * `headersTimeout` (300 s) and a request whose response never starts holds the turn with no retry.
+ * Pass `0` (or less) to disable.
+ */
+export const DEFAULT_RESPONSE_HEADERS_MS = 30_000;
+
+/**
+ * Wraps `inner` so the wait for the response headers is bounded: when they do not arrive within
+ * `timeoutMs`, the request is aborted and a retryable `NetworkError`
+ * (`code: "response_headers_timeout"`) is thrown. The caller's own signal still wins (its abort is
+ * propagated untouched). The timer stops once headers arrive, so body streaming is not affected
+ * (that is `parseSseStream`'s idle bound). `timeoutMs <= 0` returns `inner` unchanged.
+ *
+ * @internal
+ */
+export function withResponseHeadersTimeout(
+  inner: typeof fetch,
+  timeoutMs: number = DEFAULT_RESPONSE_HEADERS_MS,
+): typeof fetch {
+  if (!(timeoutMs > 0)) return inner;
+  return (async (input: Parameters<typeof fetch>[0], init?: RequestInit): Promise<Response> => {
+    const controller = new AbortController();
+    const callerSignal = init?.signal ?? undefined;
+    const onCallerAbort = (): void => controller.abort(callerSignal?.reason);
+    if (callerSignal?.aborted) onCallerAbort();
+    else callerSignal?.addEventListener("abort", onCallerAbort, { once: true });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        reject(
+          new NetworkError(`no response headers within ${timeoutMs}ms — upstream stalled`, {
+            code: "response_headers_timeout",
+          }),
+        );
+        controller.abort();
+      }, timeoutMs);
+    });
+    try {
+      const pending = inner(input, { ...init, signal: controller.signal });
+      // If the timeout wins, the aborted fetch rejects later; keep that from being unhandled.
+      pending.catch(() => undefined);
+      return await Promise.race([pending, timeout]);
+    } finally {
+      clearTimeout(timer);
+      callerSignal?.removeEventListener("abort", onCallerAbort);
+    }
+  }) as typeof fetch;
+}
+
 interface ParserState {
   buffer: string;
   event: string;
