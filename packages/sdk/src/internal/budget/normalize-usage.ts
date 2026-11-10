@@ -273,7 +273,13 @@ function normalizeOpenAIChat(raw: RawRecord): TokenUsage {
   const completionDetails = (raw.completion_tokens_details as RawRecord | undefined) ?? {};
   // `int` turns an unusable count from the split back into 0: the public normalizeUsage clamps
   // malformed input to 0 by contract, where the streaming client lets makeLlmFinish report it.
-  const split = splitChatCompletionsPrompt(raw);
+  // An unusable nested cache value is read as 0 here, so the top-level field still fills it.
+  const rawDetails = (raw.prompt_tokens_details as RawRecord | undefined) ?? {};
+  const details: RawRecord = { ...rawDetails };
+  for (const key of ["cached_tokens", "cache_write_tokens"]) {
+    if (sent(details[key]) && Number.isNaN(strictCount(details[key]))) details[key] = 0;
+  }
+  const split = splitChatCompletionsPrompt({ ...raw, prompt_tokens_details: details });
   const inputTokens = int(split.inputTokens);
   const cacheReadTokens = int(split.cacheReadTokens);
   const cacheWriteTokens = int(split.cacheWriteTokens);
