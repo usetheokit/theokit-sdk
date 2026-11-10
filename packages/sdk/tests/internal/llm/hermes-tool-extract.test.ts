@@ -489,3 +489,46 @@ describe("OpenAIStreamAccumulator — R7 review-fixes", () => {
     expect(acc.finish().toolCalls).toHaveLength(1);
   });
 });
+
+describe("OpenAIStreamAccumulator — Gemini <ctrl42>call text (#953)", () => {
+  const CALL = '<ctrl42>call\nprint(default_api.computer(action="screenshot", n=2))';
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: test helper
+  const run = (allowed: string[], chunks: string[]) => {
+    const acc = new __testing__OpenAIStreamAccumulator(true, "gemini", new Set(allowed));
+    const deltas: string[] = [];
+    for (const c of chunks) {
+      for (const e of acc.consume(leakChunk(c))) {
+        if (e.type === "text_delta") deltas.push(e.text);
+      }
+    }
+    for (const e of acc.consume(stopChunk())) {
+      if (e.type === "text_delta") deltas.push(e.text);
+    }
+    return { deltas, finish: acc.finish() };
+  };
+
+  it("emits no text_delta for a declared tool and still recovers the call", () => {
+    const { deltas, finish } = run(
+      ["computer"],
+      [CALL.slice(0, 5), CALL.slice(5, 30), CALL.slice(30)],
+    );
+    expect(deltas.join("")).toBe("");
+    expect(finish.toolCalls).toHaveLength(1);
+    expect(finish.toolCalls[0]).toMatchObject({
+      name: "computer",
+      input: { action: "screenshot", n: 2 },
+    });
+  });
+
+  it("emits the text unchanged for an undeclared tool", () => {
+    const { deltas, finish } = run(["other"], [CALL.slice(0, 20), CALL.slice(20)]);
+    expect(deltas.join("")).toBe(CALL);
+    expect(finish.toolCalls).toHaveLength(0);
+  });
+
+  it("emits a marker-like prefix that turns out to be plain text in full, in order", () => {
+    const text = "<ctrl42>call me maybe";
+    const { deltas } = run(["computer"], ["<ctrl", "42>call", " me maybe"]);
+    expect(deltas.join("")).toBe(text);
+  });
+});

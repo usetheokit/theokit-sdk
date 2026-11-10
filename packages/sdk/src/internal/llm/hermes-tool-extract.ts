@@ -42,6 +42,13 @@ const HERMES_BLOCK = /<function=\s*([^>\s]+)\s*>([\s\S]*?)<\/tool_call>/g;
 /** A single parameter inside a block: `<parameter=KEY>VALUE</parameter>`. Non-greedy value. */
 const HERMES_PARAM = /<parameter=\s*([^>\s]+)\s*>([\s\S]*?)<\/parameter>/g;
 
+/** Gemini's text form of a tool call: `<ctrl42>call\nprint(default_api.NAME(k="v", ...))`. The call must
+ *  end the content or be followed by another control token, so a mid-prose mention is never matched. */
+const CTRL_BLOCK =
+  /<ctrl42>call\s*print\(\s*default_api\.([A-Za-z_]\w*)\(([\s\S]*?)\)\s*\)(?=\s*(?:<ctrl\d+>|$))/g;
+const CTRL_MARKER = "<ctrl42>call";
+const CTRL_PREFIX = "print(default_api.";
+
 export interface HermesExtractResult {
   /** Recovered tool calls (empty when none matched). */
   toolCalls: LlmToolCallPart[];
@@ -62,6 +69,7 @@ export interface HermesExtractResult {
  *   (back-compat). Gated-out blocks stay as visible text (they are not tool calls).
  * @internal
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat FSM / recovery scan, splitting hurts readability
 export function extractHermesToolCalls(
   content: string,
   makeId: () => string,
@@ -75,6 +83,19 @@ export function extractHermesToolCalls(
     name.length > 0 && (allowedToolNames === undefined || allowedToolNames.has(name));
   const toolCalls: LlmToolCallPart[] = [];
   const droppedNames: string[] = [];
+  for (const block of content.matchAll(CTRL_BLOCK)) {
+    const name = block[1] ?? "";
+    if (!isPromoted(name)) {
+      if (allowedToolNames !== undefined) droppedNames.push(name);
+      continue;
+    }
+    toolCalls.push({
+      type: "tool_use",
+      id: makeId(),
+      name,
+      input: parseCtrlArgs(block[2] ?? ""),
+    });
+  }
   for (const block of content.matchAll(HERMES_BLOCK)) {
     const name = (block[1] ?? "").trim();
     if (!isPromoted(name)) {
@@ -95,11 +116,38 @@ export function extractHermesToolCalls(
     toolCalls.length === 0
       ? content
       : content
+          .replace(CTRL_BLOCK, (full, rawName) => (isPromoted(rawName ?? "") ? "" : full))
           .replace(HERMES_BLOCK, (full, rawName) =>
             isPromoted((rawName ?? "").trim()) ? "" : full,
           )
           .trim();
   return { toolCalls, residualText, droppedNames };
+}
+
+const CTRL_ARG = /\s*([A-Za-z_]\w*)\s*=\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[^,]+)\s*(?:,|$)/y;
+
+/** Parse python-style keyword args (`k="v", n=5, ok=True`) into an input map. Quoted values become
+ *  strings; True/False/None and numbers become their JSON types; anything else stays a string. */
+function parseCtrlArgs(raw: string): Record<string, unknown> {
+  const input: Record<string, unknown> = {};
+  CTRL_ARG.lastIndex = 0;
+  for (let m = CTRL_ARG.exec(raw); m !== null; m = CTRL_ARG.exec(raw)) {
+    input[m[1] as string] = parseCtrlValue((m[2] as string).trim());
+  }
+  return sanitizeToolInput(input, { trim: true }).value;
+}
+
+function parseCtrlValue(v: string): unknown {
+  const q = v[0];
+  if ((q === '"' || q === "'") && v.length >= 2 && v.endsWith(q)) {
+    return v
+      .slice(1, -1)
+      .replace(/\\(.)/g, (_, c: string) => (c === "n" ? "\n" : c === "t" ? "\t" : c));
+  }
+  if (v === "True") return true;
+  if (v === "False") return false;
+  if (v === "None") return null;
+  return /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v;
 }
 
 /** Parse the `<parameter=KEY>VALUE</parameter>` pairs inside a block's inner text into an input map.
@@ -143,6 +191,16 @@ export function streamToolCallBufferState(
 ): "possible" | "impossible" {
   if (allowedToolNames.size === 0) return "impossible";
   const t = held.trimStart();
+  if (t.startsWith("<c")) return ctrlState(t, held.length, allowedToolNames, cap);
+  return functionMarkerState(held, t, allowedToolNames, cap);
+}
+
+function functionMarkerState(
+  held: string,
+  t: string,
+  allowedToolNames: ReadonlySet<string>,
+  cap: number,
+): "possible" | "impossible" {
   if (t.length < STREAM_MARKER.length) {
     // Still building the marker itself (e.g. "<fun").
     return STREAM_MARKER.startsWith(t) ? "possible" : "impossible";
@@ -156,6 +214,30 @@ export function streamToolCallBufferState(
     : someToolNameStartsWith(allowedToolNames, parsed.name);
   if (!nameOk) return "impossible";
   return held.length > cap ? "impossible" : "possible";
+}
+
+/** Streaming state for the `<ctrl42>call print(default_api.NAME(` form: hold while it could still
+ *  become a call to a request tool. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat FSM / recovery scan, splitting hurts readability
+function ctrlState(
+  t: string,
+  heldLength: number,
+  allowedToolNames: ReadonlySet<string>,
+  cap: number,
+): "possible" | "impossible" {
+  if (t.length < CTRL_MARKER.length) return CTRL_MARKER.startsWith(t) ? "possible" : "impossible";
+  if (!t.startsWith(CTRL_MARKER)) return "impossible";
+  const rest = t.slice(CTRL_MARKER.length).trimStart();
+  if (rest.length <= CTRL_PREFIX.length)
+    return CTRL_PREFIX.startsWith(rest) ? "possible" : "impossible";
+  if (!rest.startsWith(CTRL_PREFIX)) return "impossible";
+  const afterPrefix = rest.slice(CTRL_PREFIX.length);
+  const paren = afterPrefix.indexOf("(");
+  const name = paren === -1 ? afterPrefix : afterPrefix.slice(0, paren);
+  if (!/^\w*$/.test(name)) return "impossible";
+  const nameOk =
+    paren === -1 ? someToolNameStartsWith(allowedToolNames, name) : allowedToolNames.has(name);
+  return nameOk && heldLength <= cap ? "possible" : "impossible";
 }
 
 /** Read the (partial) tool name after a confirmed `<function=` marker (skipping the regex `\s*`).
