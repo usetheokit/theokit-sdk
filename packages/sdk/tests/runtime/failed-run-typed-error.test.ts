@@ -147,6 +147,33 @@ describe("a run that fails on a provider 401", () => {
     }
   });
 
+  it("keeps_the_value_a_throwing_budget_tracker_threw_at_cause_cause", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "");
+    vi.stubGlobal("fetch", stubFetch401());
+    const original = new Error("nonsdk-boom-original");
+    const agent = await Agent.create({
+      apiKey: BAD_KEY,
+      model: { id: "deepseek/deepseek-r1-0528" },
+      local: { cwd: root },
+      providers: { routes: [{ capability: "chat", provider: "openrouter" }] },
+      budgetTracker: {
+        track: () => {},
+        check: () => {
+          throw original;
+        },
+        getTotal: () => ({ tokens: 0 }),
+      },
+    });
+    try {
+      const run = await agent.send("hi");
+      const result = await run.wait();
+      expect(result.error?.cause).toBeInstanceOf(UnknownAgentError);
+      expect(result.error?.cause?.cause).toBe(original);
+    } finally {
+      await agent.dispose();
+    }
+  });
+
   it("hands_the_caller_an_AuthenticationError_under_throwOnError", async () => {
     const fetchStub = stubFetch401();
     vi.stubEnv("OPENROUTER_API_KEY", "");

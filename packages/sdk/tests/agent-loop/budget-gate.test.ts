@@ -55,3 +55,18 @@ describe("evaluateBudgetGate", () => {
     expect(result.detail).toContain("boom");
   });
 });
+
+describe("evaluateBudgetGate cause", () => {
+  it("keeps the thrown value as cause", () => {
+    const original = new Error("nonsdk-boom-original");
+    const decision = evaluateBudgetGate({
+      track: () => {},
+      check: (): BudgetCheck => {
+        throw original;
+      },
+      getTotal: () => ({ tokens: 0 }),
+    });
+    expect(decision.allowed).toBe(false);
+    expect(decision.cause).toBe(original);
+  });
+});
