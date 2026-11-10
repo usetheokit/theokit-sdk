@@ -142,6 +142,8 @@ export default defineConfig({
   // Welcome side effect: `dist/index.js` dropped from 207,514 to 20,447 bytes, because what used to be
   // duplicated code became a shared chunk. The 215,000 budget became too loose and deserves to be
   // tightened in a change of its own — lowering it here would mix two decisions.
+  // Keep `node:` on builtins (#960): esbuild does not resolve a bare `readline/promises` as a builtin.
+  removeNodeProtocol: false,
   splitting: true,
   outDir: "dist",
   target: "node22",
