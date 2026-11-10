@@ -19,7 +19,7 @@ import { netOfCache } from "../budget/normalize-usage.js";
 import { mapOpenAICompatibleError } from "../error-mappers/openai-compatible.js";
 import { boundFetch } from "../runtime-fetch.js";
 import { collapseSystemText, makeLlmFinish, parseToolArguments } from "./finish.js";
-import { parseSseStream } from "./sse.js";
+import { parseSseStream, withResponseHeadersTimeout } from "./sse.js";
 import { toStringToolResultContent } from "./tool-result-content.js";
 import type {
   LlmClient,
@@ -35,6 +35,8 @@ export interface ResponsesApiClientOptions {
   apiKey: string;
   /** e.g. `https://chatgpt.com/backend-api/codex`; the client POSTs `${baseUrl}/responses`. */
   baseUrl?: string;
+  /** Bound (ms) on the wait for response headers; default 30 000, `<= 0` disables. */
+  responseHeadersTimeoutMs?: number;
   /** Static headers the profile declares (e.g. `ChatGPT-Account-Id`, `originator`). */
   extraHeaders?: Record<string, string>;
   /** Injected fetch (refresh-aware / dynamic headers). Defaults to global `fetch`. */
@@ -484,7 +486,10 @@ export class ResponsesApiClient implements LlmClient {
   constructor(private readonly options: ResponsesApiClientOptions) {
     this.name = options.providerName ?? "openai-responses";
     this.baseUrl = (options.baseUrl ?? "https://api.openai.com/v1").replace(/\/+$/, "");
-    this.fetchImpl = boundFetch(options.fetch);
+    this.fetchImpl = withResponseHeadersTimeout(
+      boundFetch(options.fetch),
+      options.responseHeadersTimeoutMs,
+    );
   }
 
   /**
