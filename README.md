@@ -810,6 +810,9 @@ try {
   if (err instanceof AuthenticationError) {
     // bad key
   }
+  // To branch on the canonical code, read err.metadata?.code ?? err.code.
+  // Provider error mappers may prefix err.code (e.g. "fakeprov_auth_failed");
+  // result.error.code and err.metadata.code carry the canonical "auth_failed".
 }
 ```
 
