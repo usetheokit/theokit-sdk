@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.0
+
+### Minor Changes
+
+- [#880](https://github.com/usetheokit/theokit-sdk/pull/880) [`66a88dc`](https://github.com/usetheokit/theokit-sdk/commit/66a88dc67decaddf33e9d5eeb6b0fec4e5cb1605) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `createSecretsTool`, imported from the subpath `@theokit/sdk-tools/secrets`: lists secret names and hands a secret to another tool by reference (`{{secret:NAME}}`) without the value reaching the model.
+
 ## 0.29.0
 
 ### Minor Changes
