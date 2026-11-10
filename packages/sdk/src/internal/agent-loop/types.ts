@@ -57,6 +57,8 @@ export interface ResolvedTool {
   origin: "shell" | "mcp" | "memory" | "custom";
   mcpServerName?: string;
   mcpToolName?: string;
+  /** The tool's MCP server runs its calls of one step one at a time (`sequential`). */
+  mcpSequential?: boolean;
   /** Direct handler for `origin === "memory"` tools — returns JSON-encoded result string. */
   memoryHandler?: (input: Record<string, unknown>) => Promise<string>;
   /** Direct handler for `origin === "custom"` tools — user-supplied via `AgentOptions.tools`.

@@ -33,6 +33,8 @@ export interface McpToolCallResult {
 
 export interface McpClient {
   readonly name: string;
+  /** `true` when the server's config sets `sequential`: the loop runs its calls one at a time. */
+  readonly sequential?: boolean;
   initialize(): Promise<void>;
   listTools(): Promise<McpTool[]>;
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult>;
@@ -176,6 +178,10 @@ class StdioMcpClient extends BaseMcpClient {
   ) {
     super();
     this.name = name;
+  }
+
+  get sequential(): boolean {
+    return this.config.sequential === true;
   }
 
   private get timeoutMs(): number {
@@ -445,6 +451,10 @@ class HttpMcpClient extends BaseMcpClient {
     super();
     this.name = name;
     this.fetchImpl = fetchImpl;
+  }
+
+  get sequential(): boolean {
+    return this.config.sequential === true;
   }
 
   close(): Promise<void> {

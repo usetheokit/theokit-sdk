@@ -43,11 +43,39 @@ export async function dispatchTools(
   parentSpan?: ToolSpan,
 ): Promise<LlmContentPart[]> {
   const maxConcurrent = inputs.maxConcurrentTools ?? 4;
-  // M0-2: consolidated onto the shared ordered bounded pool (was a private
-  // `boundedParallel` clone — see plan m0-foundation-expose-primitives).
-  return mapWithConcurrency(toolCalls, maxConcurrent, (call) =>
-    dispatchSingleCall(inputs, tools, call, events, parentSpan),
-  );
+  // A `sequential` MCP server's calls of one step form one unit that runs them in listed order;
+  // every other call is its own unit. Units share the pool, so a held-back call never occupies a slot.
+  type Unit = { indexes: number[] };
+  const units: Unit[] = [];
+  const bySequentialServer = new Map<string, Unit>();
+  toolCalls.forEach((call, index) => {
+    const tool = tools.find((t) => t.name === call.name);
+    if (tool?.mcpSequential === true && tool.mcpServerName !== undefined) {
+      let unit = bySequentialServer.get(tool.mcpServerName);
+      if (unit === undefined) {
+        unit = { indexes: [] };
+        bySequentialServer.set(tool.mcpServerName, unit);
+        units.push(unit);
+      }
+      unit.indexes.push(index);
+    } else {
+      units.push({ indexes: [index] });
+    }
+  });
+  const results: LlmContentPart[] = new Array(toolCalls.length);
+  // M0-2: consolidated onto the shared ordered bounded pool.
+  await mapWithConcurrency(units, maxConcurrent, async (unit) => {
+    for (const index of unit.indexes) {
+      results[index] = await dispatchSingleCall(
+        inputs,
+        tools,
+        toolCalls[index] as LlmToolCallPart,
+        events,
+        parentSpan,
+      );
+    }
+  });
+  return results;
 }
 
 /** M3 #64 — the OTel span type threaded for tool-span nesting. */
