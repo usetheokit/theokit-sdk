@@ -489,3 +489,95 @@ describe("OpenAIStreamAccumulator — R7 review-fixes", () => {
     expect(acc.finish().toolCalls).toHaveLength(1);
   });
 });
+
+describe("OpenAIStreamAccumulator — Gemini <ctrl42>call text (#953)", () => {
+  const CALL = '<ctrl42>call\nprint(default_api.computer(action="screenshot", n=2))';
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: test helper
+  const run = (allowed: string[], chunks: string[]) => {
+    const acc = new __testing__OpenAIStreamAccumulator(true, "gemini", new Set(allowed));
+    const deltas: string[] = [];
+    for (const c of chunks) {
+      for (const e of acc.consume(leakChunk(c))) {
+        if (e.type === "text_delta") deltas.push(e.text);
+      }
+    }
+    for (const e of acc.consume(stopChunk())) {
+      if (e.type === "text_delta") deltas.push(e.text);
+    }
+    return { deltas, finish: acc.finish() };
+  };
+
+  it("emits no text_delta for a declared tool and still recovers the call", () => {
+    const { deltas, finish } = run(
+      ["computer"],
+      [CALL.slice(0, 5), CALL.slice(5, 30), CALL.slice(30)],
+    );
+    expect(deltas.join("")).toBe("");
+    expect(finish.toolCalls).toHaveLength(1);
+    expect(finish.toolCalls[0]).toMatchObject({
+      name: "computer",
+      input: { action: "screenshot", n: 2 },
+    });
+  });
+
+  it("emits the text unchanged for an undeclared tool", () => {
+    const { deltas, finish } = run(["other"], [CALL.slice(0, 20), CALL.slice(20)]);
+    expect(deltas.join("")).toBe(CALL);
+    expect(finish.toolCalls).toHaveLength(0);
+  });
+
+  it("emits a marker-like prefix that turns out to be plain text in full, in order", () => {
+    const text = "<ctrl42>call me maybe";
+    const { deltas } = run(["computer"], ["<ctrl", "42>call", " me maybe"]);
+    expect(deltas.join("")).toBe(text);
+  });
+});
+
+describe("extractHermesToolCalls — Gemini multi-call <ctrl42>call text (#939)", () => {
+  const TEXT =
+    "<ctrl42>call\nprint(default_api.computer(action='screenshot', question='Take a screenshot.'))\nprint(default_api.computer(action='mouse_move', x=300, y=300))\nprint(default_api.computer(action='type', text='vj38reey'))\nprint(default_api.computer(action='screenshot', question='Take a screenshot.'))";
+
+  it("recovers all four calls in order with keyword args and names the format", () => {
+    let n = 0;
+    const r = extractHermesToolCalls(TEXT, () => `id-${++n}`, new Set(["computer"]));
+    expect(r.toolCalls.map((c) => c.input)).toEqual([
+      { action: "screenshot", question: "Take a screenshot." },
+      { action: "mouse_move", x: 300, y: 300 },
+      { action: "type", text: "vj38reey" },
+      { action: "screenshot", question: "Take a screenshot." },
+    ]);
+    expect(r.formats).toEqual(["gemini-ctrl42"]);
+    expect(r.residualText).toBe("");
+  });
+
+  it("does not run an undeclared tool and leaves it as text", () => {
+    const r = extractHermesToolCalls(TEXT, () => "id", new Set(["other"]));
+    expect(r.toolCalls).toEqual([]);
+    expect(r.residualText).toBe(TEXT);
+    expect(r.droppedNames).toHaveLength(4);
+  });
+});
+
+describe("extractHermesToolCalls — <ctrl42>call values and partial promotion (#939)", () => {
+  it("keeps an undeclared call of a mixed block as text and runs only the declared one", () => {
+    const text =
+      "<ctrl42>call\nprint(default_api.computer(action='screenshot'))\nprint(default_api.other(x=1))";
+    const r = extractHermesToolCalls(text, () => "id", new Set(["computer"]));
+    expect(r.toolCalls.map((c) => c.name)).toEqual(["computer"]);
+    expect(r.residualText).toBe("<ctrl42>call\nprint(default_api.other(x=1))");
+  });
+
+  it("turns escapes, booleans, None, numbers and bare words into their values", () => {
+    const text =
+      '<ctrl42>call\nprint(default_api.computer(text="a\\nb\\tc\\"d", on=True, off=False, none=None, n=-2.5, mode=fast))';
+    const r = extractHermesToolCalls(text, () => "id", new Set(["computer"]));
+    expect(r.toolCalls[0]?.input).toEqual({
+      text: 'a\nb\tc"d',
+      on: true,
+      off: false,
+      none: null,
+      n: -2.5,
+      mode: "fast",
+    });
+  });
+});

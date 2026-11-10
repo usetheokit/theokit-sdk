@@ -1,5 +1,28 @@
 # Changelog
 
+## 5.15.0
+
+### Minor Changes
+
+- [#913](https://github.com/usetheokit/theokit-sdk/pull/913) [`f944093`](https://github.com/usetheokit/theokit-sdk/commit/f9440934f33df86054a24a33120d40f7028789ec) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/sandbox` ships `DockerSandbox`, a `SandboxBackend` that runs each command in a
+  throwaway container with a read-only root filesystem, no network by default, dropped capabilities and
+  the workspace as the only writable mount, so a shell command cannot write outside its workspace.
+
+- [#942](https://github.com/usetheokit/theokit-sdk/pull/942) [`ccaac78`](https://github.com/usetheokit/theokit-sdk/commit/ccaac78d735e0bbd6b7cb91fcfb019fbb0492d35) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `McpStdioServerConfig` and `McpHttpServerConfig` accept `sequential: true` ([#932](https://github.com/usetheokit/theokit-sdk/issues/932)). The calls a model makes to that server's tools in one step then run one at a time, in the order the model listed them, and the results still come back in call order. Calls to other servers or to non-MCP tools in the same step are not held behind them. Without the option the calls still run at once. Use it for a stateful server such as Playwright MCP, where a snapshot must wait for the navigation before it.
+
+- [#879](https://github.com/usetheokit/theokit-sdk/pull/879) [`de5c7bd`](https://github.com/usetheokit/theokit-sdk/commit/de5c7bdc65c6e9b01b1aa02c84069bfc00e03edf) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - New `SqliteSessionStore` (exported from `@theokit/sdk` and `@theokit/sdk/persistence`): a `SessionStore` backed by one SQLite file, passed as `local.sessionStore`. `Agent.transcript`, `injectSessionTurn` and `compact` now read from the agent's configured `local.sessionStore` instead of always opening the JSONL file.
+
+### Patch Changes
+
+- [#905](https://github.com/usetheokit/theokit-sdk/pull/905) [`418b27c`](https://github.com/usetheokit/theokit-sdk/commit/418b27ceed5931bdce846b743f1e348df6ae2f46) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `registerProvider` lowercases a profile's name and aliases, and `getProviderProfile` looks names up
+  in lowercase, so a profile registered as `AcmeAI` with alias `AcmeX` is reached by routes naming
+  either. This replaces the router's "register it in lowercase" errors for mixed-case names and
+  aliases (their two tests now assert routing instead), since such a registration can no longer occur.
+
+- [#896](https://github.com/usetheokit/theokit-sdk/pull/896) [`419ba63`](https://github.com/usetheokit/theokit-sdk/commit/419ba631cb248ec6ab8e9e8432aee26b1a93b618) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `skills.enabled` now restricts the local runtime: a skill not named in it is neither listed nor readable.
+
+- [#940](https://github.com/usetheokit/theokit-sdk/pull/940) [`7f21de1`](https://github.com/usetheokit/theokit-sdk/commit/7f21de1b73d9fd62c4d6f26f220b87a7b8540dfe) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Correction to the 5.12.0 note on malformed chat-completions `prompt_tokens`: the dropped count is left out of the per-call `LlmFinish` and no input budget event is emitted for it, and the SDK writes `provider reported an unusable inputTokens (…)` to the diagnostics sink. `RunResult.usage` and `usage.requests[]` still read that count as `inputTokens: 0`, because `TokenUsage.inputTokens` is a required number; only a consumer with a diagnostics sink can tell a dropped count from a real zero. The diagnostic prints `NaN` in place of the value the provider sent.
+
 ## 5.14.0
 
 ### Minor Changes

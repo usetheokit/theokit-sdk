@@ -42,6 +42,14 @@ const HERMES_BLOCK = /<function=\s*([^>\s]+)\s*>([\s\S]*?)<\/tool_call>/g;
 /** A single parameter inside a block: `<parameter=KEY>VALUE</parameter>`. Non-greedy value. */
 const HERMES_PARAM = /<parameter=\s*([^>\s]+)\s*>([\s\S]*?)<\/parameter>/g;
 
+/** Gemini's text form of a tool call: `<ctrl42>call\nprint(default_api.NAME(k="v", ...))`. The call must
+ *  end the content or be followed by another control token, so a mid-prose mention is never matched. */
+const CTRL_CALL_SRC = String.raw`print\(\s*default_api\.([A-Za-z_]\w*)\(([\s\S]*?)\)\s*\)(?=\s*(?:print\(\s*default_api\.|<ctrl\d+>|$))`;
+/** One `<ctrl42>call` marker followed by one or more `print(default_api.…)` lines. */
+const CTRL_BLOCK = new RegExp(`<ctrl42>call\\s*((?:${CTRL_CALL_SRC}\\s*)+)(?=<ctrl\\d+>|$)`, "g");
+const CTRL_MARKER = "<ctrl42>call";
+const CTRL_PREFIX = "print(default_api.";
+
 export interface HermesExtractResult {
   /** Recovered tool calls (empty when none matched). */
   toolCalls: LlmToolCallPart[];
@@ -51,6 +59,8 @@ export interface HermesExtractResult {
    *  block whose name is not a tool in the current request. Empty when no allowlist was applied or
    *  nothing was gated out. The caller logs these so a guard firing is observable in production. */
   droppedNames: string[];
+  /** Names of the leaked-call formats recovered (e.g. `gemini-ctrl42`); empty when none. */
+  formats: string[];
 }
 
 /**
@@ -62,6 +72,7 @@ export interface HermesExtractResult {
  *   (back-compat). Gated-out blocks stay as visible text (they are not tool calls).
  * @internal
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat FSM / recovery scan, splitting hurts readability
 export function extractHermesToolCalls(
   content: string,
   makeId: () => string,
@@ -75,6 +86,23 @@ export function extractHermesToolCalls(
     name.length > 0 && (allowedToolNames === undefined || allowedToolNames.has(name));
   const toolCalls: LlmToolCallPart[] = [];
   const droppedNames: string[] = [];
+  const formats = new Set<string>();
+  for (const block of content.matchAll(CTRL_BLOCK)) {
+    for (const call of (block[1] ?? "").matchAll(new RegExp(CTRL_CALL_SRC, "g"))) {
+      const name = call[1] ?? "";
+      if (!isPromoted(name)) {
+        if (allowedToolNames !== undefined) droppedNames.push(name);
+        continue;
+      }
+      toolCalls.push({
+        type: "tool_use",
+        id: makeId(),
+        name,
+        input: parseCtrlArgs(call[2] ?? ""),
+      });
+      formats.add("gemini-ctrl42");
+    }
+  }
   for (const block of content.matchAll(HERMES_BLOCK)) {
     const name = (block[1] ?? "").trim();
     if (!isPromoted(name)) {
@@ -82,6 +110,7 @@ export function extractHermesToolCalls(
       if (name.length > 0 && allowedToolNames !== undefined) droppedNames.push(name);
       continue;
     }
+    formats.add("hermes");
     toolCalls.push({
       type: "tool_use",
       id: makeId(),
@@ -95,11 +124,48 @@ export function extractHermesToolCalls(
     toolCalls.length === 0
       ? content
       : content
+          .replace(CTRL_BLOCK, (_full: string, calls: string) =>
+            keepUnpromotedCtrl(calls, isPromoted),
+          )
           .replace(HERMES_BLOCK, (full, rawName) =>
             isPromoted((rawName ?? "").trim()) ? "" : full,
           )
           .trim();
-  return { toolCalls, residualText, droppedNames };
+  return { toolCalls, residualText, droppedNames, formats: [...formats] };
+}
+
+/** Residual text for one ctrl42 block: the calls that were not promoted stay as text. */
+function keepUnpromotedCtrl(calls: string, isPromoted: (name: string) => boolean): string {
+  const kept = [...calls.matchAll(new RegExp(CTRL_CALL_SRC, "g"))]
+    .filter((c) => !isPromoted(c[1] ?? ""))
+    .map((c) => c[0]);
+  return kept.length === 0 ? "" : `<ctrl42>call\n${kept.join("\n")}`;
+}
+
+const CTRL_ARG = /\s*([A-Za-z_]\w*)\s*=\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[^,]+)\s*(?:,|$)/y;
+
+/** Parse python-style keyword args (`k="v", n=5, ok=True`) into an input map. Quoted values become
+ *  strings; True/False/None and numbers become their JSON types; anything else stays a string. */
+function parseCtrlArgs(raw: string): Record<string, unknown> {
+  const input: Record<string, unknown> = {};
+  CTRL_ARG.lastIndex = 0;
+  for (let m = CTRL_ARG.exec(raw); m !== null; m = CTRL_ARG.exec(raw)) {
+    input[m[1] as string] = parseCtrlValue((m[2] as string).trim());
+  }
+  return sanitizeToolInput(input, { trim: true }).value;
+}
+
+function parseCtrlValue(v: string): unknown {
+  const q = v[0];
+  if ((q === '"' || q === "'") && v.length >= 2 && v.endsWith(q)) {
+    return v
+      .slice(1, -1)
+      .replace(/\\(.)/g, (_, c: string) => (c === "n" ? "\n" : c === "t" ? "\t" : c));
+  }
+  if (v === "True") return true;
+  if (v === "False") return false;
+  if (v === "None") return null;
+  return /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v;
 }
 
 /** Parse the `<parameter=KEY>VALUE</parameter>` pairs inside a block's inner text into an input map.
@@ -143,6 +209,16 @@ export function streamToolCallBufferState(
 ): "possible" | "impossible" {
   if (allowedToolNames.size === 0) return "impossible";
   const t = held.trimStart();
+  if (t.startsWith("<c")) return ctrlState(t, held.length, allowedToolNames, cap);
+  return functionMarkerState(held, t, allowedToolNames, cap);
+}
+
+function functionMarkerState(
+  held: string,
+  t: string,
+  allowedToolNames: ReadonlySet<string>,
+  cap: number,
+): "possible" | "impossible" {
   if (t.length < STREAM_MARKER.length) {
     // Still building the marker itself (e.g. "<fun").
     return STREAM_MARKER.startsWith(t) ? "possible" : "impossible";
@@ -156,6 +232,30 @@ export function streamToolCallBufferState(
     : someToolNameStartsWith(allowedToolNames, parsed.name);
   if (!nameOk) return "impossible";
   return held.length > cap ? "impossible" : "possible";
+}
+
+/** Streaming state for the `<ctrl42>call print(default_api.NAME(` form: hold while it could still
+ *  become a call to a request tool. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat FSM / recovery scan, splitting hurts readability
+function ctrlState(
+  t: string,
+  heldLength: number,
+  allowedToolNames: ReadonlySet<string>,
+  cap: number,
+): "possible" | "impossible" {
+  if (t.length < CTRL_MARKER.length) return CTRL_MARKER.startsWith(t) ? "possible" : "impossible";
+  if (!t.startsWith(CTRL_MARKER)) return "impossible";
+  const rest = t.slice(CTRL_MARKER.length).trimStart();
+  if (rest.length <= CTRL_PREFIX.length)
+    return CTRL_PREFIX.startsWith(rest) ? "possible" : "impossible";
+  if (!rest.startsWith(CTRL_PREFIX)) return "impossible";
+  const afterPrefix = rest.slice(CTRL_PREFIX.length);
+  const paren = afterPrefix.indexOf("(");
+  const name = paren === -1 ? afterPrefix : afterPrefix.slice(0, paren);
+  if (!/^\w*$/.test(name)) return "impossible";
+  const nameOk =
+    paren === -1 ? someToolNameStartsWith(allowedToolNames, name) : allowedToolNames.has(name);
+  return nameOk && heldLength <= cap ? "possible" : "impossible";
 }
 
 /** Read the (partial) tool name after a confirmed `<function=` marker (skipping the regex `\s*`).
