@@ -12,7 +12,9 @@ import type { BudgetCheck, BudgetTracker } from "../budget/tracker/budget-tracke
  *
  * @internal
  */
-export function evaluateBudgetGate(tracker: BudgetTracker | undefined): BudgetCheck {
+export function evaluateBudgetGate(
+  tracker: BudgetTracker | undefined,
+): BudgetCheck & { readonly cause?: unknown } {
   if (tracker === undefined) return { allowed: true };
   try {
     return tracker.check();
@@ -23,6 +25,8 @@ export function evaluateBudgetGate(tracker: BudgetTracker | undefined): BudgetCh
       allowed: false,
       reason: "custom",
       detail: `budget_tracker_check_threw: ${message}`,
+      // Keep the thrown value so the run's error can carry it as its cause.
+      cause: error,
     };
   }
 }
