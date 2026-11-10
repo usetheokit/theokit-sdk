@@ -77,9 +77,10 @@ function assertSeccompProgramShape(program: Uint8Array): void {
  * fd 4 saves the command's stdin before the pipe replaces fd 0 in the last stage; `3<&0` moves the
  * pipe to fd 3, `0<&4` restores stdin and `4<&-` closes the copy. Both `exec`s are required: they
  * make the process a timeout kills bwrap's direct parent, so `--die-with-parent` ends the confined
- * command with it. Without them a timeout left the command running.
+ * command with it. If fd 0 is closed `4<&0` would fail, so fd 4 then reads /dev/null. Without them a timeout left the command running.
  */
-const PIPE_SCRIPT = '{ p=$1; shift; printf "$p" | exec "$@" 3<&0 0<&4 4<&-; } 4<&0';
+const PIPE_SCRIPT =
+  'r() { p=$1; shift; printf "$p" | exec "$@" 3<&0 0<&4 4<&-; }; if { true 5<&0; } 2>/dev/null; then r "$@" 4<&0; else r "$@" 4</dev/null; fi';
 
 /**
  * Wrap `command` so bwrap reads `program` on fd 3 from a pipe:

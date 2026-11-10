@@ -86,7 +86,11 @@ export async function runAgentLoop(inputs: AgentLoopInputs): Promise<AgentLoopOu
         if (decision.allowed === false) {
           ctx.finalStatus = "error";
           if (decision.detail !== undefined) {
-            ctx.error = { message: decision.detail, code: decision.reason ?? "budget" };
+            ctx.error = {
+              message: decision.detail,
+              code: decision.reason ?? "budget",
+              ...(decision.cause !== undefined ? { cause: decision.cause } : {}),
+            };
           }
           // M1-2 (T2.2): a pluggable tracker denying on its iteration ceiling is
           // the same "hit the iteration limit" event as the legacy IterationBudget
