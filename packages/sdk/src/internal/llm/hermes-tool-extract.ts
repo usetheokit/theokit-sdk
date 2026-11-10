@@ -37,9 +37,10 @@ import { sanitizeToolInput } from "../../sanitize/sanitize-tool-input.js";
 import { extractGeminiCalls } from "./gemini-text-calls.js";
 import type { LlmToolCallPart } from "./types.js";
 
+const GEMINI_FORMAT = "gemini-default-api";
+
 /** A full leaked block: `<function=NAME> …inner… </tool_call>`. The closing `</tool_call>` is
  *  required (fail-open: a partial block at stream end is left as text). Non-greedy inner. */
-const GEMINI_FORMAT = "gemini-default-api";
 const HERMES_BLOCK = /<function=\s*([^>\s]+)\s*>([\s\S]*?)<\/tool_call>/g;
 /** A single parameter inside a block: `<parameter=KEY>VALUE</parameter>`. Non-greedy value. */
 const HERMES_PARAM = /<parameter=\s*([^>\s]+)\s*>([\s\S]*?)<\/parameter>/g;

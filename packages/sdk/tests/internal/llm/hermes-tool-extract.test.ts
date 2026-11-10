@@ -7,7 +7,7 @@
  * pure helper + the accumulator integration (flag off = bug state preserved; flag on = recovery;
  * native tool_calls = no double-count).
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   extractHermesToolCalls,
   firstPossibleMarkerStart,
@@ -513,5 +513,49 @@ describe("extractHermesToolCalls — Gemini default_api text form (#939)", () =>
     expect(r.toolCalls).toHaveLength(0);
     expect(r.residualText).toBe(TEXT);
     expect(r.droppedNames).toContain("computer");
+  });
+});
+
+describe("OpenAIStreamAccumulator — Gemini default_api text form (#939)", () => {
+  const TEXT =
+    "<ctrl42>call\nprint(default_api.computer(action='screenshot', question='Take a screenshot.'))\nprint(default_api.computer(action='mouse_move', x=300, y=300))\nprint(default_api.computer(action='type', text='vj38reey'))\nprint(default_api.computer(action='screenshot', question='Take a screenshot.'))";
+
+  it("turns the four calls into tool_use parts, flips stopReason and logs the format", () => {
+    const writes: string[] = [];
+    const spy = vi.spyOn(process.stderr, "write").mockImplementation((chunk: unknown) => {
+      writes.push(String(chunk));
+      return true;
+    });
+    try {
+      const acc = new __testing__OpenAIStreamAccumulator(true, "openrouter", new Set(["computer"]));
+      acc.consume(leakChunk(TEXT));
+      acc.consume(stopChunk());
+      const finish = acc.finish();
+      expect(finish.stopReason).toBe("tool_use");
+      expect(finish.toolCalls.map((c) => c.name)).toEqual(Array(4).fill("computer"));
+      expect(finish.toolCalls[2]?.input).toEqual({ action: "type", text: "vj38reey" });
+      expect(finish.text).toBe("");
+      expect(writes.join("")).toContain("format=gemini-default-api");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("an undeclared tool stays text and ends the turn", () => {
+    const acc = new __testing__OpenAIStreamAccumulator(true, "openrouter", new Set(["other"]));
+    acc.consume(leakChunk(TEXT));
+    acc.consume(stopChunk());
+    const finish = acc.finish();
+    expect(finish.toolCalls).toHaveLength(0);
+    expect(finish.stopReason).toBe("end_turn");
+    expect(finish.text).toBe(TEXT);
+  });
+
+  it("fails open per call: a malformed call stays text while valid ones run", () => {
+    const text =
+      "print(default_api.computer(action='a'))\nprint(default_api.computer(n=1e5))\nprint(default_api.computer(action='b'))";
+    const r = extractHermesToolCalls(text, () => "id", new Set(["computer"]));
+    expect(r.toolCalls.map((c) => c.input)).toEqual([{ action: "a" }, { action: "b" }]);
+    expect(r.residualText).toBe("print(default_api.computer(n=1e5))");
   });
 });
