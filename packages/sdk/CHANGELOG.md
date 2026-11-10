@@ -1,5 +1,17 @@
 # Changelog
 
+## 5.15.1
+
+### Patch Changes
+
+- [#956](https://github.com/usetheokit/theokit-sdk/pull/956) [`2604fa9`](https://github.com/usetheokit/theokit-sdk/commit/2604fa9e54454ac8b50dfbfb8dcd02dfc57d0d01) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - llm: recover several `print(default_api.<tool>(…))` calls under one Gemini `<ctrl42>call` marker (calls to undeclared tools stay text), and name the recovered format in the diagnostic.
+
+- [#954](https://github.com/usetheokit/theokit-sdk/pull/954) [`c5c236a`](https://github.com/usetheokit/theokit-sdk/commit/c5c236abd0815b6e4ce9929e4ebd89e36bb04ddd) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Streaming no longer emits Gemini's `<ctrl42>call print(default_api.<tool>(...))` text as `text_delta` for a declared tool; the call is recovered when the stream ends.
+
+- [#948](https://github.com/usetheokit/theokit-sdk/pull/948) [`f4f87f0`](https://github.com/usetheokit/theokit-sdk/commit/f4f87f0382796e539a2a4e682ac3c2c567e653cc) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Documentation: the `postRun` hook fires on a failed run, but it is internal-only. `.theokit/hooks.json` cannot register it (Claude Code has no per-run event), and `Stop` fires only on a finished run. `HookEvent` now says so.
+
+- [#952](https://github.com/usetheokit/theokit-sdk/pull/952) [`3be74fb`](https://github.com/usetheokit/theokit-sdk/commit/3be74fb098206f7b6a15da826ff464eff588d044) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - README "Failed runs" states that under `throwOnError` the canonical error code is `err.metadata?.code ?? err.code`, since a provider-mapped `err.code` can be prefixed.
+
 ## 5.15.0
 
 ### Minor Changes
