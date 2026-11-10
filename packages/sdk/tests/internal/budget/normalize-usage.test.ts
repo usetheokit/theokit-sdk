@@ -136,3 +136,19 @@ describe("inferApiMode", () => {
     expect(inferApiMode("totally-unknown")).toBe("openai_chat_completions");
   });
 });
+
+describe("normalizeUsage — unusable nested cache count (#934)", () => {
+  it("falls back to the top-level cache_read_input_tokens", () => {
+    const u = normalizeUsage(
+      {
+        prompt_tokens: 10,
+        completion_tokens: 3,
+        prompt_tokens_details: { cached_tokens: -1 },
+        cache_read_input_tokens: 4,
+      },
+      { provider: "openai", apiMode: "openai_chat_completions" },
+    );
+    expect(u.cacheReadTokens).toBe(4);
+    expect(u.inputTokens).toBe(6);
+  });
+});
