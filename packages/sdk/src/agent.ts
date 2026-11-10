@@ -63,6 +63,9 @@ let streamObjectImport: Promise<typeof import("./stream-object.js")> | undefined
  */
 export type AgentPromptResult = RunResult;
 
+/** In-flight `Agent.getOrCreate` builds, keyed by agent id (single-flight). */
+const getOrCreateInFlight = new Map<string, Promise<SDKAgent>>();
+
 /**
  * Static façade for creating and managing Theo agents.
  *
@@ -334,9 +337,8 @@ export class Agent {
    *   The agent-builder's M85 interrupt rotates the session id to work around a
    *   constraint that does not exist.
    *
-   * - `close()` marks the handle disposed WITHOUT evicting the cache entry. It is
-   *   internal and unused today; if it becomes reachable, this bullet stops being true
-   *   for that path.
+   * - `close()` marks the handle disposed AND drops its cache entry, so the next call
+   *   builds a fresh handle.
    *
    * @public
    */
@@ -347,9 +349,23 @@ export class Agent {
     const cached = Agent.registry.get(agentId);
     if (cached !== undefined) return cached;
 
-    const fresh = await getOrCreateUncached(agentId, options);
-    Agent.registry.set(agentId, fresh);
-    return fresh;
+    // Single-flight: concurrent calls for one id share one build, so two live agents never
+    // run over one transcript. The entry is dropped when the build settles (success or failure),
+    // so a failed build is retried by the next call. Works with `maxAgents: 0` too.
+    const inFlight = getOrCreateInFlight.get(agentId);
+    if (inFlight !== undefined) return inFlight;
+
+    const build = (async (): Promise<SDKAgent> => {
+      const fresh = await getOrCreateUncached(agentId, options);
+      Agent.registry.set(agentId, fresh);
+      return fresh;
+    })();
+    getOrCreateInFlight.set(agentId, build);
+    try {
+      return await build;
+    } finally {
+      if (getOrCreateInFlight.get(agentId) === build) getOrCreateInFlight.delete(agentId);
+    }
   }
 
   /**
@@ -730,16 +746,26 @@ async function openLocalStore(reg: {
   model?: { id: string };
   // #301 — `sessionDir` is the option; `baseDir` is its deprecated alias, and a
   // registered agent may carry either depending on when it was created.
-  options: { model?: string | { id: string }; local?: { sessionDir?: string; baseDir?: string } };
+  options: {
+    model?: string | { id: string };
+    local?: {
+      sessionDir?: string;
+      baseDir?: string;
+      sessionStore?: import("./types/session-store.js").SessionStore;
+    };
+  };
 }): Promise<{
   cwd: string;
   model: string;
-  store: import("./internal/persistence/fs-session-store.js").FsSessionStore;
+  store: import("./types/session-store.js").SessionStore;
 }> {
   const cwd = reg.cwd ?? process.cwd();
   const optModel = reg.options.model;
   const model =
     reg.model?.id ?? (typeof optModel === "string" ? optModel : optModel?.id) ?? "unknown";
+  // An injected store (e.g. SqliteSessionStore) is where the transcript lives; do not read a JSONL file instead.
+  const injected = reg.options.local?.sessionStore;
+  if (injected !== undefined) return { cwd, model, store: injected };
   const { FsSessionStore } = await import("./internal/persistence/fs-session-store.js");
   const { defaultBaseDir, expandTilde } = await import(
     "./internal/persistence/session-transcript.js"

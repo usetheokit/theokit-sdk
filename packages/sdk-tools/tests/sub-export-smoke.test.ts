@@ -89,3 +89,11 @@ describe("@theokit/sdk-tools/structured-output — subpath entry (ADR D3)", () =
     expect("createStructuredOutputTool" in Tools).toBe(false);
   });
 });
+
+describe("@theokit/sdk-tools/secrets — own entry, outside the barrel", () => {
+  it("exports createSecretsTool from its entry, not from the barrel", async () => {
+    const entry = await import("../src/secrets-entry.js");
+    expect(typeof entry.createSecretsTool).toBe("function");
+    expect("createSecretsTool" in Tools).toBe(false);
+  });
+});

@@ -139,6 +139,15 @@ describe("router pool wiring (T4.1)", () => {
     warn.mockRestore();
   });
 
+  it("warns when a fallback names an unknown provider, and still resolves the primary", () => {
+    const warn = vi.spyOn(process.stderr, "write");
+    process.env.OPENROUTER_API_KEY = "k";
+    const chain = resolveProviderChain({ primary: "openrouter", fallback: ["nopeprovider"] });
+    expect(chain).toHaveLength(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('unknown provider "nopeprovider"'));
+    warn.mockRestore();
+  });
+
   // Named for what it checks. It was "strategy defaults to fill_first when omitted" and closed with
   // `// Default strategy used — we verify behavior by selecting and getting "a" twice`, describing a
   // verification in the present tense that is not in the file: no selection happens, nothing observes

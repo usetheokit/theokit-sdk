@@ -19,7 +19,7 @@ import { runInputProcessors } from "../runtime/processors/run-processors.js";
 import { createTripwireRun } from "../runtime/processors/tripwire-run.js";
 import { wrapRunWithOutputProcessors } from "../runtime/processors/wrap-output-run.js";
 import { safeCall } from "../runtime/system-prompt/safe-call.js";
-import { appendSessionMessage, getSessionMessages } from "../session/index.js";
+import { appendSessionMessage, clearSession, getSessionMessages } from "../session/index.js";
 import type { TelemetryHandle } from "../telemetry/tracer.js";
 import { consumePending } from "./local-agent-invalidate.js";
 import { applyPreUserSendHook, wrapRunWithPostReplyHook } from "./local-agent-memory-hooks.js";
@@ -129,6 +129,17 @@ async function applyInputProcessors(
   return { userText: res.value, effectiveMessage };
 }
 
+const lastSendAt = new Map<string, number>();
+
+/** Clears the agent's conversation when it has been idle longer than `minutes`. */
+function applyIdleReset(agentId: string, minutes: number | undefined): void {
+  const now = Date.now();
+  const previous = lastSendAt.get(agentId);
+  lastSendAt.set(agentId, now);
+  if (minutes === undefined || !Number.isFinite(minutes) || minutes <= 0) return;
+  if (previous !== undefined && now - previous > minutes * 60_000) clearSession(agentId);
+}
+
 /**
  * Core send logic extracted from `LocalAgent.sendLocked` to reduce
  * the LocalAgent class LoC (G8 budget). All dependencies are injected
@@ -158,6 +169,8 @@ export async function executeSendLocked(
   const gated = await applyInputProcessors(inputs, message, rawUserText, options, sendModel);
   if ("tripwireRun" in gated) return gated.tripwireRun;
   const { userText, effectiveMessage } = gated;
+
+  applyIdleReset(inputs.agentId, inputs.options.sessionIdleResetMinutes);
 
   if (inputs.options.onBeforeSend !== undefined) {
     await inputs.options.onBeforeSend({

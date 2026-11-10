@@ -107,7 +107,7 @@ describe("mapOpenAICompatibleError on a 404", () => {
     expect(err).not.toBeInstanceOf(ConfigurationError);
     expect(err).toBeInstanceOf(UnknownAgentError);
     expect(err.code).toBe("openrouter_unknown");
-    expect(err.message).toBe("openrouter API error: unknown (HTTP 404)");
+    expect(err.message).toBe("openrouter API error: unknown (HTTP 404): Not Found");
   });
 
   it("never_throws_on_a_404_body_of_any_shape", () => {

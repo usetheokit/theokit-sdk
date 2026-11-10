@@ -284,7 +284,10 @@ function resolveModel(
   filename: string,
 ): ModelSelection | "inherit" | undefined {
   const modelId = asString(fields.model);
-  const effort = asString(fields.reasoning_effort);
+  // An empty/blank effort (`reasoning_effort: ""`) names nothing: treated as absent, never as a
+  // `{ id: "thinking", value: "" }` param the provider would drop or reject.
+  const rawEffort = asString(fields.reasoning_effort)?.trim();
+  const effort = rawEffort === "" ? undefined : rawEffort;
   // reasoning_effort rides in model.params[thinking], so it needs a CONCRETE model id to attach to.
   // Neither an absent model NOR `model: inherit` can carry it (the inherited id is unknown at load), so
   // both are typed errors rather than a silently-dropped effort — the silent-gate class this guards.

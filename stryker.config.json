@@ -4,14 +4,15 @@
   "testRunner": "vitest",
   "plugins": ["@stryker-mutator/vitest-runner"],
   "vitest": {
-    "configFile": "vitest.config.ts",
+    "configFile": "packages/sdk/vitest.config.ts",
+    "dir": "packages/sdk",
     "related": false
   },
   "reporters": ["json", "clear-text", "progress-append-only"],
   "jsonReporter": {
-    "fileName": "../../reports/mutation/slice.json"
+    "fileName": "reports/mutation/mutation.json"
   },
-  "mutate": ["src/internal/llm/**/*.ts"],
+  "mutate": ["packages/sdk/src/**/*.ts", "!packages/sdk/src/**/*.d.ts"],
   "concurrency": 2,
   "timeoutMS": 60000,
   "timeoutFactor": 2,
@@ -21,5 +22,5 @@
   "disableTypeChecks": true,
   "tempDirName": ".stryker-tmp",
   "inPlace": true,
-  "_comment": "Run from packages/sdk (pnpm --filter exec). inPlace:true because packages/sdk is NOT relocatable: vitest.setup.ts imports ../../tools/preflight-native-bindings.mjs, which escapes the package to the monorepo root, so any sandbox copy breaks before a single test is collected. related:false because tests live in a mirror tree (tests/**) and vitest --related cannot map a source file back to them."
+  "_comment": "Run from the repository root (what the code-quality D4 detector does): stryker run --reporters json writes reports/mutation/mutation.json. Scope is packages/sdk/src (B-445, supersedes the B-026 llm-only spike). Narrow a run with --mutate. inPlace:true because packages/sdk is NOT relocatable: vitest.setup.ts imports ../../tools/preflight-native-bindings.mjs, which escapes the package. inPlace restores content but not file mode, so run through `pnpm run mutation`, which snapshots packages/*/bin/*.mjs modes first and fails if any changed (tools/check-bin-modes.mjs). related:false because tests live in a mirror tree (tests/**)."
 }

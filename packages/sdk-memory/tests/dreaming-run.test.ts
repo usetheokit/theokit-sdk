@@ -19,7 +19,7 @@
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
+import { setDiagnosticsSink } from "@theokit/sdk";
 import {
   appendFactToMarkdown,
   type DreamingResult,
@@ -27,7 +27,7 @@ import {
   resolveMemoryRoot,
   runDreamingSweep,
 } from "@theokit/sdk-memory";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 function stubEmbedding(textToVec: Record<string, ReadonlyArray<number>>): EmbeddingRuntime {
   return {
@@ -62,9 +62,9 @@ describe("sdk-memory dreaming-run (iter 60)", () => {
     // Two near-duplicate facts about AI + one about Go → 1 cluster
     // after dedup (Go drops because only 1 in its cluster — wait, Go
     // also forms its own singleton cluster; remPhase keeps singletons).
-    await appendFactToMarkdown(cwd, { text: "ai short" });
-    await appendFactToMarkdown(cwd, { text: "ai longer description" });
-    await appendFactToMarkdown(cwd, { text: "go runtime quirks" });
+    await appendFactToMarkdown(cwd, { text: "ai short", kind: "project" });
+    await appendFactToMarkdown(cwd, { text: "ai longer description", kind: "project" });
+    await appendFactToMarkdown(cwd, { text: "go runtime quirks", kind: "project" });
 
     const embedding = stubEmbedding({
       "ai short": [1, 0, 0],
@@ -133,19 +133,20 @@ describe("sdk-memory dreaming-run (iter 60)", () => {
       model: "stub-fail-model",
     } as unknown as EmbeddingRuntime;
 
-    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    // The sweep reports through the SDK's diagnostics channel (one implementation), not stderr.
+    const messages: string[] = [];
+    setDiagnosticsSink((message) => messages.push(message));
 
     try {
       const result = await runDreamingSweep({ cwd, embedding: failing });
       expect(result.status).toBe("error");
       expect(result.factsBefore).toBe(0); // emptyResult shape on error
       expect(result.notesWritten).toBe(0);
-      expect(stderrSpy).toHaveBeenCalled();
-      const msg = String(stderrSpy.mock.calls[0]?.[0] ?? "");
+      const msg = messages.join("");
       expect(msg).toContain("dreaming sweep failed");
       expect(msg).toContain("upstream provider 503");
     } finally {
-      stderrSpy.mockRestore();
+      setDiagnosticsSink(undefined);
     }
   });
 

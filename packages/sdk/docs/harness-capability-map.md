@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1272 export(s) across 53 entry point(s).
+1293 export(s) across 54 entry point(s).
 
 ## `@theokit/acp`
 
@@ -309,6 +309,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ProviderTransform` | interface | M41 — the one OPTIONAL behavior seam on a provider profile.  |
 | `ProviderTransformContext` | interface | M41 (agent-builder provider framework) — the context a provider's `transform` receives per request.  |
 | `PruneToolResultsOptions` | interface | B-564 — how old a tool result may get, in tool rounds, before its content is pruned from the next LLM request (`SendOptions.pruneToolResults`).  |
+| `QueueMode` | type | How a message sent during a running turn is queued.  |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
 | `readManagedSettings` | function | Read the deployed policy, or `{}` when none is.  |
 | `readSessionMessages` | function | Read the messages a session already contains, for a surface that needs to re-render it.  |
@@ -397,6 +398,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SkillsSettings` | interface | Skills configuration accepted by `Agent.create()` via {@link AgentOptions.skills } .  |
 | `SOVEREIGN_ENV_KEYS` | const | Variables a project-scoped source may never set.  |
 | `SovereignEnvKey` | type | The union of {@link SOVEREIGN_ENV_KEYS } entries — the variables a project-scoped `.env` may never set.  |
+| `SqliteSessionStore` | class | A {@link SessionStore } that keeps the native session records in one SQLite file instead of per-agent JSONL transcripts.  |
+| `SqliteSessionStoreOptions` | interface | Options for {@link SqliteSessionStore } . |
 | `Squad` | class | A sequential agent team produced by {@link createSquad } .  |
 | `SquadOptions` | interface | Options for {@link createSquad } . |
 | `SquadRun` | interface | Result of a {@link Squad.run } .  |
@@ -572,8 +575,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CircuitBreaker` | class | Stops calling a recall path that keeps timing out.  |
 | `CircuitBreakerOptions` | interface | Consecutive-timeout circuit breaker for Active Memory recall.  |
 | `claudeProjectMemoryDir` | function | Where the Claude Code CLI keeps THIS project's memories.  |
-| `Cluster` | interface | A group of facts the REM phase judged related.  |
-| `ClusterResult` | interface | What {@link remPhase } produced.  |
+| `Cluster` | interface | A group of semantically similar facts, with the text chosen to represent them. |
+| `ClusterResult` | interface | What clustering produced: the clusters and how many facts the per-sweep cap left out. |
 | `cohereMemoryEmbeddingProviderAdapter` | const | Cohere embeddings.  |
 | `collectMarkdownFiles` | function | Every markdown file the memory corpus holds: the index, the per-memory files, `notes/`, `wiki/` and `sessions/`, each tagged with the bucket `memory_search`'s `corpus` filters on.  |
 | `CreateAdapterOptions` | interface | Per-call overrides handed to {@link MemoryEmbeddingProviderAdapter.create } .  |
@@ -605,7 +608,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `discoverSessionFiles` | function | Every session summary under `<memory root>/sessions`, as `{ absolutePath, relPath }` records.  |
 | `discoverWikiFiles` | function | Every wiki supplement under `<memory root>/wiki`, as `{ absolutePath, relPath }` records.  |
 | `DreamingOptions` | interface | Dreaming sweep orchestrator (ADR D7 of memory-system-peer-project-parity).  |
-| `DreamingResult` | interface | What one sweep did.  |
+| `DreamingResult` | interface | Outcome of one dreaming sweep: counts before and after, and the note written. |
 | `dropVectorIndex` | function | Drop the `embeddings` table, discarding every stored vector.  |
 | `EmbedAllArgs` | interface | Inputs for {@link embedMissingChunks } : the open database and the embedding runtime to call. |
 | `EmbeddingCache` | interface | The cache contract the shared runtime writes through.  |
@@ -631,7 +634,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `LanceSearchOptions` | interface | Filters for `LanceIndex.search`.  |
 | `lanceStoragePath` | function | `<memory root>/lance`.  |
 | `legacyMemoryJsonPath` | function | Resolve the legacy JSON memory path used pre-ADR-D8 (kept for migration helpers + tests).  |
-| `lightPhase` | function | Light phase — drop facts whose embedding is too similar to one already kept. |
+| `lightPhase` | function | Light phase — drop facts whose embedding is too similar to one already kept.  |
 | `listNotes` | function | List the `.md` files directly under `notes/`.  |
 | `loadSqliteVecExtension` | function | Load the `sqlite-vec` extension into an opened SQLite connection.  |
 | `mapOpenAICompatibleError` | function | Turn a failed OpenAI-shaped HTTP response into the typed error the SDK throws.  |
@@ -697,7 +700,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `resolveMemoryRoot` | function | The memory root for this agent: `memory.directory` when set, the project store otherwise.  |
 | `runActiveMemory` | function | Run one blocking recall before the system prompt is assembled, and report what happened.  |
 | `RunActiveMemoryArgs` | interface | Everything {@link runActiveMemory } needs for one attempt.  |
-| `runDreamingSweep` | function | Run one consolidation sweep over `MEMORY.md`: drop near-duplicate facts, cluster what is left, write a consolidated note under `notes/`, and append a diary entry.  |
+| `runDreamingSweep` | function | Run one dreaming sweep (dedupe, cluster, write a consolidated note), serialised per `cwd`. |
 | `SCHEMA_STATEMENTS` | const | SQLite schema for the memory index.  |
 | `SearchOptions` | interface | Search tuning.  |
 | `SessionFile` | interface | Session summary discovery (ADR D20).  |
@@ -879,6 +882,14 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `DEFAULT_MAX_ENTRIES` | const | Default ceiling on the entries one log holds; it bounds the cost of each rewrite.  |
 | `LogbookEntry` | type | One line of the log.  |
 | `ScreenshotLogbookResult` | type | The tool's result, before it is serialised to the JSON string the handler returns. |
+
+## `@theokit/sdk-tools/secrets`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `createSecretsTool` | function | Create a tool that resolves `{{secret:NAME}}` references and masks secret values in output. |
+| `CreateSecretsToolOptions` | interface | `secrets` — lets an agent USE a stored secret without the value reaching the model.  |
+| `SecretsTool` | interface | A secrets tool: a custom tool that can also wrap other tools with secret resolution. |
 
 ## `@theokit/sdk-tools/structured-output`
 
@@ -1139,16 +1150,23 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `asMemoryRoot` | function | Treat a directory as a memory root without resolving one.  |
 | `ceilingReachedError` | function | The refusal of a new fact at a store's declared ceiling: where the store is, how many facts it holds, the ceiling, and what to consolidate.  |
 | `claudeProjectMemoryDir` | function | Where the Claude Code CLI keeps THIS project's memories.  |
+| `Cluster` | interface | A group of semantically similar facts, with the text chosen to represent them. |
+| `ClusterResult` | interface | What clustering produced: the clusters and how many facts the per-sweep cap left out. |
 | `collectMarkdownFiles` | function | Every markdown file the memory corpus holds: the index, the per-memory files, `notes/`, `wiki/` and `sessions/`, each tagged with the bucket `memory_search`'s `corpus` filters on.  |
+| `DedupResult` | interface | Dreaming/REM phase logic.  |
+| `deepPhase` | function | Deep phase — render consolidated markdown for the dreamed note. |
 | `defaultIndexPath` | function | `<index root>/.index/memory.sqlite`.  |
 | `DiaryEntry` | interface | Dream-diary append (ADR D7).  |
 | `diaryPath` | function | `<memory root>/dream-diary.md`.  |
 | `DiscoveredFile` | interface | One markdown file the corpus walk found, with the source bucket the indexer tags it with.  |
 | `discoverSessionFiles` | function | Every session summary under `<memory root>/sessions`, as `{ absolutePath, relPath }` records.  |
 | `discoverWikiFiles` | function | Every wiki supplement under `<memory root>/wiki`, as `{ absolutePath, relPath }` records.  |
+| `DreamingOptions` | interface | Dreaming sweep orchestrator (ADR D7 of memory-system-peer-project-parity).  |
+| `DreamingResult` | interface | Outcome of one dreaming sweep: counts before and after, and the note written. |
 | `entryHash` | function | A stable hash of one entry's counts, so two sweeps that did the same work read as the same work.  |
 | `indexBudgetWarning` | function | What to say about an index that the interop partner will truncate, or `undefined` when there is nothing true to say.  |
 | `lanceStoragePath` | function | `<memory root>/lance`.  |
+| `lightPhase` | function | Light phase — drop facts whose embedding is too similar to one already kept.  |
 | `MEMORY_INDEX_MAX_BYTES` | const | The byte limit the Claude Code CLI applies when it loads a `MEMORY.md`, whichever it reaches first.  |
 | `MEMORY_INDEX_MAX_LINES` | const | The line limit the Claude Code CLI applies when it loads a `MEMORY.md`.  |
 | `memoryIndexRoot` | function | Where the search index belongs for this configuration (theokit-sdk#554).  |
@@ -1162,9 +1180,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `readAllSqliteFacts` | function | Read all facts from the SQLite memory index.  |
 | `readFacts` | function | Every memory in the store, honouring the `enabled` gate on {@link MemoryConfig } : when memory is disabled the call resolves to `[]` without touching disk.  |
 | `readFactsFromMarkdown` | function | Every memory in the store: the per-memory files, plus any legacy `## Facts` bullets still in `MEMORY.md`.  |
+| `remPhase` | function | REM phase — single-link agglomerative clustering by cosine similarity. |
 | `renderDiaryEntry` | function | One diary entry as the markdown that gets appended: a timestamp heading, the short entry hash, and the counts the sweep produced.  |
 | `resolveMaxFacts` | function | The ceiling a caller declared, or `undefined` when none was declared.  |
 | `resolveMemoryRoot` | function | The memory root for this agent: `memory.directory` when set, the project store otherwise.  |
+| `runDreamingSweep` | function | Run one dreaming sweep (dedupe, cluster, write a consolidated note), serialised per `cwd`. |
 | `SessionFile` | interface | Session summary discovery (ADR D20).  |
 | `sessionsDir` | function | `<memory root>/sessions`.  |
 | `SessionSummaryInput` | interface | Per-run session summary writer (ADR D20).  |
@@ -1320,6 +1340,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SessionListing` | interface | One session found on disk. |
 | `sessionUuidFor` | function | The transcript filename for an agent id — always a UUID.  |
 | `SessionWriterLease` | interface | A held writer lease.  |
+| `SqliteSessionStore` | class | A {@link SessionStore } that keeps the native session records in one SQLite file instead of per-agent JSONL transcripts.  |
+| `SqliteSessionStoreOptions` | interface | Options for {@link SqliteSessionStore } . |
 | `TranscriptBlock` | type | A content block inside {@link TranscriptMessage } . |
 | `TranscriptMessage` | interface | The message body of a {@link SessionRecord } .  |
 | `transcriptPath` | function | The `.jsonl` path for a session: `<baseDir>/projects/<encoded-cwd>/<session-uuid>.jsonl`. |
@@ -1368,6 +1390,10 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CreateSandboxBackendOptions` | interface | Options for `createSandboxBackend`, which probes for bubblewrap and returns a {@link LinuxSandbox } when confinement is genuinely available or a `LocalSandbox` when it is not — warning once when th... |
 | `detectBwrap` | function | Honest detection — fail-closed on every probe; NEVER throws (callers WARN + fall back). |
 | `detectBwrapMemoized` | function | `detectBwrap` with memoization — what production should call.  |
+| `DockerRunner` | type | Seam for tests: runs `docker <args>`, optionally feeding `input` to stdin. |
+| `DockerRunResult` | interface | Result of one `docker` invocation: captured output, exit code and whether it timed out. |
+| `DockerSandbox` | class | Sandbox backend that runs each command in a throwaway Docker container. |
+| `DockerSandboxConfig` | interface | Configuration for {@link DockerSandbox } . |
 | `ExecuteResult` | interface | What a {@link SandboxBackend } returns for one command.  |
 | `interactiveWrapCommand` | function | The composition the interactive path needs — the counterpart of `createSandboxBackend`.  |
 | `InteractiveWrapOptions` | interface | Options for `interactiveWrapCommand`, the PTY counterpart of `createSandboxBackend`.  |

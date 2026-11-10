@@ -58,6 +58,8 @@
     "quality:doc-tag-first": "node tools/check-tag-first-docblocks.mjs",
     "quality:doc-coverage": "node tools/check-doc-coverage.mjs",
     "test:e2e": "vitest run --config e2e/vitest.config.ts",
+    "mutation": "node tools/check-bin-modes.mjs snapshot && (stryker run; s=$?; node tools/check-bin-modes.mjs verify || exit 1; exit $s)",
+    "mutation:redundancy": "node tools/mutation-redundancy.mjs reports/mutation/mutation.json",
     "test:tools": "vitest run --config tools/vitest.config.ts",
     "typecheck:e2e": "tsc --noEmit -p e2e/tsconfig.json",
     "validate:published-imports": "node tools/check-published-imports.mjs",

@@ -20,6 +20,8 @@ import { Agent } from "../../src/agent.js";
 import {
   AgentRunError,
   AuthenticationError,
+  isTransientError,
+  NetworkError,
   TheokitAgentError,
   UnknownAgentError,
 } from "../../src/errors.js";
@@ -106,7 +108,9 @@ describe("a run that fails on a provider 401", () => {
 
       expect(fetchStub).toHaveBeenCalled();
       expect(result.status).toBe("error");
-      expect(result.error?.message).toBe("openrouter API error: auth_failed (HTTP 401)");
+      expect(result.error?.message).toBe(
+        "openrouter API error: auth_failed (HTTP 401): User not found.",
+      );
       expect(result.error?.code).toBe("auth_failed");
       expect(result.error?.cause).toBeInstanceOf(AuthenticationError);
     } finally {
@@ -138,6 +142,33 @@ describe("a run that fails on a provider 401", () => {
       expect(result.error?.code).toBe("custom");
       expect(result.error?.cause).toBeInstanceOf(UnknownAgentError);
       expect(result.error?.cause?.code).toBe("custom");
+    } finally {
+      await agent.dispose();
+    }
+  });
+
+  it("keeps_the_value_a_throwing_budget_tracker_threw_at_cause_cause", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "");
+    vi.stubGlobal("fetch", stubFetch401());
+    const original = new Error("nonsdk-boom-original");
+    const agent = await Agent.create({
+      apiKey: BAD_KEY,
+      model: { id: "deepseek/deepseek-r1-0528" },
+      local: { cwd: root },
+      providers: { routes: [{ capability: "chat", provider: "openrouter" }] },
+      budgetTracker: {
+        track: () => {},
+        check: () => {
+          throw original;
+        },
+        getTotal: () => ({ tokens: 0 }),
+      },
+    });
+    try {
+      const run = await agent.send("hi");
+      const result = await run.wait();
+      expect(result.error?.cause).toBeInstanceOf(UnknownAgentError);
+      expect(result.error?.cause?.cause).toBe(original);
     } finally {
       await agent.dispose();
     }
@@ -246,7 +277,7 @@ describe("a run that fails on a provider 401", () => {
     expect(fetchStub).toHaveBeenCalled();
     expect(rejected).toBeInstanceOf(AgentRunError);
     expect((rejected as AgentRunError).message).toBe(
-      "openrouter API error: auth_failed (HTTP 401)",
+      "openrouter API error: auth_failed (HTTP 401): User not found.",
     );
     expect((rejected as AgentRunError).code).toBe("auth_failed");
     expect((rejected as AgentRunError).cause).toBeInstanceOf(AuthenticationError);
@@ -273,7 +304,7 @@ describe("a cloud run that the platform refuses", () => {
         );
         return;
       }
-      res.statusCode = 500;
+      res.statusCode = 503;
       res.end("platform down");
     });
     await new Promise<void>((resolve) => server?.listen(0, "127.0.0.1", () => resolve()));
@@ -307,7 +338,9 @@ describe("a cloud run that the platform refuses", () => {
         (error: unknown) => error,
       );
 
-      expect(rejected).toBeInstanceOf(TheokitAgentError);
+      expect(rejected).toBeInstanceOf(NetworkError);
+      expect((rejected as NetworkError).code).toBe("cloud_run_http_error");
+      expect(isTransientError(rejected)).toBe(true);
       expect(rejected).toBe((await readRunResolving(run)).error?.cause);
     } finally {
       await agent.dispose();

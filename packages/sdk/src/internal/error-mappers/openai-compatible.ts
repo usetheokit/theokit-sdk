@@ -8,9 +8,8 @@
  * Body inspection: looks at `body.error.code` / `body.error.type` to detect
  * `context_too_long`, `content_filtered`, `model_unavailable` semantics, and at
  * `body.error.message` for a 404 that says no endpoint serves the model
- * (OpenRouter's numeric-code body for a retired model id). A 400 and that 404
- * end their message with the provider's text, redacted and capped at 512
- * characters; every other status keeps the bare message.
+ * (OpenRouter's numeric-code body for a retired model id). Every message
+ * ends with the provider's text, redacted and capped at 512 characters.
  * Falls back to status-based mapping when body doesn't expose `.error`
  * (e.g., HTML server error page, DeepInfra's `{message: "..."}` shape).
  *
@@ -47,7 +46,8 @@ interface MapOpenAiErrorArgs {
 export function mapOpenAICompatibleError(args: MapOpenAiErrorArgs): TheokitAgentError {
   const { providerId, status, body, headers, endpoint } = args;
   const code = mapOpenAiStatusToCode(status, body);
-  const message = formatMessage(providerId, status, code);
+  // Every status carries the provider's text: it is the only place that says what went wrong.
+  const message = formatMessage(providerId, status, code, boundedProviderDetail(body));
   const metadata = buildErrorMetadata({
     provider: providerId,
     endpoint,
@@ -64,17 +64,13 @@ export function mapOpenAICompatibleError(args: MapOpenAiErrorArgs): TheokitAgent
     return new RateLimitError(message, { code: `${providerId}_rate_limit`, metadata });
   }
   if (status === 404 && code === "model_unavailable") {
-    // The model id lives only in the provider's text, so this case carries it.
-    const detailed = formatMessage(providerId, status, code, boundedProviderDetail(body));
-    return new ConfigurationError(detailed, {
+    return new ConfigurationError(message, {
       code: `${providerId}_model_unavailable`,
       metadata,
     });
   }
   if (status === 400) {
-    // A 400 is fixed by changing the request, and only the provider's text says what to change.
-    const detailed = formatMessage(providerId, status, code, boundedProviderDetail(body));
-    return new ConfigurationError(detailed, { code: `${providerId}_${code}`, metadata });
+    return new ConfigurationError(message, { code: `${providerId}_${code}`, metadata });
   }
   if (status === 408) {
     return new NetworkError(message, { code: `${providerId}_timeout`, metadata });

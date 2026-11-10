@@ -25,8 +25,12 @@ export interface BudgetUsageEvent {
   readonly tokens: number;
   /** Provider/model identifier (e.g., `"openai/gpt-4o-mini"`). */
   readonly model: string;
-  /** Whether this is an input (prompt) or output (completion) measurement. */
-  readonly type: "input" | "output";
+  /**
+   * Whether this is an input (uncached prompt), output (completion), `cache_read` (prompt tokens
+   * served from the provider's cache) or `cache_write` (prompt tokens written to it) measurement.
+   * A tracker that has no separate rate for the cache types should treat them as input.
+   */
+  readonly type: "input" | "output" | "cache_read" | "cache_write";
   /** Optional ISO 8601 timestamp; defaults to now() if omitted. */
   readonly at?: string;
 }

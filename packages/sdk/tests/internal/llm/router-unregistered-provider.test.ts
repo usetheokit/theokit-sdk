@@ -15,6 +15,7 @@ import { resolveProviderChain } from "../../../src/internal/llm/router.js";
 import { _resetBuiltinsRegistered } from "../../../src/internal/providers/builtin/index.js";
 import {
   _resetProvidersForTests,
+  getProviderProfile,
   listProviders,
   registerProvider,
 } from "../../../src/internal/providers/registry.js";
@@ -93,7 +94,7 @@ describe("an unregistered primary provider", () => {
   });
 
   it("lists_providers_in_locale_order_not_utf16_code_unit_order", () => {
-    for (const name of ["Zeta", "alpha"]) {
+    for (const name of ["zeta", "\u00e9psilon"]) {
       registerProvider({
         name,
         apiMode: "chat_completions",
@@ -108,9 +109,9 @@ describe("an unregistered primary provider", () => {
       ", ",
     );
 
-    // The default string sort puts "Zeta" (U+005A) before "alpha" (U+0061); locale order does not.
-    expect(listed.indexOf("alpha")).toBeGreaterThanOrEqual(0);
-    expect(listed.indexOf("alpha")).toBeLessThan(listed.indexOf("Zeta"));
+    // The default string sort puts "zeta" (U+007A) before "\u00e9psilon" (U+00E9); locale order does not.
+    expect(listed.indexOf("\u00e9psilon")).toBeGreaterThanOrEqual(0);
+    expect(listed.indexOf("\u00e9psilon")).toBeLessThan(listed.indexOf("zeta"));
     expect(listed).toEqual([...listed].sort((a, b) => a.localeCompare(b)));
   });
 
@@ -155,47 +156,26 @@ describe("a registered primary provider with no credential", () => {
   });
 });
 
-describe("a primary that matches a registered profile only when case is ignored", () => {
-  it("names_the_lowercase_rule_for_a_provider_registered_with_uppercase_letters", () => {
-    registerProvider({
-      name: "AcmeAI",
-      apiMode: "chat_completions",
-      envVars: ["ACME_AI_TEST_API_KEY"],
-      authType: "api_key",
-      baseUrl: "https://acme.invalid/v1",
-      fallbackModels: ["acme-model"],
-    });
-
-    const error = captureResolutionError("AcmeAI");
-
-    expect(error.code).toBe("provider_unresolved");
-    expect(error.message).toBe(
-      'No provider client could be resolved: "AcmeAI" matches the registered provider "AcmeAI" ' +
-        "only when case is ignored, and routes look provider names up in lowercase. " +
-        'Register the provider as "acmeai".',
-    );
-  });
-});
-
-describe("a primary that matches a registered alias only when case is ignored", () => {
-  it("names_the_lowercase_rule_for_an_alias_registered_with_uppercase_letters", () => {
-    registerProvider({
-      name: "acme",
-      aliases: ["AcmeX"],
-      apiMode: "chat_completions",
-      envVars: ["ACME_TEST_API_KEY"],
-      authType: "api_key",
-      baseUrl: "https://acme.invalid/v1",
-      fallbackModels: ["acme-model"],
-    });
-
-    const error = captureResolutionError("AcmeX");
-
-    expect(error.code).toBe("provider_unresolved");
-    expect(error.message).toBe(
-      'No provider client could be resolved: "AcmeX" matches the alias "AcmeX" of the registered ' +
-        'provider "acme" only when case is ignored, and routes look provider names up in ' +
-        'lowercase. Register the alias as "acmex", or route to "acme".',
-    );
+describe("a profile registered with uppercase letters", () => {
+  // Replaces the two lowercase-rule message tests: the registry now lowercases, so both are reachable.
+  it("is_reached_by_a_route_naming_the_name_and_by_one_naming_the_alias", () => {
+    process.env.ACME_AI_TEST_API_KEY = "k";
+    try {
+      registerProvider({
+        name: "AcmeAI",
+        aliases: ["AcmeX"],
+        apiMode: "chat_completions",
+        envVars: ["ACME_AI_TEST_API_KEY"],
+        authType: "api_key",
+        baseUrl: "https://acme.invalid/v1",
+        fallbackModels: ["acme-model"],
+      });
+      expect(getProviderProfile("AcmeAI")?.name).toBe("acmeai");
+      expect(getProviderProfile("AcmeX")?.name).toBe("acmeai");
+      expect(resolveProviderChain({ primary: "AcmeAI" })).toHaveLength(1);
+      expect(resolveProviderChain({ primary: "AcmeX" })).toHaveLength(1);
+    } finally {
+      delete process.env.ACME_AI_TEST_API_KEY;
+    }
   });
 });

@@ -78,6 +78,7 @@ export async function runAgentLoop(inputs: AgentLoopInputs): Promise<AgentLoopOu
     // `done` finish from a silent truncation at the iteration ceiling.
     let lastTurnDecision: "continue" | "done" | "error" | undefined;
     while (budget.shouldContinue()) {
+      injectSteered(ctx, inputs.steerQueue?.drain());
       if (inputs.budgetTracker !== undefined) {
         // Fail-CLOSED gate: a tracker that throws denies the iteration
         // instead of silently proceeding past budget (arch-review L1).
@@ -85,7 +86,11 @@ export async function runAgentLoop(inputs: AgentLoopInputs): Promise<AgentLoopOu
         if (decision.allowed === false) {
           ctx.finalStatus = "error";
           if (decision.detail !== undefined) {
-            ctx.error = { message: decision.detail, code: decision.reason ?? "budget" };
+            ctx.error = {
+              message: decision.detail,
+              code: decision.reason ?? "budget",
+              ...(decision.cause !== undefined ? { cause: decision.cause } : {}),
+            };
           }
           // M1-2 (T2.2): a pluggable tracker denying on its iteration ceiling is
           // the same "hit the iteration limit" event as the legacy IterationBudget
@@ -101,7 +106,15 @@ export async function runAgentLoop(inputs: AgentLoopInputs): Promise<AgentLoopOu
       if (usingGrace) budget.useGraceCall();
       const decision = await runIteration(inputs, ctx);
       lastTurnDecision = decision;
-      if (decision === "done") break;
+      if (decision === "done") {
+        // A steered message that landed during the final call keeps the run going; otherwise the
+        // queue closes in the same tick, so nothing can slip in between.
+        const late = inputs.steerQueue?.drainOrClose() ?? [];
+        if (late.length === 0) break;
+        injectSteered(ctx, late);
+        budget.consume();
+        continue;
+      }
       if (decision === "error") {
         ctx.finalStatus = "error";
         break;
@@ -320,6 +333,12 @@ async function finishOrReflect(
   return "done";
 }
 
+/** Append steered texts to the transcript as user messages for the next LLM call. */
+function injectSteered(ctx: LoopContext, texts: readonly string[] | undefined): void {
+  if (texts === undefined) return;
+  for (const text of texts) ctx.messages.push({ role: "user", content: [{ type: "text", text }] });
+}
+
 async function runIteration(
   inputs: AgentLoopInputs,
   ctx: LoopContext,
@@ -336,24 +355,17 @@ async function runIteration(
 
 /**
  * Report one turn's tokens to the run's BudgetTracker. `inputTokens` is the uncached slice on every
- * client, and BudgetUsageEvent has only "input" and "output", so the input event carries the whole
- * prompt: uncached plus both cache buckets (F-dom-5).
+ * client; the two cache buckets go out as their own events so a USD tracker can price them at their
+ * own rates, and a token tracker still sums the whole prompt (F-dom-5).
  */
 function trackTurnUsage(inputs: AgentLoopInputs, llmOutput: LlmTurnOutput): void {
   const tracker = inputs.budgetTracker;
   if (tracker === undefined) return;
   const model = inputs.model.id ?? "auto";
-  trackEvent(tracker, { tokens: promptTokens(llmOutput), model, type: "input" });
+  trackEvent(tracker, { tokens: llmOutput.inputTokens ?? 0, model, type: "input" });
+  trackEvent(tracker, { tokens: llmOutput.cacheReadTokens ?? 0, model, type: "cache_read" });
+  trackEvent(tracker, { tokens: llmOutput.cacheWriteTokens ?? 0, model, type: "cache_write" });
   trackEvent(tracker, { tokens: llmOutput.outputTokens ?? 0, model, type: "output" });
-}
-
-/** The whole prompt of one turn: the uncached slice plus both cache buckets. */
-function promptTokens(llmOutput: LlmTurnOutput): number {
-  return (
-    (llmOutput.inputTokens ?? 0) +
-    (llmOutput.cacheReadTokens ?? 0) +
-    (llmOutput.cacheWriteTokens ?? 0)
-  );
 }
 
 /**
@@ -461,7 +473,8 @@ export async function continueOrTerminate(
     }
   }
   pushToolConversationSteps(ctx, llmOutput.toolCalls, toolResults);
-  if ((await inspectDoomLoop(inputs, ctx, llmOutput.toolCalls)) === "stop") return "done";
+  if ((await inspectDoomLoop(inputs, ctx, llmOutput.toolCalls, toolResults)) === "stop")
+    return "done";
   return handleToolErrorContinuation(inputs, ctx, toolResults);
 }
 
@@ -476,9 +489,19 @@ async function inspectDoomLoop(
   inputs: AgentLoopInputs,
   ctx: LoopContext,
   toolCalls: LlmToolCallPart[],
+  toolResults: LlmContentPart[],
 ): Promise<"stop" | "continue"> {
   if (ctx.doomLoop === undefined) return "continue";
-  const verdict = firstDoomLoopVerdict(ctx.doomLoop, toolCalls);
+  const resultById = new Map<string, string>();
+  for (const part of toolResults) {
+    if (part.type === "tool_result") {
+      resultById.set(part.toolUseId, JSON.stringify([part.content, part.isError === true]));
+    }
+  }
+  const verdict = firstDoomLoopVerdict(
+    ctx.doomLoop,
+    toolCalls.map((c) => ({ name: c.name, input: c.input, result: resultById.get(c.id) })),
+  );
   if (verdict.kind === "hard") {
     ctx.stoppedByDoomLoop = true;
     await emitAssistantTextStep(

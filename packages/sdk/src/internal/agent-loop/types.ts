@@ -57,6 +57,8 @@ export interface ResolvedTool {
   origin: "shell" | "mcp" | "memory" | "custom";
   mcpServerName?: string;
   mcpToolName?: string;
+  /** The tool's MCP server runs its calls of one step one at a time (`sequential`). */
+  mcpSequential?: boolean;
   /** Direct handler for `origin === "memory"` tools — returns JSON-encoded result string. */
   memoryHandler?: (input: Record<string, unknown>) => Promise<string>;
   /** Direct handler for `origin === "custom"` tools — user-supplied via `AgentOptions.tools`.
@@ -64,6 +66,13 @@ export interface ResolvedTool {
   customHandler?: (
     input: Record<string, unknown>,
   ) => ToolHandlerResult | Promise<ToolHandlerResult>;
+}
+
+export interface SteerQueue {
+  /** Take every pending message. */
+  drain(): string[];
+  /** Like `drain`, but atomically refuses further pushes when nothing was pending. */
+  drainOrClose(): string[];
 }
 
 /**
@@ -132,6 +141,12 @@ export interface AgentLoopInputs {
    * (legacy behavior).
    */
   signal?: AbortSignal;
+  /**
+   * Steer queue (`SendOptions.queueMode: "steer"`). The loop drains it before each LLM call and,
+   * when the model would finish, once more — a message found there keeps the run going. It closes
+   * the queue when the loop ends so a late message is refused rather than lost.
+   */
+  steerQueue?: SteerQueue;
   /**
    * M7 — caller-supplied run `context` from `SendOptions.context`, forwarded to
    * every tool handler's `ctx.context`. Shared config (e.g. `projectRoot`) is set

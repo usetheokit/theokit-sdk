@@ -45,6 +45,12 @@ describe("subagent loader — per-agent config (M33)", () => {
     ]);
   });
 
+  it("treats an empty reasoning_effort as absent (no empty thinking param)", async () => {
+    const md = `---\nname: e\ndescription: d\nmodel: openai/gpt-4o-mini\nreasoning_effort: ""\n---\nbody`;
+    const defs = await withRole("e", md, (cwd) => loadSubagents(cwd, true, undefined));
+    expect(defs.e?.model).toEqual({ id: "openai/gpt-4o-mini" });
+  });
+
   it("rejects mcp with a typed error — unsupported on the local delegation path (not a silent drop)", async () => {
     // The frontmatter YAML can only express server NAMES, while a child's Agent.create needs a
     // Record<name, config>; resolving that per-subagent on the local path is a follow-up. Rejecting

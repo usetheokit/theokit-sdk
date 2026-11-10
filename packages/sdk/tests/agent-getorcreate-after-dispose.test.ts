@@ -52,4 +52,12 @@ describe("M91 — getOrCreate after dispose", () => {
     expect(b).not.toBe(a);
     await b.dispose();
   });
+
+  it("after close, getOrCreate returns a NEW usable instance", async () => {
+    const a = await Agent.getOrCreate("b603-close", opts() as never);
+    a.close();
+    const b = await Agent.getOrCreate("b603-close", opts() as never);
+    expect(b).not.toBe(a);
+    await b.dispose();
+  });
 });
