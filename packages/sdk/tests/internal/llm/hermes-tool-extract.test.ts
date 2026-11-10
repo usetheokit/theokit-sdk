@@ -557,3 +557,27 @@ describe("extractHermesToolCalls — Gemini multi-call <ctrl42>call text (#939)"
     expect(r.droppedNames).toHaveLength(4);
   });
 });
+
+describe("extractHermesToolCalls — <ctrl42>call values and partial promotion (#939)", () => {
+  it("keeps an undeclared call of a mixed block as text and runs only the declared one", () => {
+    const text =
+      "<ctrl42>call\nprint(default_api.computer(action='screenshot'))\nprint(default_api.other(x=1))";
+    const r = extractHermesToolCalls(text, () => "id", new Set(["computer"]));
+    expect(r.toolCalls.map((c) => c.name)).toEqual(["computer"]);
+    expect(r.residualText).toBe("<ctrl42>call\nprint(default_api.other(x=1))");
+  });
+
+  it("turns escapes, booleans, None, numbers and bare words into their values", () => {
+    const text =
+      '<ctrl42>call\nprint(default_api.computer(text="a\\nb\\tc\\"d", on=True, off=False, none=None, n=-2.5, mode=fast))';
+    const r = extractHermesToolCalls(text, () => "id", new Set(["computer"]));
+    expect(r.toolCalls[0]?.input).toEqual({
+      text: 'a\nb\tc"d',
+      on: true,
+      off: false,
+      none: null,
+      n: -2.5,
+      mode: "fast",
+    });
+  });
+});
