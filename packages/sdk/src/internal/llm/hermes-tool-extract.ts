@@ -34,10 +34,12 @@
  * @internal
  */
 import { sanitizeToolInput } from "../../sanitize/sanitize-tool-input.js";
+import { extractGeminiCalls } from "./gemini-text-calls.js";
 import type { LlmToolCallPart } from "./types.js";
 
 /** A full leaked block: `<function=NAME> …inner… </tool_call>`. The closing `</tool_call>` is
  *  required (fail-open: a partial block at stream end is left as text). Non-greedy inner. */
+const GEMINI_FORMAT = "gemini-default-api";
 const HERMES_BLOCK = /<function=\s*([^>\s]+)\s*>([\s\S]*?)<\/tool_call>/g;
 /** A single parameter inside a block: `<parameter=KEY>VALUE</parameter>`. Non-greedy value. */
 const HERMES_PARAM = /<parameter=\s*([^>\s]+)\s*>([\s\S]*?)<\/parameter>/g;
@@ -64,7 +66,6 @@ export interface HermesExtractResult {
  *   (back-compat). Gated-out blocks stay as visible text (they are not tool calls).
  * @internal
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Hermes pass plus Gemini pass share one gate; splitting hides the order.
 export function extractHermesToolCalls(
   content: string,
   makeId: () => string,
@@ -102,116 +103,38 @@ export function extractHermesToolCalls(
             isPromoted((rawName ?? "").trim()) ? "" : full,
           )
           .trim();
-  const hermesCount = toolCalls.length;
-  const gemini = extractGeminiCalls(
+  return withGeminiCalls(
+    toolCalls,
     residualText,
+    droppedNames,
     makeId,
     isPromoted,
-    droppedNames,
     allowedToolNames,
   );
-  toolCalls.push(...gemini.calls);
-  const formats: string[] = [];
-  if (hermesCount > 0) formats.push("hermes");
-  if (gemini.calls.length > 0) formats.push("gemini-default-api");
-  return { toolCalls, residualText: gemini.text, droppedNames, formats };
 }
 
-const GEMINI_CALL_START = /print\(\s*default_api\.([A-Za-z_]\w*)\(/g;
-const GEMINI_MARKER = /<ctrl\d+>call/g;
-
-/** Recover Gemini's text-form calls: `<ctrl42>call\nprint(default_api.NAME(k=v, ...))`. Values are
- *  Python literals (quoted strings, numbers, True/False/None); a call that does not parse cleanly stays text. */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: small hand-written Python-literal scanner; one linear pass reads clearest.
-function extractGeminiCalls(
-  content: string,
+/** Second pass: recover Gemini text-form calls from what the Hermes pass left, and merge the results. */
+function withGeminiCalls(
+  toolCalls: LlmToolCallPart[],
+  residual: string,
+  droppedNames: string[],
   makeId: () => string,
   isPromoted: (name: string) => boolean,
-  droppedNames: string[],
   allowedToolNames: ReadonlySet<string> | undefined,
-): { calls: LlmToolCallPart[]; text: string } {
-  const calls: LlmToolCallPart[] = [];
-  let text = "";
-  let last = 0;
-  GEMINI_CALL_START.lastIndex = 0;
-  for (let m = GEMINI_CALL_START.exec(content); m !== null; m = GEMINI_CALL_START.exec(content)) {
-    const name = m[1] ?? "";
-    const parsed = parsePythonKwargs(content, m.index + m[0].length);
-    if (parsed === undefined) continue;
-    let end = parsed.end + 1;
-    while (content[end] === " ") end += 1;
-    if (content[end] !== ")") continue;
-    end += 1;
-    GEMINI_CALL_START.lastIndex = end;
-    if (!isPromoted(name)) {
-      if (allowedToolNames !== undefined) droppedNames.push(name);
-      continue;
-    }
-    calls.push({ type: "tool_use", id: makeId(), name, input: parsed.args });
-    text += content.slice(last, m.index);
-    last = end;
-  }
-  if (calls.length === 0) return { calls, text: content };
-  text += content.slice(last);
-  return { calls, text: text.replace(GEMINI_MARKER, "").trim() };
-}
-
-const PY_LITERALS: Record<string, unknown> = { True: true, False: false, None: null };
-
-/** Parse `k=v, k=v)` starting at `start`; `end` is the index of the closing `)`. */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: small hand-written Python-literal scanner; one linear pass reads clearest.
-function parsePythonKwargs(
-  s: string,
-  start: number,
-): { args: Record<string, unknown>; end: number } | undefined {
-  const args: Record<string, unknown> = {};
-  let i = start;
-  const skipWs = (): void => {
-    while (i < s.length && /\s/.test(s[i] ?? "")) i += 1;
+): HermesExtractResult {
+  const gemini = extractGeminiCalls(residual, makeId, isPromoted, (name) => {
+    if (allowedToolNames !== undefined) droppedNames.push(name);
+  });
+  const formats = [
+    toolCalls.length > 0 ? "hermes" : "",
+    gemini.calls.length > 0 ? GEMINI_FORMAT : "",
+  ];
+  return {
+    toolCalls: [...toolCalls, ...gemini.calls],
+    residualText: gemini.text,
+    droppedNames,
+    formats: formats.filter(Boolean),
   };
-  for (;;) {
-    skipWs();
-    if (s[i] === ")") return { args, end: i };
-    const key = /^[A-Za-z_]\w*/.exec(s.slice(i, i + 200))?.[0];
-    if (key === undefined) return undefined;
-    i += key.length;
-    skipWs();
-    if (s[i] !== "=") return undefined;
-    i += 1;
-    skipWs();
-    const value = parsePythonValue(s, i);
-    if (value === undefined) return undefined;
-    args[key] = value.value;
-    i = value.end;
-    skipWs();
-    if (s[i] === ",") i += 1;
-    else if (s[i] !== ")") return undefined;
-  }
-}
-
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: small hand-written Python-literal scanner; one linear pass reads clearest.
-function parsePythonValue(s: string, i: number): { value: unknown; end: number } | undefined {
-  const q = s[i];
-  if (q === "'" || q === '"') {
-    let out = "";
-    for (let j = i + 1; j < s.length; j += 1) {
-      const c = s[j];
-      if (c === "\\") {
-        const n = s[j + 1];
-        if (n === undefined) return undefined;
-        out += n === "n" ? "\n" : n === "t" ? "\t" : n;
-        j += 1;
-      } else if (c === q) {
-        return { value: out, end: j + 1 };
-      } else out += c;
-    }
-    return undefined;
-  }
-  const word = /^[^\s,)]+/.exec(s.slice(i, i + 200))?.[0];
-  if (word === undefined) return undefined;
-  if (word in PY_LITERALS) return { value: PY_LITERALS[word], end: i + word.length };
-  if (/^-?\d+(\.\d+)?$/.test(word)) return { value: Number(word), end: i + word.length };
-  return undefined;
 }
 
 /** Parse the `<parameter=KEY>VALUE</parameter>` pairs inside a block's inner text into an input map.
