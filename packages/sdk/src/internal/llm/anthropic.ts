@@ -4,7 +4,7 @@ import { mapAnthropicError } from "../error-mappers/anthropic.js";
 import { boundFetch } from "../runtime-fetch.js";
 import { buildAnthropicCommonBody, mapAnthropicStopReason } from "./anthropic-shared.js";
 import { makeLlmFinish, parseToolArguments } from "./finish.js";
-import { parseSseStream } from "./sse.js";
+import { parseSseStream, withResponseHeadersTimeout } from "./sse.js";
 import { wrapTransportError } from "./transport-error.js";
 import type {
   LlmClient,
@@ -30,6 +30,8 @@ export interface AnthropicClientOptions {
   baseUrl?: string;
   version?: string;
   fetch?: typeof fetch;
+  /** Bound (ms) on the wait for response headers; default 30 000, `<= 0` disables. */
+  responseHeadersTimeoutMs?: number;
   /**
    * M45 — extra HTTP headers merged into the request (the profile's static `extraHeaders` + a provider
    * `transform.headers(ctx)`). Assigned AFTER the base headers (mirror of the M41 OpenAIClient wiring), so
@@ -125,7 +127,10 @@ export class AnthropicClient implements LlmClient {
 
   constructor(private readonly options: AnthropicClientOptions) {
     this.baseUrl = options.baseUrl ?? "https://api.anthropic.com";
-    this.fetchImpl = boundFetch(options.fetch);
+    this.fetchImpl = withResponseHeadersTimeout(
+      boundFetch(options.fetch),
+      options.responseHeadersTimeoutMs,
+    );
   }
 
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: HTTP+SSE handshake + accumulator is intentionally one block
