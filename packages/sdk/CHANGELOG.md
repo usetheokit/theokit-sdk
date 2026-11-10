@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.15.2
+
+### Patch Changes
+
+- [#961](https://github.com/usetheokit/theokit-sdk/pull/961) [`42ecdab`](https://github.com/usetheokit/theokit-sdk/commit/42ecdab65a78d1a5da26402fede82e3e252acd6c) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - packaging: keep the `node:` scheme on builtin imports in `dist` (`node:readline/promises`), so esbuild bundles resolve it as a builtin.
+
 ## 5.15.1
 
 ### Patch Changes
