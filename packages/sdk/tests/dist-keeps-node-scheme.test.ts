@@ -7,7 +7,11 @@ const dist = join(__dirname, "..", "dist");
 
 function files(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
-    e.isDirectory() ? files(join(dir, e.name)) : /\.(js|cjs)$/.test(e.name) ? [join(dir, e.name)] : [],
+    e.isDirectory()
+      ? files(join(dir, e.name))
+      : /\.(js|cjs)$/.test(e.name)
+        ? [join(dir, e.name)]
+        : [],
   );
 }
 
