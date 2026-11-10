@@ -19,7 +19,13 @@
  * @public
  */
 
-/** The five lifecycle events the runtime actually fires. */
+/**
+ * The five lifecycle events the runtime actually fires.
+ *
+ * `postRun` (once per run, including a failed run) is internal-only: it is reachable from the
+ * SDK's own hook config and spies, but `.theokit/hooks.json` (Claude Code event names) cannot
+ * register it, because no Claude Code event means "end of a run". `Stop` fires only on a finished run.
+ */
 export type HookEvent = "preRun" | "postRun" | "preToolUse" | "postToolUse" | "stop";
 
 /**
