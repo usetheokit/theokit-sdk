@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.15.3
+
+### Patch Changes
+
+- [#967](https://github.com/usetheokit/theokit-sdk/pull/967) [`2e162ca`](https://github.com/usetheokit/theokit-sdk/commit/2e162cad9b3dcc858536e1fc799f76528132f63f) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - llm: bound the wait for response headers (default 30 s, `responseHeadersTimeoutMs`, `<= 0` disables); a stalled request now fails with a retryable `NetworkError` (`response_headers_timeout`) instead of waiting for undici's 300 s.
+
 ## 5.15.2
 
 ### Patch Changes
