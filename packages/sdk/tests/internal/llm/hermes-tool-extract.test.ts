@@ -489,3 +489,29 @@ describe("OpenAIStreamAccumulator — R7 review-fixes", () => {
     expect(acc.finish().toolCalls).toHaveLength(1);
   });
 });
+
+describe("extractHermesToolCalls — Gemini default_api text form (#939)", () => {
+  const TEXT =
+    "<ctrl42>call\nprint(default_api.computer(action='screenshot', question='Take a screenshot.'))\nprint(default_api.computer(action='mouse_move', x=300, y=300))\nprint(default_api.computer(action='type', text='vj38reey'))\nprint(default_api.computer(action='screenshot', question='Take a screenshot.'))";
+  let n = 0;
+  const id = () => `id-${++n}`;
+
+  it("runs the four calls in order with keyword arguments as input", () => {
+    const r = extractHermesToolCalls(TEXT, id, new Set(["computer"]));
+    expect(r.toolCalls.map((c) => c.input)).toEqual([
+      { action: "screenshot", question: "Take a screenshot." },
+      { action: "mouse_move", x: 300, y: 300 },
+      { action: "type", text: "vj38reey" },
+      { action: "screenshot", question: "Take a screenshot." },
+    ]);
+    expect(r.residualText).toBe("");
+    expect(r.formats).toEqual(["gemini-default-api"]);
+  });
+
+  it("leaves a call to an undeclared tool as text", () => {
+    const r = extractHermesToolCalls(TEXT, id, new Set(["other"]));
+    expect(r.toolCalls).toHaveLength(0);
+    expect(r.residualText).toBe(TEXT);
+    expect(r.droppedNames).toContain("computer");
+  });
+});

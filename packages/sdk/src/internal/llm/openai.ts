@@ -414,7 +414,7 @@ class OpenAIStreamAccumulator {
         // it visible — a route that leaks often should be diagnosable without a debugger.
         diag(
           `[theokit-sdk] recovered ${recovered.toolCalls.length} leaked tool call(s) from assistant content ` +
-            `(provider="${this.providerName}", names=${recovered.toolCalls.map((c) => c.name).join(",")})\n`,
+            `(format=${recovered.formats.join("+")}, provider="${this.providerName}", names=${recovered.toolCalls.map((c) => c.name).join(",")})\n`,
         );
       }
       // R5 observability: a leaked block DROPPED by the request-scoped allowlist is the guard firing —
