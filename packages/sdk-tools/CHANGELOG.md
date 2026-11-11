@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.31.0
+
+### Minor Changes
+
+- [#978](https://github.com/usetheokit/theokit-sdk/pull/978) [`ae77f76`](https://github.com/usetheokit/theokit-sdk/commit/ae77f768fbec735249422569e9cbba739b199893) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Image generation: `generateImage` (OpenAI-compatible `/images/generations` call) in `@theokit/sdk`, and the `image_generate` tool (`createImageGenerateTool`) in `@theokit/sdk-tools`, which writes the image into the workspace and returns its path for `view_image`.
+  
+  `generateImage` also takes `route: "chatgpt"` to use the ChatGPT-subscription login through the Responses API `image_generation` tool.
+
 ## 0.30.0
 
 ### Minor Changes
