@@ -41,6 +41,15 @@ export { type CreateGitDiffToolOptions, createGitDiffTool } from "./git-diff.js"
 export { type CreateGitStatusToolOptions, createGitStatusTool } from "./git-status.js";
 export { type CreateGlobToolOptions, createGlobTool } from "./glob-files.js";
 export {
+  type CreateImageGenerateToolOptions,
+  createImageGenerateTool,
+  DEFAULT_MAX_GENERATED_IMAGE_BYTES,
+  DEFAULT_MAX_PROMPT_CHARS,
+  type GeneratedImageData,
+  type ImageGenerateCallback,
+  type ImageGenerateResult,
+} from "./image-generate.js";
+export {
   type CreateInteractiveShellToolOptions,
   createInteractiveShellTool,
   createWriteStdinTool,

@@ -54,7 +54,7 @@ const OPENAI_OAUTH_CONFIG: OAuthProviderConfig = {
  * logged in, throw a clear error rather than putting the router's `__oauth_lazy_token__` placeholder on the
  * wire (fail-closed — missing-credential semantics).
  */
-function codexFetch(): typeof fetch {
+export function codexFetch(): typeof fetch {
   return (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
     const env = process.env as Record<string, string | undefined>;
     const resolved = await resolveCredential({
