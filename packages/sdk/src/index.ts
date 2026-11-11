@@ -64,6 +64,14 @@ export {
 // Consumers: `import { Cache, CacheInvalidTtlError } from "@theokit/sdk-cache"`.
 // Cron façade
 export { Cron } from "./cron.js";
+export {
+  type DecideOptions,
+  type Decision,
+  DecisionChecksumError,
+  type DecisionSession,
+  type DecisionTokens,
+  decide,
+} from "./decide.js";
 export { type DefineProviderOptions, Provider } from "./define-provider.js";
 // SE23 — opt-in `skill_read` tool factory (model-facing lazy skill read).
 export { SkillReadTool } from "./define-skill-read-tool.js";
@@ -100,6 +108,11 @@ export {
 } from "./errors.js";
 // Infrastructure building blocks (moved from @theokit/theocode — SDK LEGO pieces)
 export { EventBus } from "./event-bus.js";
+export {
+  type GeneratedImage,
+  type GenerateImageOptions,
+  generateImage,
+} from "./generate-image.js";
 // Structured output via synthetic forced tool (ADR D33). M21 — `structuringModel` on
 // GenerateObjectOptions (two-model reason→structure flow).
 export {
