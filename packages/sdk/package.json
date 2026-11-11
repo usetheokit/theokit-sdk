@@ -452,7 +452,6 @@
     "@types/ws": "^8.18.0",
     "better-sqlite3": "^12.10.0",
     "fast-check": "^4.8.0",
-    "onnxruntime-node": "^1.31.1",
     "proper-lockfile": "^4.1.2",
     "sqlite-vec": "^0.1.9",
     "typedoc": "^0.28.19",
