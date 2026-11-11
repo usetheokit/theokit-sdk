@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1293 export(s) across 54 entry point(s).
+1313 export(s) across 54 entry point(s).
 
 ## `@theokit/acp`
 
@@ -153,7 +153,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CronSchedulerStatus` | interface | Snapshot of the local scheduler returned by `Cron.status()`. |
 | `CronStartOptions` | interface | Options for `Cron.start()` — activates the in-process scheduler for local jobs. |
 | `CustomTool` | interface | Local function tool declared per-agent via {@link AgentOptions.tools } .  |
+| `decide` | function | No model or tokenizer is bundled: pass the pinned model file, its SHA-256 and its tokenizer.  |
 | `decideApproval` | function | Decide one tool call against the operator's lists and mode.  |
+| `DecideOptions` | interface | Options for {@link decide } . |
+| `Decision` | interface | Result of {@link decide } . |
+| `DecisionChecksumError` | class | Thrown when the model file's checksum differs from the pinned one. |
+| `DecisionSession` | interface | A loaded ONNX session, reduced to what `decide` uses. |
+| `DecisionTokens` | interface | Token ids for one input, as the classifier expects them. |
 | `DeclaredAction` | interface | What an action reaches, and whether it can be taken back. |
 | `DeclaredLayer` | interface | One named layer in a precedence chain.  |
 | `DeepPartial` | type | Recursive partial — `T` where every nested field becomes optional. |
@@ -183,6 +189,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `foldLayers` | function | Combine `entries` into one record.  |
 | `ForkOptions` | interface | Caller-supplied fork configuration.  |
 | `ForkResult` | interface | Outcome of a fork run. |
+| `GeneratedImage` | interface | Result of {@link generateImage } . |
+| `generateImage` | function | Generate one image.  |
+| `GenerateImageOptions` | interface | Options for {@link generateImage } . |
 | `GenerateObjectError` | class | Typed error thrown by {@link Agent.generateObject } when the model refuses to call the synthetic `output` tool or when retries are exhausted. |
 | `GenerateObjectOptions` | interface | Options accepted by {@link Agent.generateObject } .  |
 | `GenerateObjectResult` | interface | Successful return from {@link Agent.generateObject } . |
@@ -760,6 +769,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CreateGitStatusToolOptions` | interface | `git_status` — built-in tool for coding agents.  |
 | `createGlobTool` | function | Build the `glob_files` tool: find files by the shape of their name.  |
 | `CreateGlobToolOptions` | interface | `glob_files` — built-in tool for coding agents.  |
+| `createImageGenerateTool` | function | Build the `image_generate` tool over a caller-supplied provider.  |
+| `CreateImageGenerateToolOptions` | interface | Options for {@link createImageGenerateTool } .  |
 | `createInteractiveShellTool` | function | Start an interactive session; returns a `session_id` to drive with `write_stdin`. |
 | `CreateInteractiveShellToolOptions` | interface | `interactive_shell` + `write_stdin` — built-in tools for driving an interactive session (a REPL, `git rebase -i`, any command that PROMPTS for stdin).  |
 | `createListDirTool` | function | Build the `list_dir` tool: the direct entries of one directory as `{ name, type }`.  |
@@ -789,7 +800,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CreateWriteFileToolOptions` | interface | Options for {@link createWriteFileTool } .  |
 | `createWriteStdinTool` | function | Write to a live interactive session's stdin and read the output it produces. |
 | `DEFAULT_MAX_AUDIO_BYTES` | const | Default ceiling on the clip written to disk: 10 MiB, by analogy with `DEFAULT_MAX_IMAGE_BYTES`. |
+| `DEFAULT_MAX_GENERATED_IMAGE_BYTES` | const | Default ceiling on the image written to disk: 10 MiB, like `view_image` but larger. |
 | `DEFAULT_MAX_IMAGE_BYTES` | const | Default ceiling: 5 MB on disk.  |
+| `DEFAULT_MAX_PROMPT_CHARS` | const | Default ceiling on the prompt sent to the provider, in UTF-16 code units.  |
 | `DEFAULT_MAX_TEXT_CHARS` | const | Default ceiling on the text sent to the provider, in UTF-16 code units.  |
 | `DEFAULT_TOOL_GUIDANCE` | const | Curated hints for the common cross-tool error codes.  |
 | `denyCatastrophicCommands` | function | A policy that denies catastrophic commands by composing the M3-2 guardrail. |
@@ -798,6 +811,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `formatDiff` | function | Format a unified diff with +/- prefixes preserved. |
 | `formatError` | function | Format an error message as a markdown block. |
 | `formatFileList` | function | Format a list of file paths as a bulleted markdown list. |
+| `GeneratedImageData` | interface | What the provider returns: the encoded image and its mime type. |
+| `ImageGenerateCallback` | type | The image provider {@link createImageGenerateTool } calls.  |
+| `ImageGenerateResult` | type | The tool's result, before it is serialised to the JSON string the handler returns. |
 | `injectGuidance` | function | Pure: parse a tool handler's JSON output and ADD a `guidance` hint when the result is an `{ ok: false, error }` object whose code has a hint and that does not already carry guidance.  |
 | `isBlockedIp` | function | True if `ip` is a blocked address (private/loopback/link-local/CGNAT/metadata/ reserved).  |
 | `isCommandAllowed` | function | `true` when no policy denies `command` (an empty policy array allows everything). |
@@ -1394,6 +1410,10 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `DockerRunResult` | interface | Result of one `docker` invocation: captured output, exit code and whether it timed out. |
 | `DockerSandbox` | class | Sandbox backend that runs each command in a throwaway Docker container. |
 | `DockerSandboxConfig` | interface | Configuration for {@link DockerSandbox } . |
+| `E2B_CA_BUNDLE` | const | System CA bundle that includes the certificate of E2B's egress proxy. |
+| `E2BSandbox` | class | Sandbox backend that runs commands in an E2B sandbox. |
+| `E2BSandboxConfig` | interface | Configuration for {@link E2BSandbox } . |
+| `E2BSandboxHandle` | interface | The slice of an `e2b` `Sandbox` that {@link E2BSandbox } uses. |
 | `ExecuteResult` | interface | What a {@link SandboxBackend } returns for one command.  |
 | `interactiveWrapCommand` | function | The composition the interactive path needs — the counterpart of `createSandboxBackend`.  |
 | `InteractiveWrapOptions` | interface | Options for `interactiveWrapCommand`, the PTY counterpart of `createSandboxBackend`.  |
