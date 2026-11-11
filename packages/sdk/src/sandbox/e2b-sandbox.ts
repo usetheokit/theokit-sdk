@@ -82,18 +82,22 @@ export class E2BSandbox extends SandboxBackend {
       });
       return this.result(r, r.exitCode, false);
     } catch (e) {
-      const err = (e ?? {}) as RunFailure;
-      if (err.name === "SandboxNotRunningError" || err.name === "SandboxUnreachableError") {
-        throw new SandboxNotAvailableError(
-          `e2b sandbox is not available: ${err.message ?? err.name}`,
-        );
-      }
-      if (err.name === "CommandExitError") {
-        return this.result(err, typeof err.exitCode === "number" ? err.exitCode : 1, false);
-      }
-      if (err.name === "TimeoutError") return this.result(err, 124, true);
-      throw e;
+      return this.fromError(e);
     }
+  }
+
+  private fromError(e: unknown): ExecuteResult {
+    const err = (e ?? {}) as RunFailure;
+    if (err.name === "CommandExitError") {
+      return this.result(err, typeof err.exitCode === "number" ? err.exitCode : 1, false);
+    }
+    if (err.name === "TimeoutError") return this.result(err, 124, true);
+    if (err.name === "SandboxNotRunningError" || err.name === "SandboxUnreachableError") {
+      throw new SandboxNotAvailableError(
+        `e2b sandbox is not available: ${err.message ?? err.name}`,
+      );
+    }
+    throw e;
   }
 
   async uploadFile(path: string, content: string | Buffer): Promise<void> {
