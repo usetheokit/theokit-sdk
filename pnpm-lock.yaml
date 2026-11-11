@@ -31,6 +31,7 @@ overrides:
   launch-editor@<=2.14.1: ^2.14.2
   follow-redirects@<1.16.2: ^1.16.2
   '@azure/msal-node@>=5.0.0-beta.0 <7.1.0': ^7.1.0
+  mongoose@>=9.0.0 <9.11.4: ^9.11.4
 
 importers:
 
@@ -191,7 +192,7 @@ importers:
         version: link:../sdk
       mem0ai:
         specifier: ^3.0.3
-        version: 3.1.8(@anthropic-ai/sdk@0.40.1)(@azure/identity@4.13.1)(@azure/search-documents@12.2.0)(@cloudflare/workers-types@4.20260520.1)(@google/genai@1.52.0)(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.11.0(@opentelemetry/api@1.9.1))(openai@4.104.0(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(@mistralai/mistralai@1.15.1)(@supabase/supabase-js@2.106.1)(@types/jest@29.5.14)(@types/pg@8.11.0)(better-sqlite3@12.10.0)(cloudflare@4.5.0)(compromise@14.15.0)(groq-sdk@0.3.0)(mongodb@7.6.0(@aws-sdk/credential-providers@3.1053.0)(socks@2.8.9))(natural@8.1.1(@aws-sdk/credential-providers@3.1053.0)(@opentelemetry/api@1.9.1)(socks@2.8.9))(ollama@0.5.18)(pg@8.11.3)(ws@8.21.3)
+        version: 3.1.8(@anthropic-ai/sdk@0.40.1)(@azure/identity@4.13.1)(@azure/search-documents@12.2.0)(@cloudflare/workers-types@4.20260520.1)(@google/genai@1.52.0)(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.11.0(@opentelemetry/api@1.9.1))(openai@4.104.0(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(@mistralai/mistralai@1.15.1)(@supabase/supabase-js@2.106.1)(@types/jest@29.5.14)(@types/pg@8.11.0)(better-sqlite3@12.10.0)(cloudflare@4.5.0)(compromise@14.15.0)(groq-sdk@0.3.0)(mongodb@7.8.0(@aws-sdk/credential-providers@3.1053.0)(socks@2.8.9))(natural@8.1.1(@aws-sdk/credential-providers@3.1053.0)(@opentelemetry/api@1.9.1)(socks@2.8.9))(ollama@0.5.18)(pg@8.11.3)(ws@8.21.3)
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(@swc/core@1.15.40(@swc/helpers@0.5.23))(jiti@2.7.0)(postcss@8.5.25)(tsx@4.22.0)(typescript@5.9.3)(yaml@2.9.1)
@@ -2149,7 +2150,9 @@ packages:
   '@smithy/core@3.34.1':
     resolution: {integrity: sha512-dLcOUxz8YCv1RZUMKq6GbyUf95pLbrqh34bPvpCZ1+CByFF31BEAFewZjsGCnVsZTKdThNENfGyAgk2TJqVwSw==}
     engines: {node: '>=18.0.0'}
-    deprecated: Deprecated due to a bug in custom logger data redaction. See https://github.com/aws/aws-sdk-js-v3/issues/8393.
+    deprecated: |-
+      Deprecated due to a bug in custom logger data redaction. Upgrade to the latest version. If you used a custom logger with this
+        version, review your logs and rotate any credentials or other secrets. See https://github.com/aws/aws-sdk-js-v3/issues/8393.
 
   '@smithy/credential-provider-imds@4.5.2':
     resolution: {integrity: sha512-A9uSdn72ozbRUSit0eib0TW7nXuNPlaeM0zcGkJ+nE6tFcSDbnmtwoxbTCFBukVQcszDAyvsd7+rTduPTXpygg==}
@@ -3779,8 +3782,8 @@ packages:
   jws@4.0.1:
     resolution: {integrity: sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA==}
 
-  kareem@3.4.0:
-    resolution: {integrity: sha512-JAKhnR4S027v/8949QXNInRskgETCg9rFUMi1VjhGbjX+XltCAAEFcXykkSocNkom1kc66EMJfjWvhj87BDQKg==}
+  kareem@3.4.1:
+    resolution: {integrity: sha512-UlgCAFNAdk/HLSsbfkmbH8pJqpEN52Ek8RG53Ys1i3Q3gbCQruSrWpplZlgIGyDHX/LNoLW97ei3OG43s7UhUA==}
     engines: {node: '>=18.0.0'}
 
   kind-of@6.0.3:
@@ -4141,8 +4144,8 @@ packages:
     resolution: {integrity: sha512-ZoS07RoFqpKYQwAk59qmrx8+jJHNHU30UjlU96QktiGn1ltvDr+vCznLX5DiUBLEpMAHatHNWV1nM/74ul66kA==}
     engines: {node: '>=20.19.0'}
 
-  mongodb@7.6.0:
-    resolution: {integrity: sha512-WbZ6OCjYw2c53LOjfkQa+reXr7kIiOVpXXglnASFuiMtif0BvsMwHe3ClJHLm1/r7wJFwaasfFtD6iYIktB01g==}
+  mongodb@7.8.0:
+    resolution: {integrity: sha512-p2NKagbQ41+daACG/ZSvhTzeAo+DoEyWE9Cmpf/SyP3pTC43+X0mwKE/44PpKtCxp5wOxnXz+t2pXEZRSkt9Yg==}
     engines: {node: '>=20.19.0'}
     peerDependencies:
       '@aws-sdk/credential-providers': ^3.806.0
@@ -4168,16 +4171,16 @@ packages:
       socks:
         optional: true
 
-  mongoose@9.10.0:
-    resolution: {integrity: sha512-Kr0J3a61sMxjiLY4QqaL0U+iTA534MB0YKHIvFmMfEgnv5feWwwi9fYkq+WfOQrEIi5mT9GB7sIYt2scM1oZ+w==}
+  mongoose@9.12.1:
+    resolution: {integrity: sha512-wPw1NKurTDShT+kr/JJvhdwPKIJkxFJv5GEbv++QahN8snPR9Fp/BFg6nQbbCyUHBB8DexwwlCQW6SfBD99QCg==}
     engines: {node: '>=20.19.0'}
 
   mpath@0.9.0:
     resolution: {integrity: sha512-ikJRQTk8hw5DEoFVxHG1Gn9T/xcjtdnOKIU1JTmGjZZlg9LST2mBLmcX3/ICIbgJydT2GOc15RnNy5mHmzfSew==}
     engines: {node: '>=4.0.0'}
 
-  mquery@6.0.0:
-    resolution: {integrity: sha512-b2KQNsmgtkscfeDgkYMcWGn9vZI9YoXh802VDEwE6qc50zxBFQ0Oo8ROkawbPAsXCY1/Z1yp0MagqsZStPWJjw==}
+  mquery@6.0.1:
+    resolution: {integrity: sha512-/Nijmq3JcpHwDM+5CwBp5yEl6fUa6jLsIhPsoQywlGXU/ZrKIvSpBzfaGnW9BLqcne/CoUwd1ch7MRqptDgFTA==}
     engines: {node: '>=20.19.0'}
 
   mri@1.2.0:
@@ -4870,8 +4873,8 @@ packages:
     resolution: {integrity: sha512-6x6dK6zJdpTzF4sQeNYxwtvBzf6Eg4GtlesS94HOvTudUeyK2WXAaIfmDgsyslYrRBeFIlsi54AYsFGUuhmvrQ==}
     engines: {node: '>= 0.4'}
 
-  sift@17.1.3:
-    resolution: {integrity: sha512-Rtlj66/b0ICeFzYTuNvX/EF1igRbbnGSvEyT79McoZa/DeGhMyC5pWKOEsZKnpkqtSeovd5FL/bjHWC3CIIvCQ==}
+  sift@17.1.4:
+    resolution: {integrity: sha512-/OIVvj9Ts1mFwTYzW09YODMPeIOnDoigMOvKSIN44OmaCyhuCH/05UPF45XW7Ax0snmzDzCzdlSYqvqsn8+sIg==}
 
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
@@ -9114,7 +9117,7 @@ snapshots:
       safe-buffer: 5.2.1
     optional: true
 
-  kareem@3.4.0: {}
+  kareem@3.4.1: {}
 
   kind-of@6.0.3: {}
 
@@ -9308,7 +9311,7 @@ snapshots:
 
   mdurl@2.0.0: {}
 
-  mem0ai@3.1.8(@anthropic-ai/sdk@0.40.1)(@azure/identity@4.13.1)(@azure/search-documents@12.2.0)(@cloudflare/workers-types@4.20260520.1)(@google/genai@1.52.0)(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.11.0(@opentelemetry/api@1.9.1))(openai@4.104.0(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(@mistralai/mistralai@1.15.1)(@supabase/supabase-js@2.106.1)(@types/jest@29.5.14)(@types/pg@8.11.0)(better-sqlite3@12.10.0)(cloudflare@4.5.0)(compromise@14.15.0)(groq-sdk@0.3.0)(mongodb@7.6.0(@aws-sdk/credential-providers@3.1053.0)(socks@2.8.9))(natural@8.1.1(@aws-sdk/credential-providers@3.1053.0)(@opentelemetry/api@1.9.1)(socks@2.8.9))(ollama@0.5.18)(pg@8.11.3)(ws@8.21.3):
+  mem0ai@3.1.8(@anthropic-ai/sdk@0.40.1)(@azure/identity@4.13.1)(@azure/search-documents@12.2.0)(@cloudflare/workers-types@4.20260520.1)(@google/genai@1.52.0)(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.11.0(@opentelemetry/api@1.9.1))(openai@4.104.0(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(@mistralai/mistralai@1.15.1)(@supabase/supabase-js@2.106.1)(@types/jest@29.5.14)(@types/pg@8.11.0)(better-sqlite3@12.10.0)(cloudflare@4.5.0)(compromise@14.15.0)(groq-sdk@0.3.0)(mongodb@7.8.0(@aws-sdk/credential-providers@3.1053.0)(socks@2.8.9))(natural@8.1.1(@aws-sdk/credential-providers@3.1053.0)(@opentelemetry/api@1.9.1)(socks@2.8.9))(ollama@0.5.18)(pg@8.11.3)(ws@8.21.3):
     dependencies:
       '@cloudflare/workers-types': 4.20260520.1
       '@types/jest': 29.5.14
@@ -9331,7 +9334,7 @@ snapshots:
       '@supabase/supabase-js': 2.106.1
       cloudflare: 4.5.0
       groq-sdk: 0.3.0
-      mongodb: 7.6.0(@aws-sdk/credential-providers@3.1053.0)(socks@2.8.9)
+      mongodb: 7.8.0(@aws-sdk/credential-providers@3.1053.0)(socks@2.8.9)
       ollama: 0.5.18
     transitivePeerDependencies:
       - debug
@@ -9403,7 +9406,7 @@ snapshots:
       '@types/whatwg-url': 13.0.0
       whatwg-url: 14.2.0
 
-  mongodb@7.6.0(@aws-sdk/credential-providers@3.1053.0)(socks@2.8.9):
+  mongodb@7.8.0(@aws-sdk/credential-providers@3.1053.0)(socks@2.8.9):
     dependencies:
       '@mongodb-js/saslprep': 1.5.4
       bson: 7.3.2
@@ -9412,15 +9415,15 @@ snapshots:
       '@aws-sdk/credential-providers': 3.1053.0
       socks: 2.8.9
 
-  mongoose@9.10.0(@aws-sdk/credential-providers@3.1053.0)(socks@2.8.9):
+  mongoose@9.12.1(@aws-sdk/credential-providers@3.1053.0)(socks@2.8.9):
     dependencies:
       '@standard-schema/spec': 1.1.0
-      kareem: 3.4.0
-      mongodb: 7.6.0(@aws-sdk/credential-providers@3.1053.0)(socks@2.8.9)
+      kareem: 3.4.1
+      mongodb: 7.8.0(@aws-sdk/credential-providers@3.1053.0)(socks@2.8.9)
       mpath: 0.9.0
-      mquery: 6.0.0
+      mquery: 6.0.1
       ms: 2.1.3
-      sift: 17.1.3
+      sift: 17.1.4
     transitivePeerDependencies:
       - '@aws-sdk/credential-providers'
       - '@mongodb-js/zstd'
@@ -9432,7 +9435,7 @@ snapshots:
 
   mpath@0.9.0: {}
 
-  mquery@6.0.0: {}
+  mquery@6.0.1: {}
 
   mri@1.2.0: {}
 
@@ -9472,7 +9475,7 @@ snapshots:
       apparatus: 0.0.10
       dotenv: 17.4.2
       memjs: 1.3.2
-      mongoose: 9.10.0(@aws-sdk/credential-providers@3.1053.0)(socks@2.8.9)
+      mongoose: 9.12.1(@aws-sdk/credential-providers@3.1053.0)(socks@2.8.9)
       pg: 8.23.0
       redis: 5.12.1(@opentelemetry/api@1.9.1)
       safe-stable-stringify: 2.5.0
@@ -10258,7 +10261,7 @@ snapshots:
       side-channel-map: 1.0.1
       side-channel-weakmap: 1.0.2
 
-  sift@17.1.3: {}
+  sift@17.1.4: {}
 
   siginfo@2.0.0: {}
 
