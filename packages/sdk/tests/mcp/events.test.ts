@@ -18,27 +18,38 @@ interface Sub {
   secret: string;
 }
 
-async function startServer(subs: Sub[]): Promise<{ server: Server; url: string }> {
+type Rpc = { id: number; method: string; params: Record<string, string> };
+type Mode = "ok" | "error" | "no-id";
+
+function answer(msg: Rpc, mode: Mode, subs: Sub[]): Record<string, unknown> {
+  const base = { jsonrpc: "2.0", id: msg.id };
+  if (mode === "error") return { ...base, error: { message: "nope" } };
+  if (msg.method !== "events/subscribe") return { ...base, result: {} };
+  if (mode === "no-id") return { ...base, result: {} };
+  const id = `sub-${subs.length + 1}`;
+  subs.push({
+    id,
+    callbackUrl: msg.params.callbackUrl as string,
+    secret: msg.params.secret as string,
+  });
+  return { ...base, result: { subscriptionId: id } };
+}
+
+async function startServer(
+  subs: Sub[],
+  mode: Mode = "ok",
+  methods: string[] = [],
+): Promise<{ server: Server; url: string }> {
   const server = createServer((req, res) => {
     let raw = "";
     req.on("data", (c) => {
       raw += c;
     });
     req.on("end", () => {
-      const msg = JSON.parse(raw) as { id: number; method: string; params: Record<string, string> };
-      const reply = (result: unknown) => {
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify({ jsonrpc: "2.0", id: msg.id, result }));
-      };
-      if (msg.method === "events/subscribe") {
-        const sub = {
-          id: `sub-${subs.length + 1}`,
-          callbackUrl: msg.params.callbackUrl as string,
-          secret: msg.params.secret as string,
-        };
-        subs.push(sub);
-        reply({ subscriptionId: sub.id });
-      } else reply({});
+      const msg = JSON.parse(raw) as Rpc;
+      methods.push(msg.method);
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(answer(msg, mode, subs)));
     });
   });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
@@ -80,5 +91,71 @@ describe("mcp events subscription", () => {
     expect(await deliver(s, body, signMcpEvent(s.secret, body))).toBe(204);
     await new Promise((r) => setTimeout(r, 20));
     expect(got).toEqual([{ subscriptionId: "sub-1", event: JSON.parse(body) }]);
+  });
+
+  async function setup(mode: "ok" | "error" | "no-id" = "ok", callbackOrigin?: string) {
+    const subs: Sub[] = [];
+    const methods: string[] = [];
+    const { server, url } = await startServer(subs, mode, methods);
+    const subscriber = createMcpEventSubscriber({
+      server: { type: "http", url },
+      ...(callbackOrigin !== undefined ? { callbackOrigin } : {}),
+    });
+    cleanup.push(
+      () => subscriber.close(),
+      () => new Promise<void>((r) => server.close(() => r())),
+    );
+    return { subs, methods, subscriber };
+  }
+
+  it("answers 404 for an unknown token or a non-POST request", async () => {
+    const { subs, subscriber } = await setup();
+    await subscriber.subscribe({ onEvent: () => undefined });
+    const s = subs[0] as Sub;
+    expect((await fetch(s.callbackUrl)).status).toBe(404);
+    expect((await fetch(s.callbackUrl.replace(/[^/]+$/, "nope"), { method: "POST" })).status).toBe(
+      404,
+    );
+  });
+
+  it("answers 400 for a signed body that is not a delivery for this subscription", async () => {
+    const { subs, subscriber } = await setup();
+    await subscriber.subscribe({ onEvent: () => undefined });
+    const s = subs[0] as Sub;
+    for (const body of ["not json", "null", JSON.stringify({ subscriptionId: "other" }), "{}"]) {
+      expect(await deliver(s, body, signMcpEvent(s.secret, body))).toBe(400);
+    }
+  });
+
+  it("answers 413 for a body over the size limit", async () => {
+    const { subs, subscriber } = await setup();
+    await subscriber.subscribe({ onEvent: () => undefined });
+    const s = subs[0] as Sub;
+    const status = await deliver(s, "x".repeat(1024 * 1024 + 10), "").catch(() => 413);
+    expect(status).toBe(413);
+  });
+
+  it("throws on an rpc error and on a missing subscriptionId", async () => {
+    const failing = await setup("error");
+    await expect(failing.subscriber.subscribe({ onEvent: () => undefined })).rejects.toThrow(
+      /nope/,
+    );
+    const noId = await setup("no-id");
+    await expect(noId.subscriber.subscribe({ onEvent: () => undefined })).rejects.toThrow(
+      /no subscriptionId/,
+    );
+  });
+
+  it("unsubscribes over rpc and trims trailing slashes of the callback origin", async () => {
+    const { subs, methods, subscriber } = await setup(
+      "ok",
+      `https://hooks.example.com${"/".repeat(5000)}`,
+    );
+    const sub = await subscriber.subscribe({ onEvent: () => undefined });
+    expect((subs[0] as Sub).callbackUrl).toMatch(
+      /^https:\/\/hooks\.example\.com\/mcp-events\/[0-9a-f]+$/,
+    );
+    await sub.unsubscribe();
+    expect(methods).toContain("events/unsubscribe");
   });
 });

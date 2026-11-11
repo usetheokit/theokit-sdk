@@ -16,6 +16,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import { NetworkError } from "./errors.js";
 import { createMcpClient, type McpClient } from "./internal/mcp/client.js";
+import { trimTrailingSlashes } from "./internal/trim-trailing-slashes.js";
 import type { McpHttpServerConfig } from "./types/mcp.js";
 
 /** Header carrying the delivery signature. */
@@ -148,7 +149,7 @@ export class McpEventSubscriber {
     });
     this.httpServer = server;
     const { port } = server.address() as AddressInfo;
-    this.origin = (this.options.callbackOrigin ?? `http://127.0.0.1:${port}`).replace(/\/+$/, "");
+    this.origin = trimTrailingSlashes(this.options.callbackOrigin ?? `http://127.0.0.1:${port}`);
     await this.client.initialize();
     this.ready = true;
   }
