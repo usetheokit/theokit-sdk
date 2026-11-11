@@ -68,6 +68,13 @@ function imageFromSse(sse: string): string | undefined {
   return undefined;
 }
 
+/** Throws the provider-error `Error` for a non-2xx response. */
+async function assertOk(res: Response): Promise<void> {
+  if (res.ok) return;
+  const text = await res.text().catch(() => "");
+  throw new Error(`generateImage: provider returned ${res.status} ${text.slice(0, 300)}`);
+}
+
 async function generateViaChatGpt(opts: GenerateImageOptions): Promise<string> {
   const { codexFetch } = await import("./internal/providers/builtin/openai-chatgpt.js");
   const base = (opts.baseUrl ?? "https://chatgpt.com/backend-api/codex").replace(/\/+$/, "");
@@ -85,10 +92,7 @@ async function generateViaChatGpt(opts: GenerateImageOptions): Promise<string> {
     }),
     signal: opts.signal,
   });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`generateImage: provider returned ${res.status} ${text.slice(0, 300)}`);
-  }
+  await assertOk(res);
   const b64 = imageFromSse(await res.text());
   if (b64 === undefined) throw new Error("generateImage: provider returned no image data");
   return b64;
@@ -120,10 +124,7 @@ export async function generateImage(opts: GenerateImageOptions): Promise<Generat
     body: JSON.stringify(body),
     signal: opts.signal,
   });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`generateImage: provider returned ${res.status} ${text.slice(0, 300)}`);
-  }
+  await assertOk(res);
   const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
   const b64 = json.data?.[0]?.b64_json;
   if (typeof b64 !== "string" || b64.length === 0) {

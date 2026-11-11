@@ -25,16 +25,19 @@
  * message names the host's absolute paths.
  */
 
-import { createHash, randomBytes } from "node:crypto";
-import { mkdir, rename, rm, writeFile } from "node:fs/promises";
-import { basename, dirname, posix } from "node:path";
+import { createHash } from "node:crypto";
+import { posix } from "node:path";
 
 import type { CustomTool } from "@theokit/sdk";
 import { Tool } from "@theokit/sdk";
 import { z } from "zod";
 
-import { safePathJoin } from "./internal/path-guard.js";
-import { checkPathScope, isForbiddenAtAnyDepth } from "./path-scope.js";
+import {
+  errorMessage,
+  refusePath,
+  requirePositiveInteger,
+  saveMedia,
+} from "./internal/media-output.js";
 
 /**
  * Audio mime types mapped to the extension the file is saved under.
@@ -59,9 +62,6 @@ export const DEFAULT_MAX_TEXT_CHARS = 4096;
 
 /** Default ceiling on the clip written to disk: 10 MiB, by analogy with `DEFAULT_MAX_IMAGE_BYTES`. */
 export const DEFAULT_MAX_AUDIO_BYTES = 10 * 1024 * 1024;
-
-/** A stem the model may choose: no separator, no leading dot, no traversal, at most 64 characters. */
-const STEM_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
 /** What the provider returns: the encoded clip and its mime type. */
 export interface SynthesizedAudio {
@@ -112,32 +112,9 @@ export type TextToSpeechResult =
 
 const json = (result: TextToSpeechResult): string => JSON.stringify(result);
 
-const errorMessage = (err: unknown): string => (err instanceof Error ? err.message : String(err));
-
-/** The errno code of a file-system failure: its message would hand the model the host's absolute paths. */
-const errorCode = (err: unknown): string => (err as { code?: string }).code ?? "unknown";
-
-/** A ceiling of zero, a negative, a fraction or NaN would build a tool that refuses everything or nothing. */
-function requirePositiveInteger(name: string, value: number): number {
-  if (!Number.isInteger(value) || value <= 0) {
-    throw new RangeError(
-      `createTextToSpeechTool: ${name} must be a positive integer, got ${value}`,
-    );
-  }
-  return value;
-}
-
 /** `speech-` plus 8 hex digits of the text's sha256, so a retry of the same text targets the same file. */
 function defaultStem(text: string): string {
   return `speech-${createHash("sha256").update(text).digest("hex").slice(0, 8)}`;
-}
-
-/** The refusal for a stem or output directory the tool may not write, or null when it may. */
-function refusePath(relativeStem: string, stem: string, projectRoot: string): string | null {
-  if (!STEM_PATTERN.test(stem) || isForbiddenAtAnyDepth(relativeStem)) {
-    return json({ ok: false, error: "path_traversal", path: relativeStem });
-  }
-  return checkPathScope(relativeStem, projectRoot);
 }
 
 /** Calls the provider; a rejection or a value without audio becomes `synthesis_failed`. */
@@ -173,48 +150,6 @@ function checkAudio(
 }
 
 /**
- * Writes the bytes through a temp file in the target's own directory and a rename, so a reader
- * never sees a partial clip. A failure removes the temp file and rethrows.
- *
- * Local rather than `replaceFileAtomic`: that helper takes a string, which would rewrite any byte
- * sequence that is not UTF-8, and it does not create its directory.
- */
-async function writeAtomic(target: string, audio: Uint8Array): Promise<void> {
-  const temp = `${dirname(target)}/.${basename(target)}.${randomBytes(6).toString("hex")}.tmp`;
-  try {
-    await writeFile(temp, audio, { flag: "wx", mode: 0o600 });
-    await rename(temp, target);
-  } catch (err) {
-    await rm(temp, { force: true });
-    throw err;
-  }
-}
-
-/**
- * Creates the output directory, re-checks it for a symlink escape, writes the clip, and returns
- * the serialised result: the success envelope, or the refusal or `write_failed` that stopped it.
- */
-async function saveClip(
-  projectRoot: string,
-  outputDir: string,
-  relativePath: string,
-  { audio, mimeType }: SynthesizedAudio,
-): Promise<string> {
-  const target = safePathJoin(projectRoot, relativePath);
-  try {
-    await mkdir(dirname(target), { recursive: true });
-    // The directory may not have existed at the first check; now it does, so a symlink placed
-    // there is resolved and an escape refused before any byte is written.
-    const refused = checkPathScope(outputDir, projectRoot);
-    if (refused !== null) return refused;
-    await writeAtomic(target, audio);
-    return json({ ok: true, path: relativePath, mime_type: mimeType, bytes: audio.length });
-  } catch (err) {
-    return json({ ok: false, error: "write_failed", message: errorCode(err) });
-  }
-}
-
-/**
  * Build the `text_to_speech` tool over a caller-supplied provider.
  *
  * Order of checks: the text length, then the path (stem and output directory), then the provider,
@@ -225,10 +160,12 @@ export function createTextToSpeechTool(opts: CreateTextToSpeechToolOptions): Cus
   const { synthesize, projectRoot } = opts;
   const outputDir = posix.normalize((opts.outputDir ?? "audio").replace(/\\/g, "/"));
   const maxTextChars = requirePositiveInteger(
+    "createTextToSpeechTool",
     "maxTextChars",
     opts.maxTextChars ?? DEFAULT_MAX_TEXT_CHARS,
   );
   const maxAudioBytes = requirePositiveInteger(
+    "createTextToSpeechTool",
     "maxAudioBytes",
     opts.maxAudioBytes ?? DEFAULT_MAX_AUDIO_BYTES,
   );
@@ -269,7 +206,13 @@ export function createTextToSpeechTool(opts: CreateTextToSpeechToolOptions): Cus
       if ("ok" in checked) return json(checked);
 
       const relativePath = posix.join(outputDir, `${stem}.${checked.extension}`);
-      return saveClip(projectRoot, outputDir, relativePath, synthesized);
+      return saveMedia(
+        projectRoot,
+        outputDir,
+        relativePath,
+        synthesized.audio,
+        synthesized.mimeType,
+      );
     },
   });
 }
