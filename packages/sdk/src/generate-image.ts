@@ -6,6 +6,7 @@
  */
 
 import { boundFetch } from "./internal/runtime-fetch.js";
+import { trimTrailingSlashes } from "./internal/trim-trailing-slashes.js";
 /** Options for {@link generateImage}. @public */
 export interface GenerateImageOptions {
   /** What to draw. */
@@ -77,7 +78,7 @@ async function assertOk(res: Response): Promise<void> {
 
 async function generateViaChatGpt(opts: GenerateImageOptions): Promise<string> {
   const { codexFetch } = await import("./internal/providers/builtin/openai-chatgpt.js");
-  const base = (opts.baseUrl ?? "https://chatgpt.com/backend-api/codex").replace(/\/+$/, "");
+  const base = trimTrailingSlashes(opts.baseUrl ?? "https://chatgpt.com/backend-api/codex");
   const res = await (opts.fetch ?? codexFetch())(`${base}/responses`, {
     method: "POST",
     headers: { "content-type": "application/json", accept: "text/event-stream" },
@@ -111,7 +112,7 @@ export async function generateImage(opts: GenerateImageOptions): Promise<Generat
   }
   const apiKey = opts.apiKey ?? process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("generateImage: no API key (pass apiKey or set OPENAI_API_KEY)");
-  const base = (opts.baseUrl ?? "https://api.openai.com/v1").replace(/\/+$/, "");
+  const base = trimTrailingSlashes(opts.baseUrl ?? "https://api.openai.com/v1");
   const body: Record<string, unknown> = {
     model: opts.model ?? "gpt-image-1",
     prompt: opts.prompt,
