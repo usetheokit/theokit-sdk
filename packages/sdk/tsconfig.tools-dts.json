@@ -58,6 +58,7 @@
     "src/job-queue.ts",
     "src/permission-engine.ts",
     "src/mcp-auth.ts",
+    "src/mcp-events.ts",
     "src/internal/mcp/**/*"
   ]
 }

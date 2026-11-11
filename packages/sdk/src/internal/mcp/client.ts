@@ -39,6 +39,8 @@ export interface McpClient {
   listTools(): Promise<McpTool[]>;
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult>;
   close(): Promise<void>;
+  /** Raw JSON-RPC request; resolves to the whole response message (`result` / `error`). */
+  call?(method: string, params: Record<string, unknown>): Promise<unknown>;
 }
 
 export function createMcpClient(
@@ -128,6 +130,10 @@ abstract class BaseMcpClient implements McpClient {
 
   listTools(): Promise<McpTool[]> {
     return rpcListTools((method, params) => this.request(method, params));
+  }
+
+  call(method: string, params: Record<string, unknown>): Promise<unknown> {
+    return this.request(method, params);
   }
 
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult> {
