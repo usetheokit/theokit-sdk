@@ -42,6 +42,10 @@ export interface Decision<L extends string> {
   label: L;
   /** Softmax probability per label. */
   scores: Record<L, number>;
+  /** Always `"local-onnx"`: the answer came from the pinned local model, not a provider request. */
+  source: "local-onnx";
+  /** SHA-256 of the verified model that answered. */
+  modelSha256: string;
 }
 
 /** Thrown when the model file's checksum differs from the pinned one. @public */
@@ -67,6 +71,8 @@ type OrtLike = {
   };
   Tensor: new (type: string, data: BigInt64Array, dims: number[]) => unknown;
 };
+
+const sessionCache = new Map<string, Promise<DecisionSession>>();
 
 async function defaultLoadSession(model: Uint8Array): Promise<DecisionSession> {
   const name = "onnxruntime-node";
@@ -101,6 +107,9 @@ function softmax(logits: number[]): number[] {
 }
 
 /**
+ * No model or tokenizer is bundled: pass the pinned model file, its SHA-256 and its tokenizer. The model
+ * must take int64 `input_ids` and `attention_mask` and output one logit per label.
+ *
  * Classify `text` into one of `labels` with a local ONNX model. Rejects with
  * {@link DecisionChecksumError} when the file does not match `sha256`.
  *
@@ -108,11 +117,30 @@ function softmax(logits: number[]): number[] {
  */
 export async function decide<L extends string>(opts: DecideOptions<L>): Promise<Decision<L>> {
   if (opts.labels.length === 0) throw new Error("decide: labels must not be empty");
+  if (new Set(opts.labels).size !== opts.labels.length) {
+    throw new Error("decide: labels must be unique");
+  }
+  if (!/^[0-9a-f]{64}$/i.test(opts.sha256)) {
+    throw new Error("decide: sha256 must be 64 hex characters");
+  }
   const bytes = await readFile(opts.modelPath);
   const actual = createHash("sha256").update(bytes).digest("hex");
   const expected = opts.sha256.toLowerCase();
   if (actual !== expected) throw new DecisionChecksumError(opts.modelPath, expected, actual);
-  const session = await (opts.loadSession ?? defaultLoadSession)(new Uint8Array(bytes));
+  const load = () => (opts.loadSession ?? defaultLoadSession)(new Uint8Array(bytes));
+  let session: DecisionSession;
+  if (opts.loadSession) {
+    session = await load();
+  } else {
+    // One ONNX session per verified model: the checksum above already proved the bytes match the key.
+    let cached = sessionCache.get(actual);
+    if (!cached) {
+      cached = load();
+      sessionCache.set(actual, cached);
+      cached.catch(() => sessionCache.delete(actual));
+    }
+    session = await cached;
+  }
   const logits = await session.run(await opts.tokenize(opts.text));
   if (logits.length !== opts.labels.length) {
     throw new Error(
@@ -126,5 +154,5 @@ export async function decide<L extends string>(opts: DecideOptions<L>): Promise<
     scores[l] = probs[i] as number;
     if ((probs[i] as number) > (probs[best] as number)) best = i;
   });
-  return { label: opts.labels[best] as L, scores };
+  return { label: opts.labels[best] as L, scores, source: "local-onnx", modelSha256: actual };
 }

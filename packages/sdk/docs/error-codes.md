@@ -60,7 +60,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `cron_missing_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:233` +1 |
 | `cron_no_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:221` +1 |
 | `cron_workflow_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:227` |
-| `decision_checksum_mismatch` | domain | — | `packages/sdk/src/decide.ts:55` |
+| `decision_checksum_mismatch` | domain | — | `packages/sdk/src/decide.ts:59` |
 | `duplicate_skill_name` | domain | ConfigurationError | `packages/sdk/src/define-skill-read-tool.ts:166` |
 | `duplicate_tool_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:225` |
 | `effective_tools_expected_options` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/effective-tools.ts:102` +1 |

@@ -153,7 +153,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CronSchedulerStatus` | interface | Snapshot of the local scheduler returned by `Cron.status()`. |
 | `CronStartOptions` | interface | Options for `Cron.start()` — activates the in-process scheduler for local jobs. |
 | `CustomTool` | interface | Local function tool declared per-agent via {@link AgentOptions.tools } .  |
-| `decide` | function | Classify `text` into one of `labels` with a local ONNX model.  |
+| `decide` | function | No model or tokenizer is bundled: pass the pinned model file, its SHA-256 and its tokenizer.  |
 | `decideApproval` | function | Decide one tool call against the operator's lists and mode.  |
 | `DecideOptions` | interface | Options for {@link decide } . |
 | `Decision` | interface | Result of {@link decide } . |
