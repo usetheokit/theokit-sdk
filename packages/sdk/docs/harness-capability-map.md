@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1303 export(s) across 54 entry point(s).
+1309 export(s) across 54 entry point(s).
 
 ## `@theokit/acp`
 
@@ -153,7 +153,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CronSchedulerStatus` | interface | Snapshot of the local scheduler returned by `Cron.status()`. |
 | `CronStartOptions` | interface | Options for `Cron.start()` — activates the in-process scheduler for local jobs. |
 | `CustomTool` | interface | Local function tool declared per-agent via {@link AgentOptions.tools } .  |
+| `decide` | function | No model or tokenizer is bundled: pass the pinned model file, its SHA-256 and its tokenizer.  |
 | `decideApproval` | function | Decide one tool call against the operator's lists and mode.  |
+| `DecideOptions` | interface | Options for {@link decide } . |
+| `Decision` | interface | Result of {@link decide } . |
+| `DecisionChecksumError` | class | Thrown when the model file's checksum differs from the pinned one. |
+| `DecisionSession` | interface | A loaded ONNX session, reduced to what `decide` uses. |
+| `DecisionTokens` | interface | Token ids for one input, as the classifier expects them. |
 | `DeclaredAction` | interface | What an action reaches, and whether it can be taken back. |
 | `DeclaredLayer` | interface | One named layer in a precedence chain.  |
 | `DeepPartial` | type | Recursive partial — `T` where every nested field becomes optional. |
