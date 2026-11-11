@@ -66,6 +66,7 @@ export default defineConfig({
     // carries an `@deprecated` pointing at the public barrel), so a new one would extend a shape
     // the package is withdrawing.
     "mcp-auth": "src/mcp-auth.ts",
+    "mcp-events": "src/mcp-events.ts",
     "internal/persistence/index": "src/internal/persistence/index.ts",
     "internal/security/index": "src/internal/security/index.ts",
     // theokit#160 — the embedding runtime, shared with @theokit/sdk-memory so the two packages stop

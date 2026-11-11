@@ -129,13 +129,13 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `malformed_api_key` | domain | AuthenticationError | `packages/sdk/src/internal/agent/helpers.ts:231` +1 |
 | `max_delegation_depth` | domain | MaxDelegationDepthError | `packages/sdk/src/a2a/subagent.ts:239` +1 |
 | `mcp_auth_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:140` +1 |
-| `mcp_buffer_overflow` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:338` |
-| `mcp_closed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:313` |
-| `mcp_crashed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:228` |
-| `mcp_disconnected` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:241` +2 |
-| `mcp_http_error` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:510` +1 |
-| `mcp_not_init` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/client.ts:271` +2 |
-| `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:71` |
+| `mcp_buffer_overflow` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:344` |
+| `mcp_closed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:319` |
+| `mcp_crashed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:234` |
+| `mcp_disconnected` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:247` +2 |
+| `mcp_http_error` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:516` +3 |
+| `mcp_not_init` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/client.ts:277` +2 |
+| `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:73` |
 | `memory_ceiling_reached` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:43` +1 |
 | `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:128` |
 | `memory_path_escapes_root` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:115` +1 |

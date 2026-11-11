@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1313 export(s) across 54 entry point(s).
+1322 export(s) across 55 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1276,6 +1276,20 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `refreshAccessToken` | function | Refresh an access token using `refresh_token`.  |
 | `runPkceFlow` | function | Run the full PKCE flow.  |
 | `setTokens` | function | Persist tokens for `serverName`.  |
+
+## `@theokit/sdk/mcp-events`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `createMcpEventSubscriber` | function | Create a subscriber for one MCP server.  |
+| `MCP_EVENT_SIGNATURE_HEADER` | const | Header carrying the delivery signature. |
+| `McpEventDelivery` | interface | One authenticated event delivery. |
+| `McpEventSubscribeOptions` | interface |  |
+| `McpEventSubscriber` | class |  |
+| `McpEventSubscriberOptions` | interface |  |
+| `McpEventSubscription` | interface |  |
+| `signMcpEvent` | function | Signature header value (`sha256=<hex>`) for `body`. |
+| `verifyMcpEventSignature` | function | Constant-time check of a signature header against the body. |
 
 ## `@theokit/sdk/messages`
 
