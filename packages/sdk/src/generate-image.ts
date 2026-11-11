@@ -5,6 +5,7 @@
  * ChatGPT-subscription (Codex harness) route is not covered; the call needs an API key.
  */
 
+import { boundFetch } from "./internal/runtime-fetch.js";
 /** Options for {@link generateImage}. @public */
 export interface GenerateImageOptions {
   /** What to draw. */
@@ -53,7 +54,7 @@ export async function generateImage(opts: GenerateImageOptions): Promise<Generat
     n: 1,
   };
   if (opts.size !== undefined) body.size = opts.size;
-  const res = await (opts.fetch ?? fetch)(`${base}/images/generations`, {
+  const res = await boundFetch(opts.fetch)(`${base}/images/generations`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
     body: JSON.stringify(body),
