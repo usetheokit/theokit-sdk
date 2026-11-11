@@ -64,6 +64,14 @@ export {
 // Consumers: `import { Cache, CacheInvalidTtlError } from "@theokit/sdk-cache"`.
 // Cron façade
 export { Cron } from "./cron.js";
+export {
+  type DecideOptions,
+  type Decision,
+  DecisionChecksumError,
+  type DecisionSession,
+  type DecisionTokens,
+  decide,
+} from "./decide.js";
 export { type DefineProviderOptions, Provider } from "./define-provider.js";
 // SE23 — opt-in `skill_read` tool factory (model-facing lazy skill read).
 export { SkillReadTool } from "./define-skill-read-tool.js";
