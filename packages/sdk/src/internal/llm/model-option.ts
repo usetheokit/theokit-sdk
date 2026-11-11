@@ -1,3 +1,4 @@
+import { trimTrailingSlashes } from "../trim-trailing-slashes.js";
 import { parseModelId } from "./model-identifier.js";
 
 /**
@@ -77,13 +78,4 @@ export function toModelOption(modelId: string): ModelOption {
     label: humanizeModelName(modelId),
     provider: parseModelId(modelId).provider,
   };
-}
-
-const SLASH_CODE = 47; // "/"
-
-/** Removes trailing `/` characters in one linear pass. See the call site for why not a regex. */
-function trimTrailingSlashes(value: string): string {
-  let end = value.length;
-  while (end > 0 && value.charCodeAt(end - 1) === SLASH_CODE) end--;
-  return end === value.length ? value : value.slice(0, end);
 }
