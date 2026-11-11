@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1309 export(s) across 54 entry point(s).
+1313 export(s) across 54 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1410,6 +1410,10 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `DockerRunResult` | interface | Result of one `docker` invocation: captured output, exit code and whether it timed out. |
 | `DockerSandbox` | class | Sandbox backend that runs each command in a throwaway Docker container. |
 | `DockerSandboxConfig` | interface | Configuration for {@link DockerSandbox } . |
+| `E2B_CA_BUNDLE` | const | System CA bundle that includes the certificate of E2B's egress proxy. |
+| `E2BSandbox` | class | Sandbox backend that runs commands in an E2B sandbox. |
+| `E2BSandboxConfig` | interface | Configuration for {@link E2BSandbox } . |
+| `E2BSandboxHandle` | interface | The slice of an `e2b` `Sandbox` that {@link E2BSandbox } uses. |
 | `ExecuteResult` | interface | What a {@link SandboxBackend } returns for one command.  |
 | `interactiveWrapCommand` | function | The composition the interactive path needs — the counterpart of `createSandboxBackend`.  |
 | `InteractiveWrapOptions` | interface | Options for `interactiveWrapCommand`, the PTY counterpart of `createSandboxBackend`.  |
