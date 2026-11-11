@@ -2,17 +2,24 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { DecisionChecksumError, decide } from "../src/decide.js";
+import { removeTempDirRobustSync } from "./helpers/temp-workspace.js";
 
 const bytes = Buffer.from("fake-onnx-model");
 const sha = createHash("sha256").update(bytes).digest("hex");
-const modelPath = join(mkdtempSync(join(tmpdir(), "decide-")), "m.onnx");
-writeFileSync(modelPath, bytes);
+function makeModel(): string {
+  const dir = mkdtempSync(join(tmpdir(), "decide-"));
+  onTestFinished(() => removeTempDirRobustSync(dir));
+  const p = join(dir, "m.onnx");
+  writeFileSync(p, bytes);
+  return p;
+}
 const tokenize = () => ({ inputIds: [1, 2, 3] });
 
 describe("decide", () => {
   it("returns a declared label without any network request", async () => {
+    const modelPath = makeModel();
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const r = await decide({
       text: "WIN A PRIZE",
@@ -28,6 +35,7 @@ describe("decide", () => {
   });
 
   it("refuses a model whose checksum does not match", async () => {
+    const modelPath = makeModel();
     const loadSession = vi.fn();
     await expect(
       decide({

@@ -6,6 +6,7 @@
 
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { TheokitAgentError } from "./errors-base.js";
 
 /** Token ids for one input, as the classifier expects them. @public */
 export interface DecisionTokens {
@@ -44,14 +45,17 @@ export interface Decision<L extends string> {
 }
 
 /** Thrown when the model file's checksum differs from the pinned one. @public */
-export class DecisionChecksumError extends Error {
+export class DecisionChecksumError extends TheokitAgentError {
+  override readonly name: string = "DecisionChecksumError";
   constructor(
     public readonly modelPath: string,
     public readonly expected: string,
     public readonly actual: string,
   ) {
-    super(`decide: checksum mismatch for ${modelPath} (expected ${expected}, got ${actual})`);
-    this.name = "DecisionChecksumError";
+    super(`decide: checksum mismatch for ${modelPath} (expected ${expected}, got ${actual})`, {
+      code: "decision_checksum_mismatch",
+      isRetryable: false,
+    });
   }
 }
 
