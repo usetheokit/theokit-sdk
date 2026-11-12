@@ -81,4 +81,20 @@ describe("mcp events subscription", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(got).toEqual([{ subscriptionId: "sub-1", event: JSON.parse(body) }]);
   });
+
+  it.each([
+    ["https://hooks.example.com", "https://hooks.example.com"],
+    ["https://hooks.example.com/", "https://hooks.example.com"],
+    [`https://hooks.example.com${"/".repeat(50_000)}`, "https://hooks.example.com"],
+  ])("trims trailing slashes from callbackOrigin %#", async (callbackOrigin, expected) => {
+    const subs: Sub[] = [];
+    const { server, url } = await startServer(subs);
+    const subscriber = createMcpEventSubscriber({ server: { type: "http", url }, callbackOrigin });
+    cleanup.push(
+      () => subscriber.close(),
+      () => new Promise<void>((r) => server.close(() => r())),
+    );
+    await subscriber.subscribe({ onEvent: () => {} });
+    expect((subs[0] as Sub).callbackUrl.startsWith(`${expected}/mcp-events/`)).toBe(true);
+  });
 });

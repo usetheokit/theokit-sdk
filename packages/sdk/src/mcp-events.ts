@@ -119,6 +119,12 @@ function handleBody(body: Buffer, req: IncomingMessage, res: ServerResponse, ent
   Promise.resolve(entry.onEvent(delivery)).catch(() => undefined);
 }
 
+function trimTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") end--;
+  return value.slice(0, end);
+}
+
 /** Subscribes to events from one MCP server through a local signed-delivery receiver. */
 export class McpEventSubscriber {
   private readonly client: McpClient;
@@ -152,7 +158,7 @@ export class McpEventSubscriber {
     });
     this.httpServer = server;
     const { port } = server.address() as AddressInfo;
-    this.origin = (this.options.callbackOrigin ?? `http://127.0.0.1:${port}`).replace(/\/+$/, "");
+    this.origin = trimTrailingSlashes(this.options.callbackOrigin ?? `http://127.0.0.1:${port}`);
     await this.client.initialize();
     this.ready = true;
   }
