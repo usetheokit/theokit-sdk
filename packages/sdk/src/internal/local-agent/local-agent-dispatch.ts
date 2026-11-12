@@ -7,6 +7,7 @@
 
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { ConfigurationError } from "../../errors.js";
 import type { AgentDefinition, AgentOptions, ModelSelection } from "../../types/agent.js";
 import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
 import type { MemoryToolSpec, SteerQueue } from "../agent-loop/types.js";
@@ -135,11 +136,42 @@ export async function dispatchLocalRun(args: {
 
 async function readProjectMcpServers(cwd: string): Promise<Record<string, unknown>> {
   const path = join(theokitConfigRoot(cwd), "mcp.json");
+  let raw: string;
   try {
-    const raw = await readFile(path, "utf8");
-    const parsed = JSON.parse(raw) as { servers?: Record<string, unknown> };
-    return parsed.servers ?? {};
-  } catch {
-    return {};
+    raw = await readFile(path, "utf8");
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === "ENOENT") return {};
+    throw new ConfigurationError(`Cannot read ${path}: ${errorText(cause)}`, {
+      code: "mcp_config_unreadable",
+      cause,
+    });
   }
+  return parseProjectMcpServers(path, raw);
+}
+
+function parseProjectMcpServers(path: string, raw: string): Record<string, unknown> {
+  const invalid = (reason: string, cause?: unknown): ConfigurationError =>
+    new ConfigurationError(`Invalid ${path}: ${reason}`, {
+      code: "mcp_config_invalid",
+      ...(cause !== undefined ? { cause } : {}),
+    });
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (cause) {
+    throw invalid(errorText(cause), cause);
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw invalid("the top level must be an object");
+  }
+  const servers = (parsed as { servers?: unknown }).servers;
+  if (servers === undefined) return {};
+  if (typeof servers !== "object" || servers === null || Array.isArray(servers)) {
+    throw invalid('"servers" must be an object');
+  }
+  return servers as Record<string, unknown>;
+}
+
+function errorText(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
 }
