@@ -1,5 +1,19 @@
 # Changelog
 
+## 5.18.0
+
+### Minor Changes
+
+- [#1124](https://github.com/usetheokit/theokit-sdk/pull/1124) [`bc3f575`](https://github.com/usetheokit/theokit-sdk/commit/bc3f575ed01dbd008c3248fdc0d4670673ad6a83) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - feat(sdk): a tool call that finishes with a non-zero `exitCode` (a thrown handler, a timeout, a veto, an unknown tool) is now emitted with `status: "error"` instead of `"completed"`. Consumers that match `status === "completed"` for any finished call should also accept `"error"`.
+
+### Patch Changes
+
+- [#1122](https://github.com/usetheokit/theokit-sdk/pull/1122) [`2971eb9`](https://github.com/usetheokit/theokit-sdk/commit/2971eb97d455f8ac60fe2f3aabd365269a01f4ed) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - fix(sdk): a model prefix naming a custom provider (or a bare `sk-` key) no longer gets overruled by key inference, so prompts and keys stay with the provider the app configured
+
+- [#1126](https://github.com/usetheokit/theokit-sdk/pull/1126) [`6fb163c`](https://github.com/usetheokit/theokit-sdk/commit/6fb163cec6a795deb0b9264b6d856798f13a3e27) Thanks [@usetheodev](https://github.com/usetheodev)! - Harden shell permission rule matching.
+
+- [#1125](https://github.com/usetheokit/theokit-sdk/pull/1125) [`8fe2d6d`](https://github.com/usetheokit/theokit-sdk/commit/8fe2d6da3c5ffce53785776a4ba0b605e91a43a2) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - fix(sdk): a malformed `.theokit/mcp.json` (unreadable, invalid JSON, or `servers` not an object) now fails the send with a `ConfigurationError` naming the file, instead of silently running with no project MCP servers
+
 ## 5.17.1
 
 ### Patch Changes
