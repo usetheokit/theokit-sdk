@@ -139,6 +139,33 @@ describe("translateStream", () => {
     }
   });
 
+  it("translate_failed_tool_call_emits_failed_status", async () => {
+    const messages: SDKMessage[] = [
+      {
+        type: "tool_call",
+        agent_id: "a-1",
+        run_id: "r-1",
+        call_id: "t-1",
+        name: "read_file",
+        status: "error",
+        result: { stdout: "", stderr: "boom", exitCode: 1 },
+      },
+    ];
+    const { conn, updates } = makeConn();
+    await translateStream({
+      messages: fromArray(messages),
+      conn,
+      sessionId: "s-1",
+      signal: new AbortController().signal,
+      log: vi.fn(),
+    });
+    expect(updates).toHaveLength(1);
+    expect(updates[0]?.update.sessionUpdate).toBe("tool_call_update");
+    if (updates[0]?.update.sessionUpdate === "tool_call_update") {
+      expect(updates[0].update.status).toBe("failed");
+    }
+  });
+
   it("translate_skips_system_and_user_echo", async () => {
     const messages: SDKMessage[] = [
       { type: "system", agent_id: "a-1", run_id: "r-1" },

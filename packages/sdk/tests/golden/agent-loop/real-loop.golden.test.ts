@@ -144,7 +144,7 @@ describe("real agent loop", () => {
     });
 
     const completed = result.events.find(
-      (event) => event.type === "tool_call" && event.status === "completed",
+      (event) => event.type === "tool_call" && event.status === "error",
     );
     expect(completed).toBeDefined();
     if (completed?.type === "tool_call") {

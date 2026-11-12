@@ -94,6 +94,10 @@ export interface SDKThinkingMessage {
  * Tool invocation lifecycle event. Emitted at start with `args`, then again on
  * completion with `result`.
  *
+ * The completion event has `status: "completed"` when `result.exitCode` is 0, and
+ * `status: "error"` when it is non-zero: 1 for a handler that threw, 124 for a timeout or abort,
+ * 126 for a call vetoed by a hook or plugin, 127 for an unknown tool. `result` is the same either way.
+ *
  * Tool `args` and `result` are NOT part of the stable schema — treat as unknown.
  *
  * @public

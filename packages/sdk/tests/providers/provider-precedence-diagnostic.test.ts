@@ -39,17 +39,17 @@ const optionsWith = (apiKey: string, modelId: string) =>
   }) as unknown as Parameters<typeof resolveRunProvider>[0];
 
 it("names both providers when a key overrides the model id's prefix", () => {
-  // `sk-` infers openai; the model id asks for anthropic. openai wins, by design.
+  // `sk-or-` infers openrouter; the model id asks for anthropic. The vendor-specific key wins.
   const { primary } = resolveRunProvider(
-    optionsWith("sk-abcdefghijklmnop", "anthropic/claude-3-5-sonnet"),
+    optionsWith("sk-or-abcdefghijklmnop", "anthropic/claude-3-5-sonnet"),
   );
 
-  expect(primary).toBe("openai");
+  expect(primary).toBe("openrouter");
   const warning = stderr.join("");
   // Both halves: the one asked for, and the one used. A message naming only the winner is the
   // state this item exists to change.
   expect(warning).toContain("anthropic");
-  expect(warning).toContain("openai");
+  expect(warning).toContain("openrouter");
 });
 
 it("says nothing when the model id's prefix is the provider that was used", () => {
@@ -63,7 +63,7 @@ it("says nothing when the model id's prefix is the provider that was used", () =
 it("warns once per process, not once per run", () => {
   // Matching `warnNoAuthApiKeysIgnoredOnce`, the repo's existing pattern for this shape.
   for (let i = 0; i < 3; i++) {
-    resolveRunProvider(optionsWith("sk-abcdefghijklmnop", "anthropic/claude-3-5-sonnet"));
+    resolveRunProvider(optionsWith("sk-or-abcdefghijklmnop", "anthropic/claude-3-5-sonnet"));
   }
 
   const occurrences = stderr.join("").split("was used —").length - 1;
