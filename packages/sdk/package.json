@@ -258,6 +258,16 @@
         "default": "./dist/mcp-auth.cjs"
       }
     },
+    "./mcp-events": {
+      "import": {
+        "types": "./dist/mcp-events.d.ts",
+        "default": "./dist/mcp-events.js"
+      },
+      "require": {
+        "types": "./dist/mcp-events.d.cts",
+        "default": "./dist/mcp-events.cjs"
+      }
+    },
     "./internal/persistence": {
       "import": {
         "types": "./dist/internal/persistence/index.d.ts",

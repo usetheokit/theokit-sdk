@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-259 distinct code(s).
+262 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -129,13 +129,13 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `malformed_api_key` | domain | AuthenticationError | `packages/sdk/src/internal/agent/helpers.ts:231` +1 |
 | `max_delegation_depth` | domain | MaxDelegationDepthError | `packages/sdk/src/a2a/subagent.ts:239` +1 |
 | `mcp_auth_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:140` +1 |
-| `mcp_buffer_overflow` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:338` |
-| `mcp_closed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:313` |
-| `mcp_crashed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:228` |
-| `mcp_disconnected` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:241` +2 |
-| `mcp_http_error` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:510` +1 |
-| `mcp_not_init` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/client.ts:271` +2 |
-| `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:71` |
+| `mcp_buffer_overflow` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:344` |
+| `mcp_closed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:319` |
+| `mcp_crashed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:234` |
+| `mcp_disconnected` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:247` +2 |
+| `mcp_http_error` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:516` +3 |
+| `mcp_not_init` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/client.ts:277` +2 |
+| `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:73` |
 | `memory_ceiling_reached` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:43` +1 |
 | `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:128` |
 | `memory_path_escapes_root` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:115` +1 |
@@ -148,6 +148,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `missing_frontmatter` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:93` |
 | `missing_model` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:37` |
 | `model_unavailable` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:75` +2 |
+| `muse_not_installed` | domain | ConfigurationError | `packages/sdk/src/internal/llm/muse.ts:60` |
+| `muse_not_signed_in` | domain | AuthenticationError | `packages/sdk/src/internal/llm/muse.ts:67` |
 | `network` | domain | MemoryAdapterError, buildErrorMetadata | `packages/memory-honcho/src/adapter.ts:258` +5 |
 | `network_error` | domain | NetworkError | `packages/sdk/src/internal/http.ts:99` |
 | `no_api_key` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-brave.ts:50` +1 |
@@ -185,7 +187,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `plugin_manifest_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:227` |
 | `plugin_missing_manifest` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:212` +2 |
 | `programmatic_hooks_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:99` |
-| `provider_unresolved` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:110` +2 |
+| `provider_unreachable` | domain | TheokitAgentError | `packages/sdk/src/internal/llm/muse.ts:248` |
+| `provider_unresolved` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:113` +2 |
 | `quota_exceeded` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:144` |
 | `rate_limit` | domain | — | `packages/sdk/src/internal/error-mappers/vertex.ts:47` |
 | `rate_limited` | domain | MemoryAdapterError | `packages/memory-honcho/src/adapter.ts:244` +3 |
@@ -239,7 +242,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `tool_missing_schema` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:287` |
 | `tool_reserved_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:269` |
 | `transport_failure` | domain | NetworkError | `packages/sdk/src/internal/llm/transport-error.ts:48` |
-| `transport_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:603` +1 |
+| `transport_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:614` +1 |
 | `unimplemented_budget_scope` | domain | ConfigurationError | `packages/sdk/src/internal/budget/registry.ts:58` +1 |
 | `unknown` | domain | AgentRunError, MemoryAdapterError, TheokitAgentError | `packages/memory-honcho/src/adapter.ts:264` +5 |
 | `unknown_agent` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:212` +1 |
