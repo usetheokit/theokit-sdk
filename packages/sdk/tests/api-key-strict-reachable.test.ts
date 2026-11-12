@@ -30,7 +30,7 @@
 import { describe, expect, it } from "vitest";
 
 import { AuthenticationError } from "../src/errors.js";
-import { Agent } from "../src/index.js";
+import { Agent, Provider } from "../src/index.js";
 import { useTempCwd } from "./helpers/temp-workspace.js";
 
 // This file passed `cwd: process.cwd()`, which during a test run is the package itself, so
@@ -84,5 +84,36 @@ describe("strict API-key validation is reachable", () => {
 
     expect(agent).toBeDefined();
     await agent.dispose();
+  });
+
+  it("test_a_custom_api_key_provider_accepts_a_one_char_key_before_and_after_registration", async () => {
+    // #1118 — a profile from Provider.create makes the prefix "known", but the SDK still cannot
+    // attribute the key to a real provider, so the strict 16-char floor must not apply.
+    const plugin = Provider.create({
+      name: "shortkeybench",
+      apiMode: "chat_completions",
+      envVars: [],
+      baseUrl: "http://127.0.0.1:9/v1",
+      authType: "api_key",
+      fallbackModels: [],
+    });
+    const createWithPlugin = () =>
+      Agent.create({
+        apiKey: "x",
+        model: { id: "shortkeybench/x" },
+        local: { cwd: process.cwd() },
+        plugins: [plugin],
+      });
+    for (let i = 0; i < 2; i++) {
+      const agent = await createWithPlugin();
+      expect(agent).toBeDefined();
+      await agent.dispose();
+    }
+  });
+
+  it("test_a_custom_provider_still_refuses_a_whitespace_only_key", async () => {
+    await expect(create("   ", "shortkeybench/x")).rejects.toMatchObject({
+      code: "malformed_api_key",
+    });
   });
 });

@@ -143,6 +143,8 @@ export class LocalAgent implements SDKAgent {
   private readonly settingSourcesIncludePlugins: boolean;
   private resolvedSubagents: Record<string, AgentDefinition> = {};
   private disposed = false;
+  /** Set by `close()`: refuses new work but, unlike `disposed`, does not mark the teardown as done. */
+  private closed = false;
   private activeTurn: ActiveTurn | undefined;
   private inflight = 0;
   private collectBatch: CollectBatch | undefined;
@@ -470,7 +472,7 @@ export class LocalAgent implements SDKAgent {
     return executeSendLocked(
       {
         agentId: this.agentId,
-        disposed: this.disposed,
+        disposed: this.disposed || this.closed,
         invalidationPending: this.invalidationPending,
         clearInvalidation: () => {
           this.invalidationPending = undefined;
@@ -598,7 +600,7 @@ export class LocalAgent implements SDKAgent {
   }
 
   close(): void {
-    this.disposed = true;
+    this.closed = true;
     // A closed handle refuses work, so it must not be served by the next getOrCreate.
     liveAgentRegistry.forget(this.agentId);
   }
@@ -623,7 +625,7 @@ export class LocalAgent implements SDKAgent {
       this.agentId,
       reason,
       opts,
-      this.disposed,
+      this.disposed || this.closed,
       () => this.dispose(),
       (p) => {
         this.invalidationPending = p;
@@ -647,7 +649,7 @@ export class LocalAgent implements SDKAgent {
     name: string,
     opts?: { save?: boolean; reset?: boolean },
   ): Promise<PersonalityPreset | null> {
-    if (this.disposed) throw new Error("Agent has been disposed");
+    if (this.disposed || this.closed) throw new Error("Agent has been disposed");
     return localAgentUsePersonality(this, name, opts);
   }
 

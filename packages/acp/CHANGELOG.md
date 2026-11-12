@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.0.3
+
+### Patch Changes
+
+- [#1124](https://github.com/usetheokit/theokit-sdk/pull/1124) [`bc3f575`](https://github.com/usetheokit/theokit-sdk/commit/bc3f575ed01dbd008c3248fdc0d4670673ad6a83) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - fix(acp): a tool that failed now reaches the host as `failed` instead of `completed`, because the SDK now reports `status: "error"` for it
+
 ## 4.0.2
 
 ### Patch Changes

@@ -9,7 +9,7 @@
 
 import { globalSingleton } from "../../global-singleton.js";
 import { registerCatalogProviders } from "../catalog-loader.js";
-import { registerProvider } from "../registry.js";
+import { listProviders, registerProvider } from "../registry.js";
 import { ANTHROPIC } from "./anthropic.js";
 import { BEDROCK } from "./bedrock.js";
 import { CEREBRAS } from "./cerebras.js";
@@ -38,6 +38,21 @@ const _registeredState = globalSingleton("theokit-sdk.providers.builtins-registe
   done: false,
 }));
 
+const _builtinNames = globalSingleton(
+  "theokit-sdk.providers.builtin-names",
+  () => new Set<string>(),
+);
+
+/**
+ * True when `name` was registered by the SDK itself (builtins and the JSON catalog) rather than by
+ * user code such as `Provider.create`. Used to scope strict API-key shape checks to providers whose
+ * key format the SDK can attribute. @internal
+ */
+export function isBuiltinProviderName(name: string): boolean {
+  registerBuiltins();
+  return _builtinNames.has(name.toLowerCase());
+}
+
 export function registerBuiltins(): void {
   if (_registeredState.done) return;
   _registeredState.done = true;
@@ -65,6 +80,10 @@ export function registerBuiltins(): void {
   registerProvider(CEREBRAS);
   // Dynamic catalog — 40+ providers from JSON (T10.1, ADR D447)
   registerCatalogProviders();
+  for (const p of listProviders()) {
+    _builtinNames.add(p.name);
+    for (const a of p.aliases ?? []) _builtinNames.add(a);
+  }
 }
 
 /** Test-only reset. @internal */
