@@ -12,6 +12,7 @@ import { CredentialPool, newPooledCredential } from "./credential-pool.js";
 import { currentCredentialPool } from "./credential-pool-context.js";
 import type { CredentialPoolStrategy } from "./credential-pool-types.js";
 import { maybeWrapWithFaultInjection } from "./fault-injection.js";
+import { MuseClient } from "./muse.js";
 import { OllamaNativeClient } from "./ollama-native.js";
 import { OpenAIClient } from "./openai.js";
 import { PoolAwareLlmClient } from "./pool-aware-client.js";
@@ -502,6 +503,7 @@ function selectTransport(
     // `/api/chat` endpoint. OpenAI-compat `/v1/chat/completions` causes
     // models to emit raw tool JSON as plain text — confirmed via peer-project
     // upstream warning and our own dogfood of telegram-pro.
+    if (profile.name === "meta") return new MuseClient();
     if (profile.name === "ollama") {
       const ollamaBase = baseUrl ?? process.env.OLLAMA_HOST ?? profile.baseUrl;
       return new OllamaNativeClient({ apiKey, baseUrl: ollamaBase });

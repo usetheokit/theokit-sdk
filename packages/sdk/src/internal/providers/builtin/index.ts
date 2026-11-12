@@ -20,6 +20,7 @@ import { GOOGLE } from "./google.js";
 import { GROQ } from "./groq.js";
 import { LLAMACPP } from "./llamacpp.js";
 import { LMSTUDIO } from "./lmstudio.js";
+import { META } from "./meta.js";
 import { MISTRAL } from "./mistral.js";
 import { OLLAMA } from "./ollama.js";
 import { OPENAI } from "./openai.js";
@@ -47,6 +48,7 @@ export function registerBuiltins(): void {
   registerProvider(OPENROUTER);
   registerProvider(GEMINI);
   registerProvider(OLLAMA);
+  registerProvider(META);
   registerProvider(LMSTUDIO);
   registerProvider(LLAMACPP);
   registerProvider(BEDROCK);
@@ -76,6 +78,7 @@ export {
   GEMINI,
   LLAMACPP,
   LMSTUDIO,
+  META,
   OLLAMA,
   OPENAI,
   OPENAI_CHATGPT,
