@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-262 distinct code(s).
+264 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -131,6 +131,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `mcp_auth_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:140` +1 |
 | `mcp_buffer_overflow` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:344` |
 | `mcp_closed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:319` |
+| `mcp_config_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-dispatch.ts:154` |
+| `mcp_config_unreadable` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-dispatch.ts:144` |
 | `mcp_crashed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:234` |
 | `mcp_disconnected` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:247` +2 |
 | `mcp_http_error` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:516` +3 |
