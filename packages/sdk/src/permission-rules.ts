@@ -17,6 +17,7 @@
  * |---|---|
  * | `Bash` | every call to `Bash` |
  * | `Bash(npm run test:*)` | the primary argument IS `npm run test` or starts with it plus whitespace |
+ * | `Bash(git *)` | the same reading as `Bash(git:*)`: `git` alone or followed by whitespace |
  * | `Bash(npm publish*)` | the primary argument STARTS WITH `npm publish` |
  * | `Read(path:./.env)` | the primary argument, read as a path, matches the glob |
  * | `WebFetch(domain:example.com)` | the primary argument's HOST equals `example.com` |
@@ -35,11 +36,34 @@
  * one. The escape that always works is a BARE tool name, which matches every call whatever its
  * shape.
  *
+ * ## A `command` argument is a shell line, and a line runs several commands
+ *
+ * A specifier on the `command` argument is matched against EACH command the line runs, as read by
+ * `readShellCommandLine`: the line is split outside quotes on `;`, `&&`, `||`, `|`, `&` and
+ * newlines, and `$(...)`, backticks and `( ... )` subshells count as further commands.
+ *
+ * - A `deny` or `ask` rule matches when ANY command of the line matches it.
+ * - An `allow` rule matches only when EVERY command of the line matches some `allow` rule of the
+ *   same tool. `Bash(git *)` alone does not allow `git status && rm -rf build`.
+ * - A line the reader cannot follow (an unbalanced quote or parenthesis, a heredoc) is never allowed
+ *   by a rule. When the tool has any rule with a specifier, such a line resolves to an explicit
+ *   `ask`, whatever the engine's `defaultAction`, after the deny rules have had their turn on the
+ *   line as written.
+ *
+ * Shell rules are not a sandbox. The reader does not expand variables or aliases and does not look
+ * inside a command that runs another one (`sudo`, `env`, `xargs`, `sh -c`, `eval`), so a deny rule
+ * on `rm` does not stop `sudo rm`. Keep `defaultAction` at `ask` or `deny` when the rules guard a
+ * shell.
+ *
  * @public
  */
 
 import { ConfigurationError } from "./errors.js";
 import { globToRegex } from "./internal/runtime/context/context-glob.js";
+import {
+  readShellCommandLine,
+  type ShellCommandLine,
+} from "./internal/security/shell-command-line.js";
 import type { PermissionAction, PermissionRule } from "./permission-engine.js";
 
 /** A policy as an operator writes it: three lists of rule strings. */
@@ -69,21 +93,37 @@ const PRIMARY_ARG_NAMES = ["command", "file_path", "path", "url", "query"] as co
  *   this runtime silently ignored is the belief-in-an-absent-protection the whole tier removes.
  */
 export function parsePermissionRules(set: PermissionRuleSet): PermissionRule[] {
+  const deny = (set.deny ?? []).map(readRule);
+  const ask = (set.ask ?? []).map(readRule);
+  const allow = (set.allow ?? []).map(readRule);
+  const allowedCommands = commandMatchersByTool(allow);
+  const toParsed = (action: PermissionAction) => (rule: ReadRule) =>
+    parseOne(rule, action, allowedCommands);
   return [
-    ...(set.deny ?? []).flatMap((r) => parseOne(r, "deny")),
-    ...(set.ask ?? []).flatMap((r) => parseOne(r, "ask")),
-    ...(set.allow ?? []).flatMap((r) => parseOne(r, "allow")),
+    ...deny.flatMap(toParsed("deny")),
+    ...unreadableLineRules([...deny, ...ask, ...allow]),
+    ...ask.flatMap(toParsed("ask")),
+    ...allow.flatMap(toParsed("allow")),
   ];
 }
 
-function parseOne(rule: string, action: PermissionAction): PermissionRule[] {
+/** A rule string split into its tool and, when it has one, its specifier. */
+interface ReadRule {
+  readonly tool: string;
+  readonly specifier?: string;
+}
+
+/** The argument a shell line arrives in. */
+const SHELL_COMMAND_ARG = "command";
+
+function readRule(rule: string): ReadRule {
   const trimmed = rule.trim();
   const open = trimmed.indexOf("(");
   if (open === -1) {
     if (trimmed.length === 0) {
       throw new ConfigurationError("permission rule is empty", { code: "permission_rule_invalid" });
     }
-    return [{ tool: normaliseToolName(trimmed), action }];
+    return { tool: normaliseToolName(trimmed) };
   }
   if (!trimmed.endsWith(")")) {
     throw new ConfigurationError(
@@ -98,7 +138,17 @@ function parseOne(rule: string, action: PermissionAction): PermissionRule[] {
       code: "permission_rule_invalid",
     });
   }
-  if (specifier === "*") return [{ tool: normaliseToolName(tool), action }];
+  if (specifier === "*") return { tool: normaliseToolName(tool) };
+  return { tool: normaliseToolName(tool), specifier };
+}
+
+function parseOne(
+  rule: ReadRule,
+  action: PermissionAction,
+  allowedCommands: ReadonlyMap<string, CommandMatcher[]>,
+): PermissionRule[] {
+  const { tool: name, specifier } = rule;
+  if (specifier === undefined) return [{ tool: name, action }];
 
   // ONE rule per conventional argument name, rather than one rule with a matcher that inspects the
   // whole call.
@@ -111,9 +161,91 @@ function parseOne(rule: string, action: PermissionAction): PermissionRule[] {
   //
   // The engine is FIRST-MATCH and every rule here carries the same action, so whichever argument the
   // call actually supplies decides, and the rest fall through without effect.
+  //
+  // The `command` argument is a shell line and is read command by command; see the module docblock.
   const test = predicateFor(specifier);
-  const name = normaliseToolName(tool);
-  return PRIMARY_ARG_NAMES.map((arg) => ({ tool: name, action, args: { [arg]: test } }));
+  const command = commandMatcherFor(specifier);
+  const shellTest =
+    command === undefined ? test : shellLinePredicate(command, action, allowedCommands.get(name));
+  return PRIMARY_ARG_NAMES.map((arg) => ({
+    tool: name,
+    action,
+    args: { [arg]: arg === SHELL_COMMAND_ARG ? shellTest : test },
+  }));
+}
+
+/** Tests ONE command of a shell line, or any other string argument. */
+type CommandMatcher = (command: string) => boolean;
+
+/**
+ * The shell-line reading of a command specifier.
+ *
+ * `deny` and `ask` restrict, so ANY command of the line is enough. `allow` widens, so it needs EVERY
+ * command of the line allowed by some `allow` rule of the tool, and this rule must be one of them.
+ * Only the written spelling counts toward an allow; the unquoted one only ever adds a match to a
+ * restriction (`"rm" -rf /` is `rm`).
+ */
+function shellLinePredicate(
+  command: CommandMatcher,
+  action: PermissionAction,
+  allowed: readonly CommandMatcher[] = [],
+): (value: unknown) => boolean {
+  if (action !== "allow") {
+    return (v) => {
+      if (typeof v !== "string") return false;
+      const line = readLine(v);
+      if (!line.readable) return command(v.trim());
+      return line.commands.some((c) => command(c.raw) || command(c.unquoted));
+    };
+  }
+  return (v) => {
+    if (typeof v !== "string") return false;
+    const line = readLine(v);
+    if (!line.readable) return false;
+    const everyAllowed = line.commands.every((c) => allowed.some((m) => m(c.raw)));
+    return everyAllowed && line.commands.some((c) => command(c.raw));
+  };
+}
+
+/** The command matchers of every `allow` rule, by tool, for the every-command check. */
+function commandMatchersByTool(rules: readonly ReadRule[]): Map<string, CommandMatcher[]> {
+  const byTool = new Map<string, CommandMatcher[]>();
+  for (const rule of rules) {
+    const matcher = rule.specifier === undefined ? undefined : commandMatcherFor(rule.specifier);
+    if (matcher === undefined) continue;
+    byTool.set(rule.tool, [...(byTool.get(rule.tool) ?? []), matcher]);
+  }
+  return byTool;
+}
+
+/**
+ * One explicit `ask` per tool that has a command rule, for a shell line the reader cannot follow.
+ *
+ * Emitted after the deny rules, so a line that visibly starts with a denied command is still denied,
+ * and before every allow rule, so no allow rule and no `defaultAction: "allow"` can let it through.
+ */
+function unreadableLineRules(rules: readonly ReadRule[]): PermissionRule[] {
+  const tools = new Set(
+    rules
+      .filter((r) => r.specifier !== undefined && commandMatcherFor(r.specifier) !== undefined)
+      .map((r) => r.tool),
+  );
+  return [...tools].map((tool) => ({
+    tool,
+    action: "ask",
+    args: { [SHELL_COMMAND_ARG]: (v: unknown) => typeof v === "string" && !readLine(v).readable },
+  }));
+}
+
+/**
+ * One line is evaluated against every rule, five argument names each, so the last reading is kept.
+ * The reader is pure, so the cache can only ever return what reading again would.
+ */
+let lastLine: { readonly text: string; readonly read: ShellCommandLine } | undefined;
+
+function readLine(text: string): ShellCommandLine {
+  if (lastLine?.text !== text) lastLine = { text, read: readShellCommandLine(text) };
+  return lastLine.read;
 }
 
 /**
@@ -143,6 +275,9 @@ function normaliseToolName(tool: string): string {
  */
 const COMMAND_PREFIX_SUFFIX = ":*";
 
+/** `Bash(git *)`: a `*` after whitespace reads like `:*`, the command alone or followed by more. */
+const COMMAND_SPACE_SUFFIX = /\s+\*$/;
+
 function predicateFor(specifier: string): (value: unknown) => boolean {
   if (specifier.startsWith("path:")) {
     const re = globToRegex(specifier.slice("path:".length));
@@ -152,13 +287,24 @@ function predicateFor(specifier: string): (value: unknown) => boolean {
     const host = specifier.slice("domain:".length).toLowerCase();
     return (v) => typeof v === "string" && hostOf(v) === host;
   }
+  const command = commandMatcherFor(specifier) as CommandMatcher;
+  return (v) => typeof v === "string" && command(v);
+}
+
+/** The matcher for a specifier that names a command, or `undefined` for `path:` and `domain:`. */
+function commandMatcherFor(specifier: string): CommandMatcher | undefined {
+  if (specifier.startsWith("path:") || specifier.startsWith("domain:")) return undefined;
   if (specifier.endsWith(COMMAND_PREFIX_SUFFIX)) {
     const command = specifier.slice(0, -COMMAND_PREFIX_SUFFIX.length);
-    return (v) => typeof v === "string" && isCommandOrItsInvocation(v, command);
+    return (v) => isCommandOrItsInvocation(v, command);
+  }
+  if (COMMAND_SPACE_SUFFIX.test(specifier)) {
+    const command = specifier.replace(COMMAND_SPACE_SUFFIX, "");
+    return (v) => isCommandOrItsInvocation(v, command);
   }
   if (specifier.endsWith("*")) {
     const prefix = specifier.slice(0, -1);
-    return (v) => typeof v === "string" && v.startsWith(prefix);
+    return (v) => v.startsWith(prefix);
   }
   return (v) => v === specifier;
 }
