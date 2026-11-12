@@ -143,8 +143,8 @@ function appendBlock(
 }
 
 function mapToolCall(m: Extract<SDKMessage, { type: "tool_call" }>): ShareGptMessage[] {
-  // Only emit when the tool call completed — running/error are interim states.
-  if (m.status !== "completed") return [];
+  // Only emit once the call finished (completed or error); "running" is interim.
+  if (m.status === "running") return [];
   const value =
     typeof m.result === "string" ? m.result : m.result === undefined ? "" : safeStringify(m.result);
   return [{ from: "tool", value }];
