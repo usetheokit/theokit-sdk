@@ -1,8 +1,8 @@
 # Published TheoKit packages follow one API stability policy
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-12
-- Decided by: pending, human/paulo (the numbers in "Deprecation window" are his call)
+- Decided by: human/paulo, on 2026-11-12, as proposed
 - Applies to: every publishable package in `usetheokit/theokit-sdk` and `usetheokit/theokit`
   (`@theokit/sdk`, `sdk-*`, `acp`, `cli`, `memory-*`, `theokit`, `@theokit/agents`,
   `agents-pty`, `http`, `presenter`, `tauri`, `create-theokit`)
@@ -133,8 +133,7 @@ A removal, rename or incompatible change to a stable export needs, in this order
    whichever ends later.
 3. The major that removes it.
 
-**The numbers 90 days and 2 minors are proposed, not decided. Paulo must confirm or replace them.**
-The reasoning: at the current cadence (`@theokit/agents` released 179 times in 6 months, roughly
+Paulo confirmed both numbers on 2026-11-12. The reasoning: at the current cadence (`@theokit/agents` released 179 times in 6 months, roughly
 one a day) a count of releases alone ends in days, so the window has to be measured in time. 90
 days lets a team that upgrades monthly see the warning in three upgrades before it becomes an
 error. 30 days would cover one such upgrade. 180 days would hold the beta-stage packages to a pace
@@ -200,8 +199,8 @@ The gate builds on what exists rather than adding a tool: in theokit-sdk on
   wants and understands the TSDoc release tags. It was set aside for now because both repositories
   already resolve every entry through the compiler in their own gates, and API Extractor would be a
   second, separately configured model of the same 36 SDK entries. Its multi-entry support has not
-  been measured here. If the in-repo gate turns out costly to keep, this is the first alternative to
-  measure.
+  been measured here, and no spike to measure it is planned. If the in-repo gate turns out costly to
+  keep, this is the alternative to reopen.
 - **An `/experimental` subpath per package.** Rejected for the promotion cost described above, and
   because it doubles the entry count of packages that already have 26 (`@theokit/agents`) and 36
   (`@theokit/sdk`) entries.
@@ -225,4 +224,9 @@ The gate builds on what exists rather than adding a tool: in theokit-sdk on
 - The gate checks declaration text, so a stable type that gains an optional property passes while a
   formatting-only change in the emitted text fails until the baseline is regenerated. The second
   case is noise the reviewer accepts in exchange for a gate that never misses a change.
-- Whether `theokit` and the `0.Y` SDK satellites should reach 1.0 once tagged is left open here.
+
+## Deferred
+
+Whether `theokit` and the `0.Y` SDK satellites should move to 1.0 once their exports are tagged is
+not decided here. Paulo will decide it later, in its own record. Until then those packages follow
+the `0.Y` rule above.
