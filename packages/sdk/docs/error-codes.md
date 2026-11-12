@@ -188,7 +188,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `plugin_missing_manifest` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:212` +2 |
 | `programmatic_hooks_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:99` |
 | `provider_unreachable` | domain | TheokitAgentError | `packages/sdk/src/internal/llm/muse.ts:206` |
-| `provider_unresolved` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:111` +2 |
+| `provider_unresolved` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:113` +2 |
 | `quota_exceeded` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:144` |
 | `rate_limit` | domain | — | `packages/sdk/src/internal/error-mappers/vertex.ts:47` |
 | `rate_limited` | domain | MemoryAdapterError | `packages/memory-honcho/src/adapter.ts:244` +3 |
@@ -242,7 +242,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `tool_missing_schema` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:287` |
 | `tool_reserved_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:269` |
 | `transport_failure` | domain | NetworkError | `packages/sdk/src/internal/llm/transport-error.ts:48` |
-| `transport_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:605` +1 |
+| `transport_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:614` +1 |
 | `unimplemented_budget_scope` | domain | ConfigurationError | `packages/sdk/src/internal/budget/registry.ts:58` +1 |
 | `unknown` | domain | AgentRunError, MemoryAdapterError, TheokitAgentError | `packages/memory-honcho/src/adapter.ts:264` +5 |
 | `unknown_agent` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:212` +1 |

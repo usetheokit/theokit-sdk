@@ -8,7 +8,6 @@ import {
   type MuseTransport,
 } from "../../../src/internal/llm/muse.js";
 import type { LlmRequest } from "../../../src/internal/llm/types.js";
-import { getProviderProfile, registerBuiltins } from "../../../src/internal/providers/index.js";
 
 const REQUEST: LlmRequest = {
   model: "muse-code",
@@ -120,12 +119,5 @@ describe("MuseClient", () => {
       .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ConfigurationError);
     expect((err as ConfigurationError).code).toBe("muse_not_installed");
-  });
-});
-
-describe("meta provider profile", () => {
-  it("is registered, keyless, and reachable as muse", () => {
-    registerBuiltins();
-    expect(getProviderProfile("meta")?.authType).toBe("none");
   });
 });

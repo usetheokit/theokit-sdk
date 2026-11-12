@@ -12,7 +12,7 @@ import { CredentialPool, newPooledCredential } from "./credential-pool.js";
 import { currentCredentialPool } from "./credential-pool-context.js";
 import type { CredentialPoolStrategy } from "./credential-pool-types.js";
 import { maybeWrapWithFaultInjection } from "./fault-injection.js";
-import { MuseClient } from "./muse.js";
+import { MuseClient, type MuseClientOptions } from "./muse.js";
 import { OllamaNativeClient } from "./ollama-native.js";
 import { OpenAIClient } from "./openai.js";
 import { PoolAwareLlmClient } from "./pool-aware-client.js";
@@ -62,6 +62,8 @@ export interface ProviderRouterOptions {
    * every other one — which is the bug this field exists to end, wearing a hat.
    */
   baseUrl?: string;
+  /** #976 — options for the `meta/*` Muse client: the caller's tool-approval callback (and a test transport). */
+  muse?: MuseClientOptions;
 }
 
 /**
@@ -210,13 +212,18 @@ function buildTransport(
     // only on a less visible path.
     return new PoolAwareLlmClient(
       ambient,
-      (apiKey) => selectTransport(profile, apiKey, perCallBaseUrl),
+      (apiKey) => selectTransport(profile, apiKey, perCallBaseUrl, routerOptions.muse),
       undefined,
       resilience,
     );
   }
   const poolKeys = filterPoolKeys(routerOptions.apiKeys?.[name]);
-  const noAuthOverride = maybeBuildNoAuthTransport(profile, poolKeys, perCallBaseUrl);
+  const noAuthOverride = maybeBuildNoAuthTransport(
+    profile,
+    poolKeys,
+    perCallBaseUrl,
+    routerOptions.muse,
+  );
   if (noAuthOverride !== undefined) return noAuthOverride;
   return buildPoolOrSingle({ name, profile, poolKeys, routerOptions, perCallBaseUrl });
 }
@@ -240,6 +247,7 @@ function maybeBuildNoAuthTransport(
   profile: ProviderProfile,
   poolKeys: string[] | undefined,
   baseUrl?: string,
+  muse?: MuseClientOptions,
 ): LlmClient | undefined {
   if (profile.authType !== "none" || poolKeys === undefined || poolKeys.length === 0) {
     return undefined;
@@ -247,7 +255,7 @@ function maybeBuildNoAuthTransport(
   warnNoAuthApiKeysIgnoredOnce(profile.name);
   const sentinel = sentinelForNoAuth(profile);
   if (sentinel === undefined) return undefined;
-  return selectTransport(profile, sentinel, baseUrl);
+  return selectTransport(profile, sentinel, baseUrl, muse);
 }
 
 /** Pool path for ≥2 keys; single-key fast path otherwise; sentinel fallback. */
@@ -273,7 +281,7 @@ function buildPoolOrSingle(args: {
     // behavior does not change.
     return new PoolAwareLlmClient(
       pool,
-      (apiKey) => selectTransport(profile, apiKey, perCallBaseUrl),
+      (apiKey) => selectTransport(profile, apiKey, perCallBaseUrl, routerOptions.muse),
       undefined,
       resilience,
     );
@@ -292,7 +300,7 @@ function buildPoolOrSingle(args: {
   // M93 — the ONE-key arm returned the RAW transport, with no retry at all. A pool of 1 key is a
   // pool of size 1: what changes between 1 and 2 keys is whether there is somewhere to rotate to, not
   // whether resilience exists. The typical consumer resolves exactly one credential and always landed here.
-  return selectTransport(profile, apiKey, perCallBaseUrl);
+  return selectTransport(profile, apiKey, perCallBaseUrl, routerOptions.muse);
 }
 
 /**
@@ -435,6 +443,7 @@ function selectTransport(
   apiKey: string,
   /** #332 — the endpoint THIS call should reach; outranks the provider's base-URL env var. */
   baseUrl?: string,
+  muse?: MuseClientOptions,
 ): LlmClient {
   // M41 — the optional provider `transform` seam (refresh-aware `fetch` + dynamic `headers` from the resolved
   // bearer). Invoked LAZILY, per-branch, ONLY by the transports that consume it (chat_completions +
@@ -503,7 +512,7 @@ function selectTransport(
     // `/api/chat` endpoint. OpenAI-compat `/v1/chat/completions` causes
     // models to emit raw tool JSON as plain text — confirmed via peer-project
     // upstream warning and our own dogfood of telegram-pro.
-    if (profile.name === "meta") return new MuseClient();
+    if (profile.name === "meta") return new MuseClient(muse);
     if (profile.name === "ollama") {
       const ollamaBase = baseUrl ?? process.env.OLLAMA_HOST ?? profile.baseUrl;
       return new OllamaNativeClient({ apiKey, baseUrl: ollamaBase });
