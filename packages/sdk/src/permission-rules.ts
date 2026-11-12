@@ -16,7 +16,8 @@
  * | Written | Matches |
  * |---|---|
  * | `Bash` | every call to `Bash` |
- * | `Bash(npm run test:*)` | the primary argument STARTS WITH `npm run test:` |
+ * | `Bash(npm run test:*)` | the primary argument IS `npm run test` or starts with it plus whitespace |
+ * | `Bash(npm publish*)` | the primary argument STARTS WITH `npm publish` |
  * | `Read(path:./.env)` | the primary argument, read as a path, matches the glob |
  * | `WebFetch(domain:example.com)` | the primary argument's HOST equals `example.com` |
  * | `Bash(npm audit)` | the primary argument EQUALS `npm audit` |
@@ -38,6 +39,7 @@
  */
 
 import { ConfigurationError } from "./errors.js";
+import { globToRegex } from "./internal/runtime/context/context-glob.js";
 import type { PermissionAction, PermissionRule } from "./permission-engine.js";
 
 /** A policy as an operator writes it: three lists of rule strings. */
@@ -134,20 +136,38 @@ function normaliseToolName(tool: string): string {
   return `mcp_${tool.slice("mcp__".length).replaceAll("__", "_")}`;
 }
 
+/**
+ * The Claude Code command-prefix suffix. `Bash(ls:*)` matches the same commands as `Bash(ls *)`:
+ * the command itself, or the command followed by whitespace and anything. Recognised only at the
+ * end of a specifier; anywhere else the colon is literal text.
+ */
+const COMMAND_PREFIX_SUFFIX = ":*";
+
 function predicateFor(specifier: string): (value: unknown) => boolean {
   if (specifier.startsWith("path:")) {
-    const re = globToRegExp(specifier.slice("path:".length));
+    const re = globToRegex(specifier.slice("path:".length));
     return (v) => typeof v === "string" && re.test(v);
   }
   if (specifier.startsWith("domain:")) {
     const host = specifier.slice("domain:".length).toLowerCase();
     return (v) => typeof v === "string" && hostOf(v) === host;
   }
+  if (specifier.endsWith(COMMAND_PREFIX_SUFFIX)) {
+    const command = specifier.slice(0, -COMMAND_PREFIX_SUFFIX.length);
+    return (v) => typeof v === "string" && isCommandOrItsInvocation(v, command);
+  }
   if (specifier.endsWith("*")) {
     const prefix = specifier.slice(0, -1);
     return (v) => typeof v === "string" && v.startsWith(prefix);
   }
   return (v) => v === specifier;
+}
+
+/** `command` alone, or `command` followed by whitespace: `rm -rf /` is `rm`, `rmdir` is not. */
+function isCommandOrItsInvocation(value: string, command: string): boolean {
+  if (!value.startsWith(command)) return false;
+  const next = value.charAt(command.length);
+  return next === "" || /\s/.test(next);
 }
 
 /** The HOST, never a substring — `example.com.evil.test` is a different host, not a match. */
@@ -157,40 +177,4 @@ function hostOf(value: string): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-/**
- * One glob character as its regex, and how many extra characters it consumed.
- *
- * Split from the loop because the loop was a switch with three nested lookaheads and reached a
- * cognitive complexity of 13 against this repository's limit of 10. The split is not cosmetic: it
- * puts each rule where it can be read on its own, and `**` consuming a following `/` — so
- * `src/**\/*.key` matches `src/a.key` as well as `src/a/b.key` — stops being a side effect of loop
- * bookkeeping.
- */
-function translateGlobChar(glob: string, i: number): { pattern: string; consumed: number } {
-  const c = glob[i] ?? "";
-  if (c === "?") return { pattern: "[^/]", consumed: 0 };
-  if (c !== "*") return { pattern: c.replace(/[.+^${}()|[\]\\]/g, "\\$&"), consumed: 0 };
-  if (glob[i + 1] !== "*") return { pattern: "[^/]*", consumed: 0 };
-  // `**` spans any depth INCLUDING zero, so it swallows the separator that would otherwise be
-  // required after it.
-  return { pattern: ".*", consumed: glob[i + 2] === "/" ? 2 : 1 };
-}
-
-/**
- * A path glob: `*` within one segment, `**` across any depth, `?` one character.
- *
- * Built from the literal, never taken from it — every metacharacter outside the three is escaped, so
- * a policy line cannot smuggle a regular expression into the matcher.
- */
-function globToRegExp(glob: string): RegExp {
-  let out = "";
-  for (let i = 0; i < glob.length; i += 1) {
-    const piece = translateGlobChar(glob, i);
-    out += piece.pattern;
-    i += piece.consumed;
-  }
-  // eslint-disable-next-line security/detect-non-literal-regexp
-  return new RegExp(`^${out}$`);
 }
