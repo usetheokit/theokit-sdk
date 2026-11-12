@@ -178,4 +178,23 @@ echo '{"type":"turn_end","inputTokens":1,"outputTokens":2}'`,
     const err = await run(client).catch((e: unknown) => e);
     expect((err as { code?: string }).code).toBe("provider_unreachable");
   });
+
+  it("does not raise an uncaught EPIPE when sending to a child that already exited", async () => {
+    const bin = script("muse-gone", "exit 0");
+    const session = await createStdioMuseTransport(bin).open(new AbortController().signal);
+    const uncaught: unknown[] = [];
+    const onUncaught = (e: unknown) => uncaught.push(e);
+    process.on("uncaughtException", onUncaught);
+    try {
+      for await (const _ of session.events) {
+        // drain until the child's close ends the stream
+      }
+      const msg: MuseClientMessage = { type: "cancel" } as never;
+      for (let i = 0; i < 5; i++) session.send(msg);
+      await new Promise((r) => setTimeout(r, 100));
+    } finally {
+      process.off("uncaughtException", onUncaught);
+    }
+    expect(uncaught).toEqual([]);
+  });
 });

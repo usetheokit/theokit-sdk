@@ -132,6 +132,11 @@ function attachSession(child: ReturnType<typeof spawn>): MuseSession {
     queue.push(parsed.events);
   });
   child.once("close", () => queue.end());
+  // A child that has exited (or is exiting) closes its stdin, and a later `send` then raises EPIPE
+  // on the stream. Unhandled, that is an uncaught exception in the SDK's own process. The child's
+  // close already ends the event queue, which reports the failure to the caller, so this is safe
+  // to swallow.
+  child.stdin?.on("error", () => undefined);
   return {
     send: (m) => {
       child.stdin?.write(`${JSON.stringify(m)}\n`);
