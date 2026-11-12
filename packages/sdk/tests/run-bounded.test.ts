@@ -1,13 +1,15 @@
 import { execSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { ConfigurationError } from "../src/errors.js";
-import { runBounded } from "../src/process.js";
 import { runShell } from "../src/internal/runtime/tools/shell-tool.js";
+import { runBounded } from "../src/process.js";
 
 const posix = process.platform !== "win32";
 const alive = (tag: string): string => {
   try {
-    return execSync(`ps -eo args | grep '[${tag[0]}]${tag.slice(1)}'`).toString().trim();
+    return execSync(`ps -eo args | grep '[${tag[0]}]${tag.slice(1)}'`)
+      .toString()
+      .trim();
   } catch {
     return "";
   }
