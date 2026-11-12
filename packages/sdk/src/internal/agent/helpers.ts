@@ -8,6 +8,7 @@ import { httpRequest } from "../../internal/http.js";
 import { isLocalAgentId } from "../../internal/ids.js";
 import { LocalAgent } from "../../internal/local-agent/index.js";
 import { resolveMaxFacts } from "../../internal/memory/storage/fact-ceiling.js";
+import { isBuiltinProviderName } from "../../internal/providers/builtin/index.js";
 import { discoverProviderPlugins } from "../../internal/providers/discovery.js";
 import { isFixtureApiKey } from "../../internal/runtime/fixtures/fixture-mode.js";
 import { normalizeModel } from "../../internal/runtime/model-selection.js";
@@ -152,6 +153,9 @@ function keyWillFlowToProvider(apiKey: string, provider: string | undefined): bo
   if (provider === undefined) return false;
   const profile = getProviderProfile(provider);
   if (profile === undefined) return false;
+  // A profile registered by user code (`Provider.create`) is a provider the SDK cannot attribute the
+  // key to: local OpenAI-compatible servers often accept any key, including a 1-char placeholder.
+  if (!isBuiltinProviderName(provider)) return false;
   return profile.authType !== "none";
 }
 
