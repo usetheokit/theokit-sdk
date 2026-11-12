@@ -1,5 +1,25 @@
 # Changelog
 
+## 5.17.0
+
+### Minor Changes
+
+- [#989](https://github.com/usetheokit/theokit-sdk/pull/989) [`6ab9ada`](https://github.com/usetheokit/theokit-sdk/commit/6ab9adaaf54f44477ac548bc050d528797b2383f) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/mcp-events`: subscribe to events from an MCP server that implements the events profile. `createMcpEventSubscriber` sends `events/subscribe` over Streamable HTTP with a per-subscription HMAC secret, runs a local callback receiver, and passes each event to your callback with its subscription id. A delivery with a wrong `x-mcp-signature` is rejected with 401 and never reaches the callback.
+
+- [#1004](https://github.com/usetheokit/theokit-sdk/pull/1004) [`4fbd541`](https://github.com/usetheokit/theokit-sdk/commit/4fbd54190dac89becf29908b85991a1fe7c4dd19) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add a `meta/<model>` provider that runs turns through Meta's Muse Code CLI (`muse serve`) over the Muse Session Protocol. Muse owns the loop and sandbox; tool approvals pass through the caller via `providers.muse.onApproval`. A missing `muse` binary or a missing sign-in raises a typed error.
+
+### Patch Changes
+
+- [#999](https://github.com/usetheokit/theokit-sdk/pull/999) [`3ae186a`](https://github.com/usetheokit/theokit-sdk/commit/3ae186ab3aa7ea6df81821bab60729aaccb62d6a) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Document the `@theokit/sdk/mcp-events` subscriber types so the public API doc coverage stays at 100%.
+
+- [#1002](https://github.com/usetheokit/theokit-sdk/pull/1002) [`b8617b3`](https://github.com/usetheokit/theokit-sdk/commit/b8617b33cfdc3e2479dbf43c9453fe8147ebb798) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Trim trailing slashes from the MCP events callback origin without a backtracking regular expression.
+
+- [#1012](https://github.com/usetheokit/theokit-sdk/pull/1012) [`35b6cca`](https://github.com/usetheokit/theokit-sdk/commit/35b6ccaca6dce680a33d57d0a56c7eb1006a6666) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Muse stdio transport: a write to a child that already exited no longer raises an uncaught `EPIPE`; the turn fails with the typed `provider_unreachable` error.
+
+- [#1064](https://github.com/usetheokit/theokit-sdk/pull/1064) [`f8d4aba`](https://github.com/usetheokit/theokit-sdk/commit/f8d4aba4fdecda2d8e7734e48a5029dced31a751) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Test-only: cover the closed-stdin guard and the stdin `error` listener of the Muse stdio transport. No behaviour change.
+
+- [#1008](https://github.com/usetheokit/theokit-sdk/pull/1008) [`ceb002f`](https://github.com/usetheokit/theokit-sdk/commit/ceb002f1b4033a98b918c96e433c5f6aa2a52968) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The `meta/*` Muse provider now resolves the `muse` binary to an absolute path from absolute `PATH` entries before spawning it, so a relative or empty `PATH` entry can no longer pick the executable.
+
 ## 5.16.0
 
 ### Minor Changes
