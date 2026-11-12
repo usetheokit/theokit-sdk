@@ -4,14 +4,8 @@ import { join, relative } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import {
-  appendFact,
-  readFacts,
-} from "../src/internal/memory/storage/markdown-store.js";
-import {
-  projectMemoryDir,
-  resolveMemoryRoot,
-} from "../src/internal/memory/storage/memory-root.js";
+import { appendFact, readFacts } from "../src/internal/memory/storage/markdown-store.js";
+import { projectMemoryDir, resolveMemoryRoot } from "../src/internal/memory/storage/memory-root.js";
 import type { MemoryFact } from "../src/internal/memory/types.js";
 
 const fact = (text: string): MemoryFact => ({ text, createdAt: Date.now() }) as MemoryFact;
@@ -38,9 +32,7 @@ describe("memory.userId isolates facts (#1025)", () => {
 
   it("userId is confined to the memory root", () => {
     const cwd = mkdtempSync(join(tmpdir(), "mem-user-"));
-    expect(() => resolveMemoryRoot(cwd, { enabled: true, userId: "../x" })).toThrow(
-      /invalid/i,
-    );
+    expect(() => resolveMemoryRoot(cwd, { enabled: true, userId: "../x" })).toThrow(/invalid/i);
     const root = resolveMemoryRoot(cwd, { enabled: true, userId: "alice" });
     expect(relative(projectMemoryDir(cwd), root)).toBe(join("users", "alice"));
   });
