@@ -68,79 +68,89 @@ function notSignedIn(message: string): AuthenticationError {
   );
 }
 
+/** Splits a stdio chunk into complete JSON lines; returns the parsed events and the leftover. */
+function parseLines(buffered: string): { events: MuseServerEvent[]; rest: string } {
+  const lines = buffered.split("\n");
+  const rest = lines.pop() ?? "";
+  const events: MuseServerEvent[] = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line.length === 0) continue;
+    try {
+      events.push(JSON.parse(line) as MuseServerEvent);
+    } catch {
+      // A non-JSON line is not protocol traffic; ignore it.
+    }
+  }
+  return { events, rest };
+}
+
+/** An async queue fed by the child's stdout. */
+class EventQueue {
+  private readonly items: MuseServerEvent[] = [];
+  private wake: (() => void) | undefined;
+  private done = false;
+  private failure: unknown;
+
+  push(events: MuseServerEvent[]): void {
+    this.items.push(...events);
+    this.wake?.();
+  }
+
+  end(err?: unknown): void {
+    this.done = true;
+    if (err !== undefined) this.failure = err;
+    this.wake?.();
+  }
+
+  async *drain(): AsyncGenerator<MuseServerEvent, void, void> {
+    for (;;) {
+      const next = this.items.shift();
+      if (next !== undefined) {
+        yield next;
+      } else if (this.done) {
+        if (this.failure !== undefined) throw this.failure;
+        return;
+      } else {
+        await new Promise<void>((r) => {
+          this.wake = r;
+        });
+      }
+    }
+  }
+}
+
+function attachSession(child: ReturnType<typeof spawn>): MuseSession {
+  const queue = new EventQueue();
+  let buf = "";
+  child.stdout?.setEncoding("utf8");
+  child.stdout?.on("data", (chunk: string) => {
+    const parsed = parseLines(buf + chunk);
+    buf = parsed.rest;
+    queue.push(parsed.events);
+  });
+  child.once("close", () => queue.end());
+  return {
+    send: (m) => {
+      child.stdin?.write(`${JSON.stringify(m)}\n`);
+    },
+    close: () => {
+      child.kill();
+    },
+    events: { [Symbol.asyncIterator]: () => queue.drain() },
+  };
+}
+
 /** Default transport: spawns `muse serve` and speaks JSON lines on stdio. */
 export function createStdioMuseTransport(command = "muse"): MuseTransport {
   return {
     open(signal) {
       return new Promise<MuseSession>((resolve, reject) => {
         const child = spawn(command, ["serve"], { stdio: ["pipe", "pipe", "ignore"], signal });
-        const queue: MuseServerEvent[] = [];
-        let wake: (() => void) | undefined;
-        let done = false;
-        let failure: unknown;
-        const finish = (err?: unknown): void => {
-          done = true;
-          if (err !== undefined) failure = err;
-          wake?.();
-        };
         child.once("error", (err: NodeJS.ErrnoException) => {
-          if (err.code === "ENOENT") {
-            reject(notInstalled(err));
-            return;
-          }
-          finish(err);
-          reject(err);
+          reject(err.code === "ENOENT" ? notInstalled(err) : err);
         });
-        child.once("spawn", () => {
-          let buf = "";
-          child.stdout.setEncoding("utf8");
-          // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: line-buffered stdio reader is one cohesive block.
-          child.stdout.on("data", (chunk: string) => {
-            buf += chunk;
-            let nl = buf.indexOf("\n");
-            while (nl >= 0) {
-              const line = buf.slice(0, nl).trim();
-              buf = buf.slice(nl + 1);
-              if (line.length > 0) {
-                try {
-                  queue.push(JSON.parse(line) as MuseServerEvent);
-                } catch {
-                  // A non-JSON line is not protocol traffic; ignore it.
-                }
-              }
-              nl = buf.indexOf("\n");
-            }
-            wake?.();
-          });
-          child.once("close", () => finish());
-          resolve({
-            send: (m) => {
-              child.stdin.write(`${JSON.stringify(m)}\n`);
-            },
-            close: () => {
-              child.kill();
-            },
-            events: {
-              // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: line-buffered stdio reader is one cohesive block.
-              async *[Symbol.asyncIterator]() {
-                for (;;) {
-                  const next = queue.shift();
-                  if (next !== undefined) {
-                    yield next;
-                    continue;
-                  }
-                  if (done) {
-                    if (failure !== undefined) throw failure;
-                    return;
-                  }
-                  await new Promise<void>((r) => {
-                    wake = r;
-                  });
-                }
-              },
-            },
-          });
-        });
+        child.once("spawn", () => resolve(attachSession(child)));
       });
     },
   };
@@ -163,7 +173,6 @@ export class MuseClient implements LlmClient {
     this.transport = options.transport ?? createStdioMuseTransport();
   }
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: line-buffered stdio reader is one cohesive block.
   async *stream(
     request: LlmRequest,
     signal: AbortSignal,
@@ -177,21 +186,12 @@ export class MuseClient implements LlmClient {
         prompt: lastUserText(request),
       });
       let text = "";
-      let inputTokens: number | undefined;
-      let outputTokens: number | undefined;
       for await (const ev of session.events) {
         if (ev.type === "text_delta") {
           text += ev.text;
           yield { type: "text_delta", text: ev.text };
-        } else if (ev.type === "permission_request") {
-          const allow =
-            this.options.onApproval === undefined ? false : await this.options.onApproval(ev);
-          session.send({ type: "permission_response", id: ev.id, allow });
-        } else if (ev.type === "error") {
-          throw this.mapError(ev);
-        } else {
-          inputTokens = ev.inputTokens;
-          outputTokens = ev.outputTokens;
+        } else if (ev.type === "turn_end") {
+          const { inputTokens, outputTokens } = ev;
           return makeLlmFinish({
             stopReason: "end_turn",
             text,
@@ -199,6 +199,8 @@ export class MuseClient implements LlmClient {
             inputTokens,
             outputTokens,
           });
+        } else {
+          await this.handleControl(session, ev);
         }
       }
       throw new TheokitAgentError("Muse closed the session before the turn ended.", {
@@ -208,6 +210,16 @@ export class MuseClient implements LlmClient {
     } finally {
       session.close();
     }
+  }
+
+  /** Answers an approval request through the caller, or throws the mapped Muse error. */
+  private async handleControl(
+    session: MuseSession,
+    ev: Exclude<MuseServerEvent, { type: "text_delta" | "turn_end" }>,
+  ): Promise<void> {
+    if (ev.type === "error") throw this.mapError(ev);
+    const allow = this.options.onApproval === undefined ? false : await this.options.onApproval(ev);
+    session.send({ type: "permission_response", id: ev.id, allow });
   }
 
   private mapError(ev: { code?: string; message: string }): Error {
