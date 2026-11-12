@@ -155,21 +155,43 @@ function isSafeExecutable(dir: string, file: string): boolean {
   }
 }
 
+/** On Windows the binary is `muse.exe`/`muse.cmd`: try each `PATHEXT` suffix. */
+function candidateNames(command: string, pathExt: string | undefined): string[] {
+  if (pathExt === undefined) return [command];
+  return [
+    command,
+    ...pathExt
+      .split(";")
+      .filter(Boolean)
+      .map((e) => command + e.toLowerCase()),
+  ];
+}
+
+function defaultPathExt(): string | undefined {
+  return process.platform === "win32" ? (process.env.PATHEXT ?? ".EXE;.CMD") : undefined;
+}
+
+function findInDir(dir: string, names: string[]): string | undefined {
+  if (!isAbsolute(dir)) return undefined;
+  return names.map((n) => join(dir, n)).find((candidate) => isSafeExecutable(dir, candidate));
+}
+
 /**
- * Resolves `command` to an absolute path. A command with a path separator is used as given; a bare
- * name is searched only in absolute, non-group/world-writable `PATH` entries, so `spawn` never
- * resolves a name through an attacker-influenced `PATH`.
+ * Resolves `command` to a path to spawn. A command that is absolute or contains a path separator
+ * is used as given (spawn resolves it against the cwd). A bare name is searched only in absolute,
+ * non-group/world-writable `PATH` entries, so `spawn` never resolves a name through an
+ * attacker-influenced `PATH`.
  */
 export function resolveMuseBinary(
   command: string,
   pathVar: string | undefined = process.env.PATH,
+  pathExt: string | undefined = defaultPathExt(),
 ): string | undefined {
-  if (isAbsolute(command)) return command;
-  if (command.includes("/") || command.includes("\\")) return undefined;
+  if (isAbsolute(command) || command.includes("/") || command.includes("\\")) return command;
+  const names = candidateNames(command, pathExt);
   for (const dir of (pathVar ?? "").split(delimiter)) {
-    if (!isAbsolute(dir)) continue;
-    const candidate = join(dir, command);
-    if (isSafeExecutable(dir, candidate)) return candidate;
+    const found = findInDir(dir, names);
+    if (found !== undefined) return found;
   }
   return undefined;
 }

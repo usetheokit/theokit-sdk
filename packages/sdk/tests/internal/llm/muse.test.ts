@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -124,7 +124,7 @@ describe("MuseClient", () => {
     expect((err as ConfigurationError).code).toBe("muse_not_installed");
   });
 
-  describe("resolveMuseBinary", () => {
+  describe.skipIf(process.platform === "win32")("resolveMuseBinary", () => {
     const fakeBin = (mode: number) => {
       const dir = mkdtempSync(join(tmpdir(), "muse-bin-"));
       onTestFinished(() => removeTempDirRobustSync(dir));
@@ -147,7 +147,18 @@ describe("MuseClient", () => {
       expect(resolveMuseBinary("muse", dir)).toBeUndefined();
       expect(resolveMuseBinary("muse", "relative")).toBeUndefined();
       expect(resolveMuseBinary("muse", undefined)).toBeUndefined();
-      expect(resolveMuseBinary("sub/muse", dir)).toBeUndefined();
+    });
+
+    it("tries PATHEXT suffixes when given", async () => {
+      const { resolveMuseBinary } = await import("../../../src/internal/llm/muse.js");
+      const { dir, file } = fakeBin(0o755);
+      renameSync(file, `${file}.exe`);
+      expect(resolveMuseBinary("muse", dir, ".EXE;.CMD")).toBe(`${file}.exe`);
+    });
+
+    it("uses a path-like command as given", async () => {
+      const { resolveMuseBinary } = await import("../../../src/internal/llm/muse.js");
+      expect(resolveMuseBinary("./muse", "")).toBe("./muse");
     });
 
     it("uses an absolute command as given", async () => {
