@@ -73,6 +73,7 @@ const targets = [
   // T1.3: MCP OAuth sub-path (PKCE + refresh + token storage).
   join(DIST, "mcp-auth.d.ts"),
   join(DIST, "mcp-events.d.ts"),
+  join(DIST, "process.d.ts"),
   // Sub-path exports that need CTS mirrors.
   join(DIST, "rag"),
   join(DIST, "a2a"),

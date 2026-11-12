@@ -84,6 +84,17 @@ const agent = await Agent.create({
 
 Extended-thinking `--continue` is out of scope for now (thinking signatures are written but dropped on read — issue #122). See the exported session-persistence types for the full contract.
 
+## Bounded subprocesses
+
+`@theokit/sdk/process` exports `runBounded(options)`, the runner behind `sh -c` hooks and the built-in `shell` tool. On timeout or `signal` abort it kills the whole process tree (POSIX: the child runs in its own process group and the group gets `SIGKILL`; on Windows only the direct child is killed). Each of stdout and stderr is capped at `maxOutputBytes` (default 5 MiB); `result.truncated.stdout` / `.stderr` say whether a stream was cut. `timeoutMs` must be positive or it throws `ConfigurationError`.
+
+```ts
+import { runBounded } from "@theokit/sdk/process";
+
+const r = await runBounded({ command: "sh", args: ["-c", "make test"], cwd: process.cwd(), timeoutMs: 60_000 });
+if (r.timedOut || r.truncated.stdout) { /* ... */ }
+```
+
 ## Schedule with cron
 
 ```typescript
