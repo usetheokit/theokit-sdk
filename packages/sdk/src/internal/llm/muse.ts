@@ -10,6 +10,8 @@
  */
 
 import { spawn } from "node:child_process";
+import { accessSync, constants, statSync } from "node:fs";
+import { delimiter, isAbsolute, join } from "node:path";
 
 import { AuthenticationError, ConfigurationError, TheokitAgentError } from "../../errors.js";
 import { collapseSystemText, makeLlmFinish } from "./finish.js";
@@ -141,12 +143,48 @@ function attachSession(child: ReturnType<typeof spawn>): MuseSession {
   };
 }
 
+function isSafeExecutable(dir: string, file: string): boolean {
+  try {
+    // Group/world-writable directories let another user plant a lookalike binary.
+    if (process.platform !== "win32" && (statSync(dir).mode & 0o022) !== 0) return false;
+    if (!statSync(file).isFile()) return false;
+    accessSync(file, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolves `command` to an absolute path. A command with a path separator is used as given; a bare
+ * name is searched only in absolute, non-group/world-writable `PATH` entries, so `spawn` never
+ * resolves a name through an attacker-influenced `PATH`.
+ */
+export function resolveMuseBinary(
+  command: string,
+  pathVar: string | undefined = process.env.PATH,
+): string | undefined {
+  if (isAbsolute(command)) return command;
+  if (command.includes("/") || command.includes("\\")) return undefined;
+  for (const dir of (pathVar ?? "").split(delimiter)) {
+    if (!isAbsolute(dir)) continue;
+    const candidate = join(dir, command);
+    if (isSafeExecutable(dir, candidate)) return candidate;
+  }
+  return undefined;
+}
+
 /** Default transport: spawns `muse serve` and speaks JSON lines on stdio. */
 export function createStdioMuseTransport(command = "muse"): MuseTransport {
   return {
     open(signal) {
       return new Promise<MuseSession>((resolve, reject) => {
-        const child = spawn(command, ["serve"], { stdio: ["pipe", "pipe", "ignore"], signal });
+        const binary = resolveMuseBinary(command);
+        if (binary === undefined) {
+          reject(notInstalled());
+          return;
+        }
+        const child = spawn(binary, ["serve"], { stdio: ["pipe", "pipe", "ignore"], signal });
         child.once("error", (err: NodeJS.ErrnoException) => {
           reject(err.code === "ENOENT" ? notInstalled(err) : err);
         });

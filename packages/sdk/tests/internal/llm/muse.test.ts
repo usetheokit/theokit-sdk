@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
-
+import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { AuthenticationError, ConfigurationError } from "../../../src/errors.js";
 import {
   MuseClient,
@@ -8,6 +10,7 @@ import {
   type MuseTransport,
 } from "../../../src/internal/llm/muse.js";
 import type { LlmRequest } from "../../../src/internal/llm/types.js";
+import { removeTempDirRobustSync } from "../../helpers/temp-workspace.js";
 
 const REQUEST: LlmRequest = {
   model: "muse-code",
@@ -119,5 +122,46 @@ describe("MuseClient", () => {
       .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ConfigurationError);
     expect((err as ConfigurationError).code).toBe("muse_not_installed");
+  });
+
+  describe("resolveMuseBinary", () => {
+    const fakeBin = (mode: number) => {
+      const dir = mkdtempSync(join(tmpdir(), "muse-bin-"));
+      onTestFinished(() => removeTempDirRobustSync(dir));
+      const file = join(dir, "muse");
+      writeFileSync(file, '#!/bin/sh\nprintf \'{"type":"turn_end"}\\n\'\n');
+      chmodSync(file, 0o755);
+      chmodSync(dir, mode);
+      return { dir, file };
+    };
+
+    it("finds an executable in a safe absolute PATH dir", async () => {
+      const { resolveMuseBinary } = await import("../../../src/internal/llm/muse.js");
+      const { dir, file } = fakeBin(0o755);
+      expect(resolveMuseBinary("muse", ["relative", dir].join(delimiter))).toBe(file);
+    });
+
+    it("skips group/world-writable dirs, relative entries and missing binaries", async () => {
+      const { resolveMuseBinary } = await import("../../../src/internal/llm/muse.js");
+      const { dir } = fakeBin(0o777);
+      expect(resolveMuseBinary("muse", dir)).toBeUndefined();
+      expect(resolveMuseBinary("muse", "relative")).toBeUndefined();
+      expect(resolveMuseBinary("muse", undefined)).toBeUndefined();
+      expect(resolveMuseBinary("sub/muse", dir)).toBeUndefined();
+    });
+
+    it("uses an absolute command as given", async () => {
+      const { resolveMuseBinary } = await import("../../../src/internal/llm/muse.js");
+      expect(resolveMuseBinary("/opt/muse", "")).toBe("/opt/muse");
+    });
+
+    it("spawns the resolved binary and reads its events", async () => {
+      const { createStdioMuseTransport } = await import("../../../src/internal/llm/muse.js");
+      const { file } = fakeBin(0o755);
+      const session = await createStdioMuseTransport(file).open(new AbortController().signal);
+      const seen: string[] = [];
+      for await (const ev of session.events) seen.push(ev.type);
+      expect(seen).toEqual(["turn_end"]);
+    });
   });
 });
