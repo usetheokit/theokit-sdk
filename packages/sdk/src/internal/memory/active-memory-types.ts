@@ -9,7 +9,6 @@ import type { MemorySearchHit } from "./index-manager-contract.js";
  * Internal — `active-memory.ts` re-exports these for in-tree consumers
  * that historically imported from there.
  *
- * @internal
  */
 
 export type ActiveMemoryQueryMode = "message" | "recent" | "full";

@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1322 export(s) across 55 entry point(s).
+1354 export(s) across 55 entry point(s).
 
 ## `@theokit/acp`
 
@@ -562,12 +562,12 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
-| `ActiveMemoryCache` | class | A bounded, TTL-expiring cache of recall results, so two identical sends in quick succession run one search.  |
+| `ActiveMemoryCache` | class |  |
 | `ActiveMemoryCacheOptions` | interface | TTL-bounded cache for `runActiveMemory` results.  |
 | `ActiveMemoryOptions` | interface | Tuning for one recall attempt.  |
-| `ActiveMemoryQueryMode` | type | How the recall query is built from the conversation.  |
-| `ActiveMemoryResult` | interface | Result of one recall attempt.  |
-| `ActiveMemoryStatus` | type | Outcome of one recall attempt.  |
+| `ActiveMemoryQueryMode` | type | Type-leaf — shared types between `active-memory.ts` and `active-memory-cache.ts`.  |
+| `ActiveMemoryResult` | interface |  |
+| `ActiveMemoryStatus` | type |  |
 | `ActiveMemoryTranscript` | interface | Optional on-disk persistence for Active Memory recall transcripts (ADR D6).  |
 | `appendDiaryEntry` | function | Append one sweep's entry to `<memory root>/dream-diary.md`, creating the file with its header when this is the first sweep.  |
 | `appendFact` | function | Record a fact, honouring the `enabled` gate on {@link MemoryConfig } : when memory is disabled the call resolves without touching disk.  |
@@ -579,7 +579,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CategorizedFact` | interface | A fact stored under a typed category.  |
 | `CategorizedMemory` | interface | A typed, category-partitioned markdown memory store. |
 | `ceilingReachedError` | function | The refusal of a new fact at a store's declared ceiling: where the store is, how many facts it holds, the ceiling, and what to consolidate.  |
-| `chunkMarkdown` | function | Split markdown into the chunks that get embedded and searched.  |
+| `chunkMarkdown` | function |  |
 | `ChunkMarkdownOptions` | interface | Split a markdown document into semantically meaningful chunks (ADR D1 of memory-system-peer-project-parity).  |
 | `CircuitBreaker` | class | Stops calling a recall path that keeps timing out.  |
 | `CircuitBreakerOptions` | interface | Consecutive-timeout circuit breaker for Active Memory recall.  |
@@ -595,7 +595,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `createMemoryGetTool` | function | Build the `memory_get` tool, which reads an exact excerpt from a file under `<cwd>/.theokit/memory`.  |
 | `createMemorySearchTool` | function | Build the `memory_search` tool over an index that is already open.  |
 | `createOpenAiCompatibleRuntime` | function | Build an {@link EmbeddingRuntime } for a provider that speaks the OpenAI embedding wire — or, through `cfg.dialect`, one that deviates from it in a known way.  |
-| `createVectorIndex` | function | Create the `embeddings` vec0 virtual table at the given vector width, if it does not exist already.  |
+| `createVectorIndex` | function |  |
 | `DedupResult` | interface | Dreaming/REM phase logic.  |
 | `deepinfraMemoryEmbeddingProviderAdapter` | const | Open-weight embedding models (BGE, E5, GTE, MiniLM) hosted by DeepInfra.  |
 | `deepPhase` | function | Deep phase — render consolidated markdown for the dreamed note. |
@@ -618,17 +618,17 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `discoverWikiFiles` | function | Every wiki supplement under `<memory root>/wiki`, as `{ absolutePath, relPath }` records.  |
 | `DreamingOptions` | interface | Dreaming sweep orchestrator (ADR D7 of memory-system-peer-project-parity).  |
 | `DreamingResult` | interface | Outcome of one dreaming sweep: counts before and after, and the note written. |
-| `dropVectorIndex` | function | Drop the `embeddings` table, discarding every stored vector.  |
-| `EmbedAllArgs` | interface | Inputs for {@link embedMissingChunks } : the open database and the embedding runtime to call. |
+| `dropVectorIndex` | function |  |
+| `EmbedAllArgs` | interface |  |
 | `EmbeddingCache` | interface | The cache contract the shared runtime writes through.  |
 | `EmbeddingDialect` | interface | theokit#159 — the three points where a provider may deviate from the OpenAI embedding wire.  |
-| `EmbeddingIdentity` | interface | The three facts that decide whether the vectors already stored are still usable: who produced them, with which model, at which width.  |
+| `EmbeddingIdentity` | interface |  |
 | `EmbeddingRuntime` | interface | A live embedding provider, bound to one model.  |
 | `EmbeddingRuntimeStats` | interface | Counters accumulated by a runtime since it was created.  |
 | `embedMissingChunks` | function | Embed every chunk that doesn't yet have a vector. |
 | `entryHash` | function | A stable hash of one entry's counts, so two sweeps that did the same work read as the same work.  |
 | `geminiMemoryEmbeddingProviderAdapter` | const | Google Gemini embeddings through Google's OpenAI-compatible surface at `/v1beta/openai/embeddings`.  |
-| `identityMatches` | function | Compare two embedding identities field by field.  |
+| `identityMatches` | function |  |
 | `indexBudgetWarning` | function | What to say about an index that the interop partner will truncate, or `undefined` when there is nothing true to say.  |
 | `IndexManager` | class | The default memory index: SQLite for storage, FTS5 for text matching, and sqlite-vec for vectors when an embedding runtime is supplied.  |
 | `IndexStatus` | interface | A snapshot of index health.  |
@@ -653,7 +653,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryBackend` | type | Vector backend selector.  |
 | `MemoryChunk` | interface | A semantically meaningful slice of a markdown memory file, produced by `chunkMarkdown`.  |
 | `MemoryConfig` | interface | Per-agent memory configuration.  |
-| `MemoryDb` | interface | Thin wrapper around the SQLite driver.  |
+| `MemoryDb` | interface | Memory index DB handle + opener.  |
 | `MemoryEmbeddingProviderAdapter` | interface | Memory embedding provider adapter contract (ADR D3 of memory-system-peer-project-parity).  |
 | `MemoryFact` | interface | One remembered statement.  |
 | `MemoryFileEntry` | interface | Lightweight reference to a markdown file in the memory corpus.  |
@@ -669,9 +669,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemorySearchToolOptions` | interface | Options for {@link createMemorySearchTool } . |
 | `MemoryTool` | interface | A memory tool ready to hand to the agent loop: the JSON-serialisable description an LLM sees, plus the `execute` that runs it.  |
 | `MemoryToolJson` | interface | Memory tools (`memory_search` + `memory_get`) — ADR D5 of memory-system-peer-project-parity.  |
-| `META_KEY_DIMENSION` | const | `meta` table key holding the vector width the `embeddings` vec0 table was created with. |
-| `META_KEY_MODEL` | const | `meta` table key holding the embedding model id the vectors were produced with. |
-| `META_KEY_PROVIDER_ID` | const | `meta` table key holding the id of the embedding provider that produced the vectors currently on disk (for example `openai`, `ollama`). |
+| `META_KEY_DIMENSION` | const |  |
+| `META_KEY_MODEL` | const |  |
+| `META_KEY_PROVIDER_ID` | const | Vector index helpers (ADR D2 + D4 of memory-system-peer-project-parity).  |
 | `migrateLegacyJson` | function | Move facts from the pre-markdown JSON store into `MEMORY.md`, once.  |
 | `MigrateOptions` | interface | Migrate Memory.index from SQLite to LanceDB (ADR D44).  |
 | `MigrateResult` | interface | Outcome of {@link migrateSqliteToLance } .  |
@@ -683,11 +683,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ollamaMemoryEmbeddingProviderAdapter` | const | Embeddings from a local Ollama instance — the only adapter in the catalog with `transport: "local"`, and the one to choose when the corpus must not leave the machine or when there is no API key to ... |
 | `OpenAiCompatibleConfig` | interface | What one provider adapter tells {@link createOpenAiCompatibleRuntime } about its wire: where to POST, which environment variables carry the key and the base URL, which model to use by default, and ... |
 | `openAiMemoryEmbeddingProviderAdapter` | const | OpenAI embeddings — `text-embedding-3-small` (1536), `text-embedding-3-large` (3072) and `text-embedding-ada-002` (1536).  |
-| `OpenDbOptions` | interface | Options for {@link openMemoryDb } . |
+| `OpenDbOptions` | interface |  |
 | `OpenIndexOptions` | interface | Options for `IndexManager.open`.  |
 | `openLanceIndex` | function | Lance-path open.  |
 | `OpenLanceOptions` | interface | Options for `LanceIndex.open`.  |
-| `openMemoryDb` | function | Open (or create) the SQLite memory index at `filePath`, applying the pragmas and creating the schema before returning.  |
+| `openMemoryDb` | function |  |
 | `openRouterMemoryEmbeddingProviderAdapter` | const | Embeddings routed through OpenRouter, which lets one key reach several upstream providers.  |
 | `packVector` | function | Pack a Float32Array into a Buffer suitable for sqlite-vec BLOB binding. |
 | `parseRetryAfter` | function | Parse `retry-after` header in numeric-seconds form.  |
@@ -696,11 +696,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `PRAGMA_STATEMENTS` | const | Non-WAL pragmas.  |
 | `projectMemoryDir` | function | The project store: `<cwd>/.theokit/memory`.  |
 | `readAllSqliteFacts` | function | Read all facts from the SQLite memory index.  |
-| `readEmbeddingIdentity` | function | Read the embedding identity recorded in the `meta` table.  |
+| `readEmbeddingIdentity` | function |  |
 | `readFacts` | function | Every memory in the store, honouring the `enabled` gate on {@link MemoryConfig } : when memory is disabled the call resolves to `[]` without touching disk.  |
 | `readFactsFromMarkdown` | function | Every memory in the store: the per-memory files, plus any legacy `## Facts` bullets still in `MEMORY.md`.  |
-| `ReadFileOptions` | interface | Inputs for {@link readMemoryFileBounded } .  |
-| `readMemoryFileBounded` | function | Read a bounded slice of a text file and report what was left behind.  |
+| `ReadFileOptions` | interface |  |
+| `readMemoryFileBounded` | function |  |
 | `redactSecrets` | function | Canonical credential-redaction primitive (ADR D68).  |
 | `remPhase` | function | REM phase — single-link agglomerative clustering by cosine similarity. |
 | `renderDiaryEntry` | function | One diary entry as the markdown that gets appended: a timestamp heading, the short entry hash, and the counts the sweep produced.  |
@@ -720,14 +720,14 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SyncResult` | interface | What one `sync()` did.  |
 | `TenantContext` | interface | T4.9 — Tenant isolation context for cache key derivation.  |
 | `truncateRaw` | function | Truncate raw response body to ~2KB and redact known credential patterns so it can ride inside `ErrorMetadata.raw` without ballooning logs OR leaking tokens.  |
-| `upsertEmbedding` | function | Store the vector for one chunk, replacing any vector already held for it.  |
+| `upsertEmbedding` | function |  |
 | `VALID_BACKENDS` | const | Valid backend identifiers — runtime guard against TS-narrowing escapes (EC-1). |
-| `VectorHitRow` | interface | One row of a vec0 KNN result: the chunk id and its raw distance from the query vector.  |
-| `vectorSearch` | function | Run a k-nearest-neighbour query against the `embeddings` table and return the matches ordered by ascending distance (closest first).  |
+| `VectorHitRow` | interface |  |
+| `vectorSearch` | function |  |
 | `voyageMemoryEmbeddingProviderAdapter` | const | Voyage AI embeddings, over the standard OpenAI wire.  |
 | `wikiDir` | function | `<memory root>/wiki`.  |
 | `WikiFile` | interface | Wiki supplement discovery (ADR Phase 10 of memory-system-peer-project-parity).  |
-| `writeEmbeddingIdentity` | function | Record the embedding identity in the `meta` table, upserting each of the three keys.  |
+| `writeEmbeddingIdentity` | function |  |
 | `writeSessionSummary` | function | Write a session summary file.  |
 
 ## `@theokit/sdk-pty`
@@ -1159,18 +1159,27 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
+| `ActiveMemoryCache` | class |  |
+| `ActiveMemoryCacheOptions` | interface | TTL-bounded cache for `runActiveMemory` results.  |
+| `ActiveMemoryQueryMode` | type | Type-leaf — shared types between `active-memory.ts` and `active-memory-cache.ts`.  |
+| `ActiveMemoryResult` | interface |  |
+| `ActiveMemoryStatus` | type |  |
 | `ActiveMemoryTranscript` | interface | Optional on-disk persistence for Active Memory recall transcripts (ADR D6).  |
 | `appendDiaryEntry` | function | Append one sweep's entry to `<memory root>/dream-diary.md`, creating the file with its header when this is the first sweep.  |
 | `appendFact` | function | Record a fact, honouring the `enabled` gate on {@link MemoryConfig } : when memory is disabled the call resolves without touching disk.  |
 | `appendFactToMarkdown` | function | Write a fact as its own memory file and point the `MEMORY.md` index at it.  |
 | `asMemoryRoot` | function | Treat a directory as a memory root without resolving one.  |
 | `ceilingReachedError` | function | The refusal of a new fact at a store's declared ceiling: where the store is, how many facts it holds, the ceiling, and what to consolidate.  |
+| `chunkMarkdown` | function |  |
+| `ChunkMarkdownOptions` | interface | Split a markdown document into semantically meaningful chunks (ADR D1 of memory-system-peer-project-parity).  |
 | `claudeProjectMemoryDir` | function | Where the Claude Code CLI keeps THIS project's memories.  |
 | `Cluster` | interface | A group of semantically similar facts, with the text chosen to represent them. |
 | `ClusterResult` | interface | What clustering produced: the clusters and how many facts the per-sweep cap left out. |
 | `collectMarkdownFiles` | function | Every markdown file the memory corpus holds: the index, the per-memory files, `notes/`, `wiki/` and `sessions/`, each tagged with the bucket `memory_search`'s `corpus` filters on.  |
+| `createVectorIndex` | function |  |
 | `DedupResult` | interface | Dreaming/REM phase logic.  |
 | `deepPhase` | function | Deep phase — render consolidated markdown for the dreamed note. |
+| `DEFAULT_MEMORY_READ_LINES` | const | Bounded read with truncation info (ADR D5 — `memory_get` foundation).  |
 | `defaultIndexPath` | function | `<index root>/.index/memory.sqlite`.  |
 | `DiaryEntry` | interface | Dream-diary append (ADR D7).  |
 | `diaryPath` | function | `<memory root>/dream-diary.md`.  |
@@ -1179,35 +1188,58 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `discoverWikiFiles` | function | Every wiki supplement under `<memory root>/wiki`, as `{ absolutePath, relPath }` records.  |
 | `DreamingOptions` | interface | Dreaming sweep orchestrator (ADR D7 of memory-system-peer-project-parity).  |
 | `DreamingResult` | interface | Outcome of one dreaming sweep: counts before and after, and the note written. |
+| `dropVectorIndex` | function |  |
+| `EmbedAllArgs` | interface |  |
+| `EmbeddingIdentity` | interface |  |
+| `embedMissingChunks` | function | Embed every chunk that doesn't yet have a vector. |
 | `entryHash` | function | A stable hash of one entry's counts, so two sweeps that did the same work read as the same work.  |
+| `identityMatches` | function |  |
 | `indexBudgetWarning` | function | What to say about an index that the interop partner will truncate, or `undefined` when there is nothing true to say.  |
 | `lanceStoragePath` | function | `<memory root>/lance`.  |
 | `lightPhase` | function | Light phase — drop facts whose embedding is too similar to one already kept.  |
+| `loadSqliteVecExtension` | function | Load the `sqlite-vec` extension into an opened SQLite connection.  |
 | `MEMORY_INDEX_MAX_BYTES` | const | The byte limit the Claude Code CLI applies when it loads a `MEMORY.md`, whichever it reaches first.  |
 | `MEMORY_INDEX_MAX_LINES` | const | The line limit the Claude Code CLI applies when it loads a `MEMORY.md`.  |
+| `MemoryDb` | interface | Memory index DB handle + opener.  |
 | `memoryIndexRoot` | function | Where the search index belongs for this configuration (theokit-sdk#554).  |
 | `MemoryLocationConfig` | type | Only `directory` is read; the full config is accepted so callers pass what they already hold. |
 | `memoryMdPath` | function | Path to `MEMORY.md`, the index that points at the per-memory files — and, in stores written before #389, the flat `## Facts` list itself.  |
 | `memoryReadRoots` | function | Every directory a read must cover, deduplicated and in precedence order.  |
 | `MemoryRoot` | type | A directory that has been RESOLVED as a memory root, distinguished from a bare `cwd`.  |
+| `META_KEY_DIMENSION` | const |  |
+| `META_KEY_MODEL` | const |  |
+| `META_KEY_PROVIDER_ID` | const | Vector index helpers (ADR D2 + D4 of memory-system-peer-project-parity).  |
 | `notesDir` | function | Path to `<memory root>/notes`, where per-topic notes and the consolidated notes a dreaming sweep writes live.  |
+| `OpenDbOptions` | interface |  |
+| `openMemoryDb` | function |  |
+| `packVector` | function | Pack a Float32Array into a Buffer suitable for sqlite-vec BLOB binding. |
 | `persistActiveMemoryTranscript` | function | Write one active-memory recall transcript under `<memory root>/transcripts/active-memory`.  |
+| `PRAGMA_STATEMENTS` | const | Non-WAL pragmas.  |
 | `projectMemoryDir` | function | The project store: `<cwd>/.theokit/memory`.  |
 | `readAllSqliteFacts` | function | Read all facts from the SQLite memory index.  |
+| `readEmbeddingIdentity` | function |  |
 | `readFacts` | function | Every memory in the store, honouring the `enabled` gate on {@link MemoryConfig } : when memory is disabled the call resolves to `[]` without touching disk.  |
 | `readFactsFromMarkdown` | function | Every memory in the store: the per-memory files, plus any legacy `## Facts` bullets still in `MEMORY.md`.  |
+| `ReadFileOptions` | interface |  |
+| `readMemoryFileBounded` | function |  |
 | `remPhase` | function | REM phase — single-link agglomerative clustering by cosine similarity. |
 | `renderDiaryEntry` | function | One diary entry as the markdown that gets appended: a timestamp heading, the short entry hash, and the counts the sweep produced.  |
 | `resolveMaxFacts` | function | The ceiling a caller declared, or `undefined` when none was declared.  |
 | `resolveMemoryRoot` | function | The memory root for this agent: `memory.directory` when set, the project store otherwise.  |
 | `runDreamingSweep` | function | Run one dreaming sweep (dedupe, cluster, write a consolidated note), serialised per `cwd`. |
+| `SCHEMA_STATEMENTS` | const | SQLite schema for the memory index.  |
 | `SessionFile` | interface | Session summary discovery (ADR D20).  |
 | `sessionsDir` | function | `<memory root>/sessions`.  |
 | `SessionSummaryInput` | interface | Per-run session summary writer (ADR D20).  |
 | `sessionSummaryPath` | function | The file one run's summary occupies: `<memory root>/sessions/<safe-id>.md`.  |
 | `SqliteFactRow` | interface | One row of the SQLite memory index, as the Lance migration reads it: the chunk plus the tenant columns the target table needs.  |
+| `TenantContext` | interface | T4.9 — Tenant isolation context for cache key derivation.  |
+| `upsertEmbedding` | function |  |
+| `VectorHitRow` | interface |  |
+| `vectorSearch` | function |  |
 | `wikiDir` | function | `<memory root>/wiki`.  |
 | `WikiFile` | interface | Wiki supplement discovery (ADR Phase 10 of memory-system-peer-project-parity).  |
+| `writeEmbeddingIdentity` | function |  |
 | `writeSessionSummary` | function | Write a session summary file.  |
 
 ## `@theokit/sdk/internal/persistence`

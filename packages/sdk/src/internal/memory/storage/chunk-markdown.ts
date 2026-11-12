@@ -17,7 +17,6 @@ import type { MemoryChunk } from "../types.js";
  * Mirrors peer-project's `chunkMarkdown` from
  * `packages/memory-host-sdk/src/host/chunk-markdown.ts`.
  *
- * @internal
  */
 
 export interface ChunkMarkdownOptions {

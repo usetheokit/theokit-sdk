@@ -9,7 +9,6 @@ import type { MemoryDb } from "./index-db.js";
  * model + dimension) lives in the `meta` table; mismatches force a full
  * re-embed sweep (EC-1).
  *
- * @internal
  */
 
 export const META_KEY_PROVIDER_ID = "embedding.providerId";

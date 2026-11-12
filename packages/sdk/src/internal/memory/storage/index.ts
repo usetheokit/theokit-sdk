@@ -16,6 +16,19 @@
  * `package.json` `exports`, so the names below must survive into the published declarations.
  */
 
+// #1065 — leaf modules the satellite used to copy (schema, database opener, vector index, chunker,
+// bounded reader, active-memory cache and types). None holds module-level state, so a re-export
+// does not merge two runtime states. `defaultIndexPath` is exported above.
+export {
+  ActiveMemoryCache,
+  type ActiveMemoryCacheOptions,
+  type TenantContext,
+} from "../active-memory-cache.js";
+export type {
+  ActiveMemoryQueryMode,
+  ActiveMemoryResult,
+  ActiveMemoryStatus,
+} from "../active-memory-types.js";
 // The whole diary module, not just its path: 39 lines across three functions, zero diverging.
 export {
   appendDiaryEntry,
@@ -41,15 +54,35 @@ export {
 } from "../dreaming/run.js";
 // Path helpers the satellite also needs. Each was a copy on both sides, and each is a pure function
 // over the memory root — the cheapest possible thing to share and the least excusable to duplicate.
-export { defaultIndexPath } from "../index-db.js";
+export { defaultIndexPath, type MemoryDb, type OpenDbOptions, openMemoryDb } from "../index-db.js";
 // The corpus walk, shared for the reason the cluster above is. The satellite's copy had drifted
 // further than the others: it walked `notes/`, `wiki/` and `sessions/` and never picked up the
 // per-memory files at the root — the layout #389 converged on — so installing that package made
 // every converged memory unsearchable while reporting no error at all.
 export { collectMarkdownFiles, type DiscoveredFile } from "../index-manager-helpers.js";
+export { PRAGMA_STATEMENTS, SCHEMA_STATEMENTS } from "../index-schema.js";
 export { lanceStoragePath } from "../lance-index.js";
 // The SQLite fact reader the Lance migration uses. 26 lines, zero diverging between the packages.
 export { readAllSqliteFacts, type SqliteFactRow } from "../migrate-sqlite-to-lance.js";
+export { loadSqliteVecExtension } from "../sqlite-vec-loader.js";
+export {
+  createVectorIndex,
+  dropVectorIndex,
+  type EmbedAllArgs,
+  type EmbeddingIdentity,
+  embedMissingChunks,
+  identityMatches,
+  META_KEY_DIMENSION,
+  META_KEY_MODEL,
+  META_KEY_PROVIDER_ID,
+  packVector,
+  readEmbeddingIdentity,
+  upsertEmbedding,
+  type VectorHitRow,
+  vectorSearch,
+  writeEmbeddingIdentity,
+} from "../vec-index.js";
+export { type ChunkMarkdownOptions, chunkMarkdown } from "./chunk-markdown.js";
 // The declared fact ceiling (B-380): one validator and one refusal for both write families, so
 // the markdown store and the satellite's in-memory provider refuse with the same words.
 export { ceilingReachedError, resolveMaxFacts } from "./fact-ceiling.js";
@@ -77,6 +110,11 @@ export {
   projectMemoryDir,
   resolveMemoryRoot,
 } from "./memory-root.js";
+export {
+  DEFAULT_MEMORY_READ_LINES,
+  type ReadFileOptions,
+  readMemoryFileBounded,
+} from "./reader.js";
 export { discoverSessionFiles, type SessionFile } from "./session-loader.js";
 // The session/wiki/transcript cluster, shared for the reason `markdown-store` is (#430): the
 // satellite carried byte-identical copies, and `Memory.runDreamingSweep` swaps this implementation

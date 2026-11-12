@@ -26,7 +26,7 @@ import type { MemoryRoot } from "./storage/memory-root.js";
  * import (`EmbeddingRuntime` from `embedding-adapter.ts`) is itself a leaf
  * dependency outside the cluster — does not re-introduce a cycle.
  *
- * @internal — NOT part of the `@theokit/sdk` public API.
+ * NOT part of the `@theokit/sdk` public API.
  */
 
 export interface MemorySearchHit {

@@ -11,7 +11,6 @@ import type { ActiveMemoryResult } from "./active-memory-types.js";
  *
  * Bounded size; oldest entries evicted first when capacity is exceeded.
  *
- * @internal
  */
 
 export interface ActiveMemoryCacheOptions {
@@ -83,7 +82,6 @@ export class ActiveMemoryCache {
  * sharing a process with the same query got each other's results.
  * CRITICAL cross-tenant data leak (DR4 finding #9).
  *
- * @internal
  */
 export interface TenantContext {
   namespace?: string;
