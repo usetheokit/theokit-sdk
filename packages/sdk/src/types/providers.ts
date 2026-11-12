@@ -70,6 +70,23 @@ export interface ProviderRoutingSettings {
    * @public
    */
   credentialPoolStrategy?: Record<string, "fill_first" | "round_robin" | "least_used" | "random">;
+  /**
+   * Settings for the `meta/<model>` provider, which runs turns through Meta's Muse Code CLI
+   * (`muse serve`). Muse owns the loop and sandbox; the caller keeps approvals.
+   *
+   * @public
+   */
+  muse?: {
+    /**
+     * Decides a Muse tool-permission request. Resolve `true` to allow, `false` to deny. Absent,
+     * every request is denied.
+     */
+    onApproval?: (request: {
+      id: string;
+      tool: string;
+      input: Record<string, unknown>;
+    }) => boolean | Promise<boolean>;
+  };
 }
 
 /**

@@ -117,8 +117,10 @@ function buildLoopInputs(
   // #332 — the model's own endpoint, when it named one. Threaded here because this is the only
   // place that holds both the resolved `ModelSelection` and the router options.
   const modelBaseUrl = options.model?.url;
+  const museApproval = options.agentOptions.providers?.muse?.onApproval;
   const chain = resolveProviderChain({
     primary,
+    ...(museApproval !== undefined ? { muse: { onApproval: museApproval } } : {}),
     ...(modelBaseUrl !== undefined ? { baseUrl: modelBaseUrl } : {}),
     ...(fallback !== undefined ? { fallback } : {}),
     ...(apiKeys !== undefined ? { apiKeys } : {}),

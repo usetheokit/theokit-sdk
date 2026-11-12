@@ -1,5 +1,21 @@
 # Changelog
 
+## 5.16.0
+
+### Minor Changes
+
+- [#986](https://github.com/usetheokit/theokit-sdk/pull/986) [`77e0813`](https://github.com/usetheokit/theokit-sdk/commit/77e081356a3f5df4b82c6ee49a625167af5219c7) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `E2BSandbox` in `@theokit/sdk/sandbox`: a `SandboxBackend` over an E2B sandbox you created. It maps `CommandExitError` to the real exit code and `TimeoutError` to 124, throws `SandboxNotAvailableError` for a stopped or unreachable sandbox instead of reporting a timeout, applies `envs` and `NODE_EXTRA_CA_CERTS` to every command, and exposes the `networkPolicy` it was given. It takes the `e2b` `Sandbox` instance, so `e2b` is not a dependency.
+
+- [#978](https://github.com/usetheokit/theokit-sdk/pull/978) [`ae77f76`](https://github.com/usetheokit/theokit-sdk/commit/ae77f768fbec735249422569e9cbba739b199893) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Image generation: `generateImage` (OpenAI-compatible `/images/generations` call) in `@theokit/sdk`, and the `image_generate` tool (`createImageGenerateTool`) in `@theokit/sdk-tools`, which writes the image into the workspace and returns its path for `view_image`.
+  
+  `generateImage` also takes `route: "chatgpt"` to use the ChatGPT-subscription login through the Responses API `image_generation` tool.
+
+- [#982](https://github.com/usetheokit/theokit-sdk/pull/982) [`0eeec73`](https://github.com/usetheokit/theokit-sdk/commit/0eeec73938a884842905edcecdf9ead143200314) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `decide`: a typed decision (one label from a declared enum) answered by a pinned local ONNX classifier. The model file's SHA-256 is verified before it loads (`DecisionChecksumError` on mismatch) and no provider request is made. Needs the optional peer `onnxruntime-node`; no model or tokenizer is bundled. The result reports `source: "local-onnx"`.
+
+### Patch Changes
+
+- [#987](https://github.com/usetheokit/theokit-sdk/pull/987) [`facd09d`](https://github.com/usetheokit/theokit-sdk/commit/facd09d8b5d931f7c874bc06c4cf6f1c61e6a9de) Thanks [@usetheodev](https://github.com/usetheodev)! - `generateImage` no longer stalls on a `baseUrl` holding a long run of slashes: its trailing slashes are trimmed in one linear pass instead of with a backtracking regex (CodeQL `js/polynomial-redos`).
+
 ## 5.15.3
 
 ### Patch Changes

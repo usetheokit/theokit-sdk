@@ -13,7 +13,7 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, workspace]
   workflow_dispatch:
 
 permissions:
