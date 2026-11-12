@@ -48,6 +48,7 @@ export function verifyMcpEventSignature(
   return expected.length === given.length && timingSafeEqual(expected, given);
 }
 
+/** Options for `createMcpEventSubscriber`. */
 export interface McpEventSubscriberOptions {
   /** The MCP server (Streamable HTTP). */
   server: McpHttpServerConfig;
@@ -66,6 +67,7 @@ export interface McpEventSubscriberOptions {
   fetch?: typeof fetch;
 }
 
+/** Options for `McpEventSubscriber.subscribe`. */
 export interface McpEventSubscribeOptions {
   /** Event types to subscribe to; omitted = the server's default. */
   events?: string[];
@@ -73,6 +75,7 @@ export interface McpEventSubscribeOptions {
   onEvent: (delivery: McpEventDelivery) => void | Promise<void>;
 }
 
+/** A live subscription; call `unsubscribe()` to stop receiving deliveries. */
 export interface McpEventSubscription {
   subscriptionId: string;
   unsubscribe(): Promise<void>;
@@ -116,6 +119,7 @@ function handleBody(body: Buffer, req: IncomingMessage, res: ServerResponse, ent
   Promise.resolve(entry.onEvent(delivery)).catch(() => undefined);
 }
 
+/** Subscribes to events from one MCP server through a local signed-delivery receiver. */
 export class McpEventSubscriber {
   private readonly client: McpClient;
   private readonly registry = new Map<string, Registered>();
