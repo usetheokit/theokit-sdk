@@ -62,6 +62,10 @@ interface Writer {
 
 function startWriter(scriptPath: string): Writer {
   const child = spawn(tsxBin, [scriptPath], { stdio: ["pipe", "pipe", "inherit"] });
+  // A writer that dies before the parent releases it closes its stdin, and the later `go` write
+  // then raises EPIPE on the stream. Unhandled, that is an uncaught exception that hides why the
+  // child died; swallowed, `outcome` rejects with "writer exited N without an outcome" instead.
+  child.stdin?.on("error", () => undefined);
   let stdout = "";
   let markReady: () => void = () => undefined;
   const ready = new Promise<void>((r) => {

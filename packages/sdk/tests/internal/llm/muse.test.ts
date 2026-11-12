@@ -1,8 +1,9 @@
+import { EventEmitter } from "node:events";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
 import { AuthenticationError, ConfigurationError } from "../../../src/errors.js";
 import {
@@ -14,6 +15,48 @@ import {
   resolveMuseBinary,
 } from "../../../src/internal/llm/muse.js";
 import type { LlmRequest } from "../../../src/internal/llm/types.js";
+
+const fakeSpawn = vi.hoisted(() => ({
+  enabled: false,
+  writable: true,
+  errorOnSpawn: false,
+  write: undefined as undefined | (() => void),
+}));
+
+vi.mock("node:child_process", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:child_process")>();
+  return {
+    ...actual,
+    spawn: (...args: Parameters<typeof actual.spawn>) => {
+      if (!fakeSpawn.enabled) return actual.spawn(...args);
+      const child = new EventEmitter() as EventEmitter & Record<string, unknown>;
+      const stdin = new EventEmitter() as EventEmitter & Record<string, unknown>;
+      stdin.writable = fakeSpawn.writable;
+      stdin.write = () => {
+        fakeSpawn.write?.();
+        queueMicrotask(() =>
+          stdin.emit("error", Object.assign(new Error("write EPIPE"), { code: "EPIPE" })),
+        );
+        return false;
+      };
+      child.stdin = stdin;
+      child.stdout = new EventEmitter();
+      (child.stdout as { setEncoding?: () => void }).setEncoding = () => {};
+      child.kill = () => {
+        queueMicrotask(() => child.emit("close"));
+        return true;
+      };
+      queueMicrotask(() => child.emit("spawn"));
+      if (fakeSpawn.errorOnSpawn) {
+        setTimeout(
+          () => stdin.emit("error", Object.assign(new Error("write EPIPE"), { code: "EPIPE" })),
+          1,
+        );
+      }
+      return child as never;
+    },
+  };
+});
 
 const REQUEST: LlmRequest = {
   model: "muse-code",
@@ -177,5 +220,64 @@ echo '{"type":"turn_end","inputTokens":1,"outputTokens":2}'`,
     const client = new MuseClient({ transport: createStdioMuseTransport(bin) });
     const err = await run(client).catch((e: unknown) => e);
     expect((err as { code?: string }).code).toBe("provider_unreachable");
+  });
+
+  it("turns an EPIPE on stdin into the typed error without an unhandled error", async () => {
+    const uncaught: unknown[] = [];
+    const onUncaught = (e: unknown) => uncaught.push(e);
+    process.on("uncaughtException", onUncaught);
+    fakeSpawn.enabled = true;
+    try {
+      const bin = script("muse-epipe", "exit 0");
+      const client = new MuseClient({ transport: createStdioMuseTransport(bin) });
+      const err = await run(client).catch((e: unknown) => e);
+      await new Promise((r) => setTimeout(r, 10));
+      expect((err as { code?: string }).code).toBe("provider_unreachable");
+      expect(uncaught).toEqual([]);
+    } finally {
+      fakeSpawn.enabled = false;
+      process.off("uncaughtException", onUncaught);
+    }
+  });
+
+  it("fails with the typed error, without writing, when stdin is no longer writable", async () => {
+    const write = vi.fn();
+    fakeSpawn.enabled = true;
+    fakeSpawn.writable = false;
+    fakeSpawn.write = write;
+    try {
+      const bin = script("muse-closed", "exit 0");
+      const client = new MuseClient({ transport: createStdioMuseTransport(bin) });
+      const err = await run(client).catch((e: unknown) => e);
+      expect((err as { code?: string }).code).toBe("provider_unreachable");
+      expect(write).not.toHaveBeenCalled();
+    } finally {
+      fakeSpawn.enabled = false;
+      fakeSpawn.writable = true;
+      fakeSpawn.write = undefined;
+    }
+  });
+
+  it("fails with the typed error when stdin emits an error on its own", async () => {
+    const uncaught: unknown[] = [];
+    const onUncaught = (e: unknown) => uncaught.push(e);
+    process.on("uncaughtException", onUncaught);
+    fakeSpawn.enabled = true;
+    fakeSpawn.writable = true;
+    fakeSpawn.errorOnSpawn = true;
+    fakeSpawn.write = () => {};
+    try {
+      const bin = script("muse-stdin-error", "exit 0");
+      const client = new MuseClient({ transport: createStdioMuseTransport(bin) });
+      const err = await run(client).catch((e: unknown) => e);
+      await new Promise((r) => setTimeout(r, 10));
+      expect((err as { code?: string }).code).toBe("provider_unreachable");
+      expect(uncaught).toEqual([]);
+    } finally {
+      fakeSpawn.enabled = false;
+      fakeSpawn.errorOnSpawn = false;
+      fakeSpawn.write = undefined;
+      process.off("uncaughtException", onUncaught);
+    }
   });
 });

@@ -132,9 +132,16 @@ function attachSession(child: ReturnType<typeof spawn>): MuseSession {
     queue.push(parsed.events);
   });
   child.once("close", () => queue.end());
+  // A child that already exited makes the write fail with EPIPE; without a listener that is an
+  // uncaught exception. End the stream instead so the turn fails with the typed error.
+  child.stdin?.on("error", () => queue.end());
   return {
     send: (m) => {
-      child.stdin?.write(`${JSON.stringify(m)}\n`);
+      if (child.stdin?.writable !== true) {
+        queue.end();
+        return;
+      }
+      child.stdin.write(`${JSON.stringify(m)}\n`);
     },
     close: () => {
       child.kill();
