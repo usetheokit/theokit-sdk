@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.17.1
+
+### Patch Changes
+
+- [#1114](https://github.com/usetheokit/theokit-sdk/pull/1114) [`f811f16`](https://github.com/usetheokit/theokit-sdk/commit/f811f16e56b6dad658a66ddb8fc44b62a5613112) Thanks [@usetheodev](https://github.com/usetheodev)! - Align permission rule wildcards with Claude Code: a trailing `:*` now reads as the command before it (`Bash(npm run test:*)` matches `npm run test` and `npm run test --watch`, not `npm run test:unit`), and `**/` in a path glob matches whole directories only.
+
 ## 5.17.0
 
 ### Minor Changes
