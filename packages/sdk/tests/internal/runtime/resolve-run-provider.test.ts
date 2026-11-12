@@ -24,6 +24,7 @@ import {
 import {
   _resetProvidersForTests,
   getProviderProfile,
+  registerProvider,
 } from "../../../src/internal/providers/registry.js";
 import type { ProviderProfile } from "../../../src/internal/providers/types.js";
 
@@ -154,6 +155,33 @@ describe("resolveRunProvider — explicit API key selects the provider (M4)", ()
       }),
     );
     expect(primary).toBe("openai");
+  });
+
+  it("a custom registered provider's prefix beats a bare sk- key (#1115)", () => {
+    registerProvider({ ...customProfile, name: "bench" });
+    const { primary, effectiveModelId } = resolveRunProvider(
+      optionsWithKey({ apiKey: "sk-test-123", modelId: "bench/some-model" }),
+    );
+    expect(primary).toBe("bench");
+    expect(effectiveModelId).toBe("some-model");
+  });
+
+  it("a custom registered provider's prefix beats even a sk-or- key", () => {
+    registerProvider({ ...customProfile, name: "bench" });
+    expect(
+      resolveRunProvider(optionsWithKey({ apiKey: "sk-or-x", modelId: "bench/m" })).primary,
+    ).toBe("bench");
+  });
+
+  it("a bare sk- key no longer overrules a builtin model prefix", () => {
+    expect(
+      resolveRunProvider(optionsWithKey({ apiKey: "sk-test", modelId: "anthropic/claude-x" }))
+        .primary,
+    ).toBe("anthropic");
+  });
+
+  it("a bare sk- key with no model prefix still infers openai", () => {
+    expect(resolveRunProvider(optionsWithKey({ apiKey: "sk-test" })).primary).toBe("openai");
   });
 
   it("no key falls back to model-prefix inference (unchanged legacy behavior)", () => {

@@ -20,6 +20,31 @@ import { registerPluginProviderProfiles } from "../providers/register-plugin-pro
 import { isFixtureApiKey } from "../runtime/fixtures/fixture-mode.js";
 import type { CreateRealLocalRunOptions } from "./real-local-run-options.js";
 
+/** Vendors whose model prefix a vendor-specific key prefix may overrule. */
+const BUILTIN_VENDORS: ReadonlySet<string> = new Set([
+  "openai",
+  "anthropic",
+  "openrouter",
+  "gemini",
+]);
+
+/**
+ * A key only outranks a model prefix when the key identifies ONE vendor (`sk-or-`, `sk-ant-`)
+ * and the prefix names a built-in vendor. A bare `sk-` is shared by OpenAI and many compatible
+ * gateways, and a prefix naming a provider the app registered itself is an explicit choice;
+ * neither may be overruled by the key (#1115).
+ */
+function keyProviderForModel(
+  apiKey: string | undefined,
+  modelProvider: string | undefined,
+): string | undefined {
+  const inferred = inferProviderFromApiKey(apiKey);
+  if (modelProvider === undefined) return inferred;
+  const key = apiKey?.trim() ?? "";
+  const vendorSpecific = key.startsWith("sk-or-") || key.startsWith("sk-ant-");
+  return vendorSpecific && BUILTIN_VENDORS.has(modelProvider) ? inferred : undefined;
+}
+
 /**
  * The provider a key belongs to, **restricted to providers this runtime can construct**.
  *
@@ -140,7 +165,10 @@ export function resolveRunProvider(options: CreateRealLocalRunOptions): {
   // model-prefix inference for `primary` — a `sk-or-` key + an `openai/gpt-4o-mini`
   // model MUST route to OpenRouter, not the OpenAI provider. An explicit
   // `providers.routes[0].provider` still wins (user override).
-  const keyInferredProvider = inferProviderFromApiKey(options.agentOptions.apiKey);
+  const keyInferredProvider = keyProviderForModel(
+    options.agentOptions.apiKey,
+    modelInferredProvider,
+  );
   const primary =
     options.agentOptions.providers?.routes?.[0]?.provider ??
     keyInferredProvider ??
