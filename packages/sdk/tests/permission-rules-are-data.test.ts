@@ -22,7 +22,8 @@ import { parsePermissionRules } from "../src/permission-rules.js";
  * | Written | Matches |
  * |---|---|
  * | `Bash` | every call to `Bash` |
- * | `Bash(npm run test:*)` | the primary argument STARTS WITH `npm run test:` |
+ * | `Bash(npm run test:*)` | the primary argument IS `npm run test` or starts with it plus whitespace |
+ * | `Bash(npm publish*)` | the primary argument STARTS WITH `npm publish` |
  * | `Read(path:./.env)` | the primary argument, read as a path, matches the glob |
  * | `WebFetch(domain:example.com)` | the primary argument's HOST equals `example.com` |
  * | `Bash(npm audit)` | the primary argument EQUALS `npm audit` |
@@ -51,10 +52,51 @@ describe("permission rules are data an operator can ship", () => {
   });
 
   it("matches a command prefix with a trailing wildcard", () => {
-    expect(verdict(["Bash(npm run test:*)"], "Bash", { command: "npm run test:unit" })).toBe(
+    expect(verdict(["Bash(npm publish*)"], "Bash", { command: "npm publish --dry-run" })).toBe(
       "deny",
     );
-    expect(verdict(["Bash(npm run test:*)"], "Bash", { command: "npm run build" })).toBe("allow");
+    expect(verdict(["Bash(npm publish*)"], "Bash", { command: "npm run build" })).toBe("allow");
+  });
+
+  it("reads a trailing `:*` as the command before it, followed by anything", () => {
+    // The Claude Code meaning: `Bash(ls:*)` matches the same commands as `Bash(ls *)`, so the colon
+    // is not part of the command. Reading it literally made `Bash(rm:*)` match only commands that
+    // start with `rm:`, which no shell command does.
+    expect(verdict(["Bash(rm:*)"], "Bash", { command: "rm -rf /" })).toBe("deny");
+    expect(verdict(["Bash(rm:*)"], "Bash", { command: "rm" })).toBe("deny");
+    expect(verdict(["Bash(rm:*)"], "Bash", { command: "rm\t-rf /" })).toBe("deny");
+    expect(verdict(["Bash(npm run test:*)"], "Bash", { command: "npm run test -- --watch" })).toBe(
+      "deny",
+    );
+  });
+
+  it("keeps a word boundary after a `:*` prefix", () => {
+    // `Bash(ls:*)` does not match `lsof`. Without the boundary an allow rule for one command
+    // would allow every command whose name merely begins with it.
+    expect(verdict(["Bash(rm:*)"], "Bash", { command: "rmdir build" })).toBe("allow");
+    expect(verdict(["Bash(npm run test:*)"], "Bash", { command: "npm run test:unit" })).toBe(
+      "allow",
+    );
+  });
+
+  it("denies a `:*` command and confines a `**/` allow when both sit in one policy", () => {
+    const engine = new PermissionEngine(
+      parsePermissionRules({ deny: ["Bash(rm:*)"], allow: ["Read(path:src/**/public.txt)"] }),
+      { defaultAction: "ask" },
+    );
+
+    const removal = engine.evaluate("Bash", { command: "rm -rf /" });
+    const sibling = engine.evaluate("Read", { path: "src/notpublic.txt" });
+    const named = engine.evaluate("Read", { path: "src/a/public.txt" });
+
+    expect(removal).toBe("deny");
+    expect(sibling).toBe("ask");
+    expect(named).toBe("allow");
+  });
+
+  it("treats a `:*` that is not at the end as literal text", () => {
+    expect(verdict(["Bash(git:* push)"], "Bash", { command: "git push" })).toBe("allow");
+    expect(verdict(["Bash(git:* push)"], "Bash", { command: "git:* push" })).toBe("deny");
   });
 
   it("matches an exact specifier without a wildcard", () => {
@@ -75,6 +117,28 @@ describe("permission rules are data an operator can ship", () => {
     expect(verdict(["Read(path:src/**/*.key)"], "Read", { file_path: "src/a/b/id.ts" })).toBe(
       "allow",
     );
+  });
+
+  it("lets `**/` stand for zero or more whole directories, never part of a file name", () => {
+    expect(verdict(["Read(path:src/**/public.txt)"], "Read", { path: "src/public.txt" })).toBe(
+      "deny",
+    );
+    expect(verdict(["Read(path:src/**/public.txt)"], "Read", { path: "src/a/b/public.txt" })).toBe(
+      "deny",
+    );
+    expect(verdict(["Read(path:src/**/public.txt)"], "Read", { path: "src/notpublic.txt" })).toBe(
+      "allow",
+    );
+    expect(verdict(["Read(path:src/**/public.txt)"], "Read", { path: "src/a/notpublic.txt" })).toBe(
+      "allow",
+    );
+    expect(verdict(["Read(path:**/.env)"], "Read", { file_path: ".env" })).toBe("deny");
+    expect(verdict(["Read(path:**/.env)"], "Read", { file_path: "a/b/.env" })).toBe("deny");
+    expect(verdict(["Read(path:**/.env)"], "Read", { file_path: "a/my.env" })).toBe("allow");
+  });
+
+  it("matches a `**/` glob in the same file as the directory it names", () => {
+    expect(verdict(["Read(path:src/**/*.key)"], "Read", { file_path: "src/id.key" })).toBe("deny");
   });
 
   it("anchors a path glob at both ends", () => {
@@ -107,7 +171,7 @@ describe("permission rules are data an operator can ship", () => {
   it("does not match when the primary argument cannot be found", () => {
     // A rule that cannot find its argument has not been satisfied. Matching by default would make
     // every malformed call take whatever action the rule declared — in both directions.
-    expect(verdict(["Bash(npm run test:*)"], "Bash", { somethingElse: "npm run test:unit" })).toBe(
+    expect(verdict(["Bash(npm run test:*)"], "Bash", { somethingElse: "npm run test unit" })).toBe(
       "allow",
     );
   });
@@ -119,11 +183,11 @@ describe("permission rules are data an operator can ship", () => {
     // Guessing "the single string argument" was the alternative and it is worse: a rule would then
     // match an argument the operator never named, which widens an allow rule exactly as often as it
     // narrows a deny one.
-    expect(verdict(["Bash(npm run test:*)"], "Bash", { cmdline: "npm run test:unit" })).toBe(
+    expect(verdict(["Bash(npm run test:*)"], "Bash", { cmdline: "npm run test unit" })).toBe(
       "allow",
     );
     // The escape that always works: a BARE tool name matches every call, whatever it is shaped like.
-    expect(verdict(["Bash"], "Bash", { cmdline: "npm run test:unit" })).toBe("deny");
+    expect(verdict(["Bash"], "Bash", { cmdline: "npm run test unit" })).toBe("deny");
   });
 
   it("keeps deny, allow and ask as separate lists", () => {
