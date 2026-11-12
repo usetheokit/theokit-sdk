@@ -181,7 +181,11 @@ export interface SDKAgent {
     message: string | SDKUserMessage,
     options: import("./run.js").GenerateOptions<T>,
   ): Promise<import("./run.js").GenerateRunResult<import("zod").z.infer<T>>>;
-  /** Fire-and-forget disposal. */
+  /**
+   * Marks the handle closed: new sends are refused and the live-agent cache entry is forgotten.
+   * It does NOT release resources (in-flight request, MCP clients, pending writes, session lease);
+   * call `dispose()` or use `await using`, which tear the session down even after `close()`.
+   */
   close(): void;
   /** Re-read filesystem config (context, hooks, project MCP, subagents) without disposing. */
   reload(): Promise<void>;
