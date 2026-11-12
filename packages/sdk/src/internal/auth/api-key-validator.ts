@@ -59,8 +59,8 @@ export interface ValidateApiKeyOptions {
   /** Provider name (lowercase) for prefix sanity check. */
   provider?: string;
   /**
-   * When `false`, only OBVIOUSLY-malformed inputs (empty, whitespace-only,
-   * < 4 chars) are rejected. Set when the caller knows the value is just an
+   * When `false`, only empty and whitespace-only keys are rejected (a short
+   * placeholder key is legitimate for a provider the SDK cannot attribute). Set when the caller knows the value is just an
    * identifier (e.g., `shouldUseRealLocalRuntime` mode where the real HTTP
    * call uses an env credential instead of this `apiKey`).
    *
@@ -81,9 +81,9 @@ export function validateApiKeyShape(
 ): ApiKeyValidationResult {
   // Back-compat: legacy callers pass a bare `provider` string as 2nd arg.
   const opts: ValidateApiKeyOptions = typeof options === "string" ? { provider: options } : options;
-  const tier1 = checkTier1(key);
+  const tier1 = checkTier1(key, opts.strict !== false);
   if (tier1.malformed) return tier1;
-  // Tier 1 succeeded → key is a non-empty string ≥ 4 chars; narrow it.
+  // Tier 1 succeeded → key is a non-empty string; narrow it.
   const validKey = key as string;
   if (validKey.startsWith(FIXTURE_KEY_PREFIX) || validKey === LOCAL_RUNTIME_MOCK_KEY) {
     return { malformed: false };
@@ -92,7 +92,7 @@ export function validateApiKeyShape(
   return checkTier2(validKey, opts.provider);
 }
 
-function checkTier1(key: string | undefined): ApiKeyValidationResult {
+function checkTier1(key: string | undefined, enforceMinLength: boolean): ApiKeyValidationResult {
   if (key === undefined || key.length === 0) {
     return { malformed: true, reason: "empty", message: "API key is empty." };
   }
@@ -103,7 +103,7 @@ function checkTier1(key: string | undefined): ApiKeyValidationResult {
       message: "API key contains only whitespace.",
     };
   }
-  if (key.length < 4) {
+  if (enforceMinLength && key.length < 4) {
     return {
       malformed: true,
       reason: "too_short",

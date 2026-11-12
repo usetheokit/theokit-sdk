@@ -55,6 +55,12 @@ describe("T1.3 — validateApiKeyShape unit", () => {
     assertMalformed(validateApiKeyShape("sk-short"), "too_short");
   });
 
+  it("non-strict mode accepts a short key but still rejects empty and whitespace-only", () => {
+    expect(validateApiKeyShape("x", { strict: false }).malformed).toBe(false);
+    assertMalformed(validateApiKeyShape("", { strict: false }), "empty");
+    assertMalformed(validateApiKeyShape("  ", { strict: false }), "whitespace_only");
+  });
+
   it("rejects keys with embedded whitespace", () => {
     assertMalformed(validateApiKeyShape("sk-abcdefghij klmnopqrstuvwxyz"), "embedded_whitespace");
   });
