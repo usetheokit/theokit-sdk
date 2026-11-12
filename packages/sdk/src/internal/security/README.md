@@ -8,6 +8,7 @@ Security primitives shared across the SDK: secret redaction at output boundaries
 |---|---|
 | `redact.ts` | `redactSecrets` — canonical credential masking with built-in pattern set + extensible `addPattern` API (ADRs D68-D73) |
 | `path-guard.ts` | `safePathJoin`, `sanitizeIdentifier`, `createExclusive`, `casUpdate` — path traversal + race protection (ADRs D79-D85) |
+| `shell-command-line.ts` | `readShellCommandLine` — splits a shell line into the commands it runs, for `parsePermissionRules` (not exported from the barrel) |
 | `test-reset.ts` | Test seam — resets internal redact state between tests (NOT public API) |
 | `index.ts` | Barrel — re-exports the public surface |
 
