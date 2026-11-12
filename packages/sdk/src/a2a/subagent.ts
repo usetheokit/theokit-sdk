@@ -277,7 +277,7 @@ async function applyDelegationStart(
 async function collectChildToolResults(run: Run): Promise<string> {
   const lines: string[] = [];
   for await (const event of run.stream()) {
-    if (event.type === "tool_call" && event.status === "completed") {
+    if (event.type === "tool_call" && event.status !== "running") {
       const rendered =
         typeof event.result === "string" ? event.result : JSON.stringify(event.result ?? null);
       lines.push(`${event.name}: ${rendered}`);
