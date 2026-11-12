@@ -84,6 +84,18 @@ const agent = await Agent.create({
 
 Extended-thinking `--continue` is out of scope for now (thinking signatures are written but dropped on read — issue #122). See the exported session-persistence types for the full contract.
 
+## Memory
+
+Durable facts live under `<cwd>/.theokit/memory/`. To keep several users of one agent app apart, give each agent a `userId`; each user then gets their own partition (`.theokit/memory/users/<userId>/`) for facts, index and session summaries:
+
+```ts
+const alice = await Agent.create({ memory: { enabled: true, userId: "alice" } });
+const bob = await Agent.create({ memory: { enabled: true, userId: "bob" } });
+// Facts recorded by alice are never recalled or returned by memory_search for bob.
+```
+
+`userId` must match `[a-z0-9][a-z0-9-_]*`; other values (such as `../x`) are rejected.
+
 ## Schedule with cron
 
 ```typescript

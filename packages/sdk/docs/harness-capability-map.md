@@ -660,7 +660,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryGetToolOptions` | interface | Options for {@link createMemoryGetTool } .  |
 | `MemoryIndex` | interface | The four operations both backends implement, and the type every consumer should hold.  |
 | `memoryIndexRoot` | function | Where the search index belongs for this configuration (theokit-sdk#554).  |
-| `MemoryLocationConfig` | type | Only `directory` is read; the full config is accepted so callers pass what they already hold. |
+| `MemoryLocationConfig` | type | Only `directory` and `userId` are read; the full config is accepted so callers pass what they already hold. |
 | `memoryMdPath` | function | Path to `MEMORY.md`, the index that points at the per-memory files — and, in stores written before #389, the flat `## Facts` list itself.  |
 | `MemoryReadResult` | interface | Result of `reader.readFile`.  |
 | `memoryReadRoots` | function | Every directory a read must cover, deduplicated and in precedence order.  |
@@ -1186,7 +1186,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MEMORY_INDEX_MAX_BYTES` | const | The byte limit the Claude Code CLI applies when it loads a `MEMORY.md`, whichever it reaches first.  |
 | `MEMORY_INDEX_MAX_LINES` | const | The line limit the Claude Code CLI applies when it loads a `MEMORY.md`.  |
 | `memoryIndexRoot` | function | Where the search index belongs for this configuration (theokit-sdk#554).  |
-| `MemoryLocationConfig` | type | Only `directory` is read; the full config is accepted so callers pass what they already hold. |
+| `MemoryLocationConfig` | type | Only `directory` and `userId` are read; the full config is accepted so callers pass what they already hold. |
 | `memoryMdPath` | function | Path to `MEMORY.md`, the index that points at the per-memory files — and, in stores written before #389, the flat `## Facts` list itself.  |
 | `memoryReadRoots` | function | Every directory a read must cover, deduplicated and in precedence order.  |
 | `MemoryRoot` | type | A directory that has been RESOLVED as a memory root, distinguished from a bare `cwd`.  |
