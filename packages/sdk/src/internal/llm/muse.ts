@@ -10,6 +10,8 @@
  */
 
 import { spawn } from "node:child_process";
+import { accessSync, constants, statSync } from "node:fs";
+import { delimiter, isAbsolute, join } from "node:path";
 
 import { AuthenticationError, ConfigurationError, TheokitAgentError } from "../../errors.js";
 import { collapseSystemText, makeLlmFinish } from "./finish.js";
@@ -141,12 +143,45 @@ function attachSession(child: ReturnType<typeof spawn>): MuseSession {
   };
 }
 
+function isExecutableFile(path: string): boolean {
+  try {
+    if (!statSync(path).isFile()) return false;
+    accessSync(path, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolves `command` to an absolute executable path so `spawn` never searches `PATH` itself.
+ * Only absolute `PATH` entries are considered; relative and empty ones (which would resolve against
+ * the working directory) are ignored. Returns `undefined` when nothing matches.
+ */
+export function resolveMuseBinary(
+  command: string,
+  pathEnv: string | undefined = process.env.PATH,
+): string | undefined {
+  if (isAbsolute(command)) return isExecutableFile(command) ? command : undefined;
+  for (const dir of (pathEnv ?? "").split(delimiter)) {
+    if (!isAbsolute(dir)) continue;
+    const candidate = join(dir, command);
+    if (isExecutableFile(candidate)) return candidate;
+  }
+  return undefined;
+}
+
 /** Default transport: spawns `muse serve` and speaks JSON lines on stdio. */
 export function createStdioMuseTransport(command = "muse"): MuseTransport {
   return {
     open(signal) {
       return new Promise<MuseSession>((resolve, reject) => {
-        const child = spawn(command, ["serve"], { stdio: ["pipe", "pipe", "ignore"], signal });
+        const binary = resolveMuseBinary(command);
+        if (binary === undefined) {
+          reject(notInstalled());
+          return;
+        }
+        const child = spawn(binary, ["serve"], { stdio: ["pipe", "pipe", "ignore"], signal });
         child.once("error", (err: NodeJS.ErrnoException) => {
           reject(err.code === "ENOENT" ? notInstalled(err) : err);
         });
