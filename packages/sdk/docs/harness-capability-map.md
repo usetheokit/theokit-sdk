@@ -1284,10 +1284,10 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `createMcpEventSubscriber` | function | Create a subscriber for one MCP server.  |
 | `MCP_EVENT_SIGNATURE_HEADER` | const | Header carrying the delivery signature. |
 | `McpEventDelivery` | interface | One authenticated event delivery. |
-| `McpEventSubscribeOptions` | interface |  |
-| `McpEventSubscriber` | class |  |
-| `McpEventSubscriberOptions` | interface |  |
-| `McpEventSubscription` | interface |  |
+| `McpEventSubscribeOptions` | interface | Options for {@link McpEventSubscriber.subscribe } : which events to receive and the callback for them. |
+| `McpEventSubscriber` | class | Subscribes to events from one MCP server and verifies each signed delivery at a local receiver. |
+| `McpEventSubscriberOptions` | interface | Options for {@link createMcpEventSubscriber } : the MCP server and where the callback receiver listens. |
+| `McpEventSubscription` | interface | A live subscription returned by {@link McpEventSubscriber.subscribe } . |
 | `signMcpEvent` | function | Signature header value (`sha256=<hex>`) for `body`. |
 | `verifyMcpEventSignature` | function | Constant-time check of a signature header against the body. |
 

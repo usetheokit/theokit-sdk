@@ -48,6 +48,7 @@ export function verifyMcpEventSignature(
   return expected.length === given.length && timingSafeEqual(expected, given);
 }
 
+/** Options for {@link createMcpEventSubscriber}: the MCP server and where the callback receiver listens. */
 export interface McpEventSubscriberOptions {
   /** The MCP server (Streamable HTTP). */
   server: McpHttpServerConfig;
@@ -66,6 +67,7 @@ export interface McpEventSubscriberOptions {
   fetch?: typeof fetch;
 }
 
+/** Options for {@link McpEventSubscriber.subscribe}: which events to receive and the callback for them. */
 export interface McpEventSubscribeOptions {
   /** Event types to subscribe to; omitted = the server's default. */
   events?: string[];
@@ -73,8 +75,11 @@ export interface McpEventSubscribeOptions {
   onEvent: (delivery: McpEventDelivery) => void | Promise<void>;
 }
 
+/** A live subscription returned by {@link McpEventSubscriber.subscribe}. */
 export interface McpEventSubscription {
+  /** Id the MCP server assigned to this subscription. */
   subscriptionId: string;
+  /** Stop receiving events and tell the server to drop the subscription. */
   unsubscribe(): Promise<void>;
 }
 
@@ -116,6 +121,7 @@ function handleBody(body: Buffer, req: IncomingMessage, res: ServerResponse, ent
   Promise.resolve(entry.onEvent(delivery)).catch(() => undefined);
 }
 
+/** Subscribes to events from one MCP server and verifies each signed delivery at a local receiver. */
 export class McpEventSubscriber {
   private readonly client: McpClient;
   private readonly registry = new Map<string, Registered>();
@@ -208,6 +214,7 @@ export class McpEventSubscriber {
     }
   }
 
+  /** Drop all subscriptions, close the MCP client and stop the callback receiver. */
   async close(): Promise<void> {
     this.registry.clear();
     const server = this.httpServer;
