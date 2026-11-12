@@ -548,18 +548,19 @@ function buildToolUseCompleted(
   { inputs, callId, call }: DispatchContext,
   result: ToolResult,
 ): SDKToolUseMessage {
+  const exitCode = result.exitCode ?? 0;
   return {
     type: "tool_call",
     agent_id: inputs.agentId,
     run_id: inputs.runId,
     call_id: callId,
     name: call.name,
-    status: "completed",
+    status: exitCode === 0 ? "completed" : "error",
     args: call.input,
     result: {
       stdout: result.stdout,
       stderr: result.stderr,
-      exitCode: result.exitCode ?? 0,
+      exitCode,
     },
   };
 }
