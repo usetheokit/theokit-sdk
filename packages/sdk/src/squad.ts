@@ -14,6 +14,7 @@
  */
 
 import { ConfigurationError } from "./errors.js";
+import { diagFailure } from "./internal/diagnostics.js";
 import type { AgentDefinition, SDKAgent } from "./types/agent.js";
 import type { StepResult } from "./types/workflow.js";
 import { agentStep, Workflow } from "./workflow.js";
@@ -47,6 +48,22 @@ export interface SquadOptions {
   process?: "sequential" | "hierarchical";
   /** Optional squad name (surfaced on the underlying workflow). Default `"squad"`. */
   name?: string;
+  /** Dispose the `SDKAgent` members passed in after each run. Default false. Members built from an `AgentDefinition` are always disposed. */
+  ownsMembers?: boolean;
+  /** Receives a member disposal failure. Default: `diagFailure`. Disposal failures never fail the run. */
+  onDisposeError?: (error: unknown, memberIndex: number) => void;
+}
+
+/**
+ * Per-run options for {@link Squad.run}.
+ *
+ * @public
+ */
+export interface SquadRunOptions {
+  /** Aborting cancels the member run in flight and resolves with status "cancelled". */
+  signal?: AbortSignal;
+  /** Shorthand for a timer signal. On expiry the run is cancelled and resolves with status "cancelled" and `timedOut: true`. */
+  timeoutMs?: number;
 }
 
 /**
@@ -59,6 +76,8 @@ export interface SquadRun {
   readonly result: unknown;
   readonly status: "running" | "completed" | "failed" | "suspended" | "cancelled";
   readonly steps: ReadonlyArray<StepResult>;
+  /** `true` when the run was cancelled because `timeoutMs` elapsed. */
+  readonly timedOut?: boolean;
 }
 
 /**
@@ -68,7 +87,7 @@ export interface SquadRun {
  */
 export interface Squad {
   /** Run the team over `input`, threading each agent's output to the next. */
-  run(input: unknown): Promise<SquadRun>;
+  run(input: unknown, options?: SquadRunOptions): Promise<SquadRun>;
 }
 
 /**
@@ -121,11 +140,60 @@ function createSquad(options: SquadOptions): Squad {
   }
 
   return {
-    run: async (input: unknown): Promise<SquadRun> => {
-      const run = await (await buildPipeline(agents, options.name)).run(input);
-      return { result: run.output, status: run.status, steps: run.stepResults };
+    run: async (input: unknown, runOptions?: SquadRunOptions): Promise<SquadRun> => {
+      const owned: Array<{ agent: SDKAgent; index: number }> = [];
+      const ctrl = new AbortController();
+      let timedOut = false;
+      const outer = runOptions?.signal;
+      const onOuterAbort = (): void => ctrl.abort(outer?.reason);
+      if (outer?.aborted) onOuterAbort();
+      else outer?.addEventListener("abort", onOuterAbort, { once: true });
+      const timer =
+        runOptions?.timeoutMs !== undefined
+          ? setTimeout(() => {
+              timedOut = true;
+              ctrl.abort(new Error(`Squad run timed out after ${String(runOptions.timeoutMs)}ms`));
+            }, runOptions.timeoutMs)
+          : undefined;
+      try {
+        const pipeline = await buildPipeline(agents, options.name, (agent, index, created) => {
+          if (created || options.ownsMembers === true) owned.push({ agent, index });
+        });
+        const run = await pipeline.run(input, { signal: ctrl.signal });
+        return {
+          result: run.output,
+          status: run.status,
+          steps: run.stepResults,
+          ...(timedOut && run.status === "cancelled" ? { timedOut: true } : {}),
+        };
+      } finally {
+        if (timer !== undefined) clearTimeout(timer);
+        outer?.removeEventListener("abort", onOuterAbort);
+        await disposeMembers(owned, options.onDisposeError);
+      }
     },
   };
+}
+
+/** Disposes members with `Promise.allSettled`; a failure is reported, never thrown. */
+async function disposeMembers(
+  owned: ReadonlyArray<{ agent: SDKAgent; index: number }>,
+  onError: ((error: unknown, memberIndex: number) => void) | undefined,
+): Promise<void> {
+  const settled = await Promise.allSettled(owned.map(async ({ agent }) => agent.dispose()));
+  settled.forEach((r, i) => {
+    if (r.status !== "rejected") return;
+    const index = owned[i]?.index ?? i;
+    try {
+      if (onError !== undefined) onError(r.reason, index);
+      else
+        diagFailure(
+          `squad: failed to dispose member ${String(index)}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`,
+        );
+    } catch {
+      // A throwing error handler must not replace the run result.
+    }
+  });
 }
 
 /**
@@ -138,6 +206,7 @@ function createSquad(options: SquadOptions): Squad {
 async function buildPipeline(
   agents: ReadonlyArray<SDKAgent | AgentDefinition>,
   name: string | undefined,
+  onMember: (agent: SDKAgent, index: number, created: boolean) => void,
 ): Promise<ReturnType<ReturnType<typeof Workflow.create>["commit"]>> {
   // Compose Workflow + agentStep — identity threading: each agent's prompt is the previous agent's
   // output (the run input for the first agent).
@@ -148,7 +217,9 @@ async function buildPipeline(
     // M81 — materializes at RUN time, not at construction: `Squad.create` is synchronous and an
     // `AgentDefinition` only becomes an agent with an `await`. Deferring to here keeps construction cheap and
     // avoids requiring a resolved credential to assemble a team before the first run.
-    const agent = isBuiltAgent(member) ? member : await materialize(member, i);
+    const built = isBuiltAgent(member);
+    const agent = built ? member : await materialize(member, i);
+    onMember(agent, i, !built);
     // SE3 — the first agent receives the human input (no peer origin); every subsequent agent
     // receives its predecessor's output, so its turn carries `{ kind: "peer", from: "agent-<i-1>" }`.
     const opts = i > 0 ? { origin: { kind: "peer" as const, from: `agent-${i - 1}` } } : undefined;

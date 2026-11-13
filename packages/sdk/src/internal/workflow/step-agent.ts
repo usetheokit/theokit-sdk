@@ -10,10 +10,59 @@
  */
 
 import { UnsupportedRunOperationError } from "../../errors.js";
+import type { RunResult } from "../../types/run.js";
 import type { AgentStep, StepContext, StepResult } from "../../types/workflow.js";
 import { WorkflowSuspendedSentinel } from "./ctx.js";
 import { errToShape } from "./error-shape.js";
 import { withRetry } from "./retry-policy.js";
+
+/** Waits for the run; an abort of `signal` cancels the in-flight run instead of waiting for the next step boundary. */
+async function waitCancellable(
+  run: { cancel(): Promise<void>; wait(): Promise<RunResult> },
+  signal: AbortSignal,
+): Promise<RunResult> {
+  const onAbort = (): void => {
+    void Promise.resolve(run.cancel()).catch(() => undefined);
+  };
+  if (signal.aborted) onAbort();
+  else signal.addEventListener("abort", onAbort, { once: true });
+  try {
+    return await run.wait();
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+  }
+}
+
+function unwrapResult(result: RunResult, signal: AbortSignal): string {
+  if (result.status === "cancelled" || signal.aborted) {
+    throw new DOMException(String(signal.reason ?? "Aborted"), "AbortError");
+  }
+  if (result.status === "finished") return result.result ?? "";
+  if (result.status === "error") {
+    throw (result as { error?: Error }).error ?? new Error("agent.send errored");
+  }
+  throw new Error(`Unexpected agent status: ${result.status}`);
+}
+
+function isAbort(err: unknown, signal: AbortSignal): boolean {
+  return signal.aborted || (err as { name?: string }).name === "AbortError";
+}
+
+function errorResult(
+  step: AgentStep,
+  err: unknown,
+  signal: AbortSignal,
+  startedAt: number,
+): StepResult {
+  return {
+    stepId: step.id,
+    kind: "agent",
+    status: isAbort(err, signal) ? "cancelled" : "failed",
+    attempts: 1,
+    durationMs: Date.now() - startedAt,
+    error: errToShape(err),
+  };
+}
 
 export async function runAgentStep(
   step: AgentStep,
@@ -73,14 +122,8 @@ export async function runAgentStep(
       prompt,
       step.origin !== undefined ? { origin: step.origin } : undefined,
     );
-    const result = await run.wait();
-    if (result.status === "finished") {
-      return result.result ?? "";
-    }
-    if (result.status === "error") {
-      throw (result as { error?: Error }).error ?? new Error("agent.send errored");
-    }
-    throw new Error(`Unexpected agent status: ${result.status}`);
+    const result = await waitCancellable(run, ctx.signal);
+    return unwrapResult(result, ctx.signal);
   };
 
   try {
@@ -99,13 +142,6 @@ export async function runAgentStep(
   } catch (err) {
     // Re-throw suspend sentinel so the executor can persist a snapshot.
     if (err instanceof WorkflowSuspendedSentinel) throw err;
-    return {
-      stepId: step.id,
-      kind: "agent",
-      status: "failed",
-      attempts: 1,
-      durationMs: Date.now() - startedAt,
-      error: errToShape(err),
-    };
+    return errorResult(step, err, ctx.signal, startedAt);
   }
 }

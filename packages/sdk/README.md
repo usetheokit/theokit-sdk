@@ -157,3 +157,18 @@ The full contract is defined by the exported TypeScript types; see [`CHANGELOG.m
 ## License
 
 MIT — see [LICENSE](./LICENSE).
+
+## Squad: cancellation and disposal
+
+`Squad.run(input, options?)` takes a `SquadRunOptions`:
+
+- `signal` — aborting cancels the member run in flight; the run resolves with `status: "cancelled"`.
+- `timeoutMs` — shorthand for a timer signal. On expiry the run resolves with `status: "cancelled"` and `timedOut: true`.
+
+```ts
+const squad = Squad.create({ agents: [a, b], ownsMembers: true });
+const run = await squad.run("task", { timeoutMs: 60_000 });
+if (run.timedOut) console.warn("squad timed out");
+```
+
+`ownsMembers: true` disposes the `SDKAgent` members you pass in after every run (default `false`). Members the squad builds from an `AgentDefinition` are always disposed. Disposal uses `Promise.allSettled`; a failure goes to `onDisposeError(error, memberIndex)` (default: a diagnostic on stderr) and never changes the run result.
