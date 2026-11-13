@@ -45,6 +45,14 @@ await agent.send("List the TypeScript files in src/ and read the largest one");
 | `createRunVitestTool` | Run vitest with JSON reporter; return structured results. | `vitest` |
 | `createSubprocessTool` | Spawn a child process with timeout + abort + cleanup. | — |
 
+### `projectRoot` and `baseDir`
+
+`createWriteFileTool`, `createEditFileTool` and `createApplyPatchTool` take `projectRoot`, the boundary every resolved path is checked against. They also take an optional `baseDir`: the base for *relative* paths in the model's input (default `projectRoot`). It must be `projectRoot` or a directory inside it, otherwise construction throws a `BaseDirOutsideProjectRootError` naming both paths. Absolute paths are unchanged, and the `.env` / `.git` refusals still apply to a relative path resolved against `baseDir`. Use it when `projectRoot` is widened (a monorepo root, `/`) but `hello.txt` should land in the working directory:
+
+```ts
+createWriteFileTool({ projectRoot: "/", baseDir: "/home/me/app" }); // "hello.txt" -> /home/me/app/hello.txt
+```
+
 ## Security guard rails
 
 All tools validate paths against the universal forbidden-path blocklist:

@@ -25,6 +25,7 @@ import { dirname, relative } from "node:path";
 import type { CustomTool } from "@theokit/sdk";
 import { Tool } from "@theokit/sdk";
 import { z } from "zod";
+import { anchorPath, resolveBaseDir } from "./internal/base-dir.js";
 import {
   assertNoSymlinkEscape,
   ForbiddenPathError,
@@ -42,6 +43,12 @@ export interface CreateApplyPatchToolOptions {
   description?: string;
   /** Absolute path to the project root. Every hunk path is gated against this boundary. */
   projectRoot: string;
+  /**
+   * Base for relative paths in the model's input. Default: `projectRoot`.
+   * Must be `projectRoot` or a directory inside it; anything else throws at construction.
+   * `projectRoot` stays the boundary every resolved path is checked against.
+   */
+  baseDir?: string;
 }
 
 /**
@@ -61,6 +68,7 @@ export interface CreateApplyPatchToolOptions {
  */
 export function createApplyPatchTool(opts: CreateApplyPatchToolOptions): CustomTool {
   const { projectRoot } = opts;
+  const baseDir = resolveBaseDir("createApplyPatchTool", projectRoot, opts.baseDir);
 
   return Tool.create({
     name: opts.name ?? "apply_patch",
@@ -75,7 +83,7 @@ export function createApplyPatchTool(opts: CreateApplyPatchToolOptions): CustomT
     inputSchema: z.object({
       patch: z.string().min(1).describe("V4A patch: *** Begin Patch … *** End Patch."),
     }),
-    handler: async ({ patch }) => applyV4APatch(projectRoot, patch),
+    handler: async ({ patch }) => applyV4APatch(projectRoot, baseDir, patch),
   });
 }
 
@@ -84,7 +92,7 @@ type FsOp = { write: { abs: string; content: string } } | { rm: string };
 
 type PlanResult = { ops: FsOp[]; patched: string[] } | { error: string };
 
-async function applyV4APatch(projectRoot: string, patch: string): Promise<string> {
+async function applyV4APatch(projectRoot: string, baseDir: string, patch: string): Promise<string> {
   let hunks: V4AHunk[];
   try {
     hunks = parseV4A(patch);
@@ -95,7 +103,7 @@ async function applyV4APatch(projectRoot: string, patch: string): Promise<string
   // Plan (verify) the WHOLE patch before any write; then execute. First failure ⇒ zero writes. An
   // unexpected fs error during execute maps to a typed `io_error` (honors the always-JSON contract).
   try {
-    const plan = await buildPlan(projectRoot, hunks);
+    const plan = await buildPlan(projectRoot, baseDir, hunks);
     if ("error" in plan) return plan.error;
     await executePlan(plan.ops);
     return JSON.stringify({ ok: true, files_patched: plan.patched });
@@ -117,7 +125,11 @@ function hunkTargets(hunk: V4AHunk): string[] {
 /** Read + compute + path-check every hunk into a write plan (no writes). First failure aborts. A file
  *  touched by two hunks is rejected (Codex forbids editing the same file twice — otherwise the second
  *  read sees the original and the first edit is silently lost). */
-async function buildPlan(projectRoot: string, hunks: V4AHunk[]): Promise<PlanResult> {
+async function buildPlan(
+  projectRoot: string,
+  baseDir: string,
+  hunks: V4AHunk[],
+): Promise<PlanResult> {
   const dup = firstDuplicateTarget(hunks);
   if (dup !== null) {
     return { error: JSON.stringify({ ok: false, error: "duplicate_target", path: dup }) };
@@ -125,7 +137,7 @@ async function buildPlan(projectRoot: string, hunks: V4AHunk[]): Promise<PlanRes
   const ops: FsOp[] = [];
   const patched: string[] = [];
   for (const hunk of hunks) {
-    const planned = await planHunk(projectRoot, hunk);
+    const planned = await planHunk(projectRoot, baseDir, hunk);
     if ("error" in planned) return planned;
     ops.push(...planned.ops);
     patched.push(hunk.kind === "update" ? (hunk.movePath ?? hunk.path) : hunk.path);
@@ -170,9 +182,10 @@ async function pathExists(abs: string): Promise<boolean> {
 /** Plan one hunk (Codex Hunk-kind dispatch) into filesystem ops, or an error JSON string. */
 async function planHunk(
   projectRoot: string,
+  baseDir: string,
   hunk: V4AHunk,
 ): Promise<{ ops: FsOp[] } | { error: string }> {
-  const scope = v4aScope(projectRoot, hunk.path);
+  const scope = v4aScope(projectRoot, baseDir, hunk.path);
   if ("error" in scope) return scope;
   if (hunk.kind === "add") {
     // Codex rejects Add over an existing file — never silently clobber.
@@ -187,12 +200,13 @@ async function planHunk(
     }
     return { ops: [{ rm: scope.abs }] };
   }
-  return planUpdate(projectRoot, hunk, scope.abs);
+  return planUpdate(projectRoot, baseDir, hunk, scope.abs);
 }
 
 /** Plan an Update hunk: read the OLD file, compute the new content, then write-in-place or move. */
 async function planUpdate(
   projectRoot: string,
+  baseDir: string,
   hunk: Extract<V4AHunk, { kind: "update" }>,
   abs: string,
 ): Promise<{ ops: FsOp[] } | { error: string }> {
@@ -222,7 +236,7 @@ async function planUpdate(
     throw err;
   }
   if (!hunk.movePath) return { ops: [{ write: { abs, content: updated } }] };
-  const dest = v4aScope(projectRoot, hunk.movePath);
+  const dest = v4aScope(projectRoot, baseDir, hunk.movePath);
   if ("error" in dest) return dest;
   // transform-then-rename: write the new content to the destination, remove the original.
   return { ops: [{ write: { abs: dest.abs, content: updated } }, { rm: abs }] };
@@ -244,10 +258,14 @@ function isForbiddenRel(rel: string): boolean {
 /** Security-check a hunk path against the project root; returns the resolved abs path or an error JSON
  *  string. Resolves FIRST (rejecting traversal/symlink/absolute escape), then checks the resulting
  *  project-relative path for a forbidden segment at any depth (closes the nested/absolute `.env` hole). */
-function v4aScope(projectRoot: string, file: string): { abs: string } | { error: string } {
+function v4aScope(
+  projectRoot: string,
+  baseDir: string,
+  file: string,
+): { abs: string } | { error: string } {
   let abs: string;
   try {
-    abs = safePathJoin(projectRoot, file);
+    abs = safePathJoin(projectRoot, anchorPath(baseDir, file));
     assertNoSymlinkEscape(abs, projectRoot);
   } catch (err) {
     if (err instanceof PathTraversalError || err instanceof ForbiddenPathError) {
