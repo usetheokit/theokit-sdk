@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.19.0
+
+### Minor Changes
+
+- [#1137](https://github.com/usetheokit/theokit-sdk/pull/1137) [`3eeea25`](https://github.com/usetheokit/theokit-sdk/commit/3eeea25657b6a5ed779c39ec4de77726b73570bc) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `listWorkspacePlugins`, a read-only listing of the plugins an agent would load, built on the same discovery and manifest code as the runtime.
+
 ## 5.18.1
 
 ### Patch Changes
