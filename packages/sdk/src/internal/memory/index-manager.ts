@@ -81,7 +81,8 @@ import type {
  * until it runs. `search()` runs both halves and blends them per chunk, so a
  * chunk found only by vector still appears with a text score of 0 and the other
  * way round. When the FTS statement throws, the text half falls back to a LIKE
- * scan and, for a non-CJK query, says so on the diagnostics sink.
+ * scan and, for a non-CJK query, says so on the diagnostics sink. A CJK query that
+ * FTS answers with zero rows falls back the same way, since FTS5 cannot segment CJK text.
  *
  * Shared with `@theokit/sdk-memory`, which re-exports this class rather than
  * copying it (#1068): `Memory.openIndex` opens the index through that package
@@ -230,6 +231,9 @@ export class IndexManager implements MemoryIndex {
       }
       return this.likeSearchFallback(query, limit);
     }
+    // A healthy FTS5 index does not throw on a CJK term: its tokenizer has no CJK word boundaries,
+    // so the query matches nothing and returns zero rows. Treat that as the case the LIKE scan is for.
+    if (rows.length === 0 && containsCjk(query)) return this.likeSearchFallback(query, limit);
     return rows.map((row) => {
       const bm25 = Number(row.bm25_score ?? 0);
       const textScore = bm25 < 0 ? 1 / (1 + Math.abs(bm25)) : 1 / (1 + bm25);
