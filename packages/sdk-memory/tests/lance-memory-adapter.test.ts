@@ -14,6 +14,12 @@
  * vectorScore=score / textScore=0 / snippet=text.slice(0,200) /
  * citation=id).
  *
+ * Since #1068 there is one copy: this package's `LanceMemoryAdapter`
+ * extends the SDK's and adds only `unwrap()`. Two expectations below
+ * moved with it and say so where they changed: `sync()` reports
+ * `supported: false`, and `score` is the SDK's weighted blend rather
+ * than the bare vector score.
+ *
  * Uses a stub LanceIndex (no @lancedb/lancedb peer needed) so the
  * adapter math is verifiable without spinning up real LanceDB.
  */
@@ -63,11 +69,15 @@ describe("sdk-memory lance-memory-adapter (iter 69)", () => {
       // biome-ignore lint/suspicious/noExplicitAny: cross-package structural stub
       const adapter = new LanceMemoryAdapter(stub as any);
       const result: SyncResult = await adapter.sync();
+      // `supported: false` is new here (#1068): the adapter is the SDK's now, and the SDK's says
+      // that it walked nothing, where the copy this package carried returned bare zeros that read
+      // like a sync over an empty corpus.
       expect(result).toEqual({
         filesScanned: 0,
         filesUpdated: 0,
         chunksWritten: 0,
         chunksEmbedded: 0,
+        supported: false,
       });
       // Object.freeze pin — mutation attempts throw in strict mode (vitest
       // tsconfig enables it) OR silently no-op. Either way the next read
@@ -134,7 +144,11 @@ describe("sdk-memory lance-memory-adapter (iter 69)", () => {
       expect(hit?.path).toBe("id-1");
       expect(hit?.startLine).toBe(0);
       expect(hit?.endLine).toBe(0);
-      expect(hit?.score).toBeCloseTo(0.77, 5);
+      // `score` was asserted equal to the vector score, 0.77: the copy this package carried was
+      // vector-only. The adapter is the SDK's now (#1068), which blends the vector score with a
+      // term-overlap text score through `vectorWeight` / `textWeight` (0.6 / 0.4 by default). The
+      // query "q" has no term longer than one character, so the text half is 0: 0.6 * 0.77.
+      expect(hit?.score).toBeCloseTo(0.462, 5);
       expect(hit?.textScore).toBe(0);
       expect(hit?.vectorScore).toBeCloseTo(0.77, 5);
       // 200-char snippet truncation.

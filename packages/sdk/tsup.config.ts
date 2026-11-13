@@ -15,6 +15,8 @@ export default defineConfig({
     // The provider registry as public API — a sub-entry so the barrel's module graph is untouched
     // (adding it there changed load order and broke an unrelated cron test).
     providers: "src/providers.ts",
+    // Bounded subprocess runner (process-group kill + output cap); DTS via tsc.
+    process: "src/process.ts",
     // M4-1: skills discovery + <skills> block — reaches internal/runtime/skills; DTS via tsc.
     skills: "src/skills.ts",
     // M4-2: project-instruction reader/writer — reaches internal/runtime/context; DTS via tsc.

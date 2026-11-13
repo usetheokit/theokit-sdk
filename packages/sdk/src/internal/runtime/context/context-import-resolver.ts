@@ -48,6 +48,10 @@ export interface ResolveImportsOptions {
    * same value it already uses to keep absolute paths out of `<source name="">`.
    */
   readonly projectRoot?: string;
+  /** Paths discovery already emitted; an import naming one gets an "already loaded" placeholder. */
+  readonly alreadyLoaded?: ReadonlySet<string>;
+  /** Wraps each successfully inlined import (never a placeholder). */
+  readonly wrapImport?: (name: string, content: string) => string;
 }
 
 /**
@@ -80,9 +84,8 @@ export async function resolveImports(
     if (opts.projectRoot !== undefined && !insideRoot(absolute, opts.projectRoot)) {
       return `[@import outside the project root, refused: ${raw}]`;
     }
-    if (opts.visited.has(absolute)) {
-      return `[@import cycle detected: ${raw}]`;
-    }
+    const seen = seenPlaceholder(opts, absolute, raw);
+    if (seen !== undefined) return seen;
     opts.visited.add(absolute);
     const loaded = await loadPlainMarkdown(absolute, { maxBytesPerFile: opts.maxBytesPerFile });
     if (loaded === undefined) {
@@ -91,13 +94,23 @@ export async function resolveImports(
     // Recurse with same visited set + incremented depth. `projectRoot` is FORWARDED: an
     // imported file is repository-controlled too, so a root that applied only at depth 0
     // would be escapable in one extra hop.
-    return resolveImports(loaded.content, absolute, {
-      visited: opts.visited,
+    const inner = await resolveImports(loaded.content, absolute, {
+      ...opts,
       depth: opts.depth + 1,
-      maxBytesPerFile: opts.maxBytesPerFile,
-      ...(opts.projectRoot === undefined ? {} : { projectRoot: opts.projectRoot }),
     });
+    return opts.wrapImport === undefined ? inner : opts.wrapImport(raw, inner);
   });
+}
+
+/** Placeholder for a target already visited (cycle) or already emitted by discovery. */
+function seenPlaceholder(
+  opts: ResolveImportsOptions,
+  absolute: string,
+  raw: string,
+): string | undefined {
+  if (opts.visited.has(absolute)) return `[@import cycle detected: ${raw}]`;
+  if (opts.alreadyLoaded?.has(absolute)) return `[@import already loaded: ${raw}]`;
+  return undefined;
 }
 
 function resolveImportPath(raw: string, baseDir: string): string {

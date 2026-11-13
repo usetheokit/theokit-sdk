@@ -65,7 +65,26 @@ describe("the store this package exposes and the SDK's", () => {
     );
     expect(shared.length).toBeGreaterThan(0);
     for (const name of shared) {
+      if (name === "LanceMemoryAdapter") continue;
       expect((peer as Record<string, unknown>)[name]).toBe((sdk as Record<string, unknown>)[name]);
     }
+  });
+
+  // The one name that is not the same reference (#1068), and the reason it cannot drift the way a
+  // same-named wrapper does. This package published `LanceMemoryAdapter.unwrap()`; the SDK's adapter
+  // refuses to carry it (`tests/lint/adapter-is-the-boundary.test.ts` there). So the class here
+  // EXTENDS the SDK's and declares that one member. An override of `sync`, `search`, `status` or
+  // `close` would be a second implementation, and it would show up below as an own property.
+  it("test_the_lance_adapter_is_the_sdks_plus_unwrap_and_nothing_else", () => {
+    expect(Object.getPrototypeOf(peer.LanceMemoryAdapter)).toBe(sdk.LanceMemoryAdapter);
+    expect(Object.getOwnPropertyNames(peer.LanceMemoryAdapter.prototype).sort()).toEqual([
+      "constructor",
+      "unwrap",
+    ]);
+    expect(Object.getOwnPropertyNames(peer.LanceMemoryAdapter).sort()).toEqual([
+      "length",
+      "name",
+      "prototype",
+    ]);
   });
 });

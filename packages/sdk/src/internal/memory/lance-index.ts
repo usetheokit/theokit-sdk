@@ -55,6 +55,15 @@ interface LanceQuery {
   toArray: () => Promise<ReadonlyArray<LanceFactRecord & { _distance?: number }>>;
 }
 
+/**
+ * One row of the Lance `facts` table, as it is stored. Field names are the
+ * on-disk column names, which is why `user_id` is snake_case here while the
+ * search result reports `userId`.
+ *
+ * `embedding` must be exactly as wide as the table was created with; the width
+ * is fixed by the embedding runtime on the first open and checked on every
+ * later one.
+ */
 export interface LanceFactRecord {
   id: string;
   text: string;
@@ -66,6 +75,11 @@ export interface LanceFactRecord {
   timestamp: number;
 }
 
+/**
+ * Options for `LanceIndex.open`. The embedding runtime is required, not
+ * optional: Lance here is vector-only, so there is no text-search fallback to
+ * open without one.
+ */
 export interface OpenLanceOptions {
   cwd: string;
   /** The resolved memory root. Defaults to `<cwd>/.theokit/memory` (#463). */
@@ -75,6 +89,12 @@ export interface OpenLanceOptions {
   storagePath?: string;
 }
 
+/**
+ * Filters for `LanceIndex.search`. `namespace` is required and `scope` is
+ * optional; both are applied as a SQL predicate inside Lance. `sources` is
+ * applied in this process, after the rows come back, so it narrows the result
+ * without narrowing what `limit` counted.
+ */
 export interface LanceSearchOptions {
   namespace: string;
   scope?: string;
@@ -82,6 +102,11 @@ export interface LanceSearchOptions {
   sources?: ReadonlyArray<"memory" | "sessions" | "wiki">;
 }
 
+/**
+ * One Lance search result. `score` is a similarity in `(0, 1]` derived from
+ * Lance's distance as `1 / (1 + distance)`, so higher is better, the opposite
+ * direction from the raw distance Lance returns.
+ */
 export interface LanceSearchHit {
   id: string;
   text: string;
@@ -114,7 +139,8 @@ function requireLance(): LanceModule {
  * Lance-backed memory index. Public API mirrors the SQLite one logically:
  * `addFacts`, `search`, `countFacts`, `removeFacts`, `close`.
  *
- * @internal
+ * Shared with `@theokit/sdk-memory` through the memory-store barrel, so it carries no visibility
+ * tag: naming that tag in this block would delete the declaration below it (#463).
  */
 export class LanceIndex {
   private constructor(
@@ -269,7 +295,8 @@ function escapeSqlValue(value: string): string {
  * is loadable in the current environment. Allows tests to gracefully skip
  * when the optional dep is absent.
  *
- * @internal
+ * Shared with `@theokit/sdk-memory` through the memory-store barrel, so it carries no visibility
+ * tag: naming that tag in this block would delete the declaration below it (#463).
  */
 export function isLanceAvailable(): boolean {
   try {

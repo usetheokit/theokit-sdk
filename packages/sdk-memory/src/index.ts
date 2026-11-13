@@ -183,7 +183,8 @@ export * from "./internal/index/index-db.js";
 // sanitizeFts5Query + sqlite-vec KNN, merges by chunkId, blends
 // scores via configurable weights (vectorWeight 0.6 + textWeight
 // 0.4 default), filters by minScore + sources, sorts by combined
-// score. **CLOSES the index/ cluster** in sdk-memory.
+// score. Since #1068 this is the SDK's class, re-exported: a failed
+// FTS query falls back to a LIKE scan instead of returning nothing.
 export * from "./internal/index/index-manager.js";
 // Iter 47: fourth Stage 3 file move — index-manager-contract types
 // (75 LOC, pure type-only). Defines `MemorySearchHit`, `IndexStatus`,
@@ -221,19 +222,11 @@ export * from "./internal/index/index-schema.js";
 // + LanceFactRecord + OpenLanceOptions + LanceSearchOptions +
 // LanceSearchHit + isLanceAvailable + lanceStoragePath helpers.
 export * from "./internal/index/lance-index.js";
-// Iter 69: twenty-sixth Stage 3 file move — lance-memory-adapter (131 LOC).
-// `LanceMemoryAdapter` wraps `LanceIndex` (iter 68) to expose the
-// `MemoryIndex` contract (iter 50). Drop-in replacement for the
-// SQLite IndexManager when consumers select `backend: "lance"`.
-// `sync()` is no-op (returns frozen empty SyncResult); `search()`
-// uses vector-only (textScore=0, vectorScore=score, 200-char
-// snippet truncation; namespace defaults to "default" pending
-// v1.5 SearchOptions.namespace surface); `status()` reports
-// `backend: "hybrid"` with zero counts (consumers needing exact
-// row count call `unwrap().countFacts()` directly). `unwrap()`
-// returns the inner LanceIndex for advanced callers (migration
-// tool, benchmark script). Future `index-manager-dispatch.ts` move
-// composes with this as sibling.
+// `LanceMemoryAdapter` wraps `LanceIndex` to expose the `MemoryIndex` contract. Since #1068 it is
+// the SDK's adapter plus `unwrap()`: `sync()` walks nothing and reports `supported: false`,
+// `search()` blends the vector score with a term-overlap text score through the caller's weights,
+// and `status()` reports zero counts with `countsExact: false`. `unwrap()` returns the inner
+// `LanceIndex`, which is how a caller holding this class reaches `addFacts` and `countFacts`.
 export * from "./internal/index/lance-memory-adapter.js";
 // Iter 50: seventh Stage 3 file move — memory-index (67 LOC).
 // Defines `MemoryIndex` interface (the OCP-preserving 4-method
@@ -273,9 +266,8 @@ export * from "./internal/index/migrate-sqlite-to-lance.js";
 // guards re-entry. Failure modes typed in `MigrationResult.reason`:
 // "already-migrated" / "no-legacy-json" / "markdown-exists" /
 // "readonly-fs". `resetMigrationStateForTests` exposed for test
-// isolation. Dependencies sibling: markdown-store (iter 56) +
-// memory-types (iter 52). NOTE: per-package flag map (Set) — this
-// is documented in source.
+// isolation. Since #1068 this is the SDK's module, so the flag map is
+// one `Set` per process, shared with `@theokit/sdk`.
 export * from "./internal/index/migration.js";
 // Iter 66: twenty-third Stage 3 file move — sqlite-vec-loader (38 LOC).
 // Loads the `sqlite-vec` extension into an opened MemoryDb. Wraps the

@@ -15,6 +15,7 @@
 
 import { readFile } from "node:fs/promises";
 import { dirname, relative } from "node:path";
+import { ConfigurationError } from "../../../errors.js";
 import { warnOnce } from "../hooks/hooks-source.js";
 import type { AggregatorSource } from "./context-aggregator.js";
 import {
@@ -79,6 +80,8 @@ export interface DiscoveryRunnerOptions {
    * discovered by walking the repository.
    */
   readonly importRoot?: string;
+  /** Wraps each inlined @import. Default: the content unchanged. Never applied to a refusal placeholder. */
+  readonly wrapImport?: (name: string, content: string) => string;
 }
 
 /**
@@ -127,22 +130,35 @@ export async function runDiscovery(opts: DiscoveryRunnerOptions): Promise<Aggreg
     warnOnce(
       `context-withheld:${withheld.map((w) => w.id).join(",")}`,
       `[theokit-sdk] not loaded, no grant declared: ${withheld
-        .map((w) => `${w.pattern} (declare '${w.grant}' in compatSources)`)
+        .map((w) => `${[w.pattern].flat().join(", ")} (declare '${w.grant}' in compatSources)`)
         .join("; ")}`,
     );
   }
   const out: AggregatorSource[] = [];
   const seenReal = new Set<string>();
-
+  const planned: Array<{ spec: DiscoverySpec; path: string }> = [];
+  // Resolve every spec's paths first: an import must know every file this run emits.
   for (const spec of specs) {
     if (opts.skipLegacyTheokitContext && spec.id === "theokit-context") continue;
-    const paths = await resolvePathsForSpec(spec, opts.cwd, gitRoot);
-    for (const path of paths) {
+    if (spec.scope === "globbed" && typeof spec.pattern !== "string") {
+      throw new ConfigurationError(
+        `Discovery spec '${spec.id}' has a list pattern on a 'globbed' scope; a list is only valid for 'cwd-only' and 'git-root-walk'.`,
+        { code: "discovery_list_pattern_globbed" },
+      );
+    }
+    for (const path of await resolvePathsForSpec(spec, opts.cwd, gitRoot)) {
       if (seenReal.has(path)) continue;
       seenReal.add(path);
-      const source = await loadOneSource(spec, path, opts, gitRoot);
-      if (source !== undefined) out.push(source);
+      planned.push({ spec, path });
     }
+  }
+  // Only plain-markdown files are always emitted; frontmatter parsers can decline a file.
+  const emitted = new Set(
+    planned.filter((p) => p.spec.parser === "plain-markdown").map((p) => p.path),
+  );
+  for (const { spec, path } of planned) {
+    const source = await loadOneSource(spec, path, opts, gitRoot, emitted);
+    if (source !== undefined) out.push(source);
   }
   return out;
 }
@@ -159,7 +175,7 @@ async function resolvePathsForSpec(
     return walkUpForFile(cwd, spec.pattern, gitRoot ?? cwd);
   }
   // globbed
-  return walkUpForGlob(cwd, spec.pattern);
+  return walkUpForGlob(cwd, spec.pattern as string);
 }
 
 async function loadOneSource(
@@ -167,6 +183,7 @@ async function loadOneSource(
   path: string,
   opts: DiscoveryRunnerOptions,
   gitRoot: string | undefined,
+  emitted: ReadonlySet<string>,
 ): Promise<AggregatorSource | undefined> {
   // EC-E privacy: name uses relative-to-git-root for disambiguation;
   // NEVER absolute paths in the public `<source name="">` attribute.
@@ -189,7 +206,7 @@ async function loadOneSource(
     return undefined;
   }
   // plain-markdown
-  return loadPlainMarkdownSource(spec, path, id, opts, gitRoot);
+  return loadPlainMarkdownSource(spec, path, id, opts, gitRoot, emitted);
 }
 
 /**
@@ -244,6 +261,7 @@ async function loadPlainMarkdownSource(
   id: string,
   opts: DiscoveryRunnerOptions,
   gitRoot: string | undefined,
+  emitted: ReadonlySet<string>,
 ): Promise<AggregatorSource | undefined> {
   const loaded = await loadPlainMarkdown(path, { maxBytesPerFile: opts.maxBytesPerFile });
   if (loaded === undefined) return undefined;
@@ -252,6 +270,8 @@ async function loadPlainMarkdownSource(
     content = await resolveImports(content, path, {
       visited: new Set([path]),
       depth: 0,
+      alreadyLoaded: emitted,
+      ...(opts.wrapImport === undefined ? {} : { wrapImport: opts.wrapImport }),
       maxBytesPerFile: opts.maxBytesPerFile,
       // The document carrying the import is repository-controlled, so the repository is the
       // boundary it may not cross. Without this, `CLAUDE.md` / `GEMINI.md` — the two specs

@@ -63,6 +63,10 @@ const UNSUPPORTED_SYNC_RESULT: SyncResult = Object.freeze({
   supported: false,
 });
 
+/**
+ * Presents a `LanceIndex` as a {@link MemoryIndex}; the file header lists how it differs from the
+ * SQLite index. `@theokit/sdk-memory` extends this class rather than copying it (#1068).
+ */
 export class LanceMemoryAdapter implements MemoryIndex {
   constructor(private readonly inner: LanceIndex) {}
 

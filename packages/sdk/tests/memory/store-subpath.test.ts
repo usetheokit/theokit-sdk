@@ -4,11 +4,15 @@ import * as diary from "../../src/internal/memory/dreaming/diary.js";
 import * as phases from "../../src/internal/memory/dreaming/phases.js";
 import * as run from "../../src/internal/memory/dreaming/run.js";
 import * as indexDb from "../../src/internal/memory/index-db.js";
+import * as indexManager from "../../src/internal/memory/index-manager.js";
+import * as dispatch from "../../src/internal/memory/index-manager-dispatch.js";
 import * as helpers from "../../src/internal/memory/index-manager-helpers.js";
 import * as indexSchema from "../../src/internal/memory/index-schema.js";
 import * as lance from "../../src/internal/memory/lance-index.js";
+import * as lanceAdapter from "../../src/internal/memory/lance-memory-adapter.js";
 import * as memoryIndex from "../../src/internal/memory/memory-index.js";
 import * as migrate from "../../src/internal/memory/migrate-sqlite-to-lance.js";
+import * as legacyMigration from "../../src/internal/memory/migration.js";
 import * as sqliteVecLoader from "../../src/internal/memory/sqlite-vec-loader.js";
 import * as chunker from "../../src/internal/memory/storage/chunk-markdown.js";
 import * as ceiling from "../../src/internal/memory/storage/fact-ceiling.js";
@@ -78,7 +82,11 @@ describe("the internal/memory-store sub-path", () => {
       ...phases,
       ...run,
       ...lance,
+      ...lanceAdapter,
       ...migrate,
+      ...legacyMigration,
+      ...indexManager,
+      ...dispatch,
       ...activeCache,
       ...indexSchema,
       ...memoryIndex,
