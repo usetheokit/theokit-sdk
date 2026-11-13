@@ -30,10 +30,10 @@ interface InspectResult {
   providers: ReturnType<typeof Theokit.inspect.builtinProviders>;
   embeddingAdapters: ReturnType<typeof Theokit.inspect.embeddingAdapters>;
   gateways: ReturnType<typeof listGatewayAdapters>;
-  plugins: ReturnType<typeof listPlugins>;
+  plugins: Awaited<ReturnType<typeof listPlugins>>;
 }
 
-function collect(filter: string | undefined, cwd: string): InspectResult {
+async function collect(filter: string | undefined, cwd: string): Promise<InspectResult> {
   const all = filter === undefined || filter === "all";
   const empty = { providers: [], embeddingAdapters: [], gateways: [], plugins: [] };
   const result: InspectResult = empty as InspectResult;
@@ -47,7 +47,7 @@ function collect(filter: string | undefined, cwd: string): InspectResult {
     result.gateways = listGatewayAdapters();
   }
   if (all || filter === "plugins") {
-    result.plugins = listPlugins(cwd);
+    result.plugins = await listPlugins(cwd);
   }
   return result;
 }
@@ -89,15 +89,14 @@ function formatGateways(gateways: InspectResult["gateways"]): string[] {
 
 function formatPlugins(r: InspectResult): string[] {
   if (r.plugins.length > 0) {
-    const lines = [pc.bold(pc.cyan("User plugins"))];
+    const lines = [pc.bold(pc.cyan("Plugins"))];
     for (const pl of r.plugins) {
-      const desc = pl.description !== undefined ? ` — ${pl.description}` : "";
-      lines.push(`  • ${pc.green(pl.name)} [${pl.source}]${desc}`);
+      lines.push(`  • ${pc.green(pl.name)} [${pl.source}] — ${pl.format}`);
     }
     return lines;
   }
   if (r.providers.length > 0 || r.embeddingAdapters.length > 0) {
-    return [pc.gray("(no user plugins found in ~/.theokit/plugins/ or ./.theokit/plugins/)")];
+    return [pc.gray("(no plugins found in ./.theokit/plugins/)")];
   }
   return [];
 }
@@ -116,11 +115,11 @@ function formatHuman(r: InspectResult): string {
  * Print what this install can see: builtin LLM providers, embedding adapters, gateway packages, and
  * user plugins.
  *
- * Read-only and side-effect free — plugin code is never executed, only its `PLUGIN.md` frontmatter is
- * parsed, so it is safe in CI. What it reports is INSTALL-dependent, not absolute: gateways are
- * probed by resolving `@theokit/gateway-*` from THIS package's location, and plugins are read from
- * `~/.theokit/plugins/` plus `<cwd>/.theokit/plugins/`, so the answer changes with the working
- * directory and the user.
+ * Read-only and side-effect free — plugin code is never executed, only plugin manifests are read, so it
+ * is safe in CI. What it reports is INSTALL-dependent, not absolute: gateways are
+ * probed by resolving `@theokit/gateway-*` from THIS package's location, and plugins are exactly those an agent
+ * started in `cwd` would load (`<cwd>/.theokit/plugins/`; never `~/.theokit`), so the answer changes
+ * with the working directory.
  *
  * The human view omits any section that came back empty, which reads identically to "the section was
  * filtered out". `--json` always carries all four keys.
@@ -137,7 +136,7 @@ export async function runInspect(opts: InspectOptions): Promise<number> {
     return 2;
   }
 
-  const result = collect(opts.filter, process.cwd());
+  const result = await collect(opts.filter, process.cwd());
   if (opts.json === true) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } else {

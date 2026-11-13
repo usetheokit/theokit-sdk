@@ -6,6 +6,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { listWorkspacePlugins } from "@theokit/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { main } from "../../src/index.js";
@@ -106,39 +107,70 @@ interface InspectResultLike {
 
 describe("listPlugins (T3.1)", () => {
   let workDir: string;
+  let homeDir: string;
+  const savedHome = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
   beforeEach(() => {
     workDir = mkdtempSync(join(tmpdir(), "tk-plugins-"));
+    homeDir = mkdtempSync(join(tmpdir(), "tk-home-"));
+    process.env.HOME = homeDir;
+    process.env.USERPROFILE = homeDir;
   });
   afterEach(() => {
+    for (const [k, v] of Object.entries(savedHome)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
     rmSync(workDir, { recursive: true, force: true });
+    rmSync(homeDir, { recursive: true, force: true });
   });
 
-  it("returns empty when no plugins dir exists", () => {
-    expect(listPlugins(workDir)).toEqual([]);
+  it("returns empty when no plugins dir exists", async () => {
+    expect(await listPlugins(workDir)).toEqual([]);
   });
 
-  it("walks project plugins dir + parses frontmatter", () => {
+  it("lists a project PLUGIN.md plugin", async () => {
     const pluginDir = join(workDir, ".theokit", "plugins", "my-plugin");
     mkdirSync(pluginDir, { recursive: true });
     writeFileSync(
       join(pluginDir, "PLUGIN.md"),
-      "---\nname: my-plugin\ndescription: Does cool things.\n---\n\nBody.",
+      "---\r\nname: my-plugin\r\ndescription: Does cool things.\r\n---\r\n\r\nBody.",
       "utf8",
     );
-    const plugins = listPlugins(workDir);
+    const plugins = await listPlugins(workDir);
     expect(plugins).toHaveLength(1);
     expect(plugins[0]?.name).toBe("my-plugin");
-    expect(plugins[0]?.description).toBe("Does cool things.");
     expect(plugins[0]?.source).toBe("project");
   });
 
-  it("skips malformed manifest silently", () => {
-    const pluginDir = join(workDir, ".theokit", "plugins", "broken");
-    mkdirSync(pluginDir, { recursive: true });
-    writeFileSync(join(pluginDir, "PLUGIN.md"), "no frontmatter here", "utf8");
-    const plugins = listPlugins(workDir);
-    expect(plugins).toHaveLength(1); // still listed by dir name (fallback)
-    expect(plugins[0]?.name).toBe("broken");
+  it("does not list ~/.theokit/plugins", async () => {
+    const userPlugin = join(homeDir, ".theokit", "plugins", "a");
+    mkdirSync(userPlugin, { recursive: true });
+    writeFileSync(join(userPlugin, "PLUGIN.md"), "---\nname: a\ndescription: x\n---\n", "utf8");
+    expect((await listPlugins(workDir)).map((p) => p.name)).not.toContain("a");
+  });
+
+  it("lists a project plugin that only has .claude-plugin/plugin.json", async () => {
+    const dir = join(workDir, ".theokit", "plugins", "cc");
+    mkdirSync(join(dir, ".claude-plugin"), { recursive: true });
+    writeFileSync(
+      join(dir, ".claude-plugin", "plugin.json"),
+      JSON.stringify({ name: "cc", version: "1.0.0", description: "d" }),
+      "utf8",
+    );
+    const plugins = await listPlugins(workDir);
+    expect(plugins.map((p) => p.name)).toEqual(["cc"]);
+  });
+
+  it("names equal those of listWorkspacePlugins for the same fixture", async () => {
+    const a = join(workDir, ".theokit", "plugins", "a");
+    mkdirSync(a, { recursive: true });
+    writeFileSync(join(a, "PLUGIN.md"), "---\nname: a\ndescription: x\n---\n", "utf8");
+    const b = join(workDir, ".theokit", "plugins", "b", ".claude-plugin");
+    mkdirSync(b, { recursive: true });
+    writeFileSync(join(b, "plugin.json"), JSON.stringify({ name: "b", version: "1.0.0" }), "utf8");
+    const expected = (await listWorkspacePlugins(workDir)).map((p) => p.name).sort();
+    expect((await listPlugins(workDir)).map((p) => p.name)).toEqual(expected);
+    expect(expected).toEqual(["a", "b"]);
   });
 });
 
