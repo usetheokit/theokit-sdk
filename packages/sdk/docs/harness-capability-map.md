@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1385 export(s) across 56 entry point(s).
+1388 export(s) across 56 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1394,6 +1394,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
+| `acquireInstanceLock` | function | Takes `<dir>.instance.lock` (or `options.path`) so only one process works on a state directory.  |
 | `acquireSessionWriter` | function | Take the exclusive writer lease for `sessionPath`, or reject with {@link SessionBusyError } .  |
 | `appendJsonl` | function | Append one record as a whole `\n`-terminated JSON line.  |
 | `applyWalWithFallback` | function | Apply WAL mode with DELETE fallback.  |
@@ -1406,6 +1407,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `FileLockOptions` | interface | Retry and staleness tuning for `withFileLock`.  |
 | `forkTranscript` | function | Copy `src` into `dst`, keeping the first `beforeRecordIndex` records.  |
 | `ForkTranscriptOptions` | interface | Options for {@link forkTranscript } . |
+| `InstanceLock` | interface | A lock held by this process. |
+| `InstanceLockedError` | class | Another live process holds the instance lock, or the filesystem cannot take it. |
 | `isCorruptionError` | function | True when an open error indicates an unreadable / corrupt database file. |
 | `JsonlParseError` | class | Raised when a JSONL line is not valid JSON or is not a JSON object.  |
 | `legacyTranscriptPath` | function | The path this session used BEFORE #400 made transcript filenames UUIDs.  |

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import * as persistence from "../src/persistence.js";
+import * as persistence from "../../src/persistence.js";
 
 /**
  * SE43 DoD#2 — the shared persistence kernel primitives that published
@@ -17,6 +17,8 @@ const REQUIRED_PRIMITIVES = [
   "PersistenceSchema",
   "atomicWriteText",
   "atomicWriteJson",
+  "acquireInstanceLock",
+  "InstanceLockedError",
 ] as const;
 
 describe("SE43 DoD#2 — public ./persistence exposes the shared kernel", () => {

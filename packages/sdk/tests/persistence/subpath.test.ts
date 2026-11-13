@@ -5,7 +5,7 @@
  *   - the sub-path source resolves + exports the consumer-grade cluster
  *   - one behavior round-trip each (jsonl persist→resume, atomic write→read)
  *
- * Imports from `../src/persistence.js` (source, like `retry.test.ts`).
+ * Imports from `../../src/persistence.js` (source, like `retry.test.ts`).
  */
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -25,7 +25,7 @@ import {
   readJsonlIds,
   replaceFileAtomic,
   withFileLock,
-} from "../src/persistence.js";
+} from "../../src/persistence.js";
 
 describe("@theokit/sdk/persistence public sub-path", () => {
   it("test_persistence_subpath_exports_the_consumer_cluster", () => {
