@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -136,5 +136,30 @@ describe("createEditFileTool — Strategy 3 context-tolerant ladder (M13)", () =
     expect(parsed.ok).toBe(true);
     expect(parsed.replacements).toBe(1);
     expect(readFileSync(join(projectRoot, "u.ts"), "utf-8")).toContain("const label = 'bye';");
+  });
+});
+
+describe("createEditFileTool — baseDir (#1060)", () => {
+  it("resolves relative paths against baseDir, honours absolute ones, refuses .env", async () => {
+    mkdirSync(join(projectRoot, "proj"));
+    writeFileSync(join(projectRoot, "proj", "hello.txt"), "one");
+    writeFileSync(join(projectRoot, "other.txt"), "two");
+    const h = textHandler(createEditFileTool({ projectRoot, baseDir: join(projectRoot, "proj") }));
+    expect(JSON.parse(await h({ path: "hello.txt", old_string: "one", new_string: "1" })).ok).toBe(
+      true,
+    );
+    expect(readFileSync(join(projectRoot, "proj", "hello.txt"), "utf-8")).toBe("1");
+    await h({ path: join(projectRoot, "other.txt"), old_string: "two", new_string: "2" });
+    expect(readFileSync(join(projectRoot, "other.txt"), "utf-8")).toBe("2");
+    expect(JSON.parse(await h({ path: ".env", old_string: "a", new_string: "b" })).error).toBe(
+      "forbidden_path",
+    );
+  });
+
+  it("throws at construction when baseDir is outside projectRoot, naming both", () => {
+    const outside = join(tmpdir(), "elsewhere");
+    expect(() => createEditFileTool({ projectRoot, baseDir: outside })).toThrow(
+      new RegExp(`${outside}[\\s\\S]*${projectRoot}`),
+    );
   });
 });

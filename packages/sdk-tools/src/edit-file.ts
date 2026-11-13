@@ -21,6 +21,7 @@ import {
   resolveFilesystem,
 } from "@theokit/sdk/filesystem";
 import { z } from "zod";
+import { anchorPath, resolveBaseDir } from "./internal/base-dir.js";
 import { ContextMatchError, replaceUnique } from "./internal/context-match.js";
 import {
   assertNoSymlinkEscape,
@@ -44,6 +45,12 @@ export interface CreateEditFileToolOptions {
   description?: string;
   /** Absolute path to the project root. Every edit is gated against this boundary. */
   projectRoot: string;
+  /**
+   * Base for relative paths in the model's input. Default: `projectRoot`.
+   * Must be `projectRoot` or a directory inside it; anything else throws at construction.
+   * `projectRoot` stays the boundary every resolved path is checked against.
+   */
+  baseDir?: string;
   /** Optional injected filesystem (`@theokit/sdk/filesystem`) — when provided, the read + `.bak` backup +
    *  write go through the backend (surface-agnostic); omitted ⇒ the local `fs` path (byte-identical). */
   filesystem?: FilesystemProvider;
@@ -111,11 +118,12 @@ async function editViaBackend(
 /** Apply an edit through the local `fs` (byte-identical to before): read → computeEdit → `.bak` → write. */
 async function editViaLocal(
   projectRoot: string,
+  baseDir: string,
   path: string,
   old_string: string,
   new_string: string,
 ): Promise<string> {
-  const absolutePath = safePathJoin(projectRoot, path);
+  const absolutePath = safePathJoin(projectRoot, anchorPath(baseDir, path));
   let content: string;
   try {
     content = await readFile(absolutePath, "utf-8");
@@ -157,12 +165,12 @@ async function editViaLocal(
 }
 
 /** Shared path-scope guard for both fs paths — returns an error JSON string, or null when the path is safe. */
-function editScopeError(path: string, projectRoot: string): string | null {
-  if (isForbiddenPath(path)) {
+function editScopeError(path: string, projectRoot: string, baseDir: string): string | null {
+  if (isForbiddenPath(path) || isForbiddenPath(anchorPath(baseDir, path))) {
     return JSON.stringify({ ok: false, error: "forbidden_path", path });
   }
   try {
-    assertNoSymlinkEscape(safePathJoin(projectRoot, path), projectRoot);
+    assertNoSymlinkEscape(safePathJoin(projectRoot, anchorPath(baseDir, path)), projectRoot);
     return null;
   } catch (err) {
     if (err instanceof PathTraversalError || err instanceof ForbiddenPathError) {
@@ -189,6 +197,7 @@ function editScopeError(path: string, projectRoot: string): string | null {
  */
 export function createEditFileTool(opts: CreateEditFileToolOptions): CustomTool {
   const { projectRoot, filesystem } = opts;
+  const baseDir = resolveBaseDir("createEditFileTool", projectRoot, opts.baseDir);
 
   return Tool.create({
     name: opts.name ?? "edit_file",
@@ -214,13 +223,13 @@ export function createEditFileTool(opts: CreateEditFileToolOptions): CustomTool 
       }
 
       // Path-scope guard (pure security) applies to both fs paths.
-      const scopeErr = editScopeError(path, projectRoot);
+      const scopeErr = editScopeError(path, projectRoot, baseDir);
       if (scopeErr !== null) return scopeErr;
 
       // Injected filesystem (surface-agnostic) ⇒ read/backup/write via the backend; absent ⇒ local `fs`.
       return filesystem !== undefined
         ? editViaBackend(filesystem, ctx, path, old_string, new_string)
-        : editViaLocal(projectRoot, path, old_string, new_string);
+        : editViaLocal(projectRoot, baseDir, path, old_string, new_string);
     },
   });
 }
