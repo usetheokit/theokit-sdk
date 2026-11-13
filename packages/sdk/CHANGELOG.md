@@ -1,5 +1,19 @@
 # Changelog
 
+## 5.21.0
+
+### Minor Changes
+
+- [#1157](https://github.com/usetheokit/theokit-sdk/pull/1157) [`96a7d9a`](https://github.com/usetheokit/theokit-sdk/commit/96a7d9a80cc702acda9f144a280c03b5bb9fd8f8) Thanks [@usetheodev](https://github.com/usetheodev)! - New `@theokit/sdk/process` entry exporting `runBounded`. A timed-out or aborted command now has its whole process group killed (POSIX), and stdout/stderr are capped at `maxOutputBytes` (default 5 MiB) with a `truncated` flag. The `shell` tool and `sh -c` hooks use it, so a timeout no longer leaves pipelines or background jobs running; a truncated stream gets a trailing `[output truncated]` note.
+
+- [#1161](https://github.com/usetheokit/theokit-sdk/pull/1161) [`04198c8`](https://github.com/usetheokit/theokit-sdk/commit/04198c801d0aa09b56ccc1cf42082fd67d60342f) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `DiscoverySpec.pattern` accepts a list of filenames (first match per directory) for `cwd-only` and `git-root-walk`, and `runDiscovery` takes `wrapImport` to wrap each inlined `@import`. A file discovery already loaded is no longer inlined again by an import (placeholder `[@import already loaded: ...]`). A list on a `globbed` spec throws `ConfigurationError`.
+
+### Patch Changes
+
+- [#1160](https://github.com/usetheokit/theokit-sdk/pull/1160) [`d8f584c`](https://github.com/usetheokit/theokit-sdk/commit/d8f584c1b3289a959d9548cadbdb7d49a3a2eb10) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Memory search now falls back to a LIKE scan when a CJK query returns no FTS rows, so a CJK substring is found in a healthy index and not only when the FTS statement throws.
+
+- [#1158](https://github.com/usetheokit/theokit-sdk/pull/1158) [`0cda41a`](https://github.com/usetheokit/theokit-sdk/commit/0cda41a9448e28188f66ff56fd4a1b03a20c860d) Thanks [@usetheodev](https://github.com/usetheodev)! - Export `IndexManager`, its backend dispatch, `LanceIndex`, `LanceMemoryAdapter` and the two migrations (`migrateSqliteToLance`, `migrateLegacyJson`) from `@theokit/sdk/internal/memory-store` so `@theokit/sdk-memory` can re-export them instead of copying them.
+
 ## 5.20.0
 
 ### Minor Changes
