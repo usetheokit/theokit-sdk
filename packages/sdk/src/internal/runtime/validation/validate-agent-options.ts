@@ -127,6 +127,9 @@ function validateMcpServers(options: AgentOptions): void {
     }
     rejectUnhonourableAuth(name, config, options.cloud !== undefined);
     validateToolFilter(name, config);
+    if (options.cloud !== undefined && (config as { tools?: unknown }).tools !== undefined) {
+      throw invalidToolFilter(name, "tools is not supported for cloud agents yet");
+    }
   }
 }
 

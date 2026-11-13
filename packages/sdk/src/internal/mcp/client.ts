@@ -5,7 +5,6 @@ import type {
   McpHttpServerConfig,
   McpServerConfig,
   McpStdioServerConfig,
-  McpToolFilter,
 } from "../../types/mcp.js";
 import { diag } from "../diagnostics.js";
 import { resolveChildEnv } from "../runtime/lifecycle/env-policy.js";
@@ -115,6 +114,8 @@ async function rpcCallTool(
   }
   return result;
 }
+
+type McpToolFilter = NonNullable<McpStdioServerConfig["tools"]>;
 
 /** `include` (when set) must list the name; `exclude` then removes it. */
 function isToolAllowed(filter: McpToolFilter, name: string): boolean {

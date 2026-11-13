@@ -135,6 +135,21 @@ describe("mcp tool filter validation", () => {
   });
 });
 
+describe("mcp tool filter with cloud", () => {
+  it("is rejected for cloud agents, which cannot enforce it", async () => {
+    const err = await Agent.create({
+      apiKey: "theo_test_1035",
+      model: { id: "composer-2" },
+      cloud: { repos: [{ url: "https://github.com/o/r" }] },
+      mcpServers: { pw: { type: "http", url: "http://x", tools: { exclude: ["a"] } } },
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    expect((err as ConfigurationError).code).toBe("invalid_mcp_tool_filter");
+  });
+});
+
 describe("mcp tool filter over http", () => {
   it("filters list and refuses calls without a request", async () => {
     const methods: string[] = [];
