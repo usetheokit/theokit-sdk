@@ -43,6 +43,7 @@ export interface MemoryDb {
   loadExtension(path: string): void;
 }
 
+/** Options for opening the memory index database. */
 export interface OpenDbOptions {
   filePath: string;
   /**
@@ -52,6 +53,7 @@ export interface OpenDbOptions {
   recoverCorrupt?: boolean;
 }
 
+/** Open (creating if needed) the memory index database and apply the schema pragmas. */
 export async function openMemoryDb(opts: OpenDbOptions): Promise<MemoryDb> {
   return openSqliteResilient<MemoryDb>({
     filePath: opts.filePath,

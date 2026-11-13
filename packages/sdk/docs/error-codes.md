@@ -209,7 +209,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `session_busy` | domain | — | `packages/sdk/src/internal/persistence/session-writer.ts:56` +1 |
 | `sql_injection_blocked` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:256` +3 |
 | `sqlite_driver_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/sqlite-open.ts:195` |
-| `sqlite_vec_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/memory/sqlite-vec-loader.ts:23` +1 |
+| `sqlite_vec_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/memory/sqlite-vec-loader.ts:22` |
 | `squad_process_unsupported` | domain | ConfigurationError | `packages/sdk/src/squad.ts:117` |
 | `sse_http_error` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:147` |
 | `sse_server_error` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:155` |
