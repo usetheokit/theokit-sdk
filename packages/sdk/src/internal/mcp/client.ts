@@ -5,7 +5,9 @@ import type {
   McpHttpServerConfig,
   McpServerConfig,
   McpStdioServerConfig,
+  McpToolFilter,
 } from "../../types/mcp.js";
+import { diag } from "../diagnostics.js";
 import { resolveChildEnv } from "../runtime/lifecycle/env-policy.js";
 import { safePathJoin } from "../security/path-guard.js";
 import { DEFAULT_MCP_TIMEOUT_MS, handshakeAwareTimeout } from "./handshake-timeout.js";
@@ -114,11 +116,31 @@ async function rpcCallTool(
   return result;
 }
 
+/** `include` (when set) must list the name; `exclude` then removes it. */
+function isToolAllowed(filter: McpToolFilter, name: string): boolean {
+  if (filter.include !== undefined && !filter.include.includes(name)) return false;
+  return !(filter.exclude ?? []).includes(name);
+}
+
+/** One warning per `include` name the server does not list, so a typo is visible. */
+function warnUnlistedIncludes(server: string, filter: McpToolFilter, listed: McpTool[]): void {
+  const names = new Set(listed.map((tool) => tool.name));
+  for (const wanted of filter.include ?? []) {
+    if (names.has(wanted)) continue;
+    diag(
+      `[theokit-sdk] mcp tools.include names "${wanted}", which server "${server}" does not list\n`,
+    );
+  }
+}
+
 /** Shared base wiring `initialize` / `listTools` / `callTool` onto an
  * abstract RPC `request` implementation. Subclasses define the transport.
  */
 abstract class BaseMcpClient implements McpClient {
   abstract readonly name: string;
+
+  /** The server's `tools` filter from its config, if any. */
+  protected abstract toolFilter(): McpToolFilter | undefined;
 
   abstract close(): Promise<void>;
 
@@ -128,8 +150,12 @@ abstract class BaseMcpClient implements McpClient {
     return rpcInitialize((method, params) => this.request(method, params));
   }
 
-  listTools(): Promise<McpTool[]> {
-    return rpcListTools((method, params) => this.request(method, params));
+  async listTools(): Promise<McpTool[]> {
+    const listed = await rpcListTools((method, params) => this.request(method, params));
+    const filter = this.toolFilter();
+    if (filter === undefined) return listed;
+    warnUnlistedIncludes(this.name, filter, listed);
+    return listed.filter((tool) => isToolAllowed(filter, tool.name));
   }
 
   call(method: string, params: Record<string, unknown>): Promise<unknown> {
@@ -137,6 +163,18 @@ abstract class BaseMcpClient implements McpClient {
   }
 
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult> {
+    const filter = this.toolFilter();
+    if (filter !== undefined && !isToolAllowed(filter, name)) {
+      return Promise.resolve({
+        content: [
+          {
+            type: "text",
+            text: `MCP tool "${name}" on server "${this.name}" is filtered out by the server's tools include/exclude config`,
+          },
+        ],
+        isError: true,
+      });
+    }
     return rpcCallTool((method, params) => this.request(method, params), name, args);
   }
 }
@@ -188,6 +226,10 @@ class StdioMcpClient extends BaseMcpClient {
 
   get sequential(): boolean {
     return this.config.sequential === true;
+  }
+
+  protected toolFilter(): McpToolFilter | undefined {
+    return this.config.tools;
   }
 
   private get timeoutMs(): number {
@@ -461,6 +503,10 @@ class HttpMcpClient extends BaseMcpClient {
 
   get sequential(): boolean {
     return this.config.sequential === true;
+  }
+
+  protected toolFilter(): McpToolFilter | undefined {
+    return this.config.tools;
   }
 
   close(): Promise<void> {
