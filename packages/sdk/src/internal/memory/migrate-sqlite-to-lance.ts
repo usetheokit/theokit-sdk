@@ -28,6 +28,18 @@ export interface MigrateOptions {
   logger?: (msg: string) => void;
 }
 
+/**
+ * Outcome of {@link migrateSqliteToLance}.
+ *
+ * Read `committed` first: it is `false` for a dry run and for a failed
+ * validation, and only `true` when the staging directory was promoted to
+ * `lance/`. `validated` reports whether the counts matched and the sampled facts
+ * compared equal; `sampleComparisons` holds up to ten of those comparisons so a
+ * failure can be inspected rather than merely counted.
+ *
+ * The SQLite database is left in place either way: this migration copies, it
+ * does not move.
+ */
 export interface MigrateResult {
   countSqlite: number;
   countLance: number;
@@ -137,7 +149,8 @@ function assertUsableBatchSize(batchSize: number | undefined): void {
  * first, validates round-trip, then renames to `lance/` on success.
  * SQLite db is preserved (CLI prompts user to delete).
  *
- * @internal
+ * Shared with `@theokit/sdk-memory` through the memory-store barrel, so it carries no visibility
+ * tag: naming that tag in this block would delete the declaration below it (#463).
  */
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: migration is a single transaction (read → write → validate → commit-or-rollback); splitting harms atomicity reasoning.

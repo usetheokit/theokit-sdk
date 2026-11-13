@@ -54,6 +54,14 @@ export {
 // Path helpers the satellite also needs. Each was a copy on both sides, and each is a pure function
 // over the memory root — the cheapest possible thing to share and the least excusable to duplicate.
 export { defaultIndexPath, type MemoryDb, type OpenDbOptions, openMemoryDb } from "../index-db.js";
+// The index stack (#1068): `IndexManager`, its backend dispatch, the Lance backend and the two
+// migrations. `Memory.openIndex` opens the index through the peer whenever the peer is installed,
+// and the peer's copy of `IndexManager` had stopped following this one: it answered a failed FTS
+// query with `[]` where this one falls back to a LIKE scan. Unlike the leaves above, two of these
+// modules hold module-level state: `migrationRun` in `migration.ts` and the query-vector cache in
+// `index-manager.ts`. The peer kept a `migrationRun` set of its own, so sharing the module also
+// makes that one set per process.
+export { IndexManager } from "../index-manager.js";
 export type {
   IndexStatus,
   MemoryBackend,
@@ -61,16 +69,37 @@ export type {
   OpenIndexOptions,
   SearchOptions,
 } from "../index-manager-contract.js";
+export { assertValidBackend, openLanceIndex, VALID_BACKENDS } from "../index-manager-dispatch.js";
 // The corpus walk, shared for the reason the cluster above is. The satellite's copy had drifted
 // further than the others: it walked `notes/`, `wiki/` and `sessions/` and never picked up the
 // per-memory files at the root — the layout #389 converged on — so installing that package made
 // every converged memory unsearchable while reporting no error at all.
 export { collectMarkdownFiles, type DiscoveredFile } from "../index-manager-helpers.js";
 export { PRAGMA_STATEMENTS, SCHEMA_STATEMENTS } from "../index-schema.js";
-export { lanceStoragePath } from "../lance-index.js";
+export {
+  isLanceAvailable,
+  type LanceFactRecord,
+  LanceIndex,
+  type LanceSearchHit,
+  type LanceSearchOptions,
+  lanceStoragePath,
+  type OpenLanceOptions,
+} from "../lance-index.js";
+export { LanceMemoryAdapter } from "../lance-memory-adapter.js";
 export { type MemoryIndex, parseSearchOptions, type SyncResult } from "../memory-index.js";
 // The SQLite fact reader the Lance migration uses. 26 lines, zero diverging between the packages.
-export { readAllSqliteFacts, type SqliteFactRow } from "../migrate-sqlite-to-lance.js";
+export {
+  type MigrateOptions,
+  type MigrateResult,
+  migrateSqliteToLance,
+  readAllSqliteFacts,
+  type SqliteFactRow,
+} from "../migrate-sqlite-to-lance.js";
+export {
+  type MigrationResult,
+  migrateLegacyJson,
+  resetMigrationStateForTests,
+} from "../migration.js";
 export { loadSqliteVecExtension } from "../sqlite-vec-loader.js";
 export {
   createVectorIndex,

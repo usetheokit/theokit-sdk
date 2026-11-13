@@ -75,8 +75,14 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
  * 2550 -> 2084 on 2026-11-13: #1065. Eight index/store/active-memory leaf modules in `sdk-memory` now
  * re-export the SDK's (`@theokit/sdk/internal/memory-store`) instead of copying them. `memory-index`
  * and `index-manager-contract` still differ by required fields (`supported`, `countsExact`).
+ *
+ * 2084 -> 1396 on 2026-11-13: #1068. The index stack in `sdk-memory` (`IndexManager`, its dispatch,
+ * `LanceIndex`, the Lance adapter and the two migrations) now re-exports the SDK's instead of
+ * copying it. This is the pair the header above lists first, and the reason it gives for copies
+ * that cannot be collapsed did not apply to it: `migration.ts` does hold module-level state, and a
+ * re-export is what makes that state one set instead of two.
  */
-const BUDGET_LINES = Number(process.env.MAX_DUPLICATED_LINES ?? 2084);
+const BUDGET_LINES = Number(process.env.MAX_DUPLICATED_LINES ?? 1396);
 
 const out = mkdtempSync(join(tmpdir(), "jscpd-gate-"));
 try {

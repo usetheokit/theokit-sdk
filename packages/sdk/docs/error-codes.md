@@ -64,7 +64,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `duplicate_skill_name` | domain | ConfigurationError | `packages/sdk/src/define-skill-read-tool.ts:166` |
 | `duplicate_tool_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:225` |
 | `effective_tools_expected_options` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/effective-tools.ts:102` +1 |
-| `embedding_dimension_mismatch` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:146` +1 |
+| `embedding_dimension_mismatch` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:172` |
 | `embedding_invalid_response` | domain | NetworkError | `packages/sdk/src/internal/memory/adapters/openai-compatible.ts:400` |
 | `embedding_missing_api_key` | domain | AuthenticationError | `packages/sdk/src/internal/memory/adapters/openai-compatible.ts:142` |
 | `embedding_unknown_model` | domain | ConfigurationError | `packages/sdk/src/internal/memory/adapters/openai-compatible.ts:154` |
@@ -91,7 +91,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `INTERNAL_SERVER_ERROR` | domain | — | `packages/sdk/src/server/errors-envelope.ts:100` |
 | `invalid_argument` | domain | TheokitAgentError | `packages/sdk/src/compaction.ts:79` |
 | `invalid_batch_item` | domain | ConfigurationError | `packages/sdk/src/internal/agent/batch.ts:67` |
-| `invalid_batch_size` | domain | ConfigurationError | `packages/sdk/src/internal/memory/migrate-sqlite-to-lance.ts:128` |
+| `invalid_batch_size` | domain | ConfigurationError | `packages/sdk/src/internal/memory/migrate-sqlite-to-lance.ts:140` |
 | `invalid_budget_name` | domain | ConfigurationError | `packages/sdk/src/internal/budget/registry.ts:28` +5 |
 | `invalid_categories` | domain | ConfigurationError | `packages/sdk-memory/src/internal/categorized-memory.ts:120` +3 |
 | `invalid_concurrency` | domain | ConfigurationError | `packages/sdk/src/internal/agent/batch.ts:58` +1 |
@@ -102,7 +102,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_identifier` | domain | ConfigurationError | `packages/sdk/src/internal/security/path-guard.ts:434` +2 |
 | `invalid_input` | domain | MemoryAdapterError | `packages/memory-honcho/src/adapter.ts:98` +9 |
 | `invalid_max_iterations` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/real-local-run.ts:94` |
-| `invalid_memory_backend` | domain | ConfigurationError | `packages/sdk/src/internal/memory/index-manager-dispatch.ts:24` +1 |
+| `invalid_memory_backend` | domain | ConfigurationError | `packages/sdk/src/internal/memory/index-manager-dispatch.ts:24` |
 | `invalid_memory_ceiling` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:23` +1 |
 | `invalid_memory_directory` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/memory-root.ts:161` |
 | `invalid_memory_kind` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/markdown-store.ts:266` |
@@ -121,8 +121,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `iteration_limit_reached` | domain | — | `packages/sdk/src/internal/agent-loop/loop-finalize.ts:51` |
 | `jsonl_parse_failed` | domain | — | `packages/sdk/src/internal/persistence/jsonl.ts:37` |
 | `judge_credential` | domain | — | `packages/sdk/src/internal/judge/judge-call.ts:72` +1 |
-| `lance_backend_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:105` +3 |
-| `lance_requires_embedding` | domain | ConfigurationError | `packages/sdk/src/internal/memory/index-manager-dispatch.ts:39` +1 |
+| `lance_backend_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:130` +1 |
+| `lance_requires_embedding` | domain | ConfigurationError | `packages/sdk/src/internal/memory/index-manager-dispatch.ts:39` |
 | `live_session_protected` | domain | — | `packages/sdk/src/internal/persistence/transcript-ops.ts:48` +1 |
 | `local_provider_http_error` | domain | ConfigurationError | `packages/sdk/src/internal/catalog/local-models.ts:61` |
 | `local_provider_unreachable` | domain | ConfigurationError | `packages/sdk/src/internal/catalog/local-models.ts:46` |
@@ -144,7 +144,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `memory_path_traversal` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:307` |
 | `memory_threat_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/markdown-store.ts:283` |
 | `memory_tool_bad_args` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:138` +1 |
-| `migration_destination_exists` | domain | ConfigurationError | `packages/sdk/src/internal/memory/migrate-sqlite-to-lance.ts:159` +1 |
+| `migration_destination_exists` | domain | ConfigurationError | `packages/sdk/src/internal/memory/migrate-sqlite-to-lance.ts:172` |
 | `missing_api_key` | domain | AuthenticationError, ConfigurationError | `packages/sdk/src/internal/agent/helpers.ts:226` +2 |
 | `missing_credential` | domain | AuthenticationError | `packages/sdk/src/internal/providers/builtin/openai-chatgpt.ts:72` |
 | `missing_frontmatter` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:93` |
@@ -207,7 +207,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `schema_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:104` +5 |
 | `server_error` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:92` +1 |
 | `session_busy` | domain | — | `packages/sdk/src/internal/persistence/session-writer.ts:56` +1 |
-| `sql_injection_blocked` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:256` +3 |
+| `sql_injection_blocked` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:282` +1 |
 | `sqlite_driver_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/sqlite-open.ts:195` |
 | `sqlite_vec_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/memory/sqlite-vec-loader.ts:22` |
 | `squad_process_unsupported` | domain | ConfigurationError | `packages/sdk/src/squad.ts:117` |
