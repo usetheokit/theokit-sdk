@@ -28,6 +28,8 @@ export interface ShellExecuteResult {
   timedOut: boolean;
 }
 
+const TRUNCATION_NOTE = "\n[output truncated]";
+
 export async function runShell(options: ShellExecuteOptions): Promise<ShellExecuteResult> {
   if (options.sandbox === true && isObviouslyUnsafe(options.command)) {
     return {
@@ -47,8 +49,8 @@ export async function runShell(options: ShellExecuteOptions): Promise<ShellExecu
   const stderr =
     result.spawnError !== undefined ? result.stderr + result.spawnError.message : result.stderr;
   return {
-    stdout: result.stdout,
-    stderr,
+    stdout: result.truncated.stdout ? result.stdout + TRUNCATION_NOTE : result.stdout,
+    stderr: result.truncated.stderr ? stderr + TRUNCATION_NOTE : stderr,
     exitCode: result.exitCode,
     timedOut: result.timedOut,
   };

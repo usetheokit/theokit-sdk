@@ -258,6 +258,16 @@
         "default": "./dist/mcp-auth.cjs"
       }
     },
+    "./process": {
+      "import": {
+        "types": "./dist/process.d.ts",
+        "default": "./dist/process.js"
+      },
+      "require": {
+        "types": "./dist/process.d.cts",
+        "default": "./dist/process.cjs"
+      }
+    },
     "./mcp-events": {
       "import": {
         "types": "./dist/mcp-events.d.ts",

@@ -59,6 +59,8 @@
     "src/permission-engine.ts",
     "src/mcp-auth.ts",
     "src/mcp-events.ts",
+    "src/process.ts",
+    "src/internal/runtime/lifecycle/run-bounded.ts",
     "src/internal/mcp/**/*"
   ]
 }

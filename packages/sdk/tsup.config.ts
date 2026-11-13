@@ -67,6 +67,8 @@ export default defineConfig({
     // the package is withdrawing.
     "mcp-auth": "src/mcp-auth.ts",
     "mcp-events": "src/mcp-events.ts",
+    // Bounded subprocess runner (group kill + output cap); DTS via tsc.
+    process: "src/process.ts",
     "internal/persistence/index": "src/internal/persistence/index.ts",
     "internal/security/index": "src/internal/security/index.ts",
     // theokit#160 — the embedding runtime, shared with @theokit/sdk-memory so the two packages stop

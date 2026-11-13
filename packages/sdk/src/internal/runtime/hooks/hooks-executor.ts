@@ -210,7 +210,12 @@ export class HooksExecutor {
       stdin: JSON.stringify(stdinPayloadFor(payload, command, this.cwd)),
     });
     const failure = this.decisionFromFailure(result, command, env, timeoutMs);
-    return failure ?? parseDecisionFromStdout(result.stdout);
+    return (
+      failure ??
+      parseDecisionFromStdout(
+        result.truncated.stdout ? `${result.stdout}\n[output truncated]` : result.stdout,
+      )
+    );
   }
 
   /**

@@ -130,6 +130,19 @@ await Cron.start();   // required for local jobs to fire
 
 Two runtimes: **local** (in-process scheduler — fires while the host process is alive) and **cloud** (Theo PaaS schedules server-side). See the exported `Cron` types for the full contract.
 
+## Bounded subprocesses
+
+`@theokit/sdk/process` exports `runBounded`, the runner behind `sh -c` hooks and the `shell` tool.
+
+```ts
+import { runBounded } from "@theokit/sdk/process";
+
+const r = await runBounded({ command: "sh", args: ["-c", "make test"], cwd, timeoutMs: 60_000 });
+// r.timedOut, r.exitCode, r.stdout, r.stderr, r.truncated.{stdout,stderr}
+```
+
+On timeout or `signal` abort the whole process group is killed on POSIX, so pipelines and background jobs go too. On Windows only the direct child is killed. Each stream is capped at `maxOutputBytes` (default 5 MiB); `truncated` says which was cut. `timeoutMs` must be greater than 0 or `ConfigurationError` is thrown.
+
 ## Status
 
 The full contract is defined by the exported TypeScript types; see [`CHANGELOG.md`](./CHANGELOG.md) for the release history.
