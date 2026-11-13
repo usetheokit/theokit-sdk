@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1392 export(s) across 56 entry point(s).
+1395 export(s) across 56 entry point(s).
 
 ## `@theokit/acp`
 
@@ -633,6 +633,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `EmbeddingRuntimeStats` | interface | Counters accumulated by a runtime since it was created.  |
 | `embedMissingChunks` | function | Embed every chunk that doesn't yet have a vector. |
 | `entryHash` | function | A stable hash of one entry's counts, so two sweeps that did the same work read as the same work.  |
+| `FactEntry` | interface | One stored memory with where it came from.  |
 | `geminiMemoryEmbeddingProviderAdapter` | const | Google Gemini embeddings through Google's OpenAI-compatible surface at `/v1beta/openai/embeddings`.  |
 | `identityMatches` | function | Whether two embedding identities describe the same vector space. |
 | `indexBudgetWarning` | function | What to say about an index that the interop partner will truncate, or `undefined` when there is nothing true to say.  |
@@ -703,11 +704,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `projectMemoryDir` | function | The project store: `<cwd>/.theokit/memory`.  |
 | `readAllSqliteFacts` | function | Read all facts from the SQLite memory index.  |
 | `readEmbeddingIdentity` | function | Read the stored embedding identity, or undefined when none is recorded. |
+| `readFactEntries` | function | {@link readFactsFromMarkdown } 's entries, in the same order, tagged with id and root. |
 | `readFacts` | function | Every memory in the store, honouring the `enabled` gate on {@link MemoryConfig } : when memory is disabled the call resolves to `[]` without touching disk.  |
 | `readFactsFromMarkdown` | function | Every memory in the store: the per-memory files, plus any legacy `## Facts` bullets still in `MEMORY.md`.  |
 | `ReadFileOptions` | interface | Options for a bounded read of a memory file. |
 | `readMemoryFileBounded` | function | Read a memory file, limited to a bounded range of lines. |
 | `redactSecrets` | function | Canonical credential-redaction primitive (ADR D68).  |
+| `removeFactFromMarkdown` | function | Remove one memory from the write root, under the same mutex as {@link appendFactToMarkdown } .  |
 | `remPhase` | function | REM phase — single-link agglomerative clustering by cosine similarity. |
 | `renderDiaryEntry` | function | One diary entry as the markdown that gets appended: a timestamp heading, the short entry hash, and the counts the sweep produced.  |
 | `resetMigrationStateForTests` | function | Test-only — reset the in-process migration flag map. |
