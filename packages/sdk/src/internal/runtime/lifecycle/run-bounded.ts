@@ -5,6 +5,11 @@ import { type EnvPolicy, resolveChildEnv } from "./env-policy.js";
 /** Default per-stream output cap: 5 MiB (the `@theokit/sdk-tools` value). */
 const DEFAULT_MAX_OUTPUT_BYTES = 5 * 1024 * 1024;
 
+/**
+ * Options for {@link runBounded}.
+ *
+ * @public
+ */
 export interface RunBoundedOptions {
   command: string;
   args?: readonly string[];
@@ -21,6 +26,11 @@ export interface RunBoundedOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * Result of {@link runBounded}.
+ *
+ * @public
+ */
 export interface RunBoundedResult {
   exitCode: number | null;
   stdout: string;
