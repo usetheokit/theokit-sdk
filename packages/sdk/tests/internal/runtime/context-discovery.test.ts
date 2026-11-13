@@ -170,3 +170,66 @@ describe("context-discovery (T1.1)", () => {
     expect(isSafePattern("")).toBe(false);
   });
 });
+
+describe("list patterns (first match per directory)", () => {
+  it("returns one file per directory across a git-root walk", async () => {
+    const { mkdirSync, mkdtempSync, writeFileSync, realpathSync } = await import("node:fs");
+    const { runDiscovery } = await import(
+      "../../../src/internal/runtime/context/context-discovery-runner.js"
+    );
+    const repo = realpathSync(mkdtempSync(join(tmpdir(), "theokit-list-pattern-")));
+    onTestFinished(() => removeTempDirRobust(repo));
+    mkdirSync(join(repo, ".git"));
+    mkdirSync(join(repo, "sub"));
+    writeFileSync(join(repo, "AGENTS.md"), "root agents");
+    writeFileSync(join(repo, "CLAUDE.md"), "root claude");
+    writeFileSync(join(repo, "sub", "THEO.md"), "sub theo");
+    writeFileSync(join(repo, "sub", "AGENTS.md"), "sub agents");
+    const spec = {
+      id: "instr",
+      priority: 1,
+      pattern: ["THEO.md", "AGENTS.md", "CLAUDE.md"],
+      scope: "git-root-walk",
+      parser: "plain-markdown",
+      followImports: false,
+    } as const;
+    expect(walkUpForFile(join(repo, "sub"), spec.pattern, repo)).toEqual([
+      join(repo, "sub", "THEO.md"),
+      join(repo, "AGENTS.md"),
+    ]);
+    const out = await runDiscovery({
+      cwd: join(repo, "sub"),
+      maxBytesPerFile: 10_000,
+      specs: [spec],
+    });
+    expect(out.map((s) => [s.id, s.content])).toEqual([
+      ["instr@sub", "sub theo"],
+      ["instr", "root agents"],
+    ]);
+  });
+
+  it("rejects a list pattern on a globbed spec, naming the spec", async () => {
+    const { runDiscovery } = await import(
+      "../../../src/internal/runtime/context/context-discovery-runner.js"
+    );
+    await expect(
+      runDiscovery({
+        cwd: tmpdir(),
+        maxBytesPerFile: 10,
+        specs: [
+          {
+            id: "bad-spec",
+            priority: 1,
+            pattern: ["a/*.md"],
+            scope: "globbed",
+            parser: "plain-markdown",
+            followImports: false,
+          },
+        ],
+      }),
+    ).rejects.toMatchObject({
+      name: "ConfigurationError",
+      message: expect.stringContaining("bad-spec"),
+    });
+  });
+});
