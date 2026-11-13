@@ -50,6 +50,7 @@ const targets = [
   join(DIST, "models.d.ts"),
   // #326: the provider registry as public API.
   join(DIST, "providers.d.ts"),
+  join(DIST, "process.d.ts"),
   // M4-1: skills sub-path.
   join(DIST, "skills.d.ts"),
   // M4-2: project sub-path.

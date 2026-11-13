@@ -15,6 +15,7 @@
     "src/compaction.ts",
     "src/models.ts",
     "src/providers.ts",
+    "src/process.ts",
     "src/internal/llm/model-capabilities.ts",
     "src/skills.ts",
     "src/internal/runtime/skills/**/*",

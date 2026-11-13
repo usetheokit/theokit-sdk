@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1364 export(s) across 55 entry point(s).
+1367 export(s) across 56 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1421,6 +1421,14 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WalApplyResult` | interface | What journal mode a connection ended up in after `applyWalWithFallback`.  |
 | `withCwdMutex` | function | Run `fn` after every earlier `withCwdMutex` call for the same `key` has settled, and return what `fn` returns.  |
 | `withFileLock` | function | Run `fn` while holding an OS-level cross-process lock on `path`.  |
+
+## `@theokit/sdk/process`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `runBounded` | function | Runs a subprocess with a timeout, an optional abort signal and a per-stream output cap.  |
+| `RunBoundedOptions` | interface |  |
+| `RunBoundedResult` | interface |  |
 
 ## `@theokit/sdk/project`
 
