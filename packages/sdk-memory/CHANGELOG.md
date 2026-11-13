@@ -1,5 +1,11 @@
 # Changelog — @theokit/sdk-memory
 
+## 0.6.1
+
+### Patch Changes
+
+- [#1145](https://github.com/usetheokit/theokit-sdk/pull/1145) [`07930dc`](https://github.com/usetheokit/theokit-sdk/commit/07930dc7acbfbf09d2506ad6fa8e5bb98f883c65) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Re-export the index schema, database opener, sqlite-vec loader, vector index, chunker, reader and active-memory cache and types from `@theokit/sdk` instead of carrying a second copy.
+
 ## 0.6.0
 
 ### Minor Changes
