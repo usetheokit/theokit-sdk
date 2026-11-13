@@ -25,12 +25,12 @@ const SHARED = [
 
 async function loadSdkStore(): Promise<Record<string, unknown>> {
   // The BUILT subpath the peer resolves, not `src`: the peer imports the dist copy.
-  return (await import("../dist/internal/memory/storage/index.js")) as Record<string, unknown>;
+  return (await import("../../dist/internal/memory/storage/index.js")) as Record<string, unknown>;
 }
 
 describe("memory leaf modules are single-copy", () => {
   it.each(SHARED)("%s is the SDK's reference", async (name) => {
-    const peer = (await import("../../sdk-memory/dist/index.js")) as unknown as Record<
+    const peer = (await import("../../../sdk-memory/dist/index.js")) as unknown as Record<
       string,
       unknown
     >;
