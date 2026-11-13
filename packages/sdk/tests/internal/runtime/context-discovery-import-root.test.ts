@@ -78,3 +78,31 @@ describe("runDiscovery confines @imports to the repository", () => {
     expect(claude?.content).not.toContain("SENTINEL-ELSEWHERE-IN-REPO");
   });
 });
+
+describe("wrapImport and already-loaded files", () => {
+  it("wraps successful imports at every depth, never a refusal", async () => {
+    mkdirSync(join(repo, "docs"));
+    writeFileSync(join(repo, "docs", "x.md"), "X-BODY\n@y.md\n", "utf8");
+    writeFileSync(join(repo, "docs", "y.md"), "Y-BODY", "utf8");
+    writeFileSync(join(repo, "CLAUDE.md"), `@docs/x.md\n@${join(root, "private.txt")}\n`, "utf8");
+    const sources = await runDiscovery({
+      cwd: repo,
+      maxBytesPerFile: 64_000,
+      wrapImport: (n, c) => `<${n}>${c}</${n}>`,
+    });
+    const content = sources.find((s) => s.id.startsWith("CLAUDE.md"))?.content ?? "";
+    expect(content).toContain("<docs/x.md>X-BODY\n<y.md>Y-BODY</y.md></docs/x.md>");
+    expect(content).toContain("refused");
+    expect(content).not.toContain(`<${join(root, "private.txt")}>`);
+    expect(content).not.toContain("<[@import");
+  });
+
+  it("inlines a discovered file once", async () => {
+    writeFileSync(join(repo, "AGENTS.md"), "AGENTS-SENTINEL", "utf8");
+    writeFileSync(join(repo, "CLAUDE.md"), "@AGENTS.md\n", "utf8");
+    const sources = await runDiscovery({ cwd: repo, maxBytesPerFile: 64_000 });
+    const all = sources.map((s) => s.content).join("\n");
+    expect(all.split("AGENTS-SENTINEL")).toHaveLength(2);
+    expect(all).toContain("already loaded");
+  });
+});

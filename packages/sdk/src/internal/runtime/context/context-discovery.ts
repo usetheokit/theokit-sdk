@@ -59,8 +59,11 @@ export interface DiscoverySpec {
   readonly id: string;
   /** Priority for merge (lower = earlier in prompt). */
   readonly priority: number;
-  /** Filename (cwd-only/git-root-walk) or glob (globbed). */
-  readonly pattern: string;
+  /**
+   * A filename, or for "cwd-only" and "git-root-walk" a list of filenames tried in order:
+   * each directory contributes the first one that exists. A list on "globbed" is rejected.
+   */
+  readonly pattern: string | readonly string[];
   readonly scope: DiscoveryScope;
   readonly parser: DiscoveryParser;
   /** Whether to follow `@path` import directives (CLAUDE.md / GEMINI.md). */
@@ -155,8 +158,8 @@ export function admittedSpecs(
 export interface WithheldSpec {
   /** The spec's stable id, as it appears in telemetry. */
   readonly id: string;
-  /** The filename or glob that was not loaded. */
-  readonly pattern: string;
+  /** The filename, filename list or glob that was not loaded. */
+  readonly pattern: string | readonly string[];
   /** The `compatSources` grant that would admit it. */
   readonly grant: string;
 }
@@ -415,7 +418,8 @@ export function findGitRoot(cwd: string): string | undefined {
 
 /**
  * Walk `cwd` upward to `stopDir` (inclusive) collecting every existing
- * occurrence of `filename`. Returns absolute, realpath-deduped paths in
+ * occurrence of `filename`. A list of names contributes at most one path per
+ * directory: the first name in the list that exists. Returns absolute, realpath-deduped paths in
  * nearest-first order (innermost dir first).
  *
  * No `.gitignore` parsing (EC-A). Realpath collapses symlink chains
@@ -427,10 +431,11 @@ export function findGitRoot(cwd: string): string | undefined {
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: walk-up loop combines validation + realpath dedup + FS-race handling + stopDir guard in a single bounded loop; splitting fragments the dedup invariant.
 export function walkUpForFile(
   cwd: string,
-  filename: string,
+  filename: string | readonly string[],
   stopDir: string | undefined,
 ): string[] {
-  if (!isSafePattern(filename)) {
+  const names = (typeof filename === "string" ? [filename] : filename).filter(isSafePattern);
+  if (names.length === 0) {
     return [];
   }
   const start = resolve(cwd);
@@ -440,8 +445,8 @@ export function walkUpForFile(
   let current = start;
   // 64-level depth cap.
   for (let i = 0; i < 64; i += 1) {
-    const candidate = join(current, filename);
-    if (existsSync(candidate)) {
+    const candidate = names.map((n) => join(current, n)).find((c) => existsSync(c));
+    if (candidate !== undefined) {
       let real: string;
       try {
         real = realpathSync(candidate);
