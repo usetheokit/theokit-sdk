@@ -8,7 +8,6 @@ import type { MemoryDb } from "./index-db.js";
  * typed error path (EC-8 of the edge-case review) so callers see a
  * `sqlite_vec_unavailable` ConfigurationError instead of a raw native error.
  *
- * @internal
  */
 export async function loadSqliteVecExtension(db: MemoryDb): Promise<void> {
   try {

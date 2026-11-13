@@ -26,7 +26,7 @@ import type { MemoryRoot } from "./storage/memory-root.js";
  * import (`EmbeddingRuntime` from `embedding-adapter.ts`) is itself a leaf
  * dependency outside the cluster — does not re-introduce a cycle.
  *
- * @internal — NOT part of the `@theokit/sdk` public API.
+ * Semver-exempt: NOT part of the `@theokit/sdk` public API.
  */
 
 export interface MemorySearchHit {
@@ -46,6 +46,7 @@ export interface MemorySearchHit {
   citation: string;
 }
 
+/** Snapshot of the index backend and its counts. */
 export interface IndexStatus {
   backend: "fts-only" | "hybrid";
   filesIndexed: number;
@@ -65,6 +66,7 @@ export interface IndexStatus {
   countsExact: boolean;
 }
 
+/** Options for a memory search. */
 export interface SearchOptions {
   maxResults?: number;
   minScore?: number;
@@ -78,6 +80,7 @@ export interface SearchOptions {
 /** Vector backend selector. SQLite default; Lance opt-in (ADR D43). */
 export type MemoryBackend = "sqlite-vec" | "lance";
 
+/** Options for opening a memory index. */
 export interface OpenIndexOptions {
   cwd: string;
   /**

@@ -463,7 +463,18 @@ export type SkillsResolver = (
 /**
  * Memory configuration accepted by `Agent.create()` via {@link AgentOptions.memory}.
  *
- * Persists durable facts under `.theokit/memory/<namespace>/<scope>-<userId>.json`.
+ * Persists durable facts as markdown files under `<cwd>/.theokit/memory/` (or `directory`), with the
+ * search index and `sessions/` summaries in the same root.
+ *
+ * `userId` partitions that layout: when set, facts, index and session summaries live under
+ * `<root>/users/<userId>/`, and the agent reads only that partition, so agents sharing one memory
+ * directory cannot see each other's facts. The id must match `[a-z0-9][a-z0-9-_]*` (case is
+ * folded to lowercase, so `Alice` and `alice` share a partition); anything else, including `../x`,
+ * is rejected with `invalid_identifier`. Unset keeps the unpartitioned root. Setting `userId` on an
+ * existing store moves the agent to the new, empty partition.
+ *
+ * `namespace` and `scope` do not affect where memory is stored today; they are used only by the
+ * legacy JSON migration and the persisted agent registry record.
  *
  * @public
  */
