@@ -1386,8 +1386,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `EnvPolicy` | type | Owner: `sandbox/` (1 of 2 importers).  |
 | `runBounded` | function | Run a command with a timeout, an optional abort signal and a per-stream output cap.  |
-| `RunBoundedOptions` | interface |  |
-| `RunBoundedResult` | interface |  |
+| `RunBoundedOptions` | interface | Options for {@link runBounded } . |
+| `RunBoundedResult` | interface | Outcome of {@link runBounded } . |
 
 ## `@theokit/sdk/project`
 
