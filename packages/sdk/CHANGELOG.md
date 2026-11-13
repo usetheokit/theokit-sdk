@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.20.0
+
+### Minor Changes
+
+- [#1138](https://github.com/usetheokit/theokit-sdk/pull/1138) [`0779011`](https://github.com/usetheokit/theokit-sdk/commit/0779011b9e6714d0d9e29739e79324412f865296) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `MemorySettings.userId` now partitions the memory store. When set, facts, the index and session summaries live under `<memory root>/users/<userId>/` and the agent reads only that partition, so agents sharing one directory no longer see each other's facts. An agent with `userId` set therefore reads and writes a new location; facts it recorded earlier in the unpartitioned root are not read. Agents without `userId` are unchanged. The `MemorySettings` TSDoc now states the real layout.
+
+### Patch Changes
+
+- [#1145](https://github.com/usetheokit/theokit-sdk/pull/1145) [`07930dc`](https://github.com/usetheokit/theokit-sdk/commit/07930dc7acbfbf09d2506ad6fa8e5bb98f883c65) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Export the memory index and store leaf modules (schema, database opener, vector index, chunker, reader, active-memory cache and types) from `@theokit/sdk/internal/memory-store` so `@theokit/sdk-memory` can re-export them instead of copying them.
+
 ## 5.19.0
 
 ### Minor Changes
