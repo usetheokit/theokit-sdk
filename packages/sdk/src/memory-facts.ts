@@ -58,9 +58,13 @@ export async function listMemoryFacts(
  *
  * Resolves `true` when removed, `false` when no entry has that id.
  *
- * Search index: removal does NOT touch the memory search index. Corpus sync only adds or
- * re-embeds files that exist; it does not drop the chunks of a file that disappeared, so a
- * removed fact can still be returned by index-backed recall until that index is rebuilt.
+ * Search index: the next `sync()` of the memory search index drops the removed entry. Corpus sync
+ * deletes the chunks of a file that left the memory root, and re-chunks `MEMORY.md` when a legacy
+ * bullet or index line was removed. Removal itself does not open the index, so an index-backed
+ * recall that has not synced since can still return the fact until it does.
+ *
+ * Ids: two identical legacy bullets in one root share an id; removal takes the first, so a second
+ * call removes the next.
  *
  * @throws {MemoryFactNotRemovableError} the entry is outside the write root; the SDK does not
  * delete another tool's memory.

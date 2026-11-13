@@ -12,9 +12,13 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vit
 import { listMemoryFacts, MemoryFactNotRemovableError, removeMemoryFact } from "../../src/index.js";
 import {
   appendFactToMarkdown,
+  readFactEntries,
   readFactsFromMarkdown,
 } from "../../src/internal/memory/storage/markdown-store.js";
-import { claudeProjectMemoryDir } from "../../src/internal/memory/storage/memory-root.js";
+import {
+  asMemoryRoot,
+  claudeProjectMemoryDir,
+} from "../../src/internal/memory/storage/memory-root.js";
 import { removeTempDirRobustSync } from "../helpers/temp-workspace.js";
 
 describe("listMemoryFacts / removeMemoryFact", () => {
@@ -52,6 +56,9 @@ describe("listMemoryFacts / removeMemoryFact", () => {
     const listed = await listMemoryFacts(cwd);
     const raw = await readFactsFromMarkdown(cwd);
     expect(listed.map((f) => f.text)).toEqual(raw.map((f) => f.text));
+    const entries = await readFactEntries(cwd);
+    expect(listed.map((f) => f.id)).toEqual(entries.map((e) => e.id));
+    expect(listed.map((f) => f.modified)).toEqual(raw.map((f) => f.modified));
     expect(listed).toHaveLength(3);
     expect(listed.every((f) => f.removable)).toBe(true);
   });
@@ -102,5 +109,31 @@ describe("listMemoryFacts / removeMemoryFact", () => {
     expect((err as MemoryFactNotRemovableError).factId).toBe("cli.md");
     expect((err as MemoryFactNotRemovableError).root).toBe(cc);
     expect(existsSync(join(cc, "cli.md"))).toBe(true);
+  });
+
+  it("removes identical legacy bullets one per call", async () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "MEMORY.md"), "## Facts\n- same\n- same\n");
+    const [a] = await listMemoryFacts(cwd);
+    expect(await removeMemoryFact(cwd, a?.id ?? "")).toBe(true);
+    expect(await listMemoryFacts(cwd)).toHaveLength(1);
+    expect(await removeMemoryFact(cwd, a?.id ?? "")).toBe(true);
+    expect(await listMemoryFacts(cwd)).toHaveLength(0);
+  });
+
+  it("a removed fact is gone from the search index after the next sync", async () => {
+    const { IndexManager } = await import("../../src/internal/memory/index-manager.js");
+    await appendFactToMarkdown(cwd, { text: "zebrafinch quartz marker" });
+    const index = await IndexManager.open({ cwd, memoryRoot: asMemoryRoot(dir) });
+    try {
+      await index.sync();
+      expect(await index.search("zebrafinch")).not.toHaveLength(0);
+      const [fact] = await listMemoryFacts(cwd);
+      await removeMemoryFact(cwd, fact?.id ?? "");
+      await index.sync();
+      expect(await index.search("zebrafinch")).toHaveLength(0);
+    } finally {
+      index.close();
+    }
   });
 });

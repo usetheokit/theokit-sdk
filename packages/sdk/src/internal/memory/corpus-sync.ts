@@ -56,5 +56,12 @@ export async function syncCorpus(
     chunksWritten += chunks.length;
   }
 
+  // A file that left the corpus (a removed memory) must leave the index too, or recall keeps
+  // returning its text.
+  const present = new Set(files.map((entry) => entry.absolutePath));
+  for (const [path, row] of existingByPath) {
+    if (!present.has(path)) repo.deleteFile(row.id);
+  }
+
   return { filesScanned: files.length, filesUpdated, chunksWritten };
 }

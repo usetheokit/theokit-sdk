@@ -113,6 +113,12 @@ export class MemoryIndexRepository {
     return row.id;
   }
 
+  /** Drop a file the corpus no longer contains, with its chunks (and so their FTS rows). */
+  deleteFile(fileId: number): void {
+    this.deleteChunksForFile(fileId);
+    this.db.prepare("DELETE FROM files WHERE id = ?").run(fileId);
+  }
+
   deleteChunksForFile(fileId: number): void {
     this.db.prepare("DELETE FROM chunks WHERE file_id = ?").run(fileId);
   }

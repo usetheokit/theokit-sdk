@@ -107,8 +107,7 @@ if (first) await removeMemoryFact(process.cwd(), first.id); // true, or false fo
 ```
 
 Entries outside the write root (such as the Claude Code CLI's store) are listed with
-`removable: false`; removing one rejects with `MemoryFactNotRemovableError`. Removal does not
-update the memory search index.
+`removable: false`; removing one rejects with `MemoryFactNotRemovableError`. The next memory search index `sync()` drops a removed fact.
 
 ## Plugins
 
