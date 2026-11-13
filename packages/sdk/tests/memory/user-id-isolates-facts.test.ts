@@ -5,11 +5,14 @@ import { join, relative } from "node:path";
 
 import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 
-import { Agent } from "../src/index.js";
+import { Agent } from "../../src/index.js";
 
-import { appendFact, readFacts } from "../src/internal/memory/storage/markdown-store.js";
-import { projectMemoryDir, resolveMemoryRoot } from "../src/internal/memory/storage/memory-root.js";
-import type { MemoryFact } from "../src/internal/memory/types.js";
+import { appendFact, readFacts } from "../../src/internal/memory/storage/markdown-store.js";
+import {
+  projectMemoryDir,
+  resolveMemoryRoot,
+} from "../../src/internal/memory/storage/memory-root.js";
+import type { MemoryFact } from "../../src/internal/memory/types.js";
 import {
   blockStop,
   messageStart,
@@ -18,8 +21,8 @@ import {
   textDelta,
   toolBlockStart,
   toolInputDelta,
-} from "./helpers/anthropic-sse.js";
-import { removeTempDirRobustSync } from "./helpers/temp-workspace.js";
+} from "../helpers/anthropic-sse.js";
+import { removeTempDirRobustSync } from "../helpers/temp-workspace.js";
 
 function tempCwd(): string {
   const dir = mkdtempSync(join(tmpdir(), "mem-user-"));
@@ -165,7 +168,7 @@ describe("legacy JSON migration honours memory.userId (#1025)", () => {
       JSON.stringify({ facts: [{ text: "legacy A" }] }),
     );
     const { migrateLegacyJson, resetMigrationStateForTests } = await import(
-      "../src/internal/memory/migration.js"
+      "../../src/internal/memory/migration.js"
     );
     resetMigrationStateForTests();
     expect((await migrateLegacyJson(cwd, cfg)).migrated).toBe(true);
