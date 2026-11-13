@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.18.1
+
+### Patch Changes
+
+- [#1130](https://github.com/usetheokit/theokit-sdk/pull/1130) [`516159b`](https://github.com/usetheokit/theokit-sdk/commit/516159b4689ee1031cb3f3b449cecddb93a1ff03) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `close()` followed by `dispose()` (or `await using`) on a local agent now tears the session down. Previously `close()` marked the agent disposed, so `dispose()` returned without aborting the in-flight request, releasing MCP clients, flushing writes or releasing the session lease.
+
+- [#1131](https://github.com/usetheokit/theokit-sdk/pull/1131) [`3dcb801`](https://github.com/usetheokit/theokit-sdk/commit/3dcb801043dbd0f2014a99320572f367ba9d4840) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - An API key shorter than 4 characters is no longer refused for a custom provider the SDK cannot attribute (for example one from `Provider.create`). Only empty and whitespace-only keys are rejected there; keys for built-in `api_key` providers keep the strict shape check.
+
 ## 5.18.0
 
 ### Minor Changes
