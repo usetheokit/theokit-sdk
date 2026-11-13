@@ -137,3 +137,12 @@ The full contract is defined by the exported TypeScript types; see [`CHANGELOG.m
 ## License
 
 MIT — see [LICENSE](./LICENSE).
+
+## `@theokit/sdk/process`
+
+`runBounded({ command, args, cwd, timeoutMs, maxOutputBytes?, signal?, stdin?, env?, envPolicy? })` runs a
+subprocess with a timeout, an abort signal and a per-stream output cap (default 5 MiB). On POSIX the child
+leads its own process group and a timeout or abort sends `SIGKILL` to the whole group, so pipelines and
+background jobs die too; on Windows only the direct child is killed. The result is
+`{ exitCode, stdout, stderr, truncated: { stdout, stderr }, timedOut, spawnError? }`. `timeoutMs <= 0`
+throws `ConfigurationError`. Hooks and the built-in `shell` tool run through it.

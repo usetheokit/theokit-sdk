@@ -58,6 +58,7 @@ const targets = [
   join(DIST, "subagents.d.ts"),
   // tools — EXTRACTED to @theokit/sdk-tools (SDK 2.0 split, Phase 5).
   join(DIST, "path-safety.d.ts"),
+  join(DIST, "process.d.ts"),
   join(DIST, "task-store.d.ts"),
   join(DIST, "workflow.d.ts"),
   join(DIST, "eval.d.ts"),

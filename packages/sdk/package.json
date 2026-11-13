@@ -138,6 +138,16 @@
         "default": "./dist/path-safety.cjs"
       }
     },
+    "./process": {
+      "import": {
+        "types": "./dist/process.d.ts",
+        "default": "./dist/process.js"
+      },
+      "require": {
+        "types": "./dist/process.d.cts",
+        "default": "./dist/process.cjs"
+      }
+    },
     "./concurrency": {
       "import": {
         "types": "./dist/concurrency.d.ts",

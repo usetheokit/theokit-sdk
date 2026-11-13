@@ -12,6 +12,8 @@
   "include": [
     "src/messages.ts",
     "src/path-safety.ts",
+    "src/process.ts",
+    "src/internal/runtime/lifecycle/run-bounded.ts",
     "src/compaction.ts",
     "src/models.ts",
     "src/providers.ts",

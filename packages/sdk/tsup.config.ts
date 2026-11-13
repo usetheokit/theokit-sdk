@@ -23,6 +23,8 @@ export default defineConfig({
     subagents: "src/subagents.ts",
     // tools — EXTRACTED to @theokit/sdk-tools (SDK 2.0 split, Phase 5).
     "path-safety": "src/path-safety.ts",
+    // Bounded subprocess runner (#1071); DTS via tsc (tsconfig.tools-dts.json).
+    process: "src/process.ts",
     // M0-2: concurrency reaches into internal/runtime, so its DTS is generated
     // via tsc (tsconfig.tools-dts.json), NOT rollup-plugin-dts (cycle).
     concurrency: "src/concurrency.ts",

@@ -44,10 +44,12 @@ export async function runShell(options: ShellExecuteOptions): Promise<ShellExecu
     ...(options.env !== undefined ? { env: options.env } : {}),
     ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
   });
-  const stderr =
+  const note = "\n[output truncated]";
+  const stderrBase =
     result.spawnError !== undefined ? result.stderr + result.spawnError.message : result.stderr;
+  const stderr = result.truncated.stderr ? stderrBase + note : stderrBase;
   return {
-    stdout: result.stdout,
+    stdout: result.truncated.stdout ? result.stdout + note : result.stdout,
     stderr,
     exitCode: result.exitCode,
     timedOut: result.timedOut,
