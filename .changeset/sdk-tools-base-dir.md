@@ -1,4 +1,5 @@
 ---
+"@theokit/sdk": patch
 "@theokit/sdk-tools": minor
 ---
 
