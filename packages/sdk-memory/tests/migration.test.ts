@@ -20,6 +20,7 @@ import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promise
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { setDiagnosticsSink } from "@theokit/sdk";
 import {
   legacyMemoryJsonPath,
   type MemoryConfig,
@@ -66,6 +67,8 @@ describe("sdk-memory migration (iter 63)", () => {
   it("test_migrates_facts_writes_markdown_unlinks_legacy_json", async () => {
     const cfg: MemoryConfig = { enabled: true };
     const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const diagnostics: string[] = [];
+    setDiagnosticsSink((message) => diagnostics.push(message));
 
     try {
       const jsonPath = await seedLegacyJson(cwd, cfg, [{ text: "first" }, { text: "second" }]);
@@ -89,10 +92,14 @@ describe("sdk-memory migration (iter 63)", () => {
       // Legacy JSON was unlinked.
       await expect(access(jsonPath)).rejects.toThrow();
 
-      // stderr breadcrumb.
-      const stderrCalls = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
-      expect(stderrCalls).toContain("migrated 2 fact(s)");
+      // The breadcrumb. This asserted a line on `process.stderr`, which is where the copy this
+      // package used to carry wrote it. The module is the SDK's now (#1068), and the SDK reports
+      // through its diagnostics channel, silent unless the host installs a sink (#147). Same
+      // message, asserted where it now goes, and stderr asserted quiet.
+      expect(diagnostics.join("")).toContain("migrated 2 fact(s)");
+      expect(stderrSpy).not.toHaveBeenCalled();
     } finally {
+      setDiagnosticsSink(undefined);
       stderrSpy.mockRestore();
     }
   });
@@ -106,6 +113,8 @@ describe("sdk-memory migration (iter 63)", () => {
     await writeFile(memoryMdPath(resolveMemoryRoot(cwd)), "# Memory\n\n## Facts\n\n- existing\n");
 
     const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const diagnostics: string[] = [];
+    setDiagnosticsSink((message) => diagnostics.push(message));
     try {
       const result = await migrateLegacyJson(cwd, cfg);
       expect(result.migrated).toBe(false);
@@ -116,10 +125,12 @@ describe("sdk-memory migration (iter 63)", () => {
       expect(raw).toContain("- existing");
       expect(raw).not.toContain("- ignored");
 
-      const stderrCalls = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
-      expect(stderrCalls).toContain("migration skipped");
-      expect(stderrCalls).toContain("leaving both intact");
+      // On the diagnostics channel rather than stderr, for the reason given in the test above.
+      expect(diagnostics.join("")).toContain("migration skipped");
+      expect(diagnostics.join("")).toContain("leaving both intact");
+      expect(stderrSpy).not.toHaveBeenCalled();
     } finally {
+      setDiagnosticsSink(undefined);
       stderrSpy.mockRestore();
     }
   });

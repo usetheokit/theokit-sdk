@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1364 export(s) across 55 entry point(s).
+1381 export(s) across 55 entry point(s).
 
 ## `@theokit/acp`
 
@@ -640,7 +640,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `jinaMemoryEmbeddingProviderAdapter` | const | Jina AI embeddings, over the standard OpenAI wire.  |
 | `LanceFactRecord` | interface | One row of the Lance `facts` table, as it is stored.  |
 | `LanceIndex` | class | Lance-backed memory index.  |
-| `LanceMemoryAdapter` | class | Presents a `LanceIndex` as a {@link MemoryIndex } , so a consumer written against the SQLite index runs unchanged on `backend: "lance"`.  |
+| `LanceMemoryAdapter` | class | Presents a `LanceIndex` as a `MemoryIndex`, so a consumer written against the SQLite index runs unchanged on `backend: "lance"`.  |
 | `LanceSearchHit` | interface | One Lance search result.  |
 | `LanceSearchOptions` | interface | Filters for `LanceIndex.search`.  |
 | `lanceStoragePath` | function | `<memory root>/lance`.  |
@@ -1171,6 +1171,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `appendFact` | function | Record a fact, honouring the `enabled` gate on {@link MemoryConfig } : when memory is disabled the call resolves without touching disk.  |
 | `appendFactToMarkdown` | function | Write a fact as its own memory file and point the `MEMORY.md` index at it.  |
 | `asMemoryRoot` | function | Treat a directory as a memory root without resolving one.  |
+| `assertValidBackend` | function | EC-1: runtime guard for `opts.backend`.  |
 | `ceilingReachedError` | function | The refusal of a new fact at a store's declared ceiling: where the store is, how many facts it holds, the ceiling, and what to consolidate.  |
 | `chunkMarkdown` | function | Split a markdown document into heading- and paragraph-aligned chunks. |
 | `ChunkMarkdownOptions` | interface | Split a markdown document into semantically meaningful chunks (ADR D1 of memory-system-peer-project-parity).  |
@@ -1197,7 +1198,14 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `entryHash` | function | A stable hash of one entry's counts, so two sweeps that did the same work read as the same work.  |
 | `identityMatches` | function | Whether two embedding identities describe the same vector space. |
 | `indexBudgetWarning` | function | What to say about an index that the interop partner will truncate, or `undefined` when there is nothing true to say.  |
+| `IndexManager` | class | The default memory index: SQLite for storage, FTS5 for text matching, and sqlite-vec for vectors when an embedding runtime is supplied.  |
 | `IndexStatus` | interface | Snapshot of the index backend and its counts. |
+| `isLanceAvailable` | function | Test helper for {@link LanceIndex } : indicates whether the Lance module is loadable in the current environment.  |
+| `LanceFactRecord` | interface | One row of the Lance `facts` table, as it is stored.  |
+| `LanceIndex` | class | Lance-backed memory index.  |
+| `LanceMemoryAdapter` | class | Presents a `LanceIndex` as a {@link MemoryIndex } ; the file header lists how it differs from the SQLite index.  |
+| `LanceSearchHit` | interface | One Lance search result.  |
+| `LanceSearchOptions` | interface | Filters for `LanceIndex.search`.  |
 | `lanceStoragePath` | function | `<memory root>/lance`.  |
 | `lightPhase` | function | Light phase — drop facts whose embedding is too similar to one already kept.  |
 | `loadSqliteVecExtension` | function | Load the `sqlite-vec` extension into an opened SQLite connection.  |
@@ -1215,9 +1223,16 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `META_KEY_DIMENSION` | const | `meta` table key holding the embedding dimension. |
 | `META_KEY_MODEL` | const | `meta` table key holding the embedding model name. |
 | `META_KEY_PROVIDER_ID` | const | Vector index helpers (ADR D2 + D4 of memory-system-peer-project-parity).  |
+| `migrateLegacyJson` | function | Move facts from the pre-markdown JSON store into `MEMORY.md`, once.  |
+| `MigrateOptions` | interface | Migrate Memory.index from SQLite to LanceDB (ADR D44).  |
+| `MigrateResult` | interface | Outcome of {@link migrateSqliteToLance } .  |
+| `migrateSqliteToLance` | function | Run the migration.  |
+| `MigrationResult` | interface | Outcome of {@link migrateLegacyJson } .  |
 | `notesDir` | function | Path to `<memory root>/notes`, where per-topic notes and the consolidated notes a dreaming sweep writes live.  |
 | `OpenDbOptions` | interface | Options for opening the memory index database. |
 | `OpenIndexOptions` | interface | Options for opening a memory index. |
+| `openLanceIndex` | function | Lance-path open.  |
+| `OpenLanceOptions` | interface | Options for `LanceIndex.open`.  |
 | `openMemoryDb` | function | Open (creating if needed) the memory index database and apply the schema pragmas. |
 | `packVector` | function | Pack a Float32Array into a Buffer suitable for sqlite-vec BLOB binding. |
 | `parseSearchOptions` | function | Common search-options parser used by both `IndexManager.search` and `LanceMemoryAdapter.search`.  |
@@ -1232,6 +1247,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `readMemoryFileBounded` | function | Read a memory file, limited to a bounded range of lines. |
 | `remPhase` | function | REM phase — single-link agglomerative clustering by cosine similarity. |
 | `renderDiaryEntry` | function | One diary entry as the markdown that gets appended: a timestamp heading, the short entry hash, and the counts the sweep produced.  |
+| `resetMigrationStateForTests` | function | Test-only — reset the in-process migration flag map. |
 | `resolveMaxFacts` | function | The ceiling a caller declared, or `undefined` when none was declared.  |
 | `resolveMemoryRoot` | function | The memory root for this agent: `memory.directory` when set, the project store otherwise.  |
 | `runDreamingSweep` | function | Run one dreaming sweep (dedupe, cluster, write a consolidated note), serialised per `cwd`. |
@@ -1245,6 +1261,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SyncResult` | interface | Outcome of one index sync pass. |
 | `TenantContext` | interface | T4.9 — Tenant isolation context for cache key derivation.  |
 | `upsertEmbedding` | function | Insert or replace the embedding stored for a chunk. |
+| `VALID_BACKENDS` | const | Valid backend identifiers — runtime guard against TS-narrowing escapes (EC-1). |
 | `VectorHitRow` | interface | One nearest-neighbour row returned by a vector search. |
 | `vectorSearch` | function | Run a nearest-neighbour search over the stored embeddings. |
 | `wikiDir` | function | `<memory root>/wiki`.  |
