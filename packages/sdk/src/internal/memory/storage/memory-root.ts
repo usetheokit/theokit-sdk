@@ -4,6 +4,7 @@ import { isAbsolute, join, sep } from "node:path";
 import { ConfigurationError } from "../../../errors.js";
 import { encodeProjectDir } from "../../persistence/session-transcript.js";
 import { findGitRoot } from "../../runtime/context/context-discovery.js";
+import { sanitizeIdentifier } from "../../security/path-guard.js";
 import type { MemoryConfig } from "../types.js";
 
 /*
@@ -68,7 +69,7 @@ export function asMemoryRoot(dir: string): MemoryRoot {
   return dir as MemoryRoot;
 }
 
-/** Only `directory` is read; the full config is accepted so callers pass what they already hold. */
+/** Only `directory` and `userId` are read; the full config is accepted so callers pass what they already hold. */
 export type MemoryLocationConfig = Partial<MemoryConfig>;
 
 /**
@@ -143,6 +144,15 @@ export function claudeProjectMemoryDir(cwd: string): MemoryRoot {
  * @throws {ConfigurationError} `invalid_memory_directory` — the value is blank or relative.
  */
 export function resolveMemoryRoot(cwd: string, config?: MemoryLocationConfig): MemoryRoot {
+  const base = resolveBaseRoot(cwd, config);
+  const userId = config?.userId;
+  if (userId === undefined) return base;
+  // `userId` partitions the store: facts, index and session summaries all live under it. The
+  // identifier grammar rejects separators and `..`, so the partition cannot leave the base root.
+  return join(base, "users", sanitizeIdentifier(userId)) as MemoryRoot;
+}
+
+function resolveBaseRoot(cwd: string, config?: MemoryLocationConfig): MemoryRoot {
   const declared = config?.directory;
   if (declared === undefined) return projectMemoryDir(cwd);
   const trimmed = declared.trim();
@@ -249,6 +259,9 @@ export function memoryIndexRoot(cwd: string, store: MemoryRoot): MemoryRoot {
  * readable, and the CLI's store last so interop survives the write being decoupled from it.
  */
 export function memoryReadRoots(cwd: string, config?: MemoryLocationConfig): readonly MemoryRoot[] {
+  // A per-user store reads only its own partition: the project and CLI stores are shared, so
+  // falling back to them would hand one user's agent facts that belong to everyone else.
+  if (config?.userId !== undefined) return [resolveMemoryRoot(cwd, config)];
   return [
     ...new Set([
       resolveMemoryRoot(cwd, config),
