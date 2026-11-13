@@ -172,3 +172,22 @@ if (run.timedOut) console.warn("squad timed out");
 ```
 
 `ownsMembers: true` disposes the `SDKAgent` members you pass in after every run (default `false`). Members the squad builds from an `AgentDefinition` are always disposed. Disposal uses `Promise.allSettled`; a failure goes to `onDisposeError(error, memberIndex)` (default: a diagnostic on stderr) and never changes the run result.
+
+## Loading a project `.env` safely
+
+`loadProjectEnv()` reads the project's `.env` into `process.env`, then restores every sovereign key
+(`SOVEREIGN_ENV_KEYS`: `THEOKIT_HOME`, `THEOKIT_AUTH_HOME`, `THEOKIT_TRUSTED_PROVIDERS`,
+`THEOKIT_REDACT_SECRETS`, `THEOKIT_OAUTH_TX_SALT`) to its earlier value, so a cloned repository
+cannot move the credential store or switch off a trust decision.
+
+```ts
+import { loadProjectEnv } from "@theokit/sdk";
+
+const report = loadProjectEnv(process.env, undefined, { extraSovereignKeys: ["APP_HOME"] });
+// report.set     — keys the load added or changed and that were kept, sorted
+// report.refused — sovereign keys the load tried to change and that were restored, sorted
+```
+
+`extraSovereignKeys` protects your own variables in addition to the built-in list. A variable
+already set in the shell is never listed in `set`. If there is no `.env` (or the load throws), `env`
+is left unchanged and the report is `{ set: [], refused: [] }`.
