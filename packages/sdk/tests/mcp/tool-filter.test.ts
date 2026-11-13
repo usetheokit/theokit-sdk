@@ -3,6 +3,8 @@
  * time before any request reaches the server, validated at `Agent.create`.
  */
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -130,5 +132,40 @@ describe("mcp tool filter validation", () => {
     expect(err).toBeInstanceOf(ConfigurationError);
     expect((err as ConfigurationError).code).toBe("invalid_mcp_tool_filter");
     expect((err as ConfigurationError).message).toContain('"pw"');
+  });
+});
+
+describe("mcp tool filter over http", () => {
+  it("filters list and refuses calls without a request", async () => {
+    const methods: string[] = [];
+    const server = createServer((req, res) => {
+      const parts: Buffer[] = [];
+      req.on("data", (c: Buffer) => parts.push(c));
+      req.on("end", () => {
+        const m = JSON.parse(Buffer.concat(parts).toString("utf8")) as {
+          id?: number;
+          method: string;
+        };
+        methods.push(m.method);
+        const result =
+          m.method === "tools/list"
+            ? { tools: ["a", "danger"].map((name) => ({ name, inputSchema: { type: "object" } })) }
+            : { content: [{ type: "text", text: "ok" }] };
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({ jsonrpc: "2.0", id: m.id, result }));
+      });
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    try {
+      const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
+      const client = createMcpClient("web", { type: "http", url, tools: { exclude: ["danger"] } });
+      expect((await client.listTools()).map((t) => t.name)).toEqual(["a"]);
+      const r = await client.callTool("danger", {});
+      expect(r.isError).toBe(true);
+      expect(methods).not.toContain("tools/call");
+      await client.close();
+    } finally {
+      server.close();
+    }
   });
 });
