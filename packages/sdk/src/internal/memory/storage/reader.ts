@@ -13,7 +13,6 @@ import type { MemoryReadResult } from "../types.js";
  * - Sets `truncated: true` when fewer lines were returned than requested AND
  *   there's still content past the slice. (At EOF, `truncated: false`.)
  *
- * @internal
  */
 
 export const DEFAULT_MEMORY_READ_LINES = 200;

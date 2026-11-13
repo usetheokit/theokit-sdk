@@ -13,7 +13,6 @@
  * separated from one of its implementations preserves OCP — future
  * backends (Qdrant, PGVector) can land without touching IndexManager.
  *
- * @internal
  */
 
 import type { IndexStatus, MemorySearchHit, SearchOptions } from "./index-manager-contract.js";

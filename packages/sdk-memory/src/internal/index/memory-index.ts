@@ -55,21 +55,10 @@ export interface SyncResult {
   chunksEmbedded: number;
 }
 
-/**
- * Common search-options parser used by both `IndexManager.search` and
- * `LanceMemoryAdapter.search`. Returns the normalized cap + minimum-score
- * floor — eliminates jscpd duplication while keeping per-backend search
- * logic distinct.
- */
-export function parseSearchOptions(options: SearchOptions = {}): {
-  maxResults: number;
-  minScore: number;
-} {
-  return {
-    maxResults: Math.max(1, options.maxResults ?? 10),
-    minScore: options.minScore ?? 0,
-  };
-}
+// One implementation, shared with the SDK. The types stay local: the SDK's `SyncResult` and
+// `IndexStatus` carry required fields (`supported`, `countsExact`) the Lance adapter and
+// `IndexManager` here do not set yet.
+export { parseSearchOptions } from "@theokit/sdk/internal/memory-store";
 
 /**
  * The four operations both backends implement, and the type every consumer
