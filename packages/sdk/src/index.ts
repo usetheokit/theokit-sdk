@@ -60,8 +60,6 @@ export {
   type CredentialReport,
   describeCredential,
 } from "./credential-presence.js";
-// Semantic cache — EXTRACTED to `@theokit/sdk-cache` (SDK 2.0 split, Phase 3 / T3.1).
-// Consumers: `import { Cache, CacheInvalidTtlError } from "@theokit/sdk-cache"`.
 // Cron façade
 export { Cron } from "./cron.js";
 export {
@@ -333,6 +331,10 @@ export {
   type PermissionRuleSet,
   parsePermissionRules,
 } from "./permission-rules.js";
+// Semantic cache — EXTRACTED to `@theokit/sdk-cache` (SDK 2.0 split, Phase 3 / T3.1).
+// Consumers: `import { Cache, CacheInvalidTtlError } from "@theokit/sdk-cache"`.
+// Read-only listing of the plugins an agent would load
+export { listWorkspacePlugins, type WorkspacePluginListing } from "./plugins-listing.js";
 export {
   loadProjectEnv,
   SOVEREIGN_ENV_KEYS,

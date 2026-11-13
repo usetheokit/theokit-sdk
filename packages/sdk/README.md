@@ -84,6 +84,19 @@ const agent = await Agent.create({
 
 Extended-thinking `--continue` is out of scope for now (thinking signatures are written but dropped on read — issue #122). See the exported session-persistence types for the full contract.
 
+## Plugins
+
+`listWorkspacePlugins(cwd, { compatSources })` lists the plugins an agent opened on `cwd` would load
+(name, folder, manifest path and format), using the same discovery and manifest code as the runtime
+and without running plugin code. It reads the project's `.theokit/plugins` plus the plugin roots of
+the declared `compatSources`, never `~/.theokit/plugins`.
+
+```ts
+import { listWorkspacePlugins } from "@theokit/sdk";
+
+const plugins = await listWorkspacePlugins(process.cwd(), { compatSources: ["claude-code"] });
+```
+
 ## Schedule with cron
 
 ```typescript
