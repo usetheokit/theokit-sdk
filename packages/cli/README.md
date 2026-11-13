@@ -49,7 +49,8 @@ theokit dev --env .env.local     # custom env file (default: .env)
 ## `theokit inspect`
 
 List what the SDK sees: builtin providers, embedding adapters, gateway
-adapters, discovered plugins.
+adapters, and the plugins an agent started in the current directory would load
+(the project's `.theokit/plugins` only; `~/.theokit` is never read by the runtime, so it is not listed).
 
 ```bash
 theokit inspect

@@ -4,7 +4,9 @@
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+
+import { listWorkspacePlugins } from "@theokit/sdk";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -106,39 +108,76 @@ interface InspectResultLike {
 
 describe("listPlugins (T3.1)", () => {
   let workDir: string;
+  let homeDir: string;
+  let prevHome: string | undefined;
+  let prevProfile: string | undefined;
   beforeEach(() => {
     workDir = mkdtempSync(join(tmpdir(), "tk-plugins-"));
+    homeDir = mkdtempSync(join(tmpdir(), "tk-home-"));
+    prevHome = process.env.HOME;
+    prevProfile = process.env.USERPROFILE;
+    process.env.HOME = homeDir;
+    process.env.USERPROFILE = homeDir;
   });
   afterEach(() => {
+    if (prevHome === undefined) delete process.env.HOME;
+    else process.env.HOME = prevHome;
+    if (prevProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = prevProfile;
     rmSync(workDir, { recursive: true, force: true });
+    rmSync(homeDir, { recursive: true, force: true });
   });
 
-  it("returns empty when no plugins dir exists", () => {
-    expect(listPlugins(workDir)).toEqual([]);
+  function write(path: string, content: string): void {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, content, "utf8");
+  }
+
+  it("returns empty when no plugins dir exists", async () => {
+    expect(await listPlugins(workDir)).toEqual([]);
   });
 
-  it("walks project plugins dir + parses frontmatter", () => {
-    const pluginDir = join(workDir, ".theokit", "plugins", "my-plugin");
-    mkdirSync(pluginDir, { recursive: true });
-    writeFileSync(
-      join(pluginDir, "PLUGIN.md"),
-      "---\nname: my-plugin\ndescription: Does cool things.\n---\n\nBody.",
-      "utf8",
+  it("lists a project PLUGIN.md plugin", async () => {
+    write(
+      join(workDir, ".theokit", "plugins", "my-plugin", "PLUGIN.md"),
+      "---\nname: my-plugin\n---\n\nBody.",
     );
-    const plugins = listPlugins(workDir);
+    const plugins = await listPlugins(workDir);
     expect(plugins).toHaveLength(1);
     expect(plugins[0]?.name).toBe("my-plugin");
-    expect(plugins[0]?.description).toBe("Does cool things.");
     expect(plugins[0]?.source).toBe("project");
   });
 
-  it("skips malformed manifest silently", () => {
-    const pluginDir = join(workDir, ".theokit", "plugins", "broken");
-    mkdirSync(pluginDir, { recursive: true });
-    writeFileSync(join(pluginDir, "PLUGIN.md"), "no frontmatter here", "utf8");
-    const plugins = listPlugins(workDir);
-    expect(plugins).toHaveLength(1); // still listed by dir name (fallback)
-    expect(plugins[0]?.name).toBe("broken");
+  it("does not list plugins in ~/.theokit/plugins", async () => {
+    write(join(homeDir, ".theokit", "plugins", "a", "PLUGIN.md"), "---\nname: a\n---\n");
+    expect((await listPlugins(workDir)).map((p) => p.name)).not.toContain("a");
+  });
+
+  it("lists a project plugin that only has .claude-plugin/plugin.json", async () => {
+    write(
+      join(workDir, ".theokit", "plugins", "cj", ".claude-plugin", "plugin.json"),
+      JSON.stringify({ name: "cj-plugin" }),
+    );
+    expect((await listPlugins(workDir)).map((p) => p.name)).toEqual(["cj-plugin"]);
+  });
+
+  it("names equal those of listWorkspacePlugins for the same fixture", async () => {
+    write(join(workDir, ".theokit", "plugins", "x", "PLUGIN.md"), "---\nname: x\n---\n");
+    write(
+      join(workDir, ".theokit", "plugins", "y", ".claude-plugin", "plugin.json"),
+      JSON.stringify({ name: "y" }),
+    );
+    write(join(homeDir, ".theokit", "plugins", "h", "PLUGIN.md"), "---\nname: h\n---\n");
+    const expected = (await listWorkspacePlugins(workDir)).map((p) => p.name).sort();
+    const out = captureStdout();
+    const cwd = vi.spyOn(process, "cwd").mockReturnValue(workDir);
+    await main(["node", "theokit", "inspect", "--filter", "plugins", "--json"]);
+    cwd.mockRestore();
+    const text = out.lines.join("");
+    out.restore();
+    const parsed = JSON.parse(text) as { plugins: Array<{ name: string }> };
+    expect(parsed.plugins.map((p) => p.name).sort()).toEqual(expected);
+    expect(expected).toEqual(["x", "y"]);
   });
 });
 
