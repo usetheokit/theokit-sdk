@@ -1427,8 +1427,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | Symbol | Kind | Summary |
 |---|---|---|
 | `runBounded` | function | Runs a command with a deadline, a per-stream output cap and process-tree cleanup.  |
-| `RunBoundedOptions` | interface |  |
-| `RunBoundedResult` | interface |  |
+| `RunBoundedOptions` | interface | Options for {@link runBounded } . |
+| `RunBoundedResult` | interface | Result of {@link runBounded } . |
 
 ## `@theokit/sdk/project`
 
