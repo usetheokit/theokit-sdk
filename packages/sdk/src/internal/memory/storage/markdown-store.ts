@@ -1,7 +1,8 @@
-import { mkdir, readdir, readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readdir, readFile, unlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
-import { ConfigurationError } from "../../../errors.js";
+import { ConfigurationError, MemoryFactNotRemovableError } from "../../../errors.js";
 import { diag } from "../../diagnostics.js";
 import { replaceFileAtomic } from "../../persistence/atomic-write.js";
 import { withCwdMutex } from "../../persistence/cwd-mutex.js";
@@ -139,29 +140,57 @@ export async function readFactsFromMarkdown(
  * inventing one for them is the inference this codebase refuses one field over.
  */
 async function readMemoryFilesIn(dir: string): Promise<MemoryFact[]> {
+  return (await readMemoryEntriesIn(dir)).map((e) => e.fact);
+}
+
+/** A fact with the identity {@link listFactEntries} reports for it. */
+interface FactEntry {
+  id: string;
+  fact: MemoryFact;
+  root: MemoryRoot;
+  /** The legacy bullet's position among its root's bullets; absent for a per-memory file. */
+  legacy: boolean;
+}
+
+async function readMemoryEntriesIn(dir: MemoryRoot | string): Promise<FactEntry[]> {
   let entries: string[];
   try {
     entries = await readdir(dir);
   } catch {
     return [];
   }
-  const facts: MemoryFact[] = [];
+  const facts: FactEntry[] = [];
   for (const entry of entries.sort(byNaturalName)) {
     const fact = await readMemoryFileIn(dir, entry);
-    if (fact !== undefined) facts.push(fact);
+    if (fact !== undefined) facts.push({ id: entry, fact, root: dir as MemoryRoot, legacy: false });
   }
   // Stable: equal timestamps keep the natural-name order the read used.
-  facts.sort((a, b) => (a.modified ?? "").localeCompare(b.modified ?? ""));
+  facts.sort((a, b) => (a.fact.modified ?? "").localeCompare(b.fact.modified ?? ""));
   return facts;
 }
 
 /** The pre-#389 `## Facts` bullets in one root's index, or `[]` when there is no index there. */
 async function readLegacyFactsSectionIn(dir: string): Promise<MemoryFact[]> {
+  return (await readLegacyEntriesIn(dir)).map((e) => e.fact);
+}
+
+async function readLegacyEntriesIn(dir: string): Promise<FactEntry[]> {
   try {
-    return parseFactsSection(await readFile(join(dir, "MEMORY.md"), "utf8"));
+    const facts = parseFactsSection(await readFile(join(dir, "MEMORY.md"), "utf8"));
+    return facts.map((fact) => ({
+      id: legacyFactId(dir, fact.text),
+      fact,
+      root: dir as MemoryRoot,
+      legacy: true,
+    }));
   } catch {
     return []; // no index in this root — the per-memory files are the whole store here
   }
+}
+
+/** A legacy bullet has no name, so its id is a hash of where it was read and what it says. */
+function legacyFactId(root: string, text: string): string {
+  return `legacy-${createHash("sha256").update(`${root}\0${text}`).digest("hex").slice(0, 16)}`;
 }
 
 /**
@@ -497,6 +526,16 @@ async function nextIndex(dir: string, text: string, name: string, title: string)
  */
 const INDEX_ENTRY = /^\[[^\]]*\]\([^)]+\.md\)(?:\s+—\s.*)?$/;
 
+/** Offsets of the text between the `## Facts` heading and the next h1/h2 heading (or the end). */
+function factsBlockRange(raw: string): { start: number; end: number } | undefined {
+  const idx = raw.indexOf(FACTS_HEADING);
+  if (idx === -1) return undefined;
+  const start = idx + FACTS_HEADING.length;
+  // Stop at the next top-level or h2 heading.
+  const nextHeading = raw.slice(start).search(/\n#{1,2}\s/);
+  return { start, end: nextHeading === -1 ? raw.length : start + nextHeading };
+}
+
 /**
  * Facts from a legacy `## Facts` section — the shape every released version wrote.
  *
@@ -509,12 +548,9 @@ const INDEX_ENTRY = /^\[[^\]]*\]\([^)]+\.md\)(?:\s+—\s.*)?$/;
  * at 20:06Z — so there is no store in the wild to migrate from it.
  */
 function parseFactsSection(raw: string): MemoryFact[] {
-  const idx = raw.indexOf(FACTS_HEADING);
-  if (idx === -1) return [];
-  const tail = raw.slice(idx + FACTS_HEADING.length);
-  // Stop at the next top-level or h2 heading.
-  const nextHeading = tail.search(/\n#{1,2}\s/);
-  const block = nextHeading === -1 ? tail : tail.slice(0, nextHeading);
+  const range = factsBlockRange(raw);
+  if (range === undefined) return [];
+  const block = raw.slice(range.start, range.end);
   return (
     block
       .split("\n")
@@ -557,4 +593,94 @@ export async function appendFact(
   await appendFactToMarkdown(cwd, fact, resolveMemoryRoot(cwd, config), {
     ...(config.maxFacts !== undefined ? { maxFacts: config.maxFacts } : {}),
   });
+}
+
+/** What {@link listFactEntries} reports for one stored memory. */
+export interface FactEntryInfo {
+  id: string;
+  text: string;
+  modified?: string;
+  root: string;
+  removable: boolean;
+}
+
+async function allFactEntries(cwd: string, config?: MemoryLocationConfig): Promise<FactEntry[]> {
+  const roots = memoryReadRoots(cwd, config);
+  const entries: FactEntry[] = [];
+  // Same two passes, same order, as readFactsFromMarkdown.
+  for (const dir of roots) entries.push(...(await readMemoryEntriesIn(dir)));
+  for (const dir of roots) entries.push(...(await readLegacyEntriesIn(dir)));
+  return entries;
+}
+
+/**
+ * Every stored memory with an id, in the order {@link readFactsFromMarkdown} returns them.
+ * `removable` is true only for entries under the write root.
+ */
+export async function listFactEntries(
+  cwd: string,
+  config?: MemoryLocationConfig,
+): Promise<FactEntryInfo[]> {
+  const writeRoot = resolve(resolveMemoryRoot(cwd, config));
+  return (await allFactEntries(cwd, config)).map((e) => ({
+    id: e.id,
+    text: e.fact.text,
+    ...(e.fact.modified !== undefined ? { modified: e.fact.modified } : {}),
+    root: e.root,
+    removable: resolve(e.root) === writeRoot,
+  }));
+}
+
+/**
+ * Remove one stored memory from the write root: the per-memory file and its `MEMORY.md` index
+ * line, or one legacy bullet inside `## Facts`. Serialized with {@link appendFactToMarkdown} on the
+ * same mutex; both files are written atomically. Resolves `false` when no entry has the id, and
+ * throws {@link MemoryFactNotRemovableError} when the entry exists only outside the write root.
+ */
+export function removeFactEntry(
+  cwd: string,
+  id: string,
+  config?: MemoryLocationConfig,
+): Promise<boolean> {
+  const writeRoot = resolveMemoryRoot(cwd, config);
+  return withCwdMutex(writeRoot, async () => {
+    const matches = (await allFactEntries(cwd, config)).filter((e) => e.id === id);
+    if (matches.length === 0) return false;
+    const target = matches.find((e) => resolve(e.root) === resolve(writeRoot));
+    if (target === undefined)
+      throw new MemoryFactNotRemovableError(id, (matches[0] as FactEntry).root);
+    if (target.legacy) return removeLegacyBullet(writeRoot, target.fact.text);
+    await unlink(join(writeRoot, target.id));
+    await removeIndexLine(writeRoot, target.id);
+    return true;
+  });
+}
+
+/** Drop the `MEMORY.md` line that links to `file`, if the index has one. */
+async function removeIndexLine(dir: string, file: string): Promise<void> {
+  const raw = await unlessMissing(readFile(join(dir, "MEMORY.md"), "utf8"));
+  if (raw === undefined) return;
+  const lines = raw.split("\n");
+  const kept = lines.filter((l) => !l.startsWith("- [") || !l.includes(`](${file})`));
+  if (kept.length !== lines.length)
+    await replaceFileAtomic(join(dir, "MEMORY.md"), kept.join("\n"));
+}
+
+/** Remove the first bullet inside `## Facts` whose text is `text`; lines elsewhere are untouched. */
+async function removeLegacyBullet(dir: string, text: string): Promise<boolean> {
+  const raw = await unlessMissing(readFile(join(dir, "MEMORY.md"), "utf8"));
+  const range = raw === undefined ? undefined : factsBlockRange(raw);
+  if (raw === undefined || range === undefined) return false;
+  let offset = range.start;
+  for (const line of raw.slice(range.start, range.end).split("\n")) {
+    const lineEnd = offset + line.length;
+    const t = line.trim();
+    if (t.startsWith("- ") && t.slice(2).trim() === text && !INDEX_ENTRY.test(text)) {
+      const cut = raw.slice(0, offset) + raw.slice(Math.min(lineEnd + 1, raw.length));
+      await replaceFileAtomic(join(dir, "MEMORY.md"), cut);
+      return true;
+    }
+    offset = lineEnd + 1;
+  }
+  return false;
 }
