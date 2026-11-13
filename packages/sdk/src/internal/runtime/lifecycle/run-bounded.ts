@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { ConfigurationError } from "../../../errors.js";
 import { type EnvPolicy, resolveChildEnv } from "./env-policy.js";
 
@@ -43,6 +43,48 @@ export interface RunBoundedResult {
   spawnError?: Error;
 }
 
+/** Accumulates a stream up to a byte cap, remembering whether it had to cut. */
+class CappedBuffer {
+  truncated = false;
+  private readonly parts: Buffer[] = [];
+  private size = 0;
+
+  constructor(private readonly cap: number) {}
+
+  push(chunk: Buffer): void {
+    const room = Math.max(0, this.cap - this.size);
+    if (chunk.length > room) this.truncated = true;
+    const piece = chunk.subarray(0, room);
+    this.parts.push(piece);
+    this.size += piece.length;
+  }
+
+  text(): string {
+    return Buffer.concat(this.parts).toString("utf8");
+  }
+}
+
+function killTree(child: ChildProcess, posix: boolean): void {
+  try {
+    if (posix && child.pid !== undefined) process.kill(-child.pid, "SIGKILL");
+    else child.kill("SIGKILL");
+  } catch {
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      // already gone
+    }
+  }
+}
+
+function feedStdin(child: ChildProcess, stdin: string | undefined): void {
+  if (stdin === undefined || child.stdin === null) return;
+  // A child that exits without reading stdin closes the pipe first and the write raises EPIPE.
+  // Swallowed: the exit code and stderr are the result; an unread payload is not a failure.
+  child.stdin.on("error", () => {});
+  child.stdin.end(stdin);
+}
+
 /**
  * Runs a command with a timeout, an abort signal and a per-stream output cap.
  *
@@ -65,12 +107,10 @@ export function runBounded(options: RunBoundedOptions): Promise<RunBoundedResult
       env: resolveChildEnv({ policy: options.envPolicy, overrides: options.env }),
       detached: posix,
     });
-    const chunks: { stdout: Buffer[]; stderr: Buffer[] } = { stdout: [], stderr: [] };
-    const sizes = { stdout: 0, stderr: 0 };
-    const truncated = { stdout: false, stderr: false };
+    const out = new CappedBuffer(cap);
+    const err = new CappedBuffer(cap);
     let timedOut = false;
     let settled = false;
-    const text = (k: "stdout" | "stderr"): string => Buffer.concat(chunks[k]).toString("utf8");
     const settle = (exitCode: number | null, spawnError?: Error): void => {
       if (settled) return;
       settled = true;
@@ -78,58 +118,30 @@ export function runBounded(options: RunBoundedOptions): Promise<RunBoundedResult
       options.signal?.removeEventListener("abort", onAbort);
       resolve({
         exitCode,
-        stdout: text("stdout"),
-        stderr: text("stderr"),
-        truncated: { ...truncated },
+        stdout: out.text(),
+        stderr: err.text(),
+        truncated: { stdout: out.truncated, stderr: err.truncated },
         timedOut,
         ...(spawnError !== undefined ? { spawnError } : {}),
       });
     };
-    const killTree = (): void => {
-      try {
-        if (posix && child.pid !== undefined) process.kill(-child.pid, "SIGKILL");
-        else child.kill("SIGKILL");
-      } catch {
-        try {
-          child.kill("SIGKILL");
-        } catch {
-          // already gone
-        }
-      }
-    };
     const timer = setTimeout(() => {
       timedOut = true;
-      killTree();
+      killTree(child, posix);
       settle(null);
     }, options.timeoutMs);
     const onAbort = (): void => {
-      killTree();
+      killTree(child, posix);
       settle(null);
     };
-    const collect = (k: "stdout" | "stderr") => (chunk: Buffer) => {
-      const room = cap - sizes[k];
-      if (room <= 0) {
-        truncated[k] = true;
-        return;
-      }
-      const piece = chunk.length > room ? chunk.subarray(0, room) : chunk;
-      if (piece.length < chunk.length) truncated[k] = true;
-      chunks[k].push(piece);
-      sizes[k] += piece.length;
-    };
-    child.stdout?.on("data", collect("stdout"));
-    child.stderr?.on("data", collect("stderr"));
+    child.stdout?.on("data", (c: Buffer) => out.push(c));
+    child.stderr?.on("data", (c: Buffer) => err.push(c));
     child.on("error", (cause) => settle(-1, cause));
     child.on("close", (code) => settle(code));
     if (options.signal !== undefined) {
       if (options.signal.aborted) onAbort();
       else options.signal.addEventListener("abort", onAbort, { once: true });
     }
-    if (options.stdin !== undefined && child.stdin !== null) {
-      // A child that exits without reading stdin closes the pipe first and the write raises EPIPE.
-      // Swallowed: the exit code and stderr are the result; an unread payload is not a failure.
-      child.stdin.on("error", () => {});
-      child.stdin.end(options.stdin);
-    }
+    feedStdin(child, options.stdin);
   });
 }

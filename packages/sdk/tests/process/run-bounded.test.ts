@@ -2,8 +2,8 @@ import { execSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import { ConfigurationError } from "../../src/errors.js";
-import { runBounded } from "../../src/process.js";
 import { runShell } from "../../src/internal/runtime/tools/shell-tool.js";
+import { runBounded } from "../../src/process.js";
 
 const posix = process.platform !== "win32";
 const cwd = tmpdir();
@@ -19,7 +19,12 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 describe.skipIf(!posix)("runBounded", () => {
   it("kills the whole process tree on timeout", async () => {
-    const r = await runBounded({ command: "sh", args: ["-c", "sleep 600 | cat"], timeoutMs: 200, cwd });
+    const r = await runBounded({
+      command: "sh",
+      args: ["-c", "sleep 600 | cat"],
+      timeoutMs: 200,
+      cwd,
+    });
     expect(r.timedOut).toBe(true);
     await wait(300);
     expect(running("600")).toBe("");
