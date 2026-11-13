@@ -5,7 +5,7 @@ import { diag } from "../../diagnostics.js";
 import { projectConfigRoots } from "../../persistence/paths.js";
 import type { CompatSourceDeclaration } from "../compat/foreign-config-sources.js";
 import { pluginBundleDirs } from "../plugin-loader/plugin-bundles.js";
-import { discoverSkills, type Skill } from "./discover-skills.js";
+import { discoverSkills, type InvalidSkillInfo, type Skill } from "./discover-skills.js";
 import { stripSkillFrontmatter } from "./skill-frontmatter.js";
 
 /**
@@ -48,6 +48,25 @@ export interface SkillsHandle {
   get: (name: string) => Promise<SkillDetail | undefined>;
 }
 
+/** The kind of a consulted skill root, in the order `explainSkills` reports them. @internal */
+export type SkillRootKind = "skillsDir" | "project" | "plugin" | "bundled";
+
+/** One consulted root. @internal */
+interface TaggedRoot {
+  dir: string;
+  kind: SkillRootKind;
+}
+
+/** What one walk saw: the report `explainSkills` returns, recorded by `discoverFrom`. @internal */
+export interface SkillsExplanationReport {
+  roots: TaggedRoot[];
+  loaded: { name: string; source: string; root: string }[];
+  invalid: InvalidSkillInfo[];
+  shadowed: { name: string; winner: string; loser: string }[];
+  enabledButMissing: string[];
+  disabled: string[];
+}
+
 /**
  * File-based skills loader. Discovers `.theokit/skills/<name>/SKILL.md`
  * frontmatter when `local.settingSources` includes `"project"`.
@@ -61,6 +80,13 @@ export interface SkillsHandle {
  */
 export class SkillsManager {
   private skills: StoredSkill[] = [];
+  private walk: {
+    roots: TaggedRoot[];
+    rootOf: Map<string, string>;
+    sourceOf: Map<string, string>;
+    invalid: InvalidSkillInfo[];
+    shadowed: { name: string; winner: string; loser: string }[];
+  } = { roots: [], rootOf: new Map(), sourceOf: new Map(), invalid: [], shadowed: [] };
 
   constructor(
     private readonly cwd: string,
@@ -89,7 +115,7 @@ export class SkillsManager {
     // B-546 — bundled roots are the application's own package, not project settings, so they are
     // read even when project sources are off.
     if (!this.settingSourcesIncludeProject) {
-      this.skills = this.mergeInline(await this.discoverFrom(this.bundledDirs));
+      this.skills = this.mergeInline(await this.discoverFrom(this.bundled()));
       return;
     }
     await this.refresh();
@@ -105,33 +131,87 @@ export class SkillsManager {
     // `description` the CLI writes; only the directory was never looked at.
     // A Claude Code plugin is a bundle whose `skills/` is what it contributes; bundles come after
     // the project's own roots so a project can shadow a skill a plugin ships without editing it.
-    const ownRoots =
+    const ownRoots: TaggedRoot[] =
       this.skillsDir === undefined
         ? [
-            ...projectConfigRoots(this.cwd, this.compatSources, "skills").map((root) =>
-              join(root, "skills"),
+            ...projectConfigRoots(this.cwd, this.compatSources, "skills").map(
+              (root): TaggedRoot => ({ dir: join(root, "skills"), kind: "project" }),
             ),
-            ...(await pluginBundleDirs(this.cwd, this.compatSources)).map((b) => join(b, "skills")),
+            ...(await pluginBundleDirs(this.cwd, this.compatSources)).map(
+              (b): TaggedRoot => ({ dir: join(b, "skills"), kind: "plugin" }),
+            ),
           ]
-        : [this.skillsDir];
-    this.skills = this.mergeInline(await this.discoverFrom([...ownRoots, ...this.bundledDirs]));
+        : [{ dir: this.skillsDir, kind: "skillsDir" }];
+    this.skills = this.mergeInline(await this.discoverFrom([...ownRoots, ...this.bundled()]));
   }
 
-  private async discoverFrom(roots: readonly string[]): Promise<StoredSkill[]> {
+  private bundled(): TaggedRoot[] {
+    return this.bundledDirs.map((dir): TaggedRoot => ({ dir, kind: "bundled" }));
+  }
+
+  private async discoverFrom(roots: readonly TaggedRoot[]): Promise<StoredSkill[]> {
     const discovered: StoredSkill[] = [];
-    const seen = new Set<string>();
+    const winners = new Map<string, string>();
+    const walk: typeof this.walk = {
+      roots: [...roots],
+      rootOf: new Map(),
+      sourceOf: new Map(),
+      invalid: [],
+      shadowed: [],
+    };
     for (const root of roots) {
-      for (const skill of await discoverSkills(root, {
+      for (const skill of await discoverSkills(root.dir, {
         onInvalidSkill: (info) => {
+          walk.invalid.push(info);
           diag(`[theokit-sdk] skill ${info.name} skipped (${info.code}): ${info.message}\n`);
         },
       })) {
-        if (seen.has(skill.name)) continue;
-        seen.add(skill.name);
+        const winner = winners.get(skill.name);
+        if (winner !== undefined) {
+          walk.shadowed.push({ name: skill.name, winner, loser: skill.source });
+          continue;
+        }
+        winners.set(skill.name, skill.source);
+        walk.rootOf.set(skill.name, root.dir);
+        walk.sourceOf.set(skill.name, skill.source);
         discovered.push(skill);
       }
     }
+    this.walk = walk;
     return discovered;
+  }
+
+  /**
+   * The report behind `explainSkills`: recorded by the same walk that filled `list()`, so the two
+   * cannot disagree. Call after `initialize()`.
+   */
+  explain(): SkillsExplanationReport {
+    const inlineNames = new Set((this.inline ?? []).map((s) => s.name));
+    const shadowed = [...this.walk.shadowed];
+    for (const [name, loser] of this.walk.sourceOf) {
+      if (inlineNames.has(name)) shadowed.push({ name, winner: "inline", loser });
+    }
+    const allowed = this.enabled;
+    const present = new Set(this.skills.map((s) => s.name));
+    const loaded = this.visible().map((s) => {
+      const isInline = inlineNames.has(s.name);
+      return {
+        name: s.name,
+        source: isInline ? "inline" : s.source,
+        root: isInline ? "inline" : (this.walk.rootOf.get(s.name) ?? ""),
+      };
+    });
+    return {
+      roots: this.walk.roots,
+      loaded,
+      invalid: this.walk.invalid,
+      shadowed,
+      enabledButMissing: allowed === undefined ? [] : allowed.filter((n) => !present.has(n)),
+      disabled:
+        allowed === undefined
+          ? []
+          : this.skills.map((s) => s.name).filter((n) => !allowed.includes(n)),
+    };
   }
 
   /** M22 — merge inline skills over discovered ones; inline wins on a name conflict. */
