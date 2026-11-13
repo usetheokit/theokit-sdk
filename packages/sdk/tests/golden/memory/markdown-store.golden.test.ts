@@ -21,7 +21,7 @@ import { removeTempDirRobust } from "../../helpers/temp-workspace.js";
  * Phase 1 T1.1 — Markdown corpus + migration + atomic writes + per-cwd mutex.
  */
 
-const cfg: MemoryConfig = { enabled: true, namespace: "demo", scope: "agent" };
+const cfg: MemoryConfig = { enabled: true, namespace: "demo", scope: "agent", userId: "u1" };
 
 describe("MarkdownMemoryStore", () => {
   let cwd: string;
@@ -67,7 +67,7 @@ describe("MarkdownMemoryStore", () => {
   it("migration converts legacy JSON to markdown and deletes JSON", async () => {
     const jsonDir = join(cwd, ".theokit", "memory", "demo");
     await mkdir(jsonDir, { recursive: true });
-    const jsonPath = join(jsonDir, "agent-default.json");
+    const jsonPath = join(jsonDir, "agent-u1.json");
     await writeFile(
       jsonPath,
       JSON.stringify({ facts: [{ text: "legacy A" }, { text: "legacy B" }] }),
@@ -81,10 +81,7 @@ describe("MarkdownMemoryStore", () => {
   it("migration is idempotent — second read does nothing", async () => {
     const jsonDir = join(cwd, ".theokit", "memory", "demo");
     await mkdir(jsonDir, { recursive: true });
-    await writeFile(
-      join(jsonDir, "agent-default.json"),
-      JSON.stringify({ facts: [{ text: "x" }] }),
-    );
+    await writeFile(join(jsonDir, "agent-u1.json"), JSON.stringify({ facts: [{ text: "x" }] }));
     await readMemoryFacts(cwd, cfg);
     // Reset filesystem state but keep in-process migration flag. The store is a DIRECTORY now, not
     // a single file: the migrated fact lives in its own `x.md`, so overwriting `MEMORY.md` alone
@@ -103,7 +100,7 @@ describe("MarkdownMemoryStore", () => {
   it("migration skips and warns when both legacy JSON and MEMORY.md exist", async () => {
     const jsonDir = join(cwd, ".theokit", "memory", "demo");
     await mkdir(jsonDir, { recursive: true });
-    const jsonPath = join(jsonDir, "agent-default.json");
+    const jsonPath = join(jsonDir, "agent-u1.json");
     await writeFile(jsonPath, JSON.stringify({ facts: [{ text: "json-fact" }] }));
     await mkdir(join(cwd, ".theokit", "memory"), { recursive: true });
     await writeFile(

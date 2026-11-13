@@ -37,9 +37,10 @@ async function writeMigratedFacts(
   cwd: string,
   jsonPath: string,
   facts: MemoryFact[],
+  targetDir: string,
 ): Promise<MigrationResult> {
   try {
-    for (const fact of facts) await appendFactToMarkdown(cwd, fact);
+    for (const fact of facts) await appendFactToMarkdown(cwd, fact, targetDir);
     await unlink(jsonPath).catch(() => undefined);
     diag(`[theokit-sdk] migrated ${facts.length} fact(s) from ${jsonPath} to MEMORY.md\n`);
     return { migrated: true, factCount: facts.length };
@@ -70,7 +71,8 @@ export async function migrateLegacyJson(
   if (!(await fileExists(jsonPath))) {
     return { migrated: false, factCount: 0, reason: "no-legacy-json" };
   }
-  if (await fileExists(memoryMdPath(resolveMemoryRoot(cwd, config)))) {
+  const root = resolveMemoryRoot(cwd, config);
+  if (await fileExists(memoryMdPath(root))) {
     diag(
       `[theokit-sdk] memory migration skipped: both MEMORY.md and legacy JSON exist at ${jsonPath}; leaving both intact\n`,
     );
@@ -79,7 +81,7 @@ export async function migrateLegacyJson(
 
   const facts = await readLegacyFacts(jsonPath);
   if (facts === undefined) return { migrated: false, factCount: 0, reason: "no-legacy-json" };
-  return writeMigratedFacts(cwd, jsonPath, facts);
+  return writeMigratedFacts(cwd, jsonPath, facts, root);
 }
 
 /** Test-only — reset the in-process migration flag map. */
