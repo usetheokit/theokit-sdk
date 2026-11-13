@@ -20,7 +20,12 @@ pnpm add vitest        # for createRunVitestTool
 
 ```typescript
 import { Agent } from "@theokit/sdk";
-import { createReadFileTool, createListDirTool, createSearchTextTool } from "@theokit/sdk-tools";
+import {
+  createListDirTool,
+  createReadFileTool,
+  createSearchTextTool,
+  createTodolistTool,
+} from "@theokit/sdk-tools";
 
 const agent = await Agent.create({
   model: { id: "openai/gpt-4o-mini" },
@@ -28,6 +33,7 @@ const agent = await Agent.create({
     createReadFileTool({ cwd: process.cwd() }),
     createListDirTool({ cwd: process.cwd() }),
     createSearchTextTool({ cwd: process.cwd() }),
+    createTodolistTool(), // every factory result is a `CustomTool`: no cast needed
   ],
 });
 
