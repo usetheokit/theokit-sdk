@@ -82,17 +82,40 @@ export type SovereignEnvKey = (typeof SOVEREIGN_ENV_KEYS)[number];
 /** The mutable shape of `process.env`, narrowed so a caller can pass a plain object in tests. */
 type MutableEnv = Record<string, string | undefined>;
 
+/** Options for {@link loadProjectEnv}. @public */
+export interface LoadProjectEnvOptions {
+  /** App-specific keys protected in addition to {@link SOVEREIGN_ENV_KEYS}. */
+  extraSovereignKeys?: readonly string[];
+}
+
+/** What {@link loadProjectEnv} changed. @public */
+export interface ProjectEnvReport {
+  /** Keys the load added or changed and that were kept, sorted. */
+  set: string[];
+  /** Sovereign keys (built-in or extra) the load tried to change and that were restored, sorted. */
+  refused: string[];
+}
+
+function restoreKey(env: MutableEnv, key: string, original: string | undefined): void {
+  if (original === undefined) delete env[key];
+  else env[key] = original;
+}
+
 /**
- * Read the project's `.env` into `env`, then restore every {@link SOVEREIGN_ENV_KEYS} entry to the
- * value it had BEFORE the load — including restoring it to absent.
+ * Read the project's `.env` into `env`, then restore every {@link SOVEREIGN_ENV_KEYS} entry (and
+ * any `extraSovereignKeys`) to the value it had BEFORE the load — including restoring it to absent.
  *
  * Capture-then-restore rather than filtering the file: `process.loadEnvFile` offers no hook between
  * parsing and assignment, and reimplementing dotenv parsing to filter it would be a second parser
  * to keep in step with Node's. Restoring afterwards needs no parser and cannot disagree with one.
+ * The report is computed the same way, by comparing `env` before and after the load.
+ *
+ * If the load throws, `env` is put back exactly as it was and an empty report is returned.
  *
  * @param env the environment to mutate. Defaults to `process.env`.
  * @param load performs the load. Defaults to `process.loadEnvFile` when the runtime has it, and to
  *   `undefined` when it does not — in which case this is a no-op rather than a startup crash.
+ * @param options extra keys to protect.
  * @public
  */
 export function loadProjectEnv(
@@ -102,25 +125,42 @@ export function loadProjectEnv(
         process.loadEnvFile();
       }
     : undefined,
-): void {
-  if (load === undefined) return;
+  options: LoadProjectEnvOptions = {},
+): ProjectEnvReport {
+  if (load === undefined) return { set: [], refused: [] };
 
-  // Captured BEFORE the load, including the absent case — `undefined` here means "was not set",
-  // and restoring that means deleting the key rather than leaving the project's value in place.
-  const sovereign = new Map<string, string | undefined>(
-    SOVEREIGN_ENV_KEYS.map((key) => [key, env[key]] as const),
-  );
+  const protectedKeys = new Set<string>([
+    ...SOVEREIGN_ENV_KEYS,
+    ...(options.extraSovereignKeys ?? []),
+  ]);
+  const before: MutableEnv = { ...env };
 
   try {
     load();
   } catch {
-    // No `.env` on disk is the ordinary case and `loadEnvFile` throws for it. Nothing was assigned,
-    // so there is nothing to restore.
-    return;
+    // No `.env` on disk is the ordinary case and `loadEnvFile` throws for it. Undo anything a
+    // partial load assigned so the caller sees an unchanged environment.
+    resetEnv(env, before);
+    return { set: [], refused: [] };
   }
 
-  for (const [key, original] of sovereign) {
-    if (original === undefined) delete env[key];
-    else env[key] = original;
+  const refused: string[] = [];
+  for (const key of protectedKeys) {
+    if (env[key] === before[key]) continue;
+    refused.push(key);
+    restoreKey(env, key, before[key]);
   }
+  return { set: changedKeys(env, before), refused: refused.sort() };
+}
+
+function resetEnv(env: MutableEnv, before: MutableEnv): void {
+  for (const key of Object.keys(env)) if (!(key in before)) delete env[key];
+  for (const [key, value] of Object.entries(before)) restoreKey(env, key, value);
+}
+
+/** Keys whose value now differs from `before` and is present, sorted. Run after the restore. */
+function changedKeys(env: MutableEnv, before: MutableEnv): string[] {
+  return Object.keys(env)
+    .filter((key) => env[key] !== undefined && env[key] !== before[key])
+    .sort();
 }

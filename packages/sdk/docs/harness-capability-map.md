@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1385 export(s) across 56 entry point(s).
+1387 export(s) across 56 entry point(s).
 
 ## `@theokit/acp`
 
@@ -236,7 +236,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `LiveSessionError` | class | Raised by `guardSessionDestruction` instead of letting a session be destroyed.  |
 | `LiveSessionReason` | type | Why the destruction was refused. |
 | `LlmCallContext` | interface | #65 — context for the `pre_llm_call` / `post_llm_call` hooks. |
-| `loadProjectEnv` | function | Read the project's `.env` into `env`, then restore every {@link SOVEREIGN_ENV_KEYS } entry to the value it had BEFORE the load — including restoring it to absent.  |
+| `loadProjectEnv` | function | Read the project's `.env` into `env`, then restore every {@link SOVEREIGN_ENV_KEYS } entry (and any `extraSovereignKeys`) to the value it had BEFORE the load — including restoring it to absent.  |
+| `LoadProjectEnvOptions` | interface | Options for {@link loadProjectEnv } . |
 | `LocalOptions` | interface | Local agent configuration.  |
 | `ManagedSettings` | interface | What an operator may impose.  |
 | `managedSettingsPathFor` | function | Where the platform keeps its managed settings.  |
@@ -311,6 +312,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ProcessorControls` | interface | Controls available to a processor while it runs: `abort()` stops the run with a tripwire; `warn()` reports a non-blocking violation and continues. |
 | `ProcessorTripwire` | interface | The tripwire detail attached to {@link RunResult.tripwire } when a processor aborts, and carried by the `tripwire` run-event. |
 | `ProcessorViolation` | interface | A policy violation surfaced to a processor's {@link Processor.onViolation } callback — on `abort()` (blocking) AND on `warn()` (non-blocking). |
+| `ProjectEnvReport` | interface | What {@link loadProjectEnv } changed. |
 | `Provider` | class | SE36 — uniform namespace API.  |
 | `ProviderCapability` | type | Owner: `src/` (4 of 9 importers).  |
 | `ProviderProfile` | interface | A data-only declaration of an LLM provider: its name, HTTP dialect, auth style, base URL and fallback models.  |
