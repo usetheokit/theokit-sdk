@@ -11,7 +11,6 @@
  *   - embeddings — sqlite-vec virtual table holding the chunk vectors
  *                  (created on demand by `vec-index.ts`).
  *
- * @internal
  */
 
 export const SCHEMA_STATEMENTS: ReadonlyArray<string> = [

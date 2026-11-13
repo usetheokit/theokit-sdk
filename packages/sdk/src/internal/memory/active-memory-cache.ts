@@ -11,7 +11,6 @@ import type { ActiveMemoryResult } from "./active-memory-types.js";
  *
  * Bounded size; oldest entries evicted first when capacity is exceeded.
  *
- * @internal
  */
 
 export interface ActiveMemoryCacheOptions {
@@ -28,6 +27,7 @@ interface CacheEntry {
 const DEFAULT_TTL_MS = 15_000;
 const DEFAULT_CAPACITY = 1000;
 
+/** TTL cache of active-memory results, bounded in size with oldest-first eviction. */
 export class ActiveMemoryCache {
   private readonly map = new Map<string, CacheEntry>();
 
@@ -83,7 +83,6 @@ export class ActiveMemoryCache {
  * sharing a process with the same query got each other's results.
  * CRITICAL cross-tenant data leak (DR4 finding #9).
  *
- * @internal
  */
 export interface TenantContext {
   namespace?: string;

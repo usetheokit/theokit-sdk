@@ -129,8 +129,6 @@ export function legacyMemoryJsonPath(cwd: string, config: MemoryConfig): string 
  *
  * Mirrors peer-project's `MemoryChunk` shape
  * (`reference/peer-project/packages/memory-host-sdk/src/host/engine-storage.ts`).
- *
- * @internal
  */
 export interface MemoryChunk {
   /** 1-indexed starting line in the source file. */
@@ -150,8 +148,6 @@ export interface MemoryChunk {
  * + provenance info.
  *
  * Mirrors peer-project's `MemoryReadResult` shape.
- *
- * @internal
  */
 export interface MemoryReadResult {
   path: string;

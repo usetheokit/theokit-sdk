@@ -9,19 +9,22 @@ import type { MemoryDb } from "./index-db.js";
  * model + dimension) lives in the `meta` table; mismatches force a full
  * re-embed sweep (EC-1).
  *
- * @internal
  */
 
 export const META_KEY_PROVIDER_ID = "embedding.providerId";
+/** `meta` table key holding the embedding model name. */
 export const META_KEY_MODEL = "embedding.model";
+/** `meta` table key holding the embedding dimension. */
 export const META_KEY_DIMENSION = "embedding.dimension";
 
+/** Identity of the embedding provider, model and dimension that produced the stored vectors. */
 export interface EmbeddingIdentity {
   providerId: string;
   model: string;
   dimension: number;
 }
 
+/** Read the stored embedding identity, or undefined when none is recorded. */
 export function readEmbeddingIdentity(db: MemoryDb): EmbeddingIdentity | undefined {
   const get = (key: string): string | undefined => {
     const row = db.prepare("SELECT value FROM meta WHERE key = ?").get(key);
@@ -36,6 +39,7 @@ export function readEmbeddingIdentity(db: MemoryDb): EmbeddingIdentity | undefin
   return { providerId, model, dimension };
 }
 
+/** Persist the embedding identity in the `meta` table. */
 export function writeEmbeddingIdentity(db: MemoryDb, identity: EmbeddingIdentity): void {
   const stmt = db.prepare(
     "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -45,14 +49,17 @@ export function writeEmbeddingIdentity(db: MemoryDb, identity: EmbeddingIdentity
   stmt.run(META_KEY_DIMENSION, String(identity.dimension));
 }
 
+/** Whether two embedding identities describe the same vector space. */
 export function identityMatches(a: EmbeddingIdentity, b: EmbeddingIdentity): boolean {
   return a.providerId === b.providerId && a.model === b.model && a.dimension === b.dimension;
 }
 
+/** Drop the `embeddings` vec0 table if present. */
 export function dropVectorIndex(db: MemoryDb): void {
   db.exec("DROP TABLE IF EXISTS embeddings");
 }
 
+/** Create the `embeddings` vec0 table for vectors of the given dimension. */
 export function createVectorIndex(db: MemoryDb, dimension: number): void {
   db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS embeddings USING vec0(
     chunk_id INTEGER PRIMARY KEY,
@@ -67,6 +74,7 @@ export function packVector(vec: ReadonlyArray<number>): Buffer {
   return Buffer.from(f32.buffer);
 }
 
+/** Insert or replace the embedding stored for a chunk. */
 export function upsertEmbedding(db: MemoryDb, chunkId: number, vec: ReadonlyArray<number>): void {
   // sqlite-vec vec0 virtual tables don't support UPSERT — emulate via
   // DELETE-then-INSERT. vec0 REJECTS JS Number for chunk_id columns; it
@@ -76,11 +84,13 @@ export function upsertEmbedding(db: MemoryDb, chunkId: number, vec: ReadonlyArra
   db.prepare("INSERT INTO embeddings (chunk_id, vec) VALUES (?, ?)").run(id, packVector(vec));
 }
 
+/** One nearest-neighbour row returned by a vector search. */
 export interface VectorHitRow {
   chunk_id: number;
   distance: number;
 }
 
+/** Run a nearest-neighbour search over the stored embeddings. */
 export function vectorSearch(
   db: MemoryDb,
   query: ReadonlyArray<number>,
@@ -98,6 +108,7 @@ export function vectorSearch(
   return rows.map((row) => ({ chunk_id: Number(row.chunk_id), distance: Number(row.distance) }));
 }
 
+/** Arguments for embedding every chunk that has no vector yet. */
 export interface EmbedAllArgs {
   db: MemoryDb;
   runtime: EmbeddingRuntime;

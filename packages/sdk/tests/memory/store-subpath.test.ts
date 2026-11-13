@@ -1,19 +1,26 @@
 import { describe, expect, it } from "vitest";
+import * as activeCache from "../../src/internal/memory/active-memory-cache.js";
 import * as diary from "../../src/internal/memory/dreaming/diary.js";
 import * as phases from "../../src/internal/memory/dreaming/phases.js";
 import * as run from "../../src/internal/memory/dreaming/run.js";
 import * as indexDb from "../../src/internal/memory/index-db.js";
 import * as helpers from "../../src/internal/memory/index-manager-helpers.js";
+import * as indexSchema from "../../src/internal/memory/index-schema.js";
 import * as lance from "../../src/internal/memory/lance-index.js";
+import * as memoryIndex from "../../src/internal/memory/memory-index.js";
 import * as migrate from "../../src/internal/memory/migrate-sqlite-to-lance.js";
+import * as sqliteVecLoader from "../../src/internal/memory/sqlite-vec-loader.js";
+import * as chunker from "../../src/internal/memory/storage/chunk-markdown.js";
 import * as ceiling from "../../src/internal/memory/storage/fact-ceiling.js";
 import * as barrel from "../../src/internal/memory/storage/index.js";
 import * as store from "../../src/internal/memory/storage/markdown-store.js";
 import * as root from "../../src/internal/memory/storage/memory-root.js";
+import * as reader from "../../src/internal/memory/storage/reader.js";
 import * as sessionLoader from "../../src/internal/memory/storage/session-loader.js";
 import * as sessionWriter from "../../src/internal/memory/storage/session-summary-writer.js";
 import * as transcripts from "../../src/internal/memory/storage/transcript-store.js";
 import * as wiki from "../../src/internal/memory/storage/wiki-loader.js";
+import * as vecIndex from "../../src/internal/memory/vec-index.js";
 
 /*
  * The shared markdown store (#430).
@@ -72,6 +79,13 @@ describe("the internal/memory-store sub-path", () => {
       ...run,
       ...lance,
       ...migrate,
+      ...activeCache,
+      ...indexSchema,
+      ...memoryIndex,
+      ...sqliteVecLoader,
+      ...chunker,
+      ...reader,
+      ...vecIndex,
     } as Record<string, unknown>;
     for (const [name, value] of Object.entries(barrel)) {
       expect(sources).toHaveProperty(name);
