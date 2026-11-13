@@ -1427,8 +1427,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | Symbol | Kind | Summary |
 |---|---|---|
 | `runBounded` | function | Runs a subprocess with a timeout, an optional abort signal and a per-stream output cap.  |
-| `RunBoundedOptions` | interface |  |
-| `RunBoundedResult` | interface |  |
+| `RunBoundedOptions` | interface | Options for {@link runBounded } : the command, where it runs, and its limits. |
+| `RunBoundedResult` | interface | The outcome of {@link runBounded } : the exit code, the captured output, and whether the run timed out or a stream was cut at the cap. |
 
 ## `@theokit/sdk/project`
 
