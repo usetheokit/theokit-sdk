@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1322 export(s) across 55 entry point(s).
+1324 export(s) across 55 entry point(s).
 
 ## `@theokit/acp`
 
@@ -231,6 +231,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ListAgentsOptions` | type | Options for `Agent.list()`.  |
 | `ListResult` | interface | Paginated list shape. |
 | `ListRunsOptions` | interface | Options for `Agent.listRuns()`.  |
+| `listWorkspacePlugins` | function | List the plugins an agent opened on `cwd` would load, without importing or running any plugin code.  |
 | `LiveAgentRegistry` | class | An LRU-plus-idle cache of live `SDKAgent` instances, reached through `Agent.registry`.  |
 | `LiveSessionError` | class | Raised by `guardSessionDestruction` instead of letting a session be destroyed.  |
 | `LiveSessionReason` | type | Why the destruction was refused. |
@@ -492,6 +493,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WithBlastRadius` | type | A tool that may carry a blast-radius declaration under {@link DECLARED } .  |
 | `withCwdMutex` | function | Run `fn` after every earlier `withCwdMutex` call for the same `key` has settled, and return what `fn` returns.  |
 | `Workflow` | class | A committed, immutable workflow: a fixed list of steps you can `run`, `stream` or `resume`.  |
+| `WorkspacePluginListing` | interface | One plugin an agent opened on this workspace would load. |
 
 ## `@theokit/sdk-budget`
 

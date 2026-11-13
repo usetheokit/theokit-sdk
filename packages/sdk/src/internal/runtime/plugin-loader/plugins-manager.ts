@@ -81,49 +81,16 @@ export class PluginsManager {
     }
   }
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: MD-first + JSON fallback + CLI location + both-present detection per plugin folder — branch table is clearer inlined.
   private async refreshRoot(pluginsRoot: string): Promise<void> {
-    const entries = await readWorkspaceDir(pluginsRoot, "plugins_read_error", "plugins directory");
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const folderName = entry.name;
-      // The Claude Code CLI keeps its manifest one level down, in `.claude-plugin/plugin.json`.
-      // Checked BEFORE the deprecation branch below: that warn is about this SDK's own superseded
-      // `plugin.json` form, and firing it at a CLI plugin would tell someone to migrate a file that
-      // is canonical where it came from.
-      const cliPath = join(pluginsRoot, folderName, ".claude-plugin", "plugin.json");
-      if (existsSync(cliPath)) {
-        const cliMetadata = await loadPluginManifestFromJson(this.cwd, cliPath, folderName);
-        if (this.enabled === undefined || this.enabled.includes(cliMetadata.name)) {
-          this.plugins.push(cliMetadata);
-          this.#origin.set(cliMetadata, { root: pluginsRoot, folder: folderName });
-        }
-        continue;
+    for await (const found of walkPluginRoot(this.cwd, pluginsRoot)) {
+      const { metadata, format, folder } = found;
+      if (this.enabled !== undefined && !this.enabled.includes(metadata.name)) continue;
+      // A Claude Code CLI manifest never had its entry checked here; keep that.
+      if (format !== "claude-plugin-json") {
+        await this.assertEntryFileExists(metadata, folder, pluginsRoot);
       }
-      // ADR D77: prefer PLUGIN.md; fall back to plugin.json with deprecation warn.
-      const mdPath = join(pluginsRoot, folderName, "PLUGIN.md");
-      const jsonPath = join(pluginsRoot, folderName, "plugin.json");
-      const metadata = existsSync(mdPath)
-        ? await loadPluginManifestFromMarkdown(this.cwd, pluginsRoot, folderName)
-        : await loadPluginManifestFromJson(this.cwd, jsonPath, folderName);
-      if (existsSync(mdPath) && existsSync(jsonPath)) {
-        warnOnce(
-          `plugin-${folderName}-both`,
-          `[theokit-sdk] both ${folderName}/PLUGIN.md and ${folderName}/plugin.json detected — using markdown; remove plugin.json`,
-        );
-      }
-      if (!existsSync(mdPath) && existsSync(jsonPath)) {
-        warnOnce(
-          "plugin-json-deprecated",
-          // Same reason as the context.json warning: the CLI it used to name is no longer published.
-          "[theokit-sdk] plugin.json manifests are deprecated; replace each with a PLUGIN.md",
-        );
-      }
-      if (this.enabled === undefined || this.enabled.includes(metadata.name)) {
-        await this.assertEntryFileExists(metadata, folderName, pluginsRoot);
-        this.plugins.push(metadata);
-        this.#origin.set(metadata, { root: pluginsRoot, folder: folderName });
-      }
+      this.plugins.push(metadata);
+      this.#origin.set(metadata, { root: pluginsRoot, folder });
     }
   }
 
@@ -198,6 +165,99 @@ export class PluginsManager {
       );
     }
   }
+}
+
+/** Which manifest file a plugin folder was resolved from. */
+export type PluginManifestFormat = "claude-plugin-json" | "plugin-md" | "plugin-json";
+
+/** One plugin folder resolved to its manifest. @internal */
+export interface ResolvedPluginFolder {
+  metadata: PluginMetadata;
+  root: string;
+  folder: string;
+  manifestPath: string;
+  format: PluginManifestFormat;
+}
+
+/**
+ * The per-folder manifest resolution shared by `PluginsManager` and `listWorkspacePlugins`:
+ * `.claude-plugin/plugin.json`, then `PLUGIN.md`, then the deprecated `plugin.json`.
+ * Reads manifests only; never imports plugin code.
+ *
+ * @internal
+ */
+export async function resolvePluginFolder(
+  cwd: string,
+  pluginsRoot: string,
+  folderName: string,
+): Promise<ResolvedPluginFolder> {
+  // The Claude Code CLI keeps its manifest one level down, in `.claude-plugin/plugin.json`.
+  // Checked BEFORE the deprecation branch below: that warn is about this SDK's own superseded
+  // `plugin.json` form, and firing it at a CLI plugin would tell someone to migrate a file that
+  // is canonical where it came from.
+  const cliPath = join(pluginsRoot, folderName, ".claude-plugin", "plugin.json");
+  if (existsSync(cliPath)) {
+    const metadata = await loadPluginManifestFromJson(cwd, cliPath, folderName);
+    return {
+      metadata,
+      root: pluginsRoot,
+      folder: folderName,
+      manifestPath: cliPath,
+      format: "claude-plugin-json",
+    };
+  }
+  // ADR D77: prefer PLUGIN.md; fall back to plugin.json with deprecation warn.
+  const mdPath = join(pluginsRoot, folderName, "PLUGIN.md");
+  const jsonPath = join(pluginsRoot, folderName, "plugin.json");
+  const hasMd = existsSync(mdPath);
+  const hasJson = existsSync(jsonPath);
+  const metadata = hasMd
+    ? await loadPluginManifestFromMarkdown(cwd, pluginsRoot, folderName)
+    : await loadPluginManifestFromJson(cwd, jsonPath, folderName);
+  if (hasMd && hasJson) {
+    warnOnce(
+      `plugin-${folderName}-both`,
+      `[theokit-sdk] both ${folderName}/PLUGIN.md and ${folderName}/plugin.json detected — using markdown; remove plugin.json`,
+    );
+  }
+  if (!hasMd && hasJson) {
+    warnOnce(
+      "plugin-json-deprecated",
+      // Same reason as the context.json warning: the CLI it used to name is no longer published.
+      "[theokit-sdk] plugin.json manifests are deprecated; replace each with a PLUGIN.md",
+    );
+  }
+  return {
+    metadata,
+    root: pluginsRoot,
+    folder: folderName,
+    manifestPath: hasMd ? mdPath : jsonPath,
+    format: hasMd ? "plugin-md" : "plugin-json",
+  };
+}
+
+/** Resolve every plugin folder directly under one plugins root, in directory order. @internal */
+export async function* walkPluginRoot(
+  cwd: string,
+  pluginsRoot: string,
+): AsyncGenerator<ResolvedPluginFolder> {
+  const entries = await readWorkspaceDir(pluginsRoot, "plugins_read_error", "plugins directory");
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    yield await resolvePluginFolder(cwd, pluginsRoot, entry.name);
+  }
+}
+
+/** Resolve every plugin folder under every root the runtime reads. No enabled filter. @internal */
+export async function resolveWorkspacePluginFolders(
+  cwd: string,
+  compatSources: readonly CompatSourceDeclaration[],
+): Promise<ResolvedPluginFolder[]> {
+  const out: ResolvedPluginFolder[] = [];
+  for (const root of pluginBundleRoots(cwd, compatSources)) {
+    for await (const found of walkPluginRoot(cwd, root)) out.push(found);
+  }
+  return out;
 }
 
 async function loadPluginManifestFromJson(
