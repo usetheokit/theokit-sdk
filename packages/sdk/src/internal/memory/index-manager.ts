@@ -61,6 +61,33 @@ import type {
   SearchOptions,
 } from "./index-manager-contract.js";
 
+/**
+ * The default memory index: SQLite for storage, FTS5 for text matching, and
+ * sqlite-vec for vectors when an embedding runtime is supplied.
+ *
+ * Open it with the static `open`, which is also the dispatch point for
+ * `backend: "lance"`. That overload returns a `LanceMemoryAdapter`, not an
+ * `IndexManager`, so hold the result as {@link MemoryIndex} unless you need this
+ * class specifically.
+ *
+ * Without an embedding runtime the index opens text-only and reports
+ * `backend: "fts-only"`; no vector table is created and search degrades to BM25
+ * rather than failing. If the embedding provider, model or dimension differs
+ * from what the database recorded, opening drops the whole vector table so the
+ * next `sync()` re-embeds from scratch.
+ *
+ * `sync()` crawls the markdown corpus under the memory root, skipping files
+ * whose content hash has not moved and re-chunking the rest. Nothing is indexed
+ * until it runs. `search()` runs both halves and blends them per chunk, so a
+ * chunk found only by vector still appears with a text score of 0 and the other
+ * way round. When the FTS statement throws, the text half falls back to a LIKE
+ * scan and, for a non-CJK query, says so on the diagnostics sink. A CJK query that
+ * FTS answers with zero rows falls back the same way, since FTS5 cannot segment CJK text.
+ *
+ * Shared with `@theokit/sdk-memory`, which re-exports this class rather than
+ * copying it (#1068): `Memory.openIndex` opens the index through that package
+ * when it is installed, so a second copy there is the copy that runs.
+ */
 export class IndexManager implements MemoryIndex {
   private lastSyncMs: number | undefined;
   private vectorReady = false;
@@ -204,6 +231,9 @@ export class IndexManager implements MemoryIndex {
       }
       return this.likeSearchFallback(query, limit);
     }
+    // A healthy FTS5 index does not throw on a CJK term: its tokenizer has no CJK word boundaries,
+    // so the query matches nothing and returns zero rows. Treat that as the case the LIKE scan is for.
+    if (rows.length === 0 && containsCjk(query)) return this.likeSearchFallback(query, limit);
     return rows.map((row) => {
       const bm25 = Number(row.bm25_score ?? 0);
       const textScore = bm25 < 0 ? 1 / (1 + Math.abs(bm25)) : 1 / (1 + bm25);

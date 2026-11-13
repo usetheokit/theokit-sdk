@@ -88,6 +88,16 @@
         "default": "./dist/models.cjs"
       }
     },
+    "./process": {
+      "import": {
+        "types": "./dist/process.d.ts",
+        "default": "./dist/process.js"
+      },
+      "require": {
+        "types": "./dist/process.d.cts",
+        "default": "./dist/process.cjs"
+      }
+    },
     "./providers": {
       "import": {
         "types": "./dist/providers.d.ts",

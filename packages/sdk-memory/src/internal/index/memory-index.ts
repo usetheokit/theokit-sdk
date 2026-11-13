@@ -56,8 +56,8 @@ export interface SyncResult {
 }
 
 // One implementation, shared with the SDK. The types stay local: the SDK's `SyncResult` and
-// `IndexStatus` carry required fields (`supported`, `countsExact`) the Lance adapter and
-// `IndexManager` here do not set yet.
+// `IndexStatus` carry required fields (`supported`, `countsExact`) these do not declare. The
+// SDK's `IndexManager` and Lance adapter, which this package re-exports (#1068), do set both.
 export { parseSearchOptions } from "@theokit/sdk/internal/memory-store";
 
 /**
@@ -79,8 +79,8 @@ export interface MemoryIndex {
 
   /**
    * Semantic + textual search over the indexed corpus. Both backends
-   * return the same `MemorySearchHit[]` shape; Lance reports `textScore` as 0
-   * on every hit, because it is vector-only and has no FTS5 layer.
+   * return the same `MemorySearchHit[]` shape. Lance has no FTS5 layer, so its
+   * `textScore` is the share of the query's terms found in the hit's text.
    */
   search(query: string, options?: SearchOptions): Promise<MemorySearchHit[]>;
 
