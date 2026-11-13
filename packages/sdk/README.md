@@ -142,6 +142,10 @@ if (r.truncated.stdout) console.error("stdout was cut at maxOutputBytes");
 
 `runBounded` spawns the child in its own process group (POSIX) and sends `SIGKILL` to the whole group on timeout or when `signal` aborts, so pipelines and background jobs die with it. Each of stdout and stderr is capped at `maxOutputBytes` (default 5 MiB) and `truncated` says which was cut. `timeoutMs <= 0` throws `ConfigurationError`. On Windows process groups do not apply: only the child itself is killed. The `shell` tool and command hooks use this runner; a truncated stream gets a trailing `[output truncated]` note.
 
+## Builtin tool names
+
+The SDK declares `shell`, `memory_search` and `memory_get` itself, and a custom tool may not claim them unless it is listed in `withheldBuiltinTools`. `BUILTIN_TOOL_NAMES` is the runtime list (the `BuiltinToolName` type is derived from it) and `isBuiltinToolName(name)` tests one name, so an app that takes tool names from configuration can refuse a collision at load time.
+
 ## `@theokit/sdk/context`
 
 `runDiscovery` finds context files (`AGENTS.md`, `CLAUDE.md`, ...) and inlines their `@path` imports.

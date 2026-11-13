@@ -53,6 +53,14 @@ export {
   UnicodeNormalizer,
   type UnicodeNormalizerOptions,
 } from "./built-in-processors.js";
+// Subscription primitives (G8 — ADRs D422-D429) live at the dedicated
+// `@theokit/sdk/subscription` sub-export to keep them off the main `index.ts`
+// DTS bundle (same isolation pattern as `path-safety` per tsup.config.ts
+// header comment — the agent.ts ↔ fork-agent.ts cycle trips rollup-plugin-dts
+// whenever a sub-entry reaches into `internal/runtime`).
+// Consumers: `import { Subscription, tracked, subscribe } from "@theokit/sdk/subscription"` (SE36 — Subscription.create).
+// Theokit namespace
+export { BUILTIN_TOOL_NAMES, isBuiltinToolName } from "./builtin-tools.js";
 // M22 — code-defined inline skills (`createSkill`) usable alongside filesystem skills.
 export { type CreateSkillSpec, type InlineSkill, Skill } from "./create-skill.js";
 export {
@@ -385,13 +393,6 @@ export {
   type StreamObjectOptions,
 } from "./stream-object.js";
 export { Task, type TaskConfigureOptions, type TaskWorkContext, type TaskWorkFn } from "./task.js";
-// Subscription primitives (G8 — ADRs D422-D429) live at the dedicated
-// `@theokit/sdk/subscription` sub-export to keep them off the main `index.ts`
-// DTS bundle (same isolation pattern as `path-safety` per tsup.config.ts
-// header comment — the agent.ts ↔ fork-agent.ts cycle trips rollup-plugin-dts
-// whenever a sub-entry reaches into `internal/runtime`).
-// Consumers: `import { Subscription, tracked, subscribe } from "@theokit/sdk/subscription"` (SE36 — Subscription.create).
-// Theokit namespace
 export { Theokit, type TheokitRequestOptions } from "./theokit.js";
 export {
   describeAction,
