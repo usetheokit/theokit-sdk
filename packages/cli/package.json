@@ -1,6 +1,6 @@
 {
   "name": "@theokit/cli",
-  "version": "4.0.2",
+  "version": "4.0.3",
   "description": "Developer CLI for @theokit/sdk — init, dev, inspect, eval. Adoption Roadmap #1.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/usetheokit/theokit-sdk#readme",

@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.0.3
+
+### Patch Changes
+
+- [#1147](https://github.com/usetheokit/theokit-sdk/pull/1147) [`9793bc8`](https://github.com/usetheokit/theokit-sdk/commit/9793bc8b28b94e25a094b28073cf0ec403bcb7be) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `theokit inspect` now lists plugins by calling the SDK's `listWorkspacePlugins`, so it shows exactly what an agent started in the same directory would load. It no longer lists `~/.theokit/plugins` (the runtime never reads it), and it recognises `.claude-plugin/plugin.json` and `plugin.json` manifests. Plugin entries no longer carry `description`, and `source` is always `project`.
+
 ## 4.0.2
 
 ### Patch Changes
