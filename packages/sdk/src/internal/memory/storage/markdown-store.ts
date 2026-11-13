@@ -1,4 +1,5 @@
-import { mkdir, readdir, readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readdir, readFile, unlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import { ConfigurationError } from "../../../errors.js";
@@ -112,19 +113,115 @@ export async function readFactsFromMarkdown(
   cwd: string,
   config?: MemoryLocationConfig,
 ): Promise<MemoryFact[]> {
-  const facts: MemoryFact[] = [];
+  return (await readFactEntries(cwd, config)).map((e) => e.fact);
+}
+
+/** One stored memory with where it came from. The reader behind both the plain read and the public list. */
+export interface FactEntry {
+  /** The per-memory file's name, or a hash of a legacy bullet's root + text. */
+  id: string;
+  root: MemoryRoot;
+  fact: MemoryFact;
+  legacy: boolean;
+  /** True only for entries under the write root. */
+  removable: boolean;
+}
+
+/** {@link readFactsFromMarkdown}'s entries, in the same order, tagged with id and root. */
+export async function readFactEntries(
+  cwd: string,
+  config?: MemoryLocationConfig,
+): Promise<FactEntry[]> {
+  const entries: FactEntry[] = [];
   // READ ALL — the configured root, the project store, and the one the Claude Code CLI keeps for
-  // this project. The format has been shared since #389; only the directory was not, so a memory
-  // the CLI recorded was invisible to an agent working in the same repository. `memoryReadRoots`
-  // owns the list and the deduplication; see `memory-root.ts` for why the write is a single root
-  // while the read is all of them.
+  // this project. See `memory-root.ts` for why the write is a single root while the read is all.
   const roots = memoryReadRoots(cwd, config);
-  for (const dir of roots) facts.push(...(await readMemoryFilesIn(dir)));
-  // Legacy `## Facts` bullets, in EVERY root rather than only the project store's index. A store
-  // that moved carries its own index, and reading one of them would have dropped the other's
-  // bullets — the same half-read this change exists to remove.
-  for (const dir of roots) facts.push(...(await readLegacyFactsSectionIn(dir)));
-  return facts;
+  const writeRoot = resolveMemoryRoot(cwd, config);
+  for (const root of roots) {
+    for (const { name, fact } of await readMemoryFilesIn(root)) {
+      entries.push({ id: name, root, fact, legacy: false, removable: root === writeRoot });
+    }
+  }
+  // Legacy `## Facts` bullets, in EVERY root rather than only the project store's index.
+  for (const root of roots) {
+    for (const fact of await readLegacyFactsSectionIn(root)) {
+      entries.push({
+        id: legacyFactId(root, fact.text),
+        root,
+        fact,
+        legacy: true,
+        removable: root === writeRoot,
+      });
+    }
+  }
+  return entries;
+}
+
+function legacyFactId(root: string, text: string): string {
+  return `legacy-${createHash("sha256").update(`${root}\0${text}`).digest("hex").slice(0, 16)}`;
+}
+
+/**
+ * Remove one memory from the write root, under the same mutex as {@link appendFactToMarkdown}.
+ * Resolves `false` when no entry has `id`; rejects with `notRemovable` when the entry is read from
+ * another root. A per-memory entry loses its file and its index line; a legacy entry loses exactly
+ * one bullet inside the `## Facts` section.
+ */
+export async function removeFactFromMarkdown(
+  cwd: string,
+  id: string,
+  config: MemoryLocationConfig | undefined,
+  notRemovable: (id: string, root: string) => Error,
+): Promise<boolean> {
+  const writeRoot = resolveMemoryRoot(cwd, config);
+  return withCwdMutex(writeRoot, async () => {
+    const entries = await readFactEntries(cwd, config);
+    const match = entries.find((e) => e.id === id && e.removable);
+    if (match === undefined) {
+      const other = entries.find((e) => e.id === id);
+      if (other !== undefined) throw notRemovable(id, other.root);
+      return false;
+    }
+    if (match.legacy) return removeLegacyBullet(match.root, id);
+    await removeMemoryFileAndIndexLine(match.root, id);
+    return true;
+  });
+}
+
+async function removeMemoryFileAndIndexLine(root: string, id: string): Promise<void> {
+  try {
+    await unlink(join(root, id));
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code !== "ENOENT") throw cause;
+  }
+  const indexPath = join(root, "MEMORY.md");
+  const index = await unlessMissing(readFile(indexPath, "utf8"));
+  if (index === undefined) return;
+  const kept = index
+    .split("\n")
+    .filter((line) => !line.startsWith("- [") || !line.includes(`](${id})`));
+  await replaceFileAtomic(indexPath, kept.join("\n"));
+}
+
+/** Remove the one bullet whose id is `id`, looking only inside the `## Facts` block. */
+async function removeLegacyBullet(root: string, id: string): Promise<boolean> {
+  const indexPath = join(root, "MEMORY.md");
+  const raw = await unlessMissing(readFile(indexPath, "utf8"));
+  const start = raw === undefined ? -1 : raw.indexOf(FACTS_HEADING);
+  if (raw === undefined || start === -1) return false;
+  const from = start + FACTS_HEADING.length;
+  const tail = raw.slice(from);
+  const next = tail.search(/\n#{1,2}\s/);
+  const blockEnd = next === -1 ? tail.length : next;
+  const lines = tail.slice(0, blockEnd).split("\n");
+  const at = lines.findIndex((line) => {
+    const body = line.trim().startsWith("- ") ? line.trim().slice(2).trim() : undefined;
+    return body !== undefined && !INDEX_ENTRY.test(body) && legacyFactId(root, body) === id;
+  });
+  if (at === -1) return false;
+  lines.splice(at, 1);
+  await replaceFileAtomic(indexPath, raw.slice(0, from) + lines.join("\n") + tail.slice(blockEnd));
+  return true;
 }
 
 /**
@@ -138,20 +235,20 @@ export async function readFactsFromMarkdown(
  * Undated entries keep their filename order and come first. They carry no time signal, and
  * inventing one for them is the inference this codebase refuses one field over.
  */
-async function readMemoryFilesIn(dir: string): Promise<MemoryFact[]> {
+async function readMemoryFilesIn(dir: string): Promise<{ name: string; fact: MemoryFact }[]> {
   let entries: string[];
   try {
     entries = await readdir(dir);
   } catch {
     return [];
   }
-  const facts: MemoryFact[] = [];
+  const facts: { name: string; fact: MemoryFact }[] = [];
   for (const entry of entries.sort(byNaturalName)) {
     const fact = await readMemoryFileIn(dir, entry);
-    if (fact !== undefined) facts.push(fact);
+    if (fact !== undefined) facts.push({ name: entry, fact });
   }
   // Stable: equal timestamps keep the natural-name order the read used.
-  facts.sort((a, b) => (a.modified ?? "").localeCompare(b.modified ?? ""));
+  facts.sort((a, b) => (a.fact.modified ?? "").localeCompare(b.fact.modified ?? ""));
   return facts;
 }
 

@@ -96,6 +96,20 @@ const bob = await Agent.create({ memory: { enabled: true, userId: "bob" } });
 
 `userId` must match `[a-z0-9][a-z0-9-_]*`; other values (such as `../x`) are rejected.
 
+### List and remove stored facts
+
+```ts
+import { listMemoryFacts, removeMemoryFact } from "@theokit/sdk";
+
+const facts = await listMemoryFacts(process.cwd()); // { id, text, modified?, root, removable }
+const first = facts.find((f) => f.removable);
+if (first) await removeMemoryFact(process.cwd(), first.id); // true, or false for an unknown id
+```
+
+Entries outside the write root (such as the Claude Code CLI's store) are listed with
+`removable: false`; removing one rejects with `MemoryFactNotRemovableError`. Removal does not
+update the memory search index.
+
 ## Plugins
 
 `listWorkspacePlugins(cwd, { compatSources })` lists the plugins an agent opened on `cwd` would load

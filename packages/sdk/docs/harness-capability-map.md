@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1384 export(s) across 56 entry point(s).
+1392 export(s) across 56 entry point(s).
 
 ## `@theokit/acp`
 
@@ -229,6 +229,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `LayerOrderError` | class | Raised when a declared layer chain is not strictly ascending. |
 | `LayerValues` | interface | A declared layer together with the values it supplies.  |
 | `ListAgentsOptions` | type | Options for `Agent.list()`.  |
+| `listMemoryFacts` | function | Every fact in the built-in memory store: per-memory files and legacy `## Facts` bullets, from the write root, the project store and the Claude Code CLI's store.  |
 | `ListResult` | interface | Paginated list shape. |
 | `ListRunsOptions` | interface | Options for `Agent.listRuns()`.  |
 | `listWorkspacePlugins` | function | List the plugins an agent opened on `cwd` would load, without importing or running any plugin code.  |
@@ -252,6 +253,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryAdapterErrorCode` | type | Finite error codes specific to memory adapter operations (ADR D141). |
 | `MemoryContext` | interface | Portable identity context.  |
 | `MemoryFact` | interface | A single memory fact returned by `recall` or `get`. |
+| `MemoryFactNotRemovableError` | class | Thrown by `removeMemoryFact` when the entry lives outside the write root (for example the Claude Code CLI's store).  |
 | `MemoryId` | type | Branded provider memory ID.  |
 | `MemoryProvider` | interface | The kernel-facing contract.  |
 | `MemoryProviderAgentRef` | interface | The agent identity a `MemoryProvider` is given — the whole of it.  |
@@ -329,6 +331,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ReapPlanInput` | interface | Everything `planReaping` needs: the candidates, the policy, and the current time.  |
 | `RecordSessionSummaryArgs` | interface | Arguments for `MemoryProvider.recordSessionSummary(...)` (SDK 2.0 Phase 1 physical Stage 3 prep — iter 27).  |
 | `recordWiring` | function | Record what a build actually wired, per capability.  |
+| `removeMemoryFact` | function | Remove one fact by `id`.  |
 | `ResolvedProviderRoute` | interface | Resolved routing decision returned by `agent.providers.routes()`.  |
 | `resolveTrustPosture` | function | Decide what a project directory is allowed to switch on.  |
 | `RetentionPolicy` | interface | How long artifacts are kept and how many always survive.  |
@@ -415,6 +418,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SquadRun` | interface | Result of a {@link Squad.run } .  |
 | `StepCompletedUpdate` | interface | Conversation step completed. |
 | `StepStartedUpdate` | interface | Conversation step started. |
+| `StoredMemoryFact` | interface | One fact in the built-in memory store, as {@link listMemoryFacts } reports it. |
 | `StreamObjectError` | class | Error thrown by {@link Agent.streamObject } when the model refuses to call the synthetic `output` tool or when all retries fail to produce a schema-valid object.  |
 | `StreamObjectEvent` | type | Event emitted by {@link Agent.streamObject } .  |
 | `StreamObjectOptions` | interface | Options accepted by {@link Agent.streamObject } .  |
@@ -1075,6 +1079,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `KnownAgentRunErrorCode` | type | T1.1 — closed literal union for `AgentRunError.code`.  |
 | `MemoryAdapterError` | class | Error raised by `@theokit-memory-*` adapters.  |
 | `MemoryAdapterErrorCode` | type | Finite error codes specific to memory adapter operations (ADR D141). |
+| `MemoryFactNotRemovableError` | class | Thrown by `removeMemoryFact` when the entry lives outside the write root (for example the Claude Code CLI's store).  |
 | `NetworkError` | class | Service unavailable, timeout, transport-level failure. |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
 | `StructuredOutputError` | class | The failure contract shared by `generateObject` and `streamObject`.  |
@@ -1196,6 +1201,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `EmbeddingIdentity` | interface | Identity of the embedding provider, model and dimension that produced the stored vectors. |
 | `embedMissingChunks` | function | Embed every chunk that doesn't yet have a vector. |
 | `entryHash` | function | A stable hash of one entry's counts, so two sweeps that did the same work read as the same work.  |
+| `FactEntry` | interface | One stored memory with where it came from.  |
 | `identityMatches` | function | Whether two embedding identities describe the same vector space. |
 | `indexBudgetWarning` | function | What to say about an index that the interop partner will truncate, or `undefined` when there is nothing true to say.  |
 | `IndexManager` | class | The default memory index: SQLite for storage, FTS5 for text matching, and sqlite-vec for vectors when an embedding runtime is supplied.  |
@@ -1241,10 +1247,12 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `projectMemoryDir` | function | The project store: `<cwd>/.theokit/memory`.  |
 | `readAllSqliteFacts` | function | Read all facts from the SQLite memory index.  |
 | `readEmbeddingIdentity` | function | Read the stored embedding identity, or undefined when none is recorded. |
+| `readFactEntries` | function | {@link readFactsFromMarkdown } 's entries, in the same order, tagged with id and root. |
 | `readFacts` | function | Every memory in the store, honouring the `enabled` gate on {@link MemoryConfig } : when memory is disabled the call resolves to `[]` without touching disk.  |
 | `readFactsFromMarkdown` | function | Every memory in the store: the per-memory files, plus any legacy `## Facts` bullets still in `MEMORY.md`.  |
 | `ReadFileOptions` | interface | Options for a bounded read of a memory file. |
 | `readMemoryFileBounded` | function | Read a memory file, limited to a bounded range of lines. |
+| `removeFactFromMarkdown` | function | Remove one memory from the write root, under the same mutex as {@link appendFactToMarkdown } .  |
 | `remPhase` | function | REM phase — single-link agglomerative clustering by cosine similarity. |
 | `renderDiaryEntry` | function | One diary entry as the markdown that gets appended: a timestamp heading, the short entry hash, and the counts the sweep produced.  |
 | `resetMigrationStateForTests` | function | Test-only — reset the in-process migration flag map. |

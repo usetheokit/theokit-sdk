@@ -493,6 +493,27 @@ export class MemoryAdapterError extends TheokitAgentError {
 }
 
 /**
+ * Thrown by `removeMemoryFact` when the entry lives outside the write root (for example the Claude
+ * Code CLI's store). The SDK does not delete another tool's memory.
+ *
+ * @public
+ */
+export class MemoryFactNotRemovableError extends TheokitAgentError {
+  override readonly name: string = "MemoryFactNotRemovableError";
+  readonly factId: string;
+  readonly root: string;
+
+  constructor(factId: string, root: string) {
+    super(
+      `Memory fact "${factId}" is read from ${root}, outside the write root, and is not removable.`,
+      { code: "memory_fact_not_removable", isRetryable: false },
+    );
+    this.factId = factId;
+    this.root = root;
+  }
+}
+
+/**
  * Thrown by `Budget` enforcement (ADR D386) when a `mode: "block"`
  * budget would be exceeded by the upcoming LLM call. The caller catches a
  * typed error to retry after the window resets, or surfaces it to the user.

@@ -125,10 +125,13 @@ export { ceilingReachedError, resolveMaxFacts } from "./fact-ceiling.js";
 export {
   appendFact,
   appendFactToMarkdown,
+  type FactEntry,
   memoryMdPath,
   notesDir,
+  readFactEntries,
   readFacts,
   readFactsFromMarkdown,
+  removeFactFromMarkdown,
 } from "./markdown-store.js";
 // Root resolution moved out of the store and into one module (#463). `memoryDir` and
 // `memoryWriteDir` are gone: the first was one of fourteen places that answered "where does memory
