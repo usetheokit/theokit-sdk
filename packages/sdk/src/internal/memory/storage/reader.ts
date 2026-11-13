@@ -17,6 +17,7 @@ import type { MemoryReadResult } from "../types.js";
 
 export const DEFAULT_MEMORY_READ_LINES = 200;
 
+/** Options for a bounded read of a memory file. */
 export interface ReadFileOptions {
   cwd: string;
   relPath: string;
@@ -24,6 +25,7 @@ export interface ReadFileOptions {
   lines?: number;
 }
 
+/** Read a memory file, limited to a bounded range of lines. */
 export async function readMemoryFileBounded(opts: ReadFileOptions): Promise<MemoryReadResult> {
   const absolutePath = resolvePath(opts.cwd, opts.relPath);
   const raw = await readFile(absolutePath, "utf8");

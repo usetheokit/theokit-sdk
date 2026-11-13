@@ -27,6 +27,7 @@ interface CacheEntry {
 const DEFAULT_TTL_MS = 15_000;
 const DEFAULT_CAPACITY = 1000;
 
+/** TTL cache of active-memory results, bounded in size with oldest-first eviction. */
 export class ActiveMemoryCache {
   private readonly map = new Map<string, CacheEntry>();
 

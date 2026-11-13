@@ -35,6 +35,7 @@ interface ChunkAccumulator {
   heading: string | undefined;
 }
 
+/** Split a markdown document into heading- and paragraph-aligned chunks. */
 export function chunkMarkdown(text: string, options: ChunkMarkdownOptions = {}): MemoryChunk[] {
   const maxChars = options.maxChars ?? 800;
   if (text.length === 0) return [];

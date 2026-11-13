@@ -13,8 +13,10 @@ import type { MemorySearchHit } from "./index-manager-contract.js";
 
 export type ActiveMemoryQueryMode = "message" | "recent" | "full";
 
+/** Outcome status of an active-memory recall. */
 export type ActiveMemoryStatus = "ok" | "timeout" | "skipped" | "no-recall" | "error";
 
+/** Result of an active-memory recall. */
 export interface ActiveMemoryResult {
   summary: string | undefined;
   durationMs: number;

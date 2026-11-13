@@ -20,6 +20,7 @@ import type { IndexStatus, MemorySearchHit, SearchOptions } from "./index-manage
 // Re-export consumer-facing shapes for stable internal import paths.
 export type { IndexStatus, MemorySearchHit, SearchOptions };
 
+/** Outcome of one index sync pass. */
 export interface SyncResult {
   filesScanned: number;
   filesUpdated: number;
@@ -58,6 +59,7 @@ export function parseSearchOptions(options: SearchOptions = {}): {
   };
 }
 
+/** Contract every memory index backend implements. */
 export interface MemoryIndex {
   /**
    * Walk the memory corpus + reindex changed files. Lance backend has no
