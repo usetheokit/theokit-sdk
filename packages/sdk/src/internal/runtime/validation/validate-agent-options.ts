@@ -127,9 +127,6 @@ function validateMcpServers(options: AgentOptions): void {
     }
     rejectUnhonourableAuth(name, config, options.cloud !== undefined);
     validateToolFilter(name, config);
-    if (options.cloud !== undefined && (config as { tools?: unknown }).tools !== undefined) {
-      throw invalidToolFilter(name, "tools is not supported for cloud agents yet");
-    }
   }
 }
 
@@ -149,7 +146,10 @@ function validateToolFilter(name: string, config: McpServerConfig): void {
   for (const key of ["include", "exclude"] as const) {
     const list = (tools as Record<string, unknown>)[key];
     if (list === undefined) continue;
-    if (!Array.isArray(list) || list.some((n) => typeof n !== "string" || n === "")) {
+    if (
+      !Array.isArray(list) ||
+      Array.from(list, (n: unknown) => n).some((n) => typeof n !== "string" || n === "")
+    ) {
       throw invalidToolFilter(name, `tools.${key} must be an array of non-empty strings`);
     }
   }

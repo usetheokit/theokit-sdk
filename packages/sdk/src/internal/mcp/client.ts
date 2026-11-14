@@ -126,7 +126,7 @@ function isToolAllowed(filter: McpToolFilter, name: string): boolean {
 /** One warning per `include` name the server does not list, so a typo is visible. */
 function warnUnlistedIncludes(server: string, filter: McpToolFilter, listed: McpTool[]): void {
   const names = new Set(listed.map((tool) => tool.name));
-  for (const wanted of filter.include ?? []) {
+  for (const wanted of new Set(filter.include ?? [])) {
     if (names.has(wanted)) continue;
     diag(
       `[theokit-sdk] mcp tools.include names "${wanted}", which server "${server}" does not list\n`,

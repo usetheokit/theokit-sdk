@@ -10,7 +10,7 @@ import { join } from "node:path";
 
 import { Agent, ConfigurationError } from "@theokit/sdk";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
+import { serializeCloudAgentConfig } from "../../src/internal/cloud-agent/cloud-config-serializer.js";
 import { setDiagnosticsSink } from "../../src/internal/diagnostics.js";
 import { createMcpClient, type McpClient } from "../../src/internal/mcp/client.js";
 import type { McpServerConfig } from "../../src/types/mcp.js";
@@ -102,7 +102,7 @@ describe("mcp tool filter", () => {
   it("an include name the server does not list warns once, naming it", async () => {
     const messages: string[] = [];
     setDiagnosticsSink((m) => messages.push(m));
-    await names(await connect({ include: ["a", "tpyo"] }));
+    await names(await connect({ include: ["a", "tpyo", "tpyo"] }));
     const warnings = messages.filter((m) => m.includes("tpyo"));
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain("fixture");
@@ -124,6 +124,7 @@ describe("mcp tool filter validation", () => {
     [{ include: "a" }],
     [{ include: [1] }],
     ["x"],
+    [{ exclude: new Array(1) }],
   ])("rejects %j with invalid_mcp_tool_filter naming the server", async (tools) => {
     const err = await create(tools).then(
       () => undefined,
@@ -132,21 +133,6 @@ describe("mcp tool filter validation", () => {
     expect(err).toBeInstanceOf(ConfigurationError);
     expect((err as ConfigurationError).code).toBe("invalid_mcp_tool_filter");
     expect((err as ConfigurationError).message).toContain('"pw"');
-  });
-});
-
-describe("mcp tool filter with cloud", () => {
-  it("is rejected for cloud agents, which cannot enforce it", async () => {
-    const err = await Agent.create({
-      apiKey: "theo_test_1035",
-      model: { id: "composer-2" },
-      cloud: { repos: [{ url: "https://github.com/o/r" }] },
-      mcpServers: { pw: { type: "http", url: "http://x", tools: { exclude: ["a"] } } },
-    }).then(
-      () => undefined,
-      (e: unknown) => e,
-    );
-    expect((err as ConfigurationError).code).toBe("invalid_mcp_tool_filter");
   });
 });
 
@@ -182,5 +168,19 @@ describe("mcp tool filter over http", () => {
     } finally {
       server.close();
     }
+  });
+});
+
+describe("mcp tool filter in the cloud payload", () => {
+  it("is carried for http and stdio servers", () => {
+    const tools = { exclude: ["danger"] };
+    const payload = serializeCloudAgentConfig({
+      apiKey: "k",
+      model: { id: "composer-2" },
+      cloud: { repos: [{ url: "https://github.com/o/r" }] },
+      mcpServers: { h: { type: "http", url: "http://x", tools }, s: { command: "npx", tools } },
+    });
+    expect(payload.mcpServers?.h).toMatchObject({ tools });
+    expect(payload.mcpServers?.s).toMatchObject({ tools });
   });
 });
