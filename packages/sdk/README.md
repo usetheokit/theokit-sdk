@@ -96,6 +96,18 @@ const bob = await Agent.create({ memory: { enabled: true, userId: "bob" } });
 
 `userId` must match `[a-z0-9][a-z0-9-_]*`; other values (such as `../x`) are rejected.
 
+### List and remove memory facts
+
+```ts
+import { listMemoryFacts, removeMemoryFact } from "@theokit/sdk";
+
+const facts = await listMemoryFacts(process.cwd());
+// [{ id, text, modified?, root, removable }, ...]
+const removed = await removeMemoryFact(process.cwd(), facts[0].id); // true, or false for an unknown id
+```
+
+`listMemoryFacts` covers per-memory files and legacy `## Facts` bullets, in the order the agent reads them. `removeMemoryFact` deletes the file and its `MEMORY.md` index line (or one legacy bullet), serialized with the SDK's writes. Entries from another tool's store (for example the Claude Code CLI's) have `removable: false`, and removing one rejects with `MemoryFactNotRemovableError`. Removal also drops the entry's rows from the sqlite memory search index, so recall does not return it; the Lance backend keeps it until rebuilt. Two identical legacy bullets in one root share an id, and removal takes the first.
+
 ## Plugins
 
 `listWorkspacePlugins(cwd, { compatSources })` lists the plugins an agent opened on `cwd` would load
