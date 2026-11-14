@@ -33,6 +33,7 @@ export {
   type DiscoveredFile,
   defaultIndexPath,
   type FactEntryInfo,
+  factsBlockRange,
   indexBudgetWarning,
   lanceStoragePath,
   listFactEntries,
@@ -48,10 +49,13 @@ export {
   readAllSqliteFacts,
   readFacts,
   readFactsFromMarkdown,
+  readLegacyEntriesIn,
+  readMemoryEntriesIn,
   removeFactEntry,
   resolveMaxFacts,
   resolveMemoryRoot,
   type SqliteFactRow,
+  unlessMissing,
 } from "@theokit/sdk/internal/memory-store";
 
 /** One note discovered under `notes/`: its file name without the `.md` suffix, and its absolute path. */
