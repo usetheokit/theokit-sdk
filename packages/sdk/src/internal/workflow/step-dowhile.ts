@@ -22,9 +22,9 @@ export async function runDowhileStep(
   while (true) {
     if (i >= maxIter) {
       const err = errToShape(new WorkflowMaxIterationsExceededError(step.id, maxIter));
-      return stopped(step.id, "failed", i, startedAt, err);
+      return stopped(step.id, "failed", i, { startedAt }, err);
     }
-    const it = await iterate(step, acc, i + 1, exec, startedAt);
+    const it = await iterate({ step, acc, n: i + 1, exec, startedAt });
     if ("stop" in it) return it.stop;
     acc = it.acc;
     i += 1;
@@ -41,20 +41,21 @@ export async function runDowhileStep(
 }
 
 /** One iteration: the inner step, then `condFn`. Returns a terminal result or the next accumulator. */
-async function iterate(
-  step: DowhileStep,
-  acc: unknown,
-  n: number,
-  exec: StepExecution,
-  startedAt: number,
-): Promise<{ stop: StepResult } | { acc: unknown; more: boolean }> {
+async function iterate(it: {
+  step: DowhileStep;
+  acc: unknown;
+  n: number;
+  exec: StepExecution;
+  startedAt: number;
+}): Promise<{ stop: StepResult } | { acc: unknown; more: boolean }> {
+  const { step, acc, n, exec, startedAt } = it;
   const r = await exec.dispatch(step.step, acc, exec);
   if (r.status === "cancelled" || r.status === "failed") {
-    return { stop: stopped(step.id, r.status, n, startedAt, r.error) };
+    return { stop: stopped(step.id, r.status, n, { startedAt }, r.error) };
   }
   const cont = await evalCond(step, r.output, n);
   if (cont instanceof Error) {
-    return { stop: stopped(step.id, "failed", n, startedAt, errToShape(cont)) };
+    return { stop: stopped(step.id, "failed", n, { startedAt }, errToShape(cont)) };
   }
   return { acc: r.output, more: cont };
 }
@@ -64,7 +65,7 @@ function stopped(
   id: string,
   status: "cancelled" | "failed",
   attempts: number,
-  startedAt: number,
+  timing: { startedAt: number },
   error: StepResult["error"],
 ): StepResult {
   return {
@@ -72,7 +73,7 @@ function stopped(
     kind: "dowhile",
     status,
     attempts,
-    durationMs: Date.now() - startedAt,
+    durationMs: Date.now() - timing.startedAt,
     error,
   };
 }
