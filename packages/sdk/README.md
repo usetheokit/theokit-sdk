@@ -171,6 +171,23 @@ if (r.truncated.stdout) console.error("stdout was cut at maxOutputBytes");
 - **`wrapImport(name, content)`.** Wraps each inlined `@import` at every depth, e.g. `(n, c) => \`--- import: ${n} ---\n${c}\n--- end import ---\``. Refusal and not-found placeholders are never wrapped. Default: content unchanged.
 - **Already loaded.** A file discovery emits is not inlined again by an import; the import line becomes `[@import already loaded: <path>]`.
 
+## Persistence: one process per state directory
+
+`acquireInstanceLock(dir)` from `@theokit/sdk/persistence` takes `<dir>.instance.lock` (or `options.path`) for the life of the process. A second process on the same directory gets an `InstanceLockedError` naming the lock path and the holder pid. A lock left by a crashed process is taken over, and only one of several racing processes wins. Call `release()` on shutdown; it removes the lock only if this process still owns it.
+
+```ts
+import { acquireInstanceLock } from "@theokit/sdk/persistence";
+
+const lock = await acquireInstanceLock(stateDir);
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    void lock.release().finally(() => process.exit(0)); // exit listeners cannot await, so release first
+  });
+}
+```
+
+Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must share one pid namespace (same host or container). The filesystem must support hard links.
+
 ## Status
 
 The full contract is defined by the exported TypeScript types; see [`CHANGELOG.md`](./CHANGELOG.md) for the release history.

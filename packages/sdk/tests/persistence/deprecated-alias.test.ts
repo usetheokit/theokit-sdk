@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import * as alias from "../src/internal/persistence/index.js";
+import * as alias from "../../src/internal/persistence/index.js";
 
 /**
  * SE43 DoD#2 / EC-1 — the deprecated `@theokit/sdk/internal/persistence` alias MUST

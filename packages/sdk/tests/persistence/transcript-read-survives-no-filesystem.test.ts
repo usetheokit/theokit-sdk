@@ -58,8 +58,8 @@ vi.mock("node:fs/promises", async (importOriginal) => {
   };
 });
 
-import { readTranscript } from "../src/internal/persistence/session-transcript.js";
-import { removeTempDirRobustSync } from "./helpers/temp-workspace.js";
+import { readTranscript } from "../../src/internal/persistence/session-transcript.js";
+import { removeTempDirRobustSync } from "../helpers/temp-workspace.js";
 
 /** What a runtime with no filesystem throws: a plain Error, no `code`. */
 function noFilesystemError(): Error {
