@@ -38,6 +38,8 @@ describe("listMemoryFacts / removeMemoryFact", () => {
     const facts = await listMemoryFacts(cwd);
     const raw = await readFactsFromMarkdown(cwd);
     expect(facts.map((f) => f.text)).toEqual(raw.map((f) => f.text));
+    expect(facts.map((f) => f.modified)).toEqual(raw.map((f) => f.modified));
+    expect(new Set(facts.map((f) => f.id)).size).toBe(4);
     expect(facts).toHaveLength(4);
     expect(facts.every((f) => f.removable)).toBe(true);
   });
@@ -82,5 +84,35 @@ describe("listMemoryFacts / removeMemoryFact", () => {
     expect((err as MemoryFactNotRemovableError).factId).toBe("cli-note.md");
     expect((err as MemoryFactNotRemovableError).root).toBe(dir);
     expect(existsSync(join(dir, "cli-note.md"))).toBe(true);
+  });
+
+  it("identical legacy bullets share an id; removal takes one", async () => {
+    writeFileSync(md(), `${readFileSync(md(), "utf8")}- legacy one\n`);
+    const dup = (await listMemoryFacts(cwd)).filter((f) => f.text === "legacy one");
+    expect(dup).toHaveLength(2);
+    expect(dup[0]?.id).toBe(dup[1]?.id);
+    expect(await removeMemoryFact(cwd, dup[0]?.id as string)).toBe(true);
+    expect((await listMemoryFacts(cwd)).filter((f) => f.text === "legacy one")).toHaveLength(1);
+  });
+
+  it("drops the removed entry's chunks from the sqlite index", async () => {
+    const { IndexManager } = await import("../../src/internal/memory/index-manager.js");
+    const index = await IndexManager.open({ cwd });
+    await index.sync();
+    expect((await index.search("alpha")).length).toBeGreaterThan(0);
+    index.close();
+    const target = (await listMemoryFacts(cwd)).find(
+      (f) => f.text === "alpha fact" && !f.id.startsWith("legacy-"),
+    );
+    await removeMemoryFact(cwd, target?.id as string);
+    const again = await IndexManager.open({ cwd });
+    onTestFinished(() => again.close());
+    expect((await again.search("beta")).length).toBeGreaterThan(0);
+    const hits = await again.search("alpha");
+    expect(hits.some((h) => h.snippet?.includes(`](${target?.id})`) === true)).toBe(false);
+    await again.sync();
+    expect(
+      (await again.search("alpha")).every((h) => !h.path?.endsWith(target?.id as string)),
+    ).toBe(true);
   });
 });

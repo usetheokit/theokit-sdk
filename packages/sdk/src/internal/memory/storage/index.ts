@@ -119,20 +119,22 @@ export {
   writeEmbeddingIdentity,
 } from "../vec-index.js";
 export { type ChunkMarkdownOptions, chunkMarkdown } from "./chunk-markdown.js";
-// The declared fact ceiling (B-380): one validator and one refusal for both write families, so
-// the markdown store and the satellite's in-memory provider refuse with the same words.
 export { ceilingReachedError, resolveMaxFacts } from "./fact-ceiling.js";
 export {
   appendFact,
   appendFactToMarkdown,
-  type FactEntryInfo,
-  listFactEntries,
+  factsBlockRange,
   memoryMdPath,
   notesDir,
   readFacts,
   readFactsFromMarkdown,
-  removeFactEntry,
+  readLegacyEntriesIn,
+  readMemoryEntriesIn,
+  unlessMissing,
 } from "./markdown-store.js";
+// The declared fact ceiling (B-380): one validator and one refusal for both write families, so
+// the markdown store and the satellite's in-memory provider refuse with the same words.
+export { type FactEntryInfo, listFactEntries, removeFactEntry } from "./memory-fact-entries.js";
 // Root resolution moved out of the store and into one module (#463). `memoryDir` and
 // `memoryWriteDir` are gone: the first was one of fourteen places that answered "where does memory
 // live?", and the second was the only one that answered differently.

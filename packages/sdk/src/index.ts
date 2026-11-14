@@ -338,7 +338,9 @@ export {
 // Read-only listing of the plugins an agent would load
 export { listWorkspacePlugins, type WorkspacePluginListing } from "./plugins-listing.js";
 export {
+  type LoadProjectEnvOptions,
   loadProjectEnv,
+  type ProjectEnvReport,
   SOVEREIGN_ENV_KEYS,
   type SovereignEnvKey,
 } from "./project-env.js";

@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1396 export(s) across 56 entry point(s).
+1405 export(s) across 56 entry point(s).
 
 ## `@theokit/acp`
 
@@ -237,7 +237,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `LiveSessionError` | class | Raised by `guardSessionDestruction` instead of letting a session be destroyed.  |
 | `LiveSessionReason` | type | Why the destruction was refused. |
 | `LlmCallContext` | interface | #65 — context for the `pre_llm_call` / `post_llm_call` hooks. |
-| `loadProjectEnv` | function | Read the project's `.env` into `env`, then restore every {@link SOVEREIGN_ENV_KEYS } entry to the value it had BEFORE the load — including restoring it to absent.  |
+| `loadProjectEnv` | function | Read the project's `.env` into `env`, then restore every {@link SOVEREIGN_ENV_KEYS } entry (and any `extraSovereignKeys`) to the value it had BEFORE the load — including restoring it to absent.  |
+| `LoadProjectEnvOptions` | interface | Options for {@link loadProjectEnv } . |
 | `LocalOptions` | interface | Local agent configuration.  |
 | `ManagedSettings` | interface | What an operator may impose.  |
 | `managedSettingsPathFor` | function | Where the platform keeps its managed settings.  |
@@ -313,6 +314,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ProcessorControls` | interface | Controls available to a processor while it runs: `abort()` stops the run with a tripwire; `warn()` reports a non-blocking violation and continues. |
 | `ProcessorTripwire` | interface | The tripwire detail attached to {@link RunResult.tripwire } when a processor aborts, and carried by the `tripwire` run-event. |
 | `ProcessorViolation` | interface | A policy violation surfaced to a processor's {@link Processor.onViolation } callback — on `abort()` (blocking) AND on `warn()` (non-blocking). |
+| `ProjectEnvReport` | interface | What {@link loadProjectEnv } changed. |
 | `Provider` | class | SE36 — uniform namespace API.  |
 | `ProviderCapability` | type | Owner: `src/` (4 of 9 importers).  |
 | `ProviderProfile` | interface | A data-only declaration of an LLM provider: its name, HTTP dialect, auth style, base URL and fallback models.  |
@@ -1206,6 +1208,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `embedMissingChunks` | function | Embed every chunk that doesn't yet have a vector. |
 | `entryHash` | function | A stable hash of one entry's counts, so two sweeps that did the same work read as the same work.  |
 | `FactEntryInfo` | interface | What {@link listFactEntries } reports for one stored memory. |
+| `factsBlockRange` | function | Offsets of the text between the `## Facts` heading and the next h1/h2 heading (or the end). |
 | `identityMatches` | function | Whether two embedding identities describe the same vector space. |
 | `indexBudgetWarning` | function | What to say about an index that the interop partner will truncate, or `undefined` when there is nothing true to say.  |
 | `IndexManager` | class | The default memory index: SQLite for storage, FTS5 for text matching, and sqlite-vec for vectors when an embedding runtime is supplied.  |
@@ -1255,6 +1258,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `readFacts` | function | Every memory in the store, honouring the `enabled` gate on {@link MemoryConfig } : when memory is disabled the call resolves to `[]` without touching disk.  |
 | `readFactsFromMarkdown` | function | Every memory in the store: the per-memory files, plus any legacy `## Facts` bullets still in `MEMORY.md`.  |
 | `ReadFileOptions` | interface | Options for a bounded read of a memory file. |
+| `readLegacyEntriesIn` | function |  |
+| `readMemoryEntriesIn` | function |  |
 | `readMemoryFileBounded` | function | Read a memory file, limited to a bounded range of lines. |
 | `removeFactEntry` | function | Remove one stored memory from the write root: the per-memory file and its `MEMORY.md` index line, or one legacy bullet inside `## Facts`.  |
 | `remPhase` | function | REM phase — single-link agglomerative clustering by cosine similarity. |
@@ -1272,6 +1277,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SqliteFactRow` | interface | One row of the SQLite memory index, as the Lance migration reads it: the chunk plus the tenant columns the target table needs.  |
 | `SyncResult` | interface | Outcome of one index sync pass. |
 | `TenantContext` | interface | T4.9 — Tenant isolation context for cache key derivation.  |
+| `unlessMissing` | function | The read's value, or `undefined` when there is nothing there to read: the path does not exist, or it is a directory (a `*.md` directory is not a fact either).  |
 | `upsertEmbedding` | function | Insert or replace the embedding stored for a chunk. |
 | `VALID_BACKENDS` | const | Valid backend identifiers — runtime guard against TS-narrowing escapes (EC-1). |
 | `VectorHitRow` | interface | One nearest-neighbour row returned by a vector search. |
@@ -1580,9 +1586,12 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `buildSkillsBlock` | function | Render the `<skills>` system-prompt block from a skill list.  |
 | `discoverSkills` | function | Discover `SKILL.md` skills under an arbitrary directory.  |
 | `DiscoverSkillsOptions` | interface | Options for {@link discoverSkills } . |
+| `explainSkills` | function | Report which skills an agent created with these options loads, from which root, and which were skipped.  |
+| `ExplainSkillsInput` | interface | Input to {@link explainSkills } . |
 | `InvalidSkillInfo` | interface | Information passed to `onInvalidSkill` when a `SKILL.md` is present but its frontmatter is malformed (missing required field or invalid YAML). |
 | `loadSkillInstructions` | function | Read the BODY of a discovered skill — everything after its frontmatter.  |
 | `Skill` | interface | A discovered skill's metadata.  |
+| `SkillsExplanation` | interface | What {@link explainSkills } reports. |
 
 ## `@theokit/sdk/subagents`
 

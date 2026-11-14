@@ -1,5 +1,4 @@
 import { MemoryFactNotRemovableError } from "./errors.js";
-import { listFactEntries, removeFactEntry } from "./internal/memory/storage/markdown-store.js";
 import type { MemorySettings } from "./types/agent.js";
 
 export { MemoryFactNotRemovableError };
@@ -32,7 +31,7 @@ export function listMemoryFacts(
   cwd: string,
   settings?: Partial<MemorySettings>,
 ): Promise<StoredMemoryFact[]> {
-  return listFactEntries(cwd, settings);
+  return load().then((m) => m.listFactEntries(cwd, settings));
 }
 
 /**
@@ -41,9 +40,14 @@ export function listMemoryFacts(
  * `true` when removed and `false` when no entry has that id. Rejects with
  * {@link MemoryFactNotRemovableError} for an entry outside the write root.
  *
- * Search index: removal does NOT update the memory search index (sqlite/lance). The index is
- * rebuilt from the files on its next refresh, which drops the deleted file's chunks; until then a
- * search may still return the removed fact.
+ * Search index: the sqlite index's rows for the deleted file (or for `MEMORY.md`, when a legacy
+ * bullet went) are deleted here, so the fact is not recalled before the next sync; that sync also
+ * prunes any file that left the disk and re-chunks the edited `MEMORY.md`. The Lance backend is not
+ * touched: its ids are content hashes with no link to a file, so a Lance index keeps the fact until
+ * it is rebuilt.
+ *
+ * Two identical legacy bullets in one root share an id, so removing that id removes one of them
+ * (the first); the second is still listed under the same id.
  *
  * @public
  */
@@ -52,5 +56,8 @@ export function removeMemoryFact(
   id: string,
   settings?: Partial<MemorySettings>,
 ): Promise<boolean> {
-  return removeFactEntry(cwd, id, settings);
+  return load().then((m) => m.removeFactAndForget(cwd, id, settings));
 }
+
+// Loaded on demand so the store and index code stay out of the entry bundle.
+const load = () => import("./internal/memory/facts-api.js");

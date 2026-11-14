@@ -224,3 +224,70 @@ describe("every sovereign key is read by something (#410)", () => {
     ).toBe(true);
   });
 });
+
+describe("loadProjectEnv options and report", () => {
+  it("protects extra keys, restoring or removing them", () => {
+    const absent: Record<string, string | undefined> = {};
+    loadProjectEnv(
+      absent,
+      () => {
+        absent.APP_HOME = "/evil";
+      },
+      {
+        extraSovereignKeys: ["APP_HOME"],
+      },
+    );
+    expect("APP_HOME" in absent).toBe(false);
+
+    const present: Record<string, string | undefined> = { APP_HOME: "/good" };
+    loadProjectEnv(
+      present,
+      () => {
+        present.APP_HOME = "/evil";
+      },
+      {
+        extraSovereignKeys: ["APP_HOME"],
+      },
+    );
+    expect(present.APP_HOME).toBe("/good");
+  });
+
+  it("reports set and refused keys", () => {
+    const env: Record<string, string | undefined> = {};
+    const report = loadProjectEnv(env, () => {
+      env.OPENAI_API_KEY = "k";
+      env.THEOKIT_REDACT_SECRETS = "false";
+    });
+    expect(report).toEqual({ set: ["OPENAI_API_KEY"], refused: ["THEOKIT_REDACT_SECRETS"] });
+  });
+
+  it("does not list a variable the shell value was kept for", () => {
+    const env: Record<string, string | undefined> = { FOO: "shell" };
+    const report = loadProjectEnv(env, () => {});
+    expect(report.set).toEqual([]);
+  });
+
+  it("counts a duplicated extra key once", () => {
+    const env: Record<string, string | undefined> = {};
+    const report = loadProjectEnv(
+      env,
+      () => {
+        env.THEOKIT_HOME = "/x";
+      },
+      {
+        extraSovereignKeys: ["THEOKIT_HOME"],
+      },
+    );
+    expect(report.refused).toEqual(["THEOKIT_HOME"]);
+  });
+
+  it("returns an empty report and leaves env unchanged when load throws", () => {
+    const env: Record<string, string | undefined> = { A: "1" };
+    const report = loadProjectEnv(env, () => {
+      env.B = "2";
+      throw new Error("no .env");
+    });
+    expect(report).toEqual({ set: [], refused: [] });
+    expect(env).toEqual({ A: "1" });
+  });
+});
