@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it, onTestFinished } from "vitest";
 
-import { Agent } from "../src/index.js";
+import { Agent, Skill } from "../src/index.js";
 import { explainSkills } from "../src/skills.js";
 import { removeTempDirRobustSync } from "./helpers/temp-workspace.js";
 
@@ -102,4 +102,37 @@ it("skillsDir replaces project roots and keeps bundled dirs", async () => {
     { dir: bundled, kind: "bundled" },
   ]);
   expect(r.loaded.map((s) => s.name)).toEqual(["x"]);
+});
+
+it("inline override of a two-root duplicate reports inline as winner for each loser", async () => {
+  const cwd = tmp();
+  writeSkill(join(cwd, ".theokit/skills"), "dup");
+  writeSkill(join(cwd, ".claude/skills"), "dup");
+  const r = await explainSkills({
+    cwd,
+    settingSources: ["project"],
+    compatSources: ["claude-code"],
+    skills: { inline: [Skill.create({ name: "dup", description: "i", instructions: "x" })] },
+  });
+  expect(r.loaded).toEqual([{ name: "dup", source: "inline", root: "inline" }]);
+  expect(r.shadowed).toEqual([
+    { name: "dup", winner: "inline", loser: join(cwd, ".claude/skills/dup/SKILL.md") },
+    { name: "dup", winner: "inline", loser: join(cwd, ".theokit/skills/dup/SKILL.md") },
+  ]);
+});
+
+it("does not report an enabled-excluded inline-only skill as disabled", async () => {
+  const cwd = tmp();
+  writeSkill(join(cwd, ".theokit/skills"), "a");
+  writeSkill(join(cwd, ".theokit/skills"), "b");
+  const r = await explainSkills({
+    cwd,
+    settingSources: ["project"],
+    skills: {
+      enabled: ["a"],
+      inline: [Skill.create({ name: "only-inline", description: "i", instructions: "x" })],
+    },
+  });
+  expect(r.disabled).toEqual(["b"]);
+  expect(r.loaded.map((s) => s.name)).toEqual(["a"]);
 });

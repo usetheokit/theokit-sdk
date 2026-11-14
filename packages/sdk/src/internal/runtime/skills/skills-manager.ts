@@ -187,7 +187,9 @@ export class SkillsManager {
    */
   explain(): SkillsExplanationReport {
     const inlineNames = new Set((this.inline ?? []).map((s) => s.name));
-    const shadowed = [...this.walk.shadowed];
+    const shadowed = this.walk.shadowed.map((e) =>
+      inlineNames.has(e.name) ? { ...e, winner: "inline" } : e,
+    );
     for (const [name, loser] of this.walk.sourceOf) {
       if (inlineNames.has(name)) shadowed.push({ name, winner: "inline", loser });
     }
@@ -210,7 +212,7 @@ export class SkillsManager {
       disabled:
         allowed === undefined
           ? []
-          : this.skills.map((s) => s.name).filter((n) => !allowed.includes(n)),
+          : [...this.walk.sourceOf.keys()].filter((n) => !allowed.includes(n)),
     };
   }
 
