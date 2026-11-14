@@ -128,6 +128,8 @@ const WHITELIST = new Set<string>([
   "internal/persistence/exclusive-create.ts",
   "internal/persistence/session-writer.ts",
   "internal/persistence/file-lock.ts",
+  // The instance lock writes only a pid and a random nonce; nothing secret flows through it.
+  "internal/persistence/instance-lock.ts",
   "internal/persistence/schema-version.ts",
   "internal/memory/storage/transcript-store.ts",
   "internal/mcp/token-storage.ts",

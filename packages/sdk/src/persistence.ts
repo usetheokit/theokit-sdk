@@ -32,6 +32,9 @@ export { withCwdMutex } from "./internal/persistence/cwd-mutex.js";
 export type { FileLockOptions } from "./internal/persistence/file-lock.js";
 export { withFileLock } from "./internal/persistence/file-lock.js";
 export { sanitizeFts5Query } from "./internal/persistence/fts5-sanitize.js";
+// Single process per state directory (pid lock held for the process life, stale takeover).
+export type { InstanceLock } from "./internal/persistence/instance-lock.js";
+export { acquireInstanceLock, InstanceLockedError } from "./internal/persistence/instance-lock.js";
 // JSONL persist / resume (durable, crash-safe batch runners).
 export {
   appendJsonl,
