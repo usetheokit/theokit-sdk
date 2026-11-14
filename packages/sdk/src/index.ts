@@ -373,7 +373,7 @@ export { type ReadSessionMessagesOptions, readSessionMessages } from "./session-
 // M3 #62 — scoped session state helpers (app:/user:/temp:).
 export { type SessionScope, scopedConversationId, sessionScopePrefix } from "./session-scope.js";
 // Squad — sequential multi-agent team (composes Workflow+agentStep; cross-val Gap 1)
-export { Squad, type SquadOptions, type SquadRun } from "./squad.js";
+export { Squad, type SquadOptions, type SquadRun, type SquadRunOptions } from "./squad.js";
 // Path safety primitives (ADRs D79-D85) live at `@theokit/sdk/path-safety`,
 // not on the main barrel. That dedicated sub-export keeps the DTS bundle
 // for `index.ts` decoupled from the `internal/runtime` graph (which has

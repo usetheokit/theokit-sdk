@@ -32,6 +32,16 @@ export async function runDowhileStep(
       };
     }
     const r = await dispatch(step.step, acc, exec);
+    if (r.status === "cancelled") {
+      return {
+        stepId: step.id,
+        kind: "dowhile",
+        status: "cancelled",
+        attempts: i + 1,
+        durationMs: Date.now() - startedAt,
+        error: r.error,
+      };
+    }
     if (r.status === "failed") {
       return {
         stepId: step.id,

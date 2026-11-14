@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1390 export(s) across 56 entry point(s).
+1391 export(s) across 56 entry point(s).
 
 ## `@theokit/acp`
 
@@ -415,6 +415,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `Squad` | class | A sequential agent team produced by {@link createSquad } .  |
 | `SquadOptions` | interface | Options for {@link createSquad } . |
 | `SquadRun` | interface | Result of a {@link Squad.run } .  |
+| `SquadRunOptions` | interface | Per-run options for {@link Squad.run } . |
 | `StepCompletedUpdate` | interface | Conversation step completed. |
 | `StepStartedUpdate` | interface | Conversation step started. |
 | `StreamObjectError` | class | Error thrown by {@link Agent.streamObject } when the model refuses to call the synthetic `output` tool or when all retries fail to produce a schema-valid object.  |
