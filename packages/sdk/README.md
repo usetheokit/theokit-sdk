@@ -96,6 +96,10 @@ const bob = await Agent.create({ memory: { enabled: true, userId: "bob" } });
 
 `userId` must match `[a-z0-9][a-z0-9-_]*`; other values (such as `../x`) are rejected.
 
+## Builtin tool names
+
+`BUILTIN_TOOL_NAMES` (`"shell"`, `"memory_search"`, `"memory_get"`) lists the tools the SDK declares itself; these are the names `withheldBuiltinTools` accepts and a custom tool may not claim. `isBuiltinToolName(name)` tests one, so an app that takes tool names from configuration can refuse a collision at load time.
+
 ## Plugins
 
 `listWorkspacePlugins(cwd, { compatSources })` lists the plugins an agent opened on `cwd` would load

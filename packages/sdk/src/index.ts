@@ -53,6 +53,7 @@ export {
   UnicodeNormalizer,
   type UnicodeNormalizerOptions,
 } from "./built-in-processors.js";
+export { BUILTIN_TOOL_NAMES, isBuiltinToolName } from "./builtin-tools.js";
 // M22 — code-defined inline skills (`createSkill`) usable alongside filesystem skills.
 export { type CreateSkillSpec, type InlineSkill, Skill } from "./create-skill.js";
 export {
