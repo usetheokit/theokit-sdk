@@ -11,7 +11,10 @@
  * prompt block (name + description XML-escaped; the skill body is not part of
  * the input type, so it cannot leak).
  *
- * Both are the same primitives the SDK runtime uses internally for
+ * `explainSkills(input)` reports which skills an agent would load, from which root, and which
+ * were skipped, from the same walk the runtime performs.
+ *
+ * The first two are the same primitives the SDK runtime uses internally for
  * `.theokit/skills` discovery and `<skills>` injection — exposed so consumers
  * orient an agent with one import instead of hand-rolling discovery.
  */
@@ -23,4 +26,9 @@ export {
   loadSkillInstructions,
   type Skill,
 } from "./internal/runtime/skills/discover-skills.js";
+export {
+  type ExplainSkillsInput,
+  explainSkills,
+  type SkillsExplanation,
+} from "./internal/runtime/skills/explain-skills.js";
 export { buildSkillsBlock } from "./internal/runtime/skills/skills-block.js";

@@ -109,6 +109,27 @@ import { listWorkspacePlugins } from "@theokit/sdk";
 const plugins = await listWorkspacePlugins(process.cwd(), { compatSources: ["claude-code"] });
 ```
 
+## Explain skills
+
+`explainSkills` from `@theokit/sdk/skills` reports what an agent would see, from the same walk the
+agent runs:
+
+```ts
+import { explainSkills } from "@theokit/sdk/skills";
+
+const report = await explainSkills({
+  cwd: process.cwd(),
+  settingSources: ["project"],
+  compatSources: ["claude-code"],
+  skills: { enabled: ["a", "ghost"] },
+});
+// report.roots, report.loaded, report.invalid, report.shadowed,
+// report.enabledButMissing, report.disabled
+```
+
+`settingSources` defaults as in `Agent.create`: without `"project"` (or `"all"`) only `bundledDirs`
+and inline skills are read. A `SkillsResolver` function is not accepted.
+
 ## Schedule with cron
 
 ```typescript

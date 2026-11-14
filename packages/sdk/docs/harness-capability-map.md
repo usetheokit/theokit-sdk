@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1387 export(s) across 56 entry point(s).
+1390 export(s) across 56 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1571,9 +1571,12 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `buildSkillsBlock` | function | Render the `<skills>` system-prompt block from a skill list.  |
 | `discoverSkills` | function | Discover `SKILL.md` skills under an arbitrary directory.  |
 | `DiscoverSkillsOptions` | interface | Options for {@link discoverSkills } . |
+| `explainSkills` | function | Report which skills an agent created with these options loads, from which root, and which were skipped.  |
+| `ExplainSkillsInput` | interface | Input to {@link explainSkills } . |
 | `InvalidSkillInfo` | interface | Information passed to `onInvalidSkill` when a `SKILL.md` is present but its frontmatter is malformed (missing required field or invalid YAML). |
 | `loadSkillInstructions` | function | Read the BODY of a discovered skill — everything after its frontmatter.  |
 | `Skill` | interface | A discovered skill's metadata.  |
+| `SkillsExplanation` | interface | What {@link explainSkills } reports. |
 
 ## `@theokit/sdk/subagents`
 
