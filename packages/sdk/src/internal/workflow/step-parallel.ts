@@ -81,25 +81,15 @@ export async function runParallelStep(
       };
     } catch (err) {
       failFastCtrl?.abort(err);
-      // Collect any settled rejections so the aggregate has all errors.
-      const settled = await Promise.allSettled(semBranchPromises);
-      const errors = settled
-        .filter((s): s is PromiseRejectedResult => s.status === "rejected")
-        .map((s) => (s.reason instanceof Error ? s.reason : new Error(String(s.reason))));
-      return {
-        stepId: step.id,
-        kind: "parallel",
-        status: "failed",
-        attempts: 1,
-        durationMs: Date.now() - startedAt,
-        error: errToShape(new WorkflowParallelError(errors, step.id)),
-        output: undefined,
-      };
+      return await failFastFailure(semBranchPromises, step.id, startedAt);
     }
   }
 
   // collect mode
   const settled = await Promise.allSettled(semBranchPromises);
+  if (settled.some((s) => s.status === "rejected" && isAbortError(s.reason))) {
+    return cancelledParallel(step.id, startedAt);
+  }
   const outputs = settled.map((s) =>
     s.status === "fulfilled"
       ? { ok: true as const, value: s.value }
@@ -115,6 +105,43 @@ export async function runParallelStep(
   };
 }
 
+async function failFastFailure(
+  promises: ReadonlyArray<Promise<unknown>>,
+  id: string,
+  startedAt: number,
+): Promise<StepResult> {
+  // Collect any settled rejections so the aggregate has all errors.
+  const settled = await Promise.allSettled(promises);
+  const errors = settled
+    .filter((s): s is PromiseRejectedResult => s.status === "rejected")
+    .map((s) => (s.reason instanceof Error ? s.reason : new Error(String(s.reason))));
+  if (errors.some(isAbortError)) return cancelledParallel(id, startedAt);
+  return {
+    stepId: id,
+    kind: "parallel",
+    status: "failed",
+    attempts: 1,
+    durationMs: Date.now() - startedAt,
+    error: errToShape(new WorkflowParallelError(errors, id)),
+    output: undefined,
+  };
+}
+
+function cancelledParallel(id: string, startedAt: number): StepResult {
+  return {
+    stepId: id,
+    kind: "parallel",
+    status: "cancelled",
+    attempts: 1,
+    durationMs: Date.now() - startedAt,
+    error: errToShape(new DOMException("parallel branch cancelled", "AbortError")),
+  };
+}
+
+function isAbortError(e: unknown): boolean {
+  return (e as { name?: string } | null)?.name === "AbortError";
+}
+
 async function runBranch(
   branch: ReadonlyArray<Step>,
   input: unknown,
@@ -125,6 +152,9 @@ async function runBranch(
   let acc: unknown = input;
   for (const inner of branch) {
     const r = await dispatch(inner, acc, exec);
+    if (r.status === "cancelled") {
+      throw new DOMException(r.error?.message ?? "Aborted", "AbortError");
+    }
     if (r.status === "failed") {
       throw new Error(
         `parallel branch ${branchIdx} step "${inner.id}" failed: ${r.error?.message ?? "unknown"}`,

@@ -70,14 +70,18 @@ export async function runForeachStep(
   const concurrency = step.concurrency ?? 4;
   const sem = createSemaphore(Math.max(1, Math.min(concurrency, items.length)));
   const failures: Error[] = [];
+  let cancelled: StepResult | undefined;
   const outputs: unknown[] = new Array(items.length);
 
   await Promise.all(
     items.map(async (item, idx) => {
       const release = await sem.acquire();
       try {
+        if (cancelled !== undefined) return; // stop dispatching once an item was cancelled
         const r = await dispatch(step.step, item, exec);
-        if (r.status === "failed") {
+        if (r.status === "cancelled") {
+          cancelled = r;
+        } else if (r.status === "failed") {
           failures.push(new Error(`foreach item ${idx} failed: ${r.error?.message ?? "unknown"}`));
         } else {
           outputs[idx] = r.output;
@@ -87,6 +91,17 @@ export async function runForeachStep(
       }
     }),
   );
+
+  if (cancelled !== undefined) {
+    return {
+      stepId: step.id,
+      kind: "foreach",
+      status: "cancelled",
+      attempts: 1,
+      durationMs: Date.now() - startedAt,
+      error: (cancelled as StepResult).error,
+    };
+  }
 
   if (failures.length > 0) {
     return {

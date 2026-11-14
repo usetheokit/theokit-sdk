@@ -80,6 +80,16 @@ async function runInnerSequence(
   for (const inner of branch) {
     const r = await dispatch(inner, acc, exec);
     lastAttempts = r.attempts;
+    if (r.status === "cancelled") {
+      return {
+        stepId: inner.id,
+        kind: "branch",
+        status: "cancelled",
+        attempts: r.attempts,
+        durationMs: 0,
+        error: r.error,
+      };
+    }
     if (r.status === "failed") {
       return {
         stepId: inner.id,

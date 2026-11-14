@@ -192,6 +192,18 @@ function handleStepOutcome<TO>(
     return { terminal: outcome.run };
   }
   loop.stepResults.push(outcome.result);
+  if (outcome.result.status === "cancelled") {
+    return {
+      terminal: assembleRun<TO>({
+        runId: loop.runId,
+        name: loop.name,
+        status: "cancelled",
+        stepResults: loop.stepResults,
+        startedAt: loop.startedAt,
+        error: outcome.result.error,
+      }),
+    };
+  }
   if (outcome.result.status === "failed") {
     onStepEvent?.({
       type: "step_failed",
