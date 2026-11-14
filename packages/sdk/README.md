@@ -163,6 +163,17 @@ if (r.truncated.stdout) console.error("stdout was cut at maxOutputBytes");
 
 `runBounded` spawns the child in its own process group (POSIX) and sends `SIGKILL` to the whole group on timeout or when `signal` aborts, so pipelines and background jobs die with it. Each of stdout and stderr is capped at `maxOutputBytes` (default 5 MiB) and `truncated` says which was cut. `timeoutMs <= 0` throws `ConfigurationError`. On Windows process groups do not apply: only the child itself is killed. The `shell` tool and command hooks use this runner; a truncated stream gets a trailing `[output truncated]` note.
 
+## Squad cancellation and disposal
+
+`Squad.run(input, options?)` takes `SquadRunOptions`: `signal` cancels the member run in flight and resolves with `status: "cancelled"`; `timeoutMs` does the same on expiry and also sets `timedOut: true`. No later member is called after a cancellation. The same abort handling applies to any `Workflow` that uses `agentStep`.
+
+```ts
+const run = await Squad.create({ agents: [a, b], ownsMembers: true }).run(task, { timeoutMs: 60_000 });
+if (run.timedOut) console.error("squad timed out");
+```
+
+With `ownsMembers: true` the squad disposes the `SDKAgent` members you passed in after each run (default `false`). Members built from an `AgentDefinition` are always disposed. Disposal uses `Promise.allSettled`; a failure goes to `onDisposeError(error, memberIndex)` (default: a diagnostic) and never changes the run result.
+
 ## `@theokit/sdk/context`
 
 `runDiscovery` finds context files (`AGENTS.md`, `CLAUDE.md`, ...) and inlines their `@path` imports.

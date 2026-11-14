@@ -38,7 +38,8 @@ function throwIfAborted(signal: AbortSignal): void {
 
 function shouldRethrow(err: unknown, attempt: number, cfg: BackoffConfig): boolean {
   const errName = err instanceof Error ? err.name : "Error";
-  return cfg.nonRetryable.has(errName) || attempt === cfg.max;
+  // A cancellation is never retried, even when a custom nonRetryableErrors list omits AbortError.
+  return errName === "AbortError" || cfg.nonRetryable.has(errName) || attempt === cfg.max;
 }
 
 async function tryOnce<T>(

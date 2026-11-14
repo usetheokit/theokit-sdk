@@ -18,7 +18,9 @@
  * usually has agents from different origins. A test proving only the new path would pass
  * even if the old one had broken.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+import { Agent } from "../src/agent.js";
 
 import { ConfigurationError } from "../src/errors.js";
 import { Squad } from "../src/squad.js";
@@ -85,6 +87,33 @@ describe("M81 T2.2 — Squad.create accepts AgentDefinition", () => {
       Squad.create({ agents: [] });
     } catch (err) {
       expect((err as { code?: string }).code).toBe("invalid_squad");
+    }
+  });
+});
+
+describe("Squad — members built from AgentDefinitions are disposed", () => {
+  it("disposes both materialized agents after run", async () => {
+    const disposes = [vi.fn(async () => undefined), vi.fn(async () => undefined)];
+    let n = 0;
+    const spy = vi.spyOn(Agent, "create").mockImplementation((async () => {
+      const dispose = disposes[n++];
+      return {
+        agentId: `m${String(n)}`,
+        dispose,
+        async send(m: string) {
+          return {
+            wait: async () => ({ id: "r", status: "finished" as const, result: `${m}.` }),
+          };
+        },
+      };
+    }) as never);
+    try {
+      const run = await Squad.create({ agents: [definition, definition] }).run("hi");
+      expect(run.status).toBe("completed");
+      expect(disposes[0]).toHaveBeenCalledTimes(1);
+      expect(disposes[1]).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
     }
   });
 });
