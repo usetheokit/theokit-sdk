@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
@@ -139,29 +140,57 @@ export async function readFactsFromMarkdown(
  * inventing one for them is the inference this codebase refuses one field over.
  */
 async function readMemoryFilesIn(dir: string): Promise<MemoryFact[]> {
+  return (await readMemoryEntriesIn(dir)).map((e) => e.fact);
+}
+
+/** A fact with the identity {@link listFactEntries} reports for it. */
+export interface FactEntry {
+  id: string;
+  fact: MemoryFact;
+  root: MemoryRoot;
+  /** The legacy bullet's position among its root's bullets; absent for a per-memory file. */
+  legacy: boolean;
+}
+
+export async function readMemoryEntriesIn(dir: MemoryRoot | string): Promise<FactEntry[]> {
   let entries: string[];
   try {
     entries = await readdir(dir);
   } catch {
     return [];
   }
-  const facts: MemoryFact[] = [];
+  const facts: FactEntry[] = [];
   for (const entry of entries.sort(byNaturalName)) {
     const fact = await readMemoryFileIn(dir, entry);
-    if (fact !== undefined) facts.push(fact);
+    if (fact !== undefined) facts.push({ id: entry, fact, root: dir as MemoryRoot, legacy: false });
   }
   // Stable: equal timestamps keep the natural-name order the read used.
-  facts.sort((a, b) => (a.modified ?? "").localeCompare(b.modified ?? ""));
+  facts.sort((a, b) => (a.fact.modified ?? "").localeCompare(b.fact.modified ?? ""));
   return facts;
 }
 
 /** The pre-#389 `## Facts` bullets in one root's index, or `[]` when there is no index there. */
 async function readLegacyFactsSectionIn(dir: string): Promise<MemoryFact[]> {
+  return (await readLegacyEntriesIn(dir)).map((e) => e.fact);
+}
+
+export async function readLegacyEntriesIn(dir: string): Promise<FactEntry[]> {
   try {
-    return parseFactsSection(await readFile(join(dir, "MEMORY.md"), "utf8"));
+    const facts = parseFactsSection(await readFile(join(dir, "MEMORY.md"), "utf8"));
+    return facts.map((fact) => ({
+      id: legacyFactId(dir, fact.text),
+      fact,
+      root: dir as MemoryRoot,
+      legacy: true,
+    }));
   } catch {
     return []; // no index in this root — the per-memory files are the whole store here
   }
+}
+
+/** A legacy bullet has no name, so its id is a hash of where it was read and what it says. */
+function legacyFactId(root: string, text: string): string {
+  return `legacy-${createHash("sha256").update(`${root}\0${text}`).digest("hex").slice(0, 16)}`;
 }
 
 /**
@@ -190,7 +219,7 @@ async function countFactsIn(dir: string): Promise<number> {
  * The read's value, or `undefined` when there is nothing there to read: the path does not exist,
  * or it is a directory (a `*.md` directory is not a fact either). Every other error is rethrown.
  */
-async function unlessMissing<T>(read: Promise<T>): Promise<T | undefined> {
+export async function unlessMissing<T>(read: Promise<T>): Promise<T | undefined> {
   try {
     return await read;
   } catch (cause) {
@@ -495,7 +524,17 @@ async function nextIndex(dir: string, text: string, name: string, title: string)
  * memory` as a fact, alongside the real one. A filter that silently stops matching does not fail
  * loudly; it just starts letting things through.
  */
-const INDEX_ENTRY = /^\[[^\]]*\]\([^)]+\.md\)(?:\s+—\s.*)?$/;
+export const INDEX_ENTRY = /^\[[^\]]*\]\([^)]+\.md\)(?:\s+—\s.*)?$/;
+
+/** Offsets of the text between the `## Facts` heading and the next h1/h2 heading (or the end). */
+export function factsBlockRange(raw: string): { start: number; end: number } | undefined {
+  const idx = raw.indexOf(FACTS_HEADING);
+  if (idx === -1) return undefined;
+  const start = idx + FACTS_HEADING.length;
+  // Stop at the next top-level or h2 heading.
+  const nextHeading = raw.slice(start).search(/\n#{1,2}\s/);
+  return { start, end: nextHeading === -1 ? raw.length : start + nextHeading };
+}
 
 /**
  * Facts from a legacy `## Facts` section — the shape every released version wrote.
@@ -509,12 +548,9 @@ const INDEX_ENTRY = /^\[[^\]]*\]\([^)]+\.md\)(?:\s+—\s.*)?$/;
  * at 20:06Z — so there is no store in the wild to migrate from it.
  */
 function parseFactsSection(raw: string): MemoryFact[] {
-  const idx = raw.indexOf(FACTS_HEADING);
-  if (idx === -1) return [];
-  const tail = raw.slice(idx + FACTS_HEADING.length);
-  // Stop at the next top-level or h2 heading.
-  const nextHeading = tail.search(/\n#{1,2}\s/);
-  const block = nextHeading === -1 ? tail : tail.slice(0, nextHeading);
+  const range = factsBlockRange(raw);
+  if (range === undefined) return [];
+  const block = raw.slice(range.start, range.end);
   return (
     block
       .split("\n")
