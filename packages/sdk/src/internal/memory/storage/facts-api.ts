@@ -1,10 +1,10 @@
-import { forgetIndexedFiles } from "./index-forget.js";
+import { forgetIndexedFiles } from "../index-forget.js";
 import {
   type FactEntryInfo,
   listFactEntries,
   removeFactEntry,
-} from "./storage/memory-fact-entries.js";
-import type { MemoryLocationConfig } from "./storage/memory-root.js";
+} from "./memory-fact-entries.js";
+import type { MemoryLocationConfig } from "./memory-root.js";
 
 export { type FactEntryInfo, listFactEntries };
 

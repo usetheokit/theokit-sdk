@@ -32,8 +32,11 @@ export {
   collectMarkdownFiles,
   type DiscoveredFile,
   defaultIndexPath,
+  type FactEntryInfo,
+  factsBlockRange,
   indexBudgetWarning,
   lanceStoragePath,
+  listFactEntries,
   MEMORY_INDEX_MAX_BYTES,
   MEMORY_INDEX_MAX_LINES,
   type MemoryLocationConfig,
@@ -46,9 +49,13 @@ export {
   readAllSqliteFacts,
   readFacts,
   readFactsFromMarkdown,
+  readLegacyEntriesIn,
+  readMemoryEntriesIn,
+  removeFactEntry,
   resolveMaxFacts,
   resolveMemoryRoot,
   type SqliteFactRow,
+  unlessMissing,
 } from "@theokit/sdk/internal/memory-store";
 
 /** One note discovered under `notes/`: its file name without the `.md` suffix, and its absolute path. */
