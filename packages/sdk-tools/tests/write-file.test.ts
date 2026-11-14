@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -81,5 +81,25 @@ describe("createWriteFileTool — safety boundaries", () => {
     const parsed = JSON.parse(out);
     expect(parsed.ok).toBe(false);
     expect(parsed.error).toBe("forbidden_path");
+  });
+});
+
+describe("createWriteFileTool — baseDir (#1060)", () => {
+  it("resolves relative paths against baseDir, honours absolute ones, refuses .env", async () => {
+    mkdirSync(join(projectRoot, "proj"));
+    const tool = createWriteFileTool({ projectRoot, baseDir: join(projectRoot, "proj") });
+    const h = textHandler(tool);
+    expect(JSON.parse(await h({ path: "hello.txt", content: "a" })).ok).toBe(true);
+    expect(readFileSync(join(projectRoot, "proj", "hello.txt"), "utf-8")).toBe("a");
+    await h({ path: join(projectRoot, "other.txt"), content: "b" });
+    expect(readFileSync(join(projectRoot, "other.txt"), "utf-8")).toBe("b");
+    expect(JSON.parse(await h({ path: ".env", content: "x" })).error).toBe("forbidden_path");
+  });
+
+  it("throws at construction when baseDir is outside projectRoot, naming both", () => {
+    const outside = join(tmpdir(), "elsewhere");
+    expect(() => createWriteFileTool({ projectRoot, baseDir: outside })).toThrow(
+      new RegExp(`${outside}[\\s\\S]*${projectRoot}`),
+    );
   });
 });

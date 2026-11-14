@@ -26,6 +26,7 @@ import {
   StaleFileError,
 } from "@theokit/sdk/filesystem";
 import { z } from "zod";
+import { anchorPath, resolveBaseDir } from "./internal/base-dir.js";
 import {
   assertNoSymlinkEscape,
   ForbiddenPathError,
@@ -53,6 +54,12 @@ export interface CreateWriteFileToolOptions {
   description?: string;
   /** Absolute path to the project root. Every write is gated against this boundary. */
   projectRoot: string;
+  /**
+   * Base for relative paths in the model's input. Default: `projectRoot`.
+   * Must be `projectRoot` or a directory inside it; anything else throws at construction.
+   * `projectRoot` stays the boundary every resolved path is checked against.
+   */
+  baseDir?: string;
   /**
    * SE31 — optional pluggable filesystem backend (`@theokit/sdk/filesystem`), or
    * a per-request resolver `(ctx) => FilesystemBackend`. When provided, writes
@@ -90,6 +97,7 @@ export interface CreateWriteFileToolOptions {
  */
 export function createWriteFileTool(opts: CreateWriteFileToolOptions): CustomTool {
   const { projectRoot, filesystem } = opts;
+  const baseDir = resolveBaseDir("createWriteFileTool", projectRoot, opts.baseDir);
   // SE32 — fail fast on a misconfiguration: requiring read-before-write without
   // a tracker would SILENTLY disable the guard (a dangerous false sense of
   // safety). Refuse at construction (Rule 8) instead of a silent no-op.
@@ -118,7 +126,7 @@ export function createWriteFileTool(opts: CreateWriteFileToolOptions): CustomToo
       content: z.string().describe("UTF-8 content to write."),
     }),
     handler: async ({ path, content }, ctx) => {
-      if (isForbiddenPath(path)) {
+      if (isForbiddenPath(path) || isForbiddenPath(anchorPath(baseDir, path))) {
         return JSON.stringify({ ok: false, error: "forbidden_path", path });
       }
       // SE31 — route through the pluggable backend when one is configured (the
@@ -127,7 +135,7 @@ export function createWriteFileTool(opts: CreateWriteFileToolOptions): CustomToo
         const backend = await resolveFilesystem(filesystem, ctx ?? {});
         return writeViaBackend(backend, path, content, guard);
       }
-      return writeViaLocalFs(projectRoot, path, content, guard);
+      return writeViaLocalFs(projectRoot, baseDir, path, content, guard);
     },
   });
 }
@@ -153,13 +161,14 @@ function readBeforeWriteError(
 /** Local-`projectRoot` write path: boundary + read-before-write + binary guard + write. */
 async function writeViaLocalFs(
   projectRoot: string,
+  baseDir: string,
   path: string,
   content: string,
   guard: ReadTracker | undefined,
 ): Promise<string> {
   let absolutePath: string;
   try {
-    absolutePath = safePathJoin(projectRoot, path);
+    absolutePath = safePathJoin(projectRoot, anchorPath(baseDir, path));
     assertNoSymlinkEscape(absolutePath, projectRoot);
   } catch (err) {
     if (err instanceof PathTraversalError || err instanceof ForbiddenPathError) {

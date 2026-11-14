@@ -11,6 +11,7 @@
  * variant whose async handler persists the submitted `plan` on `exit`.
  */
 
+import type { CustomTool } from "@theokit/sdk";
 import type { SessionArtifactStore } from "./artifact-store.js";
 
 type Mode = "normal" | "plan";
@@ -32,11 +33,8 @@ const NORMAL_INSTRUCTIONS = "Returned to NORMAL MODE. You may now execute change
  *
  * `currentMode` is a test seam; the mode also comes back in every result.
  */
-export interface PlanModeTool {
-  name: string;
-  description: string;
-  inputSchema: unknown;
-  handler: (input: { action: string }) => string;
+export interface PlanModeTool extends CustomTool {
+  handler: (input: Record<string, unknown>) => string;
   /** Expose current mode for testing. */
   currentMode: () => Mode;
 }
@@ -48,11 +46,8 @@ export interface PlanModeTool {
  *
  * @public
  */
-export interface PlanModeToolWithStore {
-  name: string;
-  description: string;
-  inputSchema: unknown;
-  handler: (input: { action: string; plan?: string }) => Promise<string>;
+export interface PlanModeToolWithStore extends CustomTool {
+  handler: (input: Record<string, unknown>) => Promise<string>;
   currentMode: () => Mode;
 }
 
@@ -78,7 +73,7 @@ const DESCRIPTION =
   "Actions: 'enter' (switch to plan mode), 'exit' (return to normal), 'status' (check current mode). " +
   "Returns { ok, mode, message }.";
 
-function planModeSchema(withPlan: boolean): unknown {
+function planModeSchema(withPlan: boolean): Record<string, unknown> {
   const properties: Record<string, unknown> = {
     action: {
       type: "string",
@@ -142,10 +137,11 @@ export function createPlanModeTool(
       name: "plan_mode",
       description: DESCRIPTION,
       inputSchema: planModeSchema(false),
-      handler: (input: { action: string }): string => {
-        if (input.action === "enter") mode = "plan";
-        else if (input.action === "exit") mode = "normal";
-        return renderMode(input.action, mode) ?? invalidAction(input.action);
+      handler: (input: Record<string, unknown>): string => {
+        const action = String(input.action);
+        if (action === "enter") mode = "plan";
+        else if (action === "exit") mode = "normal";
+        return renderMode(action, mode) ?? invalidAction(action);
       },
       currentMode: () => mode,
     };
@@ -156,12 +152,13 @@ export function createPlanModeTool(
     name: options.name ?? "plan_mode",
     description: options.description ?? DESCRIPTION,
     inputSchema: planModeSchema(true),
-    handler: async (input: { action: string; plan?: string }): Promise<string> => {
-      if (input.action === "enter") {
+    handler: async (input: Record<string, unknown>): Promise<string> => {
+      const action = String(input.action);
+      if (action === "enter") {
         mode = "plan";
         return JSON.stringify({ ok: true, mode, message: PLAN_INSTRUCTIONS });
       }
-      if (input.action === "exit") {
+      if (action === "exit") {
         mode = "normal";
         // Persist only a non-empty plan (EC-1); enter/status never persist (EC-2).
         if (typeof input.plan === "string" && input.plan.length > 0) {
@@ -176,7 +173,7 @@ export function createPlanModeTool(
         }
         return JSON.stringify({ ok: true, mode, message: NORMAL_INSTRUCTIONS, persisted: false });
       }
-      return renderMode(input.action, mode) ?? invalidAction(input.action);
+      return renderMode(action, mode) ?? invalidAction(action);
     },
     currentMode: () => mode,
   };

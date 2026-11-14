@@ -54,6 +54,7 @@ export {
   createInteractiveShellTool,
   createWriteStdinTool,
 } from "./interactive-shell.js";
+export { BaseDirOutsideProjectRootError } from "./internal/base-dir.js";
 export {
   type CommandPolicy,
   commandDenialReason,
