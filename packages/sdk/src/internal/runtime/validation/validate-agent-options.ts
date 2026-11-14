@@ -126,6 +126,32 @@ function validateMcpServers(options: AgentOptions): void {
       );
     }
     rejectUnhonourableAuth(name, config, options.cloud !== undefined);
+    validateToolFilter(name, config);
+  }
+}
+
+function invalidToolFilter(name: string, reason: string): ConfigurationError {
+  return new ConfigurationError(`MCP server "${name}" has an invalid tools filter: ${reason}`, {
+    code: "invalid_mcp_tool_filter",
+  });
+}
+
+/** `tools.include` / `tools.exclude` must each be an array of non-empty strings. */
+function validateToolFilter(name: string, config: McpServerConfig): void {
+  const tools = (config as { tools?: unknown }).tools;
+  if (tools === undefined) return;
+  if (typeof tools !== "object" || tools === null || Array.isArray(tools)) {
+    throw invalidToolFilter(name, "tools must be an object");
+  }
+  for (const key of ["include", "exclude"] as const) {
+    const list = (tools as Record<string, unknown>)[key];
+    if (list === undefined) continue;
+    if (
+      !Array.isArray(list) ||
+      Array.from(list, (n: unknown) => n).some((n) => typeof n !== "string" || n === "")
+    ) {
+      throw invalidToolFilter(name, `tools.${key} must be an array of non-empty strings`);
+    }
   }
 }
 
