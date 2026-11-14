@@ -150,7 +150,7 @@ export function loadProjectEnv(
     refused.push(key);
     restoreKey(env, key, before[key]);
   }
-  return { set: changedKeys(env, before), refused: refused.sort() };
+  return { set: changedKeys(env, before), refused: refused.sort((a, b) => a.localeCompare(b)) };
 }
 
 function resetEnv(env: MutableEnv, before: MutableEnv): void {
@@ -162,5 +162,5 @@ function resetEnv(env: MutableEnv, before: MutableEnv): void {
 function changedKeys(env: MutableEnv, before: MutableEnv): string[] {
   return Object.keys(env)
     .filter((key) => env[key] !== undefined && env[key] !== before[key])
-    .sort();
+    .sort((a, b) => a.localeCompare(b));
 }
