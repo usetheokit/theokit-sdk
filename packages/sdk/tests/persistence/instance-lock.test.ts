@@ -7,11 +7,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const linkFail = vi.hoisted(() => ({
   code: undefined as string | undefined,
   onGuard: undefined as (() => void) | undefined,
+  onAbsentRead: undefined as ((path: string) => void) | undefined,
 }));
 vi.mock("node:fs/promises", async (importOriginal) => {
   const real = await importOriginal<typeof import("node:fs/promises")>();
   return {
     ...real,
+    readFile: (async (...args: Parameters<typeof real.readFile>) => {
+      try {
+        return await real.readFile(...args);
+      } catch (err) {
+        const hook = linkFail.onAbsentRead;
+        if ((err as NodeJS.ErrnoException).code === "ENOENT" && hook) {
+          linkFail.onAbsentRead = undefined;
+          hook(String(args[0]));
+        }
+        throw err;
+      }
+    }) as typeof real.readFile,
     link: (...args: Parameters<typeof real.link>) => {
       if (linkFail.code) {
         return Promise.reject(Object.assign(new Error("link failed"), { code: linkFail.code }));
@@ -50,6 +63,7 @@ beforeEach(() => {
   lockPath = `${dir}.instance.lock`;
   linkFail.code = undefined;
   linkFail.onGuard = undefined;
+  linkFail.onAbsentRead = undefined;
 });
 afterEach(() => {
   linkFail.code = undefined;
@@ -101,9 +115,9 @@ describe("acquireInstanceLock", () => {
     expect(existsSync(lockPath)).toBe(false);
   });
 
-  it("a guard that is already published blocks other takeovers and is not reaped", async () => {
+  it("a live takeover guard blocks other takeovers and is not reaped", async () => {
     writeStale("gen1");
-    const guard = `${lockPath}.takeover.gen1`;
+    const guard = `${lockPath}.takeover.gen1.0`;
     writeFileSync(guard, JSON.stringify({ pid: process.pid, nonce: "owner" }));
     const err = await acquireInstanceLock(dir).catch((e) => e);
     expect(err).toBeInstanceOf(InstanceLockedError);
@@ -111,17 +125,39 @@ describe("acquireInstanceLock", () => {
     expect(JSON.parse(readFileSync(lockPath, "utf8")).nonce).toBe("gen1");
   });
 
-  it("does not overwrite a holder that linked in after the stale lock vanished", async () => {
+  it("takes over after a taker crashed holding its guard", async () => {
+    writeStale("gen1");
+    const guard = `${lockPath}.takeover.gen1.0`;
+    writeFileSync(guard, JSON.stringify({ pid: deadPid(), nonce: "crashed" }));
+    const lock = await acquireInstanceLock(dir);
+    expect(JSON.parse(readFileSync(lockPath, "utf8")).pid).toBe(process.pid);
+    expect(existsSync(guard)).toBe(true); // superseded, never deleted by others
+    await lock.release();
+  });
+
+  it("release never removes a takeover guard", async () => {
+    const mine = await acquireInstanceLock(dir);
+    const nonce = JSON.parse(readFileSync(lockPath, "utf8")).nonce;
+    const guard = `${lockPath}.takeover.${nonce}.0`;
+    writeFileSync(guard, JSON.stringify({ pid: process.pid, nonce: "active" }));
+    const later = `${lockPath}.takeover.later.0`;
+    writeFileSync(later, JSON.stringify({ pid: process.pid, nonce: "active2" }));
+    await mine.release();
+    expect(existsSync(guard)).toBe(true);
+    expect(existsSync(later)).toBe(true);
+  });
+
+  it("does not overwrite a holder that links in right after the re-read reports absence", async () => {
     writeStale("gen1");
     const other = JSON.stringify({ pid: process.pid, nonce: "live-other" });
-    // The first guard link is the takeover guard; remove the stale lock and let another
-    // process take the path just before this takeover re-reads it.
-    linkFail.onGuard = () => {
-      unlinkSync(lockPath);
-      writeFileSync(lockPath, other);
+    linkFail.onGuard = () => unlinkSync(lockPath); // stale lock vanishes once the guard is ours
+    linkFail.onAbsentRead = (path) => {
+      // the takeover's re-read just reported absence; another process links in before it goes on
+      if (path === lockPath) writeFileSync(lockPath, other);
     };
     const err = await acquireInstanceLock(dir).catch((e) => e);
     expect(err).toBeInstanceOf(InstanceLockedError);
+    expect(err.holderPid).toBe(process.pid);
     expect(readFileSync(lockPath, "utf8")).toBe(other);
   });
 
@@ -133,30 +169,25 @@ describe("acquireInstanceLock", () => {
     await lock.release();
   });
 
-  const dist = resolve(__dirname, "../../dist/persistence.js");
-  it.skipIf(!existsSync(dist))(
-    "two concurrent takeovers of one stale lock end with one holder",
-    async () => {
-      writeStale();
-      const script = join(root, "child.mjs");
-      writeFileSync(
-        script,
-        `import { acquireInstanceLock } from ${JSON.stringify(dist)};
+  it("two concurrent takeovers of one stale lock end with one holder", async () => {
+    writeStale();
+    const tsx = resolve(__dirname, "../../../../node_modules/.bin/tsx");
+    const impl = resolve(__dirname, "../../src/persistence.ts");
+    const script = join(root, "child.mjs");
+    writeFileSync(
+      script,
+      `import { acquireInstanceLock } from ${JSON.stringify(impl)};
 try { await acquireInstanceLock(process.argv[2]); console.log("held"); }
 catch (e) { console.log(e.name === "InstanceLockedError" ? "locked" : "error " + e.message); }
 process.stdin.resume(); process.stdin.on("end", () => process.exit(0));`,
-      );
-      const run = () =>
-        new Promise<{ out: string; child: ReturnType<typeof spawn> }>((res) => {
-          const child = spawn(process.execPath, [script, dir], {
-            stdio: ["pipe", "pipe", "inherit"],
-          });
-          child.stdout.once("data", (d) => res({ out: String(d).trim(), child }));
-        });
-      const results = await Promise.all([run(), run()]);
-      for (const r of results) r.child.stdin?.end();
-      expect(results.map((r) => r.out).sort()).toEqual(["held", "locked"]);
-    },
-    30_000,
-  );
+    );
+    const run = () =>
+      new Promise<{ out: string; child: ReturnType<typeof spawn> }>((res) => {
+        const child = spawn(tsx, [script, dir], { stdio: ["pipe", "pipe", "inherit"] });
+        child.stdout.once("data", (d) => res({ out: String(d).trim(), child }));
+      });
+    const results = await Promise.all([run(), run()]);
+    for (const r of results) r.child.stdin?.end();
+    expect(results.map((r) => r.out).sort()).toEqual(["held", "locked"]);
+  }, 60_000);
 });

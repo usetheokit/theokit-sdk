@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { link, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
-import { basename, dirname, resolve } from "node:path";
+import { link, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { TheokitAgentError } from "../../errors-base.js";
 
 /** A lock held by this process. */
@@ -112,51 +112,80 @@ async function tryLink(lockPath: string, nonce: string): Promise<LinkResult> {
   }
 }
 
+const MAX_GUARDS = 16;
+
 /**
- * Replaces a stale lock. A per-generation takeover file (named after the stale holder's nonce) is
- * claimed with `wx`, so one process takes over one stale lock; the lock is re-read and replaced
- * only if the nonce is unchanged and the holder is still dead. Returns false when it lost a race.
+ * Publishes a takeover guard for one stale generation: `<lock>.takeover.<staleNonce>.<k>`, a
+ * hard link to a fully written file, so it is never seen partial. Guard `k` whose owner is dead
+ * (a crashed taker) is superseded by guard `k+1`, never deleted, so a live guard can't be reaped.
+ * Returns the guard path when this process owns it, or undefined when a live taker holds one.
  */
-async function takeOver(lockPath: string, stale: Holder, nonce: string): Promise<boolean> {
-  // The guard is published by hard-linking a fully written file, so it is never seen empty or
-  // partial, and nobody has a reason to reap it while its owner proceeds.
-  const marker = `${lockPath}.takeover.${stale.nonce}`;
-  const guard = await writeClaim(lockPath, nonce, "guard");
+async function claimGuard(
+  lockPath: string,
+  stale: Holder,
+  nonce: string,
+): Promise<string | undefined> {
+  const file = await writeClaim(lockPath, nonce, "guard");
   try {
-    await link(guard, marker);
+    for (let k = 0; k < MAX_GUARDS; k++) {
+      const guard = `${lockPath}.takeover.${stale.nonce}.${k}`;
+      const slot = await claimSlot(lockPath, file, guard);
+      if (slot === "taken") return guard;
+      if (slot === "live") return undefined;
+    }
+    return undefined;
+  } finally {
+    await quietUnlink(file);
+  }
+}
+
+async function linkOnce(lockPath: string, file: string, guard: string): Promise<boolean> {
+  try {
+    await link(file, guard);
+    return true;
   } catch (err) {
     if (errCode(err) === "EEXIST") return false;
     throw noHardLinks(lockPath, err);
-  } finally {
-    await quietUnlink(guard);
   }
-  const current = await readHolder(lockPath);
-  // Absent: someone may link in right now, so go back through the exclusive link protocol
-  // instead of renaming over the path.
-  if (!current || current.nonce !== stale.nonce || pidAlive(current.pid)) return false;
-  const claim = await writeClaim(lockPath, nonce, "claim");
-  try {
-    await rename(claim, lockPath);
-  } catch (err) {
-    await quietUnlink(claim);
-    throw err;
-  }
-  return true;
 }
 
-/** Removes takeover files whose generation is no longer the one on disk. */
-async function cleanTakeovers(lockPath: string, liveNonce: string | undefined): Promise<void> {
-  const prefix = `${basename(lockPath)}.takeover.`;
-  let names: string[];
-  try {
-    names = await readdir(dirname(lockPath));
-  } catch {
-    return;
+/** One guard slot: "taken" by us, held by a "live" taker, or "dead" (its taker crashed). */
+async function claimSlot(
+  lockPath: string,
+  file: string,
+  guard: string,
+): Promise<"taken" | "live" | "dead"> {
+  for (let spin = 0; spin < 3; spin++) {
+    if (await linkOnce(lockPath, file, guard)) return "taken";
+    const owner = await readHolder(guard);
+    if (owner === null) continue; // its owner just removed it: try this slot again
+    return owner && !pidAlive(owner.pid) ? "dead" : "live";
   }
-  for (const name of names) {
-    if (name.startsWith(prefix) && name.slice(prefix.length) !== liveNonce) {
-      await quietUnlink(resolve(dirname(lockPath), name));
+  return "live";
+}
+
+/**
+ * Replaces a stale lock. Only the owner of a per-generation takeover guard proceeds; it re-reads
+ * the lock and replaces it only if the nonce is unchanged and the holder is still dead. If the
+ * lock is gone, it returns false so the caller retries the exclusive link, never a rename over the
+ * path. The guard is removed by its owner afterwards. Returns false when it lost a race.
+ */
+async function takeOver(lockPath: string, stale: Holder, nonce: string): Promise<boolean> {
+  const guard = await claimGuard(lockPath, stale, nonce);
+  if (!guard) return false;
+  try {
+    const current = await readHolder(lockPath);
+    if (!current || current.nonce !== stale.nonce || pidAlive(current.pid)) return false;
+    const claim = await writeClaim(lockPath, nonce, "claim");
+    try {
+      await rename(claim, lockPath);
+    } catch (err) {
+      await quietUnlink(claim);
+      throw err;
     }
+    return true;
+  } finally {
+    await quietUnlink(guard);
   }
 }
 
@@ -169,8 +198,6 @@ function makeLock(lockPath: string, nonce: string): InstanceLock {
       released = true;
       const holder = await readHolder(lockPath).catch(() => null);
       if (holder && holder.nonce === nonce) await quietUnlink(lockPath);
-      const after = await readHolder(lockPath).catch(() => null);
-      await cleanTakeovers(lockPath, after?.nonce);
     },
   };
 }
