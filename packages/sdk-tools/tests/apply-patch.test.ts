@@ -3,7 +3,7 @@
  * Covers Add/Update/Delete/Move, the strict-atomicity guarantee (a mismatch ⇒ zero writes), path
  * security, and the typed error branches.
  */
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -171,5 +171,35 @@ describe("apply_patch V4A — M18 review fixes (security + robustness)", () => {
     const r = await run(root, wrap("*** Update File: tail.ts\n@@\n-last\n+LAST\n*** End of File"));
     expect(r.ok).toBe(true);
     expect(readFileSync(join(root, "tail.ts"), "utf-8")).toBe("a\nb\nLAST\n");
+  });
+});
+
+describe("apply_patch V4A — baseDir (#1060)", () => {
+  it("anchors Add and Move destinations to baseDir; absolute paths unchanged; .env refused", async () => {
+    const root = project();
+    mkdirSync(join(root, "proj"));
+    const tool = createApplyPatchTool({ projectRoot: root, baseDir: join(root, "proj") });
+    const h = textHandler(tool);
+    const add = JSON.parse(await h({ patch: wrap("*** Add File: a.txt\n+hi") }));
+    expect(add.ok).toBe(true);
+    expect(readFileSync(join(root, "proj", "a.txt"), "utf-8")).toContain("hi");
+    const mv = JSON.parse(
+      await h({ patch: wrap("*** Update File: a.txt\n*** Move to: b.txt\n@@\n-hi\n+yo") }),
+    );
+    expect(mv.ok).toBe(true);
+    expect(existsSync(join(root, "proj", "a.txt"))).toBe(false);
+    expect(readFileSync(join(root, "proj", "b.txt"), "utf-8")).toContain("yo");
+    await h({ patch: wrap(`*** Add File: ${join(root, "other.txt")}\n+abs`) });
+    expect(existsSync(join(root, "other.txt"))).toBe(true);
+    const env = JSON.parse(await h({ patch: wrap("*** Add File: .env\n+X=1") }));
+    expect(env.error).toBe("forbidden_path");
+  });
+
+  it("throws at construction when baseDir is outside projectRoot, naming both", () => {
+    const root = project();
+    const outside = join(tmpdir(), "elsewhere");
+    expect(() => createApplyPatchTool({ projectRoot: root, baseDir: outside })).toThrow(
+      new RegExp(`${outside}[\\s\\S]*${root}`),
+    );
   });
 });

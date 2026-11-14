@@ -17,6 +17,8 @@
  * (single-session CLI usage) every call shares one default session — behavior unchanged.
  */
 
+import type { CustomTool } from "@theokit/sdk";
+
 export interface TodoItem {
   id: string;
   title: string;
@@ -32,17 +34,11 @@ export interface TodoItem {
  * `getItems` is a test seam onto the same session state the handler mutates, reachable without going
  * through an action.
  */
-export interface TodolistTool {
-  name: string;
-  description: string;
-  inputSchema: unknown;
-  /**
-   * #119 — the optional 2nd `ctx` carries the run's `threadId`; state is scoped to it.
-   * Single-argument callers (CLI / tests) share one default session.
-   */
-  handler: (input: TodoInput, ctx?: { threadId?: string }) => string;
+export interface TodolistTool extends CustomTool {
+  /** Synchronous: narrows `CustomTool`'s return type, so callers can parse the result without awaiting. */
+  handler: (input: Record<string, unknown>, ctx?: { threadId?: string }) => string;
   /** Expose a session's items for testing (defaults to the no-threadId session). */
-  getItems: (threadId?: string) => TodoItem[];
+  getItems(threadId?: string): TodoItem[];
 }
 
 type TodoInput =
@@ -213,8 +209,10 @@ export function createTodolistTool(): TodolistTool {
       },
       required: ["action"],
     },
-    handler: (input: TodoInput, ctx?: { threadId?: string }): string =>
-      ops(ctx?.threadId).handle(input),
+    // The contract hands over `Record<string, unknown>`; the per-action handlers validate the
+    // fields they read (`title`, `id`), and an unknown `action` is a typed `invalid_action` failure.
+    handler: (input: Record<string, unknown>, ctx?: { threadId?: string }): string =>
+      ops(ctx?.threadId).handle(input as TodoInput),
     getItems: (threadId?: string): TodoItem[] => ops(threadId).getItems(),
   };
 }

@@ -20,7 +20,12 @@ pnpm add vitest        # for createRunVitestTool
 
 ```typescript
 import { Agent } from "@theokit/sdk";
-import { createReadFileTool, createListDirTool, createSearchTextTool } from "@theokit/sdk-tools";
+import {
+  createListDirTool,
+  createReadFileTool,
+  createSearchTextTool,
+  createTodolistTool,
+} from "@theokit/sdk-tools";
 
 const agent = await Agent.create({
   model: { id: "openai/gpt-4o-mini" },
@@ -28,6 +33,7 @@ const agent = await Agent.create({
     createReadFileTool({ cwd: process.cwd() }),
     createListDirTool({ cwd: process.cwd() }),
     createSearchTextTool({ cwd: process.cwd() }),
+    createTodolistTool(), // every factory result is a `CustomTool`: no cast needed
   ],
 });
 
@@ -44,6 +50,14 @@ await agent.send("List the TypeScript files in src/ and read the largest one");
 | `createGitDiffTool` | Show git diff (staged / working tree / range). | `simple-git` |
 | `createRunVitestTool` | Run vitest with JSON reporter; return structured results. | `vitest` |
 | `createSubprocessTool` | Spawn a child process with timeout + abort + cleanup. | — |
+
+### `projectRoot` and `baseDir`
+
+`createWriteFileTool`, `createEditFileTool` and `createApplyPatchTool` take `projectRoot`, the boundary every resolved path is checked against. They also take an optional `baseDir`: the base for *relative* paths in the model's input (default `projectRoot`). It must be `projectRoot` or a directory inside it, otherwise construction throws a `BaseDirOutsideProjectRootError` naming both paths. Absolute paths are unchanged, and the `.env` / `.git` refusals still apply to a relative path resolved against `baseDir`. Use it when `projectRoot` is widened (a monorepo root, `/`) but `hello.txt` should land in the working directory:
+
+```ts
+createWriteFileTool({ projectRoot: "/", baseDir: "/home/me/app" }); // "hello.txt" -> /home/me/app/hello.txt
+```
 
 ## Security guard rails
 
