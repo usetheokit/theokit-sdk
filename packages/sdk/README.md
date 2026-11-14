@@ -84,6 +84,25 @@ const agent = await Agent.create({
 
 Extended-thinking `--continue` is out of scope for now (thinking signatures are written but dropped on read — issue #122). See the exported session-persistence types for the full contract.
 
+## MCP servers
+
+Pass servers in `mcpServers`. Use `tools` to filter what a server offers: `include` keeps only the
+named tools, `exclude` removes names (applied after `include`). Names are the server's own. A call to
+a filtered-out tool is refused before it reaches the server.
+
+```ts
+const agent = await Agent.create({
+  // ...
+  mcpServers: {
+    playwright: {
+      command: "npx",
+      args: ["@playwright/mcp@latest"],
+      tools: { exclude: ["browser_run_code_unsafe"] },
+    },
+  },
+});
+```
+
 ## Memory
 
 Durable facts live under `<cwd>/.theokit/memory/`. To keep several users of one agent app apart, give each agent a `userId`; each user then gets their own partition (`.theokit/memory/users/<userId>/`) for facts, index and session summaries:

@@ -133,12 +133,26 @@ function serializeMcp(
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
+function toolsField(tools: McpHttpRedacted["tools"]): Pick<McpHttpRedacted, "tools"> {
+  if (!tools) return {};
+  const picked: NonNullable<McpHttpRedacted["tools"]> = {};
+  if (tools.include) picked.include = [...tools.include];
+  if (tools.exclude) picked.exclude = [...tools.exclude];
+  return { tools: picked };
+}
+
 function serializeMcpEntry(raw: unknown): McpHttpRedacted | McpStdioRedacted | undefined {
-  const config = raw as { type?: string; url?: string; command?: string; args?: unknown };
+  const config = raw as {
+    type?: string;
+    url?: string;
+    command?: string;
+    args?: unknown;
+    tools?: McpHttpRedacted["tools"];
+  };
   if (config.type === "http" && typeof config.url === "string") {
     // EC-2: only `url` + `type` cross to PaaS. Drop headers (Authorization),
     // any other caller-side fields.
-    return { type: "http", url: config.url };
+    return { type: "http", url: config.url, ...toolsField(config.tools) };
   }
   if (
     (config.type === "stdio" || config.type === undefined) &&
@@ -147,6 +161,7 @@ function serializeMcpEntry(raw: unknown): McpHttpRedacted | McpStdioRedacted | u
     // EC-2: drop env entirely (TOKEN, SECRET, etc.). Drop cwd (caller FS).
     const entry: McpStdioRedacted = { type: "stdio", command: config.command };
     if (Array.isArray(config.args)) entry.args = config.args.map((a) => String(a));
+    Object.assign(entry, toolsField(config.tools));
     return entry;
   }
   return undefined;
