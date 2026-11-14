@@ -183,4 +183,19 @@ describe("mcp tool filter in the cloud payload", () => {
     expect(payload.mcpServers?.h).toMatchObject({ tools });
     expect(payload.mcpServers?.s).toMatchObject({ tools });
   });
+
+  it("omits extra properties of the tools object", () => {
+    const tools = { exclude: ["danger"], include: ["a"], token: "secret" };
+    const payload = serializeCloudAgentConfig({
+      apiKey: "k",
+      model: { id: "composer-2" },
+      cloud: { repos: [{ url: "https://github.com/o/r" }] },
+      mcpServers: { h: { type: "http", url: "http://x", tools }, s: { command: "npx", tools } },
+    });
+    for (const key of ["h", "s"]) {
+      const sent = payload.mcpServers?.[key] as { tools?: unknown };
+      expect(sent.tools).toEqual({ exclude: ["danger"], include: ["a"] });
+      expect(JSON.stringify(payload)).not.toContain("secret");
+    }
+  });
 });

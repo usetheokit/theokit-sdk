@@ -134,7 +134,11 @@ function serializeMcp(
 }
 
 function toolsField(tools: McpHttpRedacted["tools"]): Pick<McpHttpRedacted, "tools"> {
-  return tools ? { tools } : {};
+  if (!tools) return {};
+  const picked: NonNullable<McpHttpRedacted["tools"]> = {};
+  if (tools.include) picked.include = [...tools.include];
+  if (tools.exclude) picked.exclude = [...tools.exclude];
+  return { tools: picked };
 }
 
 function serializeMcpEntry(raw: unknown): McpHttpRedacted | McpStdioRedacted | undefined {
