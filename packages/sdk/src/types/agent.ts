@@ -4,13 +4,13 @@
  *
  */
 import type { BudgetTracker } from "./budget-tracker.js";
-import type { BuiltinToolName } from "./builtin-tool-names.js";
 import type { ContextSettings } from "./context.js";
 import type { HookApprovalGate } from "./hooks.js";
 import type { McpServerConfig } from "./mcp.js";
 import type { MemoryProvider } from "./memory-provider.js";
 import type { PluginsSettings, ProviderRoutingSettings } from "./providers.js";
 import type { SendOptions } from "./run.js";
+import type { BuiltinToolName } from "./runtime/builtin-tool-names.js";
 
 // T4.1 / D438 — primitives now live in `./agent-prims.ts` (leaf file) so
 // `./run.ts` and `./messages.ts` can reach them without cycling through
@@ -148,7 +148,7 @@ export interface CompatSourceAdapter {
  * one in {@link AgentOptions.withheldBuiltinTools} both stops it being declared and releases the
  * name, because nothing of the SDK's is occupying it any more.
  *
- * The runtime list is `BUILTIN_TOOL_NAMES`; it is typed against the tuple this union is derived from.
+ * The runtime list is `BUILTIN_TOOL_NAMES`; this union is derived from it.
  *
  * Named for usetheokit/theokit-sdk#381, which is the report that the catalog had no opt-out.
  *
