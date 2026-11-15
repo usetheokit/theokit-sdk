@@ -15,20 +15,49 @@ export async function runDowhileStep(
   input: unknown,
   exec: StepExecution,
 ): Promise<StepResult> {
+  const { dispatch } = exec;
   const startedAt = Date.now();
   const maxIter = step.maxIterations ?? 100;
   let acc = input;
   let i = 0;
   while (true) {
     if (i >= maxIter) {
-      const err = errToShape(new WorkflowMaxIterationsExceededError(step.id, maxIter));
-      return stopped(step.id, "failed", i, { startedAt }, err);
+      return {
+        stepId: step.id,
+        kind: "dowhile",
+        status: "failed",
+        attempts: i,
+        durationMs: Date.now() - startedAt,
+        error: errToShape(new WorkflowMaxIterationsExceededError(step.id, maxIter)),
+      };
     }
-    const it = await iterate({ step, acc, n: i + 1, exec, startedAt });
-    if ("stop" in it) return it.stop;
-    acc = it.acc;
+    const r = await dispatch(step.step, acc, exec);
+    if (["failed", "cancelled"].includes(r.status)) {
+      return {
+        stepId: step.id,
+        kind: "dowhile",
+        status: r.status,
+        attempts: i + 1,
+        durationMs: Date.now() - startedAt,
+        error: r.error,
+      };
+    }
+    acc = r.output;
     i += 1;
-    if (!it.more) break;
+    let shouldContinue = false;
+    try {
+      shouldContinue = await Promise.resolve(step.condFn(acc, i));
+    } catch (err) {
+      return {
+        stepId: step.id,
+        kind: "dowhile",
+        status: "failed",
+        attempts: i,
+        durationMs: Date.now() - startedAt,
+        error: errToShape(err),
+      };
+    }
+    if (!shouldContinue) break;
   }
   return {
     stepId: step.id,
@@ -38,51 +67,4 @@ export async function runDowhileStep(
     durationMs: Date.now() - startedAt,
     output: acc,
   };
-}
-
-/** One iteration: the inner step, then `condFn`. Returns a terminal result or the next accumulator. */
-async function iterate(it: {
-  step: DowhileStep;
-  acc: unknown;
-  n: number;
-  exec: StepExecution;
-  startedAt: number;
-}): Promise<{ stop: StepResult } | { acc: unknown; more: boolean }> {
-  const { step, acc, n, exec, startedAt } = it;
-  const r = await exec.dispatch(step.step, acc, exec);
-  if (r.status === "cancelled" || r.status === "failed") {
-    return { stop: stopped(step.id, r.status, n, { startedAt }, r.error) };
-  }
-  const cont = await evalCond(step, r.output, n);
-  if (cont instanceof Error) {
-    return { stop: stopped(step.id, "failed", n, { startedAt }, errToShape(cont)) };
-  }
-  return { acc: r.output, more: cont };
-}
-
-/** A dowhile result that ended early: the inner step was cancelled or failed, or the loop broke. */
-function stopped(
-  id: string,
-  status: "cancelled" | "failed",
-  attempts: number,
-  timing: { startedAt: number },
-  error: StepResult["error"],
-): StepResult {
-  return {
-    stepId: id,
-    kind: "dowhile",
-    status,
-    attempts,
-    durationMs: Date.now() - timing.startedAt,
-    error,
-  };
-}
-
-/** Evaluates `condFn`; a throw is returned as an Error so the caller can fail the step. */
-async function evalCond(step: DowhileStep, acc: unknown, i: number): Promise<boolean | Error> {
-  try {
-    return await Promise.resolve(step.condFn(acc, i));
-  } catch (err) {
-    return err instanceof Error ? err : new Error(String(err));
-  }
 }

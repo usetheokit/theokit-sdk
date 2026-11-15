@@ -153,7 +153,7 @@ function createSquad(options: SquadOptions): Squad {
           ? setTimeout(() => {
               if (ctrl.signal.aborted) return; // the caller's signal won the race
               timedOut = true;
-              ctrl.abort(new Error(`Squad run timed out after ${String(runOptions.timeoutMs)}ms`));
+              ctrl.abort(new Error("Squad run timed out"));
             }, runOptions.timeoutMs)
           : undefined;
       try {
@@ -187,10 +187,7 @@ async function disposeMembers(
     const index = owned[i]?.index ?? i;
     try {
       if (onError !== undefined) onError(r.reason, index);
-      else
-        diagFailure(
-          `squad: failed to dispose member ${String(index)}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`,
-        );
+      else diagFailure(`squad: failed to dispose member ${String(index)}: ${String(r.reason)}`);
     } catch {
       // A throwing error handler must not replace the run result.
     }

@@ -42,8 +42,7 @@ type SentRun = Awaited<ReturnType<AgentStep["agent"]["send"]>>;
 
 /** Awaits `send`; on abort stops waiting and cancels any run the send returns later. */
 async function sendCancellable(sent: Promise<SentRun>, signal: AbortSignal): Promise<SentRun> {
-  const abortError = (): DOMException =>
-    new DOMException(String(signal.reason ?? "Aborted"), "AbortError");
+  const abortError = (): DOMException => new DOMException("Aborted", "AbortError");
   const cancelLate = (): void => void sent.then((r) => r.cancel()).catch(() => undefined);
   if (signal.aborted) {
     cancelLate();

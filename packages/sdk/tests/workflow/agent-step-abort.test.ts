@@ -142,37 +142,52 @@ describe("agentStep — startup cancellation", () => {
 });
 
 describe("containers — cancellation stops later dispatch", () => {
-  it.each(["fail-fast", "collect"] as const)(
-    "parallel (%s) with bounded concurrency cancels and does not send queued agents",
-    async (errorPolicy) => {
-      const ctrl = new AbortController();
-      const sends = vi.fn();
-      const cancel = vi.fn(async () => undefined);
-      const queued = vi.fn(() => "q");
-      const wf = Workflow.create({ name: "w" })
-        .parallel(
+  it.each([
+    "fail-fast",
+    "collect",
+  ] as const)("parallel (%s) with bounded concurrency cancels and does not send queued agents", async (errorPolicy) => {
+    const ctrl = new AbortController();
+    const sends = vi.fn();
+    const cancel = vi.fn(async () => undefined);
+    const queued = vi.fn(() => "q");
+    const wf = Workflow.create({ name: "w" })
+      .parallel(
+        [
           [
-            [agentStep("a1", hangingAgent(() => (sends(), ctrl.abort()), cancel), () => "go")],
-            [agentStep("a2", hangingAgent(sends, cancel), () => "go")],
-            [fn("q", async () => queued())],
+            agentStep(
+              "a1",
+              hangingAgent(() => {
+                sends();
+                ctrl.abort();
+              }, cancel),
+              () => "go",
+            ),
           ],
-          { concurrency: 1, errorPolicy },
-        )
-        .commit();
-      const run = await wf.run("in", { signal: ctrl.signal });
-      expect(run.status).toBe("cancelled");
-      expect(sends).toHaveBeenCalledTimes(1);
-      expect(queued).not.toHaveBeenCalled();
-      expect(cancel).toHaveBeenCalledTimes(1);
-    },
-  );
+          [agentStep("a2", hangingAgent(sends, cancel), () => "go")],
+          [fn("q", async () => queued())],
+        ],
+        { concurrency: 1, errorPolicy },
+      )
+      .commit();
+    const run = await wf.run("in", { signal: ctrl.signal });
+    expect(run.status).toBe("cancelled");
+    expect(sends).toHaveBeenCalledTimes(1);
+    expect(queued).not.toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
 
   it("parallel fail-fast keeps the initiating failure over sibling aborts", async () => {
     const cancel = vi.fn(async () => undefined);
     const wf = Workflow.create({ name: "w" })
       .parallel(
         [
-          [agentStep("a1", hangingAgent(() => undefined, cancel), () => "go")],
+          [
+            agentStep(
+              "a1",
+              hangingAgent(() => undefined, cancel),
+              () => "go",
+            ),
+          ],
           [
             fn("boom", async () => {
               await new Promise((r) => setTimeout(r, 10));
@@ -212,10 +227,17 @@ describe("containers — cancellation stops later dispatch", () => {
     const ctrl = new AbortController();
     const sends = vi.fn();
     const cancel = vi.fn(async () => undefined);
-    const agent = hangingAgent(() => (sends(), ctrl.abort()), cancel);
+    const agent = hangingAgent(() => {
+      sends();
+      ctrl.abort();
+    }, cancel);
     const wf = Workflow.create({ name: "w" })
       .then(fn("items", async () => [1, 2, 3]))
-      .foreach("items", agentStep("each", agent, () => "go"), { concurrency: 1 })
+      .foreach(
+        "items",
+        agentStep("each", agent, () => "go"),
+        { concurrency: 1 },
+      )
       .commit();
     const run = await wf.run("in", { signal: ctrl.signal });
     expect(run.status).toBe("cancelled");
@@ -226,9 +248,16 @@ describe("containers — cancellation stops later dispatch", () => {
     const ctrl = new AbortController();
     const sends = vi.fn();
     const cancel = vi.fn(async () => undefined);
-    const agent = hangingAgent(() => (sends(), ctrl.abort()), cancel);
+    const agent = hangingAgent(() => {
+      sends();
+      ctrl.abort();
+    }, cancel);
     const wf = Workflow.create({ name: "w" })
-      .dowhile(agentStep("loop", agent, () => "go"), () => true, { maxIterations: 5 })
+      .dowhile(
+        agentStep("loop", agent, () => "go"),
+        () => true,
+        { maxIterations: 5 },
+      )
       .commit();
     const run = await wf.run("in", { signal: ctrl.signal });
     expect(run.status).toBe("cancelled");
