@@ -8,6 +8,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { ConfigurationError } from "../src/errors.js";
+import { setDiagnosticsSink } from "../src/internal/diagnostics.js";
 import { Squad } from "../src/squad.js";
 import type { SDKAgent } from "../src/types/agent.js";
 
@@ -186,6 +187,28 @@ describe("Squad.run — cancellation and disposal", () => {
     expect(run.status).toBe("completed");
     expect(run.result).toBe("x>a>b");
     expect(onDisposeError).toHaveBeenCalledWith(boom, 1);
+  });
+
+  it("redacts a secret in the default disposal diagnostic", async () => {
+    const secret = `sk-ant-${"A1b2C3d4".repeat(5)}`;
+    const messages: string[] = [];
+    setDiagnosticsSink((m) => messages.push(m));
+    try {
+      const run = await Squad.create({
+        agents: [
+          okAgent(
+            "a",
+            vi.fn(async () => Promise.reject(new Error(`bad ${secret}`))),
+          ),
+        ],
+        ownsMembers: true,
+      }).run("x");
+      expect(run.status).toBe("completed");
+    } finally {
+      setDiagnosticsSink(undefined);
+    }
+    expect(messages.length).toBe(1);
+    expect(messages[0]).not.toContain(secret);
   });
 
   it("a caller abort that settles after timeoutMs is not reported as timed out", async () => {

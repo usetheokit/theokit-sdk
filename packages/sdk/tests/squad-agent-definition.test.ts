@@ -117,6 +117,33 @@ describe("Squad — members built from AgentDefinitions are disposed", () => {
     }
   });
 
+  it("with ownsMembers disposes later passed-in members when materialization fails early", async () => {
+    const dispose = vi.fn(async () => undefined);
+    const built = { agentId: "b", dispose, send: vi.fn() } as unknown as SDKAgent;
+    const spy = vi.spyOn(Agent, "create").mockRejectedValue(new Error("create failed"));
+    try {
+      await expect(
+        Squad.create({ agents: [definition, built], ownsMembers: true }).run("hi"),
+      ).rejects.toThrow("create failed");
+      expect(dispose).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("a pre-aborted signal starts no materialization", async () => {
+    const spy = vi.spyOn(Agent, "create");
+    try {
+      const run = await Squad.create({ agents: [definition] }).run("hi", {
+        signal: AbortSignal.abort(),
+      });
+      expect(run.status).toBe("cancelled");
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("resolves cancelled on timeout while Agent.create is pending and disposes the late agent", async () => {
     const dispose = vi.fn(async () => undefined);
     let finish!: (a: unknown) => void;
