@@ -18,7 +18,10 @@ export function registerLanceHandle(
   const key = resolve(storagePath);
   const ref = new WeakRef(table);
   let refs = open.get(key);
-  if (refs === undefined) open.set(key, (refs = new Set()));
+  if (refs === undefined) {
+    refs = new Set();
+    open.set(key, refs);
+  }
   refs.add(ref);
   return () => void refs.delete(ref);
 }
