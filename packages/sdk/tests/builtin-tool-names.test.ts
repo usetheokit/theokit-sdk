@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 import type { BuiltinToolName } from "../src/index.js";
 import { Agent, BUILTIN_TOOL_NAMES, isBuiltinToolName } from "../src/index.js";
 import { resolveMemoryRoot } from "../src/internal/memory/storage/memory-root.js";
+import { validateAgentOptions } from "../src/internal/runtime/validation/validate-agent-options.js";
+import type { AgentOptions } from "../src/types/agent.js";
 import { sseFrame } from "./helpers/anthropic-sse.js";
 import { removeTempDirRobust } from "./helpers/temp-workspace.js";
 
@@ -98,6 +100,38 @@ describe("BUILTIN_TOOL_NAMES", () => {
 
     const registered = (stub.captured.body?.tools ?? []).map((t) => t.name);
     expect([...registered].sort()).toEqual([...BUILTIN_TOOL_NAMES].sort());
+  });
+
+  it("is exactly the set of names the validator reserves against custom tools", () => {
+    for (const name of BUILTIN_TOOL_NAMES) {
+      const options = {
+        model: { id: "openai/gpt-4o-mini" },
+        local: { cwd: tmpdir() },
+        tools: [
+          {
+            name,
+            description: "d",
+            inputSchema: { type: "object", properties: {} },
+            handler: () => "ok",
+          },
+        ],
+      } as unknown as AgentOptions;
+      expect(() => validateAgentOptions(options), name).toThrow(/reserved SDK tool name/);
+    }
+    // A non-builtin name is not reserved.
+    const free = {
+      model: { id: "openai/gpt-4o-mini" },
+      local: { cwd: tmpdir() },
+      tools: [
+        {
+          name: "read_file",
+          description: "d",
+          inputSchema: { type: "object", properties: {} },
+          handler: () => "ok",
+        },
+      ],
+    } as unknown as AgentOptions;
+    expect(() => validateAgentOptions(free)).not.toThrow();
   });
 
   it("recognises each builtin", () => {
