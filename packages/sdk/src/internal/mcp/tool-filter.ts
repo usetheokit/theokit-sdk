@@ -1,6 +1,6 @@
 import type { McpStdioServerConfig } from "../../types/mcp.js";
 import { diag } from "../diagnostics.js";
-import type { McpTool, McpToolCallResult } from "./client.js";
+import type { McpTool, McpToolCallResult } from "./types.js";
 
 /** @internal */
 export type McpToolFilter = NonNullable<McpStdioServerConfig["tools"]>;

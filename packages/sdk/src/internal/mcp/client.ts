@@ -12,6 +12,7 @@ import { DEFAULT_MCP_TIMEOUT_MS, handshakeAwareTimeout } from "./handshake-timeo
 import { resolveBearer } from "./oauth-bearer.js";
 import { rpcCallTool, rpcInitialize, rpcListTools } from "./rpc.js";
 import { applyToolFilter, type McpToolFilter, refuseFilteredCall } from "./tool-filter.js";
+import type { McpTool, McpToolCallResult } from "./types.js";
 
 /**
  * Real MCP client implementing the subset of the 2024-11-05 spec used by the
@@ -22,16 +23,7 @@ import { applyToolFilter, type McpToolFilter, refuseFilteredCall } from "./tool-
  * @internal
  */
 
-export interface McpTool {
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-}
-
-export interface McpToolCallResult {
-  content: Array<{ type: "text"; text: string }>;
-  isError?: boolean;
-}
+export type { McpTool, McpToolCallResult } from "./types.js";
 
 export interface McpClient {
   readonly name: string;

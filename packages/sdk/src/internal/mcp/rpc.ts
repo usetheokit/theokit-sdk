@@ -1,4 +1,4 @@
-import type { McpTool, McpToolCallResult } from "./client.js";
+import type { McpTool, McpToolCallResult } from "./types.js";
 
 /** JSON-RPC helpers shared by the stdio and http MCP clients. @internal */
 export type RpcRequester = (method: string, params: Record<string, unknown>) => Promise<unknown>;
