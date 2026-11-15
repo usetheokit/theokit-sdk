@@ -364,6 +364,17 @@ export async function dispatchStep(
   exec: StepExecution,
 ): Promise<StepResult> {
   const { ctx } = exec;
+  if (ctx.signal.aborted) {
+    // Boundary check for nested dispatch: never start a step once the signal aborted.
+    return {
+      stepId: step.id,
+      kind: step.kind,
+      status: "cancelled",
+      attempts: 0,
+      durationMs: 0,
+      error: errToShape(new DOMException("Aborted", "AbortError")),
+    };
+  }
   switch (step.kind) {
     case "fn":
       return runFnStep(step, input, ctx);

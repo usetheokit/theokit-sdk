@@ -116,4 +116,25 @@ describe("Squad — members built from AgentDefinitions are disposed", () => {
       spy.mockRestore();
     }
   });
+
+  it("resolves cancelled on timeout while Agent.create is pending and disposes the late agent", async () => {
+    const dispose = vi.fn(async () => undefined);
+    let finish!: (a: unknown) => void;
+    const spy = vi.spyOn(Agent, "create").mockImplementation(
+      (() =>
+        new Promise((r) => {
+          finish = r;
+        })) as never,
+    );
+    try {
+      const run = await Squad.create({ agents: [definition] }).run("hi", { timeoutMs: 20 });
+      expect(run.status).toBe("cancelled");
+      expect(run.timedOut).toBe(true);
+      finish({ agentId: "late", dispose });
+      await new Promise((r) => setTimeout(r, 10));
+      expect(dispose).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });

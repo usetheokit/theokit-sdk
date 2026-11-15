@@ -45,10 +45,9 @@ export async function runParallelStep(
   const concurrency = step.concurrency ?? branchCount;
   const sem = createSemaphore(Math.max(1, Math.min(concurrency, branchCount)));
 
-  // Derived signal for fail-fast: aborts on first branch failure.
-  const failFastCtrl = policy === "fail-fast" ? new AbortController() : undefined;
-  const branchSignal =
-    policy === "fail-fast" ? mergeSignals(ctx.signal, failFastCtrl!.signal) : ctx.signal;
+  // Derived signal: aborts on the first failure (fail-fast) or the first cancelled branch (both).
+  const failFastCtrl = new AbortController();
+  const branchSignal = mergeSignals(ctx.signal, failFastCtrl.signal);
 
   // Gate each branch through the semaphore — acquire BEFORE running so the
   // permit cap is honored. (Eager-start would defeat concurrency limits.)
@@ -67,7 +66,8 @@ export async function runParallelStep(
       );
     } catch (err) {
       // Abort siblings at the initiating failure so it is the one reported.
-      if (!isAbortError(err)) failFastCtrl?.abort(err);
+      // Done before the permit is released so no queued branch starts afterwards.
+      if (policy === "fail-fast" || isAbortError(err)) failFastCtrl.abort(err);
       throw err;
     } finally {
       release();
@@ -86,7 +86,7 @@ export async function runParallelStep(
         output: outputs,
       };
     } catch (err) {
-      failFastCtrl?.abort(err);
+      failFastCtrl.abort(err);
       return await failFastFailure(semBranchPromises, step.id, startedAt, ctx.signal);
     }
   }

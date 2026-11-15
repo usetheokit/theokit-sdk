@@ -79,7 +79,7 @@ export async function runForeachStep(
       try {
         if (cancelled !== undefined) return; // stop dispatching once an item was cancelled
         const r = await dispatch(step.step, item, exec);
-        if (r.status === "cancelled") {
+        if (r.status === "cancelled" || exec.ctx.signal.aborted) {
           cancelled = r;
         } else if (r.status === "failed") {
           failures.push(new Error(`foreach item ${idx} failed: ${r.error?.message ?? "unknown"}`));

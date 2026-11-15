@@ -148,18 +148,25 @@ function createSquad(options: SquadOptions): Squad {
       const onOuterAbort = (): void => ctrl.abort(outer?.reason);
       if (outer?.aborted) onOuterAbort();
       else outer?.addEventListener("abort", onOuterAbort, { once: true });
-      const timer =
-        runOptions?.timeoutMs !== undefined
-          ? setTimeout(() => {
-              if (ctrl.signal.aborted) return; // the caller's signal won the race
-              timedOut = true;
-              ctrl.abort(new Error("Squad run timed out"));
-            }, runOptions.timeoutMs)
-          : undefined;
+      const timer = startTimer(ctrl, runOptions?.timeoutMs, () => {
+        timedOut = true;
+      });
       try {
-        const pipeline = await buildPipeline(agents, options.name, (agent, index, created) => {
-          if (created || options.ownsMembers === true) owned.push({ agent, index });
+        const pipeline = await buildPipeline(agents, options.name, {
+          signal: ctrl.signal,
+          onMember: (agent, index, created) => {
+            if (created || options.ownsMembers === true) owned.push({ agent, index });
+          },
+          onLate: (agent, index) => disposeMembers([{ agent, index }], options.onDisposeError),
         });
+        if (pipeline === undefined) {
+          return {
+            result: undefined,
+            status: "cancelled",
+            steps: [],
+            ...(timedOut ? { timedOut } : {}),
+          };
+        }
         const run = await pipeline.run(input, { signal: ctrl.signal });
         return {
           result: run.output,
@@ -174,6 +181,20 @@ function createSquad(options: SquadOptions): Squad {
       }
     },
   };
+}
+
+/** Aborts `ctrl` after `ms` (unless it already aborted) and reports the timeout through `onTimeout`. */
+function startTimer(
+  ctrl: AbortController,
+  ms: number | undefined,
+  onTimeout: () => void,
+): ReturnType<typeof setTimeout> | undefined {
+  if (ms === undefined) return undefined;
+  return setTimeout(() => {
+    if (ctrl.signal.aborted) return; // the caller's signal won the race
+    onTimeout();
+    ctrl.abort(new Error("Squad run timed out"));
+  }, ms);
 }
 
 /** Disposes members with `Promise.allSettled`; a failure is reported, never thrown. */
@@ -194,6 +215,30 @@ async function disposeMembers(
   });
 }
 
+/** Materializes a member unless the run aborts first; an agent that arrives late is handed to `onLate`. */
+async function materializeUntilAborted(
+  def: AgentDefinition,
+  index: number,
+  hooks: { signal: AbortSignal; onLate: (agent: SDKAgent, index: number) => Promise<void> },
+): Promise<SDKAgent | undefined> {
+  const pending = materialize(def, index);
+  const agent = await untilAborted(pending, hooks.signal);
+  if (agent === undefined)
+    void pending.then((late) => hooks.onLate(late, index)).catch(() => undefined);
+  return agent;
+}
+
+/** Resolves with `pending`'s value, or `undefined` as soon as `signal` aborts. */
+function untilAborted<T>(pending: Promise<T>, signal: AbortSignal): Promise<T | undefined> {
+  return Promise.race([
+    pending,
+    new Promise<undefined>((resolve) => {
+      if (signal.aborted) resolve(undefined);
+      else signal.addEventListener("abort", () => resolve(undefined), { once: true });
+    }),
+  ]);
+}
+
 /**
  * Builds the sequential pipeline, materializing the members that are still raw data.
  *
@@ -204,8 +249,13 @@ async function disposeMembers(
 async function buildPipeline(
   agents: ReadonlyArray<SDKAgent | AgentDefinition>,
   name: string | undefined,
-  onMember: (agent: SDKAgent, index: number, created: boolean) => void,
-): Promise<ReturnType<ReturnType<typeof Workflow.create>["commit"]>> {
+  hooks: {
+    signal: AbortSignal;
+    onMember: (agent: SDKAgent, index: number, created: boolean) => void;
+    onLate: (agent: SDKAgent, index: number) => Promise<void>;
+  },
+): Promise<ReturnType<ReturnType<typeof Workflow.create>["commit"]> | undefined> {
+  const { onMember } = hooks;
   // Compose Workflow + agentStep — identity threading: each agent's prompt is the previous agent's
   // output (the run input for the first agent).
   let builder = Workflow.create({ name: name ?? "squad" });
@@ -216,7 +266,8 @@ async function buildPipeline(
     // `AgentDefinition` only becomes an agent with an `await`. Deferring to here keeps construction cheap and
     // avoids requiring a resolved credential to assemble a team before the first run.
     const built = isBuiltAgent(member);
-    const agent = built ? member : await materialize(member, i);
+    const agent = built ? member : await materializeUntilAborted(member, i, hooks);
+    if (agent === undefined) return undefined;
     onMember(agent, i, !built);
     // SE3 — the first agent receives the human input (no peer origin); every subsequent agent
     // receives its predecessor's output, so its turn carries `{ kind: "peer", from: "agent-<i-1>" }`.

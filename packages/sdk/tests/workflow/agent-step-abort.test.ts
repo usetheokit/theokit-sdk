@@ -264,3 +264,50 @@ describe("containers — cancellation stops later dispatch", () => {
     expect(sends).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("containers — self-cancelled member and in-flight function", () => {
+  it.each([
+    "fail-fast",
+    "collect",
+  ] as const)("parallel (%s) does not start a queued branch after a member cancels itself", async (errorPolicy) => {
+    const queued = vi.fn(() => "q");
+    const self = {
+      agentId: "a",
+      async send() {
+        return {
+          cancel: async () => undefined,
+          wait: async () => ({ id: "r", status: "cancelled" as const }),
+        };
+      },
+    } as unknown as SDKAgent;
+    const wf = Workflow.create({ name: "w" })
+      .parallel([[agentStep("a1", self, () => "go")], [fn("q", async () => queued())]], {
+        concurrency: 1,
+        errorPolicy,
+      })
+      .commit();
+    const run = await wf.run("in");
+    expect(run.status).toBe("cancelled");
+    expect(queued).not.toHaveBeenCalled();
+  });
+
+  it("foreach returns cancelled when the signal aborts while a function is in flight", async () => {
+    const ctrl = new AbortController();
+    const calls = vi.fn();
+    const wf = Workflow.create({ name: "w" })
+      .then(fn("items", async () => [1, 2, 3]))
+      .foreach(
+        "items",
+        fn("each", async () => {
+          calls();
+          ctrl.abort();
+          return 1;
+        }),
+        { concurrency: 1 },
+      )
+      .commit();
+    const run = await wf.run("in", { signal: ctrl.signal });
+    expect(run.status).toBe("cancelled");
+    expect(calls).toHaveBeenCalledTimes(1);
+  });
+});
