@@ -3,7 +3,9 @@
  * declared — `tests/lint/types-name-their-owner.test.ts` re-derives it.
  *
  */
+
 import type { BudgetTracker } from "./budget-tracker.js";
+import type { BuiltinToolName } from "./builtin-tool-names.js";
 import type { ContextSettings } from "./context.js";
 import type { HookApprovalGate } from "./hooks.js";
 import type { McpServerConfig } from "./mcp.js";
@@ -147,13 +149,13 @@ export interface CompatSourceAdapter {
  * one in {@link AgentOptions.withheldBuiltinTools} both stops it being declared and releases the
  * name, because nothing of the SDK's is occupying it any more.
  *
- * The runtime list is `BUILTIN_TOOL_NAMES`; `src/builtin-tools.ts` checks it against this union.
+ * The union is derived from the runtime list `BUILTIN_TOOL_NAMES` (`./builtin-tool-names.ts`).
  *
  * Named for usetheokit/theokit-sdk#381, which is the report that the catalog had no opt-out.
  *
  * @public
  */
-export type BuiltinToolName = "shell" | "memory_search" | "memory_get";
+export type { BuiltinToolName };
 
 /**
  * Local agent configuration.
