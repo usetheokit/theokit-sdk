@@ -6,11 +6,12 @@ import type {
   McpServerConfig,
   McpStdioServerConfig,
 } from "../../types/mcp.js";
-import { diag } from "../diagnostics.js";
 import { resolveChildEnv } from "../runtime/lifecycle/env-policy.js";
 import { safePathJoin } from "../security/path-guard.js";
 import { DEFAULT_MCP_TIMEOUT_MS, handshakeAwareTimeout } from "./handshake-timeout.js";
 import { resolveBearer } from "./oauth-bearer.js";
+import { rpcCallTool, rpcInitialize, rpcListTools } from "./rpc.js";
+import { applyToolFilter, type McpToolFilter, refuseFilteredCall } from "./tool-filter.js";
 
 /**
  * Real MCP client implementing the subset of the 2024-11-05 spec used by the
@@ -87,53 +88,6 @@ function isAbortLike(cause: unknown): boolean {
   return name === "TimeoutError" || name === "AbortError";
 }
 
-type RpcRequester = (method: string, params: Record<string, unknown>) => Promise<unknown>;
-
-async function rpcInitialize(request: RpcRequester): Promise<void> {
-  await request("initialize", {
-    protocolVersion: "2024-11-05",
-    capabilities: { tools: {} },
-    clientInfo: { name: "theokit-sdk", version: "0.0.0" },
-  });
-}
-
-async function rpcListTools(request: RpcRequester): Promise<McpTool[]> {
-  const response = await request("tools/list", {});
-  return (response as { result?: { tools?: McpTool[] } }).result?.tools ?? [];
-}
-
-async function rpcCallTool(
-  request: RpcRequester,
-  name: string,
-  args: Record<string, unknown>,
-): Promise<McpToolCallResult> {
-  const response = await request("tools/call", { name, arguments: args });
-  const result = (response as { result?: McpToolCallResult }).result;
-  if (result === undefined) {
-    return { content: [{ type: "text", text: "MCP returned empty result" }], isError: true };
-  }
-  return result;
-}
-
-type McpToolFilter = NonNullable<McpStdioServerConfig["tools"]>;
-
-/** `include` (when set) must list the name; `exclude` then removes it. */
-function isToolAllowed(filter: McpToolFilter, name: string): boolean {
-  if (filter.include !== undefined && !filter.include.includes(name)) return false;
-  return !(filter.exclude ?? []).includes(name);
-}
-
-/** One warning per `include` name the server does not list, so a typo is visible. */
-function warnUnlistedIncludes(server: string, filter: McpToolFilter, listed: McpTool[]): void {
-  const names = new Set(listed.map((tool) => tool.name));
-  for (const wanted of new Set(filter.include ?? [])) {
-    if (names.has(wanted)) continue;
-    diag(
-      `[theokit-sdk] mcp tools.include names "${wanted}", which server "${server}" does not list\n`,
-    );
-  }
-}
-
 /** Shared base wiring `initialize` / `listTools` / `callTool` onto an
  * abstract RPC `request` implementation. Subclasses define the transport.
  */
@@ -153,10 +107,7 @@ abstract class BaseMcpClient implements McpClient {
 
   async listTools(): Promise<McpTool[]> {
     const listed = await rpcListTools((method, params) => this.request(method, params));
-    const filter = this.toolFilter();
-    if (filter === undefined) return listed;
-    warnUnlistedIncludes(this.name, filter, listed);
-    return listed.filter((tool) => isToolAllowed(filter, tool.name));
+    return applyToolFilter(this.name, this.toolFilter(), listed);
   }
 
   call(method: string, params: Record<string, unknown>): Promise<unknown> {
@@ -164,18 +115,8 @@ abstract class BaseMcpClient implements McpClient {
   }
 
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult> {
-    const filter = this.toolFilter();
-    if (filter !== undefined && !isToolAllowed(filter, name)) {
-      return Promise.resolve({
-        content: [
-          {
-            type: "text",
-            text: `MCP tool "${name}" on server "${this.name}" is filtered out by the server's tools include/exclude config`,
-          },
-        ],
-        isError: true,
-      });
-    }
+    const refused = refuseFilteredCall(this.name, this.toolFilter(), name);
+    if (refused !== undefined) return Promise.resolve(refused);
     return rpcCallTool((method, params) => this.request(method, params), name, args);
   }
 }
