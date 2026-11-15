@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.32.0
+
+### Minor Changes
+
+- [#1163](https://github.com/usetheokit/theokit-sdk/pull/1163) [`d477376`](https://github.com/usetheokit/theokit-sdk/commit/d4773767e371b52a98135544fb6304f66dbb422c) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `createWriteFileTool`, `createEditFileTool` and `createApplyPatchTool` accept `baseDir`: the base for relative paths, separate from the `projectRoot` boundary. A `baseDir` outside `projectRoot` throws `BaseDirOutsideProjectRootError` at construction.
+
+### Patch Changes
+
+- [#1172](https://github.com/usetheokit/theokit-sdk/pull/1172) [`47f2b94`](https://github.com/usetheokit/theokit-sdk/commit/47f2b94e8a8f3f4e26c19e85b83a680d09746e5c) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `createTodolistTool()` and `createPlanModeTool()` now return types assignable to `CustomTool`, so they go straight into `AgentOptions.tools` without `as unknown as CustomTool`. Types only: `inputSchema` is `Record<string, unknown>` and `handler` takes `Record<string, unknown>`; runtime behavior and results are unchanged.
+
 ## 0.31.0
 
 ### Minor Changes
