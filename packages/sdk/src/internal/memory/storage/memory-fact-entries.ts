@@ -97,6 +97,11 @@ async function removeIndexLine(dir: string, file: string): Promise<void> {
     await replaceFileAtomic(join(dir, "MEMORY.md"), kept.join("\n"));
 }
 
+/** Where the text after a removed line resumes; the block's last line keeps the newline before the next heading. */
+function afterLine(raw: string, lineEnd: number, blockEnd: number): number {
+  return lineEnd >= blockEnd && blockEnd < raw.length ? lineEnd : Math.min(lineEnd + 1, raw.length);
+}
+
 /** Remove the first bullet inside `## Facts` whose text is `text`; lines elsewhere are untouched. */
 async function removeLegacyBullet(dir: string, text: string): Promise<boolean> {
   const raw = await unlessMissing(readFile(join(dir, "MEMORY.md"), "utf8"));
@@ -107,7 +112,7 @@ async function removeLegacyBullet(dir: string, text: string): Promise<boolean> {
     const lineEnd = offset + line.length;
     const t = line.trim();
     if (t.startsWith("- ") && t.slice(2).trim() === text && !INDEX_ENTRY.test(text)) {
-      const cut = raw.slice(0, offset) + raw.slice(Math.min(lineEnd + 1, raw.length));
+      const cut = raw.slice(0, offset) + raw.slice(afterLine(raw, lineEnd, range.end));
       await replaceFileAtomic(join(dir, "MEMORY.md"), cut);
       return true;
     }

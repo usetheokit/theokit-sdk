@@ -4,20 +4,25 @@ import { lanceStoragePath } from "../lance-index.js";
 import { refreshLanceHandles } from "./lance-handles.js";
 import type { MemoryRoot } from "./memory-root.js";
 
-/** What a chunk keeps once a fact is cut out; `null` when nothing but structure is left. */
+/**
+ * What a chunk keeps once a fact is cut out; `null` when nothing but structure is left, `undefined`
+ * when the chunk does not hold the fact. The fact must be a whole line (bare, or as a `- ` bullet),
+ * so removing `cat` never touches `concatenate`. A fact split across chunks is not matched.
+ */
 export function residualAfterRemoval(chunk: string, fact: string): string | null | undefined {
-  const at = chunk.indexOf(fact);
-  if (at === -1 || fact === "") return undefined;
-  const bullet = chunk.slice(0, at).endsWith("- ") ? 2 : 0;
-  const end = at + fact.length;
-  // A bullet takes its own line with it.
-  const after = bullet > 0 && chunk[end] === "\n" ? end + 1 : end;
-  const rest = chunk.slice(0, at - bullet) + chunk.slice(after);
+  if (fact === "") return undefined;
+  const lines = chunk.split("\n");
+  const at = lines.findIndex((l) => {
+    const t = l.trim();
+    return t === fact || (t.startsWith("- ") && t.slice(2).trim() === fact);
+  });
+  if (at === -1) return undefined;
+  const rest = lines.filter((_, i) => i !== at);
   // Headings, fences, blank lines and front matter keys are structure, not memory.
-  const meaningful = rest
-    .split("\n")
-    .some((l) => !/^\s*(#.*|---|(name|description|metadata|node_type|type):.*|-?)\s*$/.test(l));
-  return meaningful ? rest : null;
+  const meaningful = rest.some(
+    (l) => !/^\s*(#.*|---|(name|description|metadata|node_type|type):.*|-?)\s*$/.test(l),
+  );
+  return meaningful ? rest.join("\n") : null;
 }
 
 interface LanceTableLike {

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
 import { listMemoryFacts, MemoryFactNotRemovableError, removeMemoryFact } from "../../src/index.js";
 import { isLanceAvailable, LanceIndex } from "../../src/internal/memory/lance-index.js";
+import { residualAfterRemoval } from "../../src/internal/memory/storage/lance-forget.js";
 import {
   appendFactToMarkdown,
   readFactsFromMarkdown,
@@ -66,6 +67,18 @@ describe("listMemoryFacts / removeMemoryFact", () => {
     expect(after.slice(after.indexOf("## Notes"))).toContain("- alpha fact");
     expect(after).toContain("](alpha-fact.md)");
     expect((await listMemoryFacts(cwd)).filter((f) => f.text === "alpha fact")).toHaveLength(1);
+  });
+
+  it("keeps the newline before the next heading when the last bullet goes", async () => {
+    writeFileSync(md(), "## Facts\n- only fact\n## Notes\n- n\n");
+    const only = (await listMemoryFacts(cwd)).find((f) => f.text === "only fact");
+    expect(await removeMemoryFact(cwd, only?.id as string)).toBe(true);
+    expect(readFileSync(md(), "utf8")).toBe("## Facts\n\n## Notes\n- n\n");
+  });
+
+  it("residualAfterRemoval matches whole lines only", () => {
+    expect(residualAfterRemoval("- concatenate\n- other", "cat")).toBeUndefined();
+    expect(residualAfterRemoval("- cat\n- other", "cat")).toBe("- other");
   });
 
   it("resolves false for an unknown id and changes nothing", async () => {
