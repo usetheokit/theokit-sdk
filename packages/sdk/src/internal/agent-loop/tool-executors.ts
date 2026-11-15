@@ -141,6 +141,14 @@ async function runShellTool(inputs: AgentLoopInputs, call: LlmToolCallPart): Pro
   return final;
 }
 
+/** True when `name` is exactly the model-facing name of a tool an MCP server filter withheld. */
+export function isFilteredMcpToolName(inputs: AgentLoopInputs, name: string): boolean {
+  for (const [server, client] of inputs.mcp?.entries() ?? []) {
+    if ((client.filteredOut ?? []).some((n) => mcpModelToolName(server, n) === name)) return true;
+  }
+  return false;
+}
+
 /**
  * A model call of an MCP tool the server's `tools` filter withheld is not in the catalog. Route it to
  * the client so the model gets the error naming the server's own tool and server key; the client

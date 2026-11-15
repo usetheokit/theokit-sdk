@@ -8,7 +8,12 @@ import { generateCallId } from "../ids.js";
 import type { LlmContentPart, LlmToolCallPart } from "../llm/types.js";
 import { HISTOGRAM_NAMES } from "../telemetry/span-names.js";
 import { type RepairableTool, repairToolCall } from "../tool-dispatch/repair-middleware.js";
-import { executeTool, renderToolResult, type ToolResult } from "./tool-executors.js";
+import {
+  executeTool,
+  isFilteredMcpToolName,
+  renderToolResult,
+  type ToolResult,
+} from "./tool-executors.js";
 import { raceToolExecution } from "./tool-timeout.js";
 import type { AgentLoopInputs, ResolvedTool } from "./types.js";
 
@@ -124,7 +129,10 @@ async function dispatchSingleCall(
   events: SDKMessage[],
   parentSpan?: ToolSpan,
 ): Promise<LlmContentPart> {
-  const { call: workingCall, repairs } = applyRepairAndExtractCall(tools, call);
+  // A call naming a filtered-out MCP tool exactly must not be case-repaired onto a distinct offered tool.
+  const { call: workingCall, repairs } = isFilteredMcpToolName(inputs, call.name)
+    ? { call, repairs: [] as ReadonlyArray<string> }
+    : applyRepairAndExtractCall(tools, call);
   const dc: DispatchContext = {
     inputs,
     call: workingCall,

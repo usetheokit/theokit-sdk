@@ -134,4 +134,47 @@ describe("mcp tool filter in the agent loop", () => {
     expect(text).toContain("fixture");
     expect(serverCalls()).toEqual([]);
   });
+
+  it("a forced call of an excluded Danger is not case-repaired onto the offered danger", async () => {
+    const server = SERVER.replace('["a", "b", "danger"]', '["Danger", "danger"]');
+    writeFileSync(join(dir, "collide.cjs"), server);
+    const collide = createMcpClient("fixture", {
+      command: process.execPath,
+      args: [join(dir, "collide.cjs"), logFile],
+      tools: { exclude: ["Danger"] },
+    });
+    await collide.initialize();
+    await collide.listTools();
+    try {
+      const offeredTool: ResolvedTool = {
+        name: "mcp_fixture_danger",
+        description: "danger",
+        inputSchema: { type: "object" },
+        origin: "mcp",
+        mcpServerName: "fixture",
+        mcpToolName: "danger",
+      };
+      const inputs = {
+        agentId: "a-1",
+        runId: "r-1",
+        hooks: { run: async () => ({}) },
+        mcp: new Map([["fixture", collide]]),
+      } as unknown as AgentLoopInputs;
+      const events: SDKMessage[] = [];
+      const results = await dispatchTools(
+        inputs,
+        [offeredTool],
+        [{ type: "tool_use", id: "c-2", name: "mcp_fixture_Danger", input: {} }],
+        events,
+      );
+      const done = events.find(
+        (e): e is SDKToolUseMessage => e.type === "tool_call" && e.status !== "running",
+      );
+      expect(done?.status).toBe("error");
+      expect(JSON.stringify(done?.result) + JSON.stringify(results)).toContain("filtered out");
+      expect(serverCalls()).toEqual([]);
+    } finally {
+      await collide.close();
+    }
+  });
 });
