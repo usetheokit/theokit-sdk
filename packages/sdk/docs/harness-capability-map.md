@@ -711,8 +711,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `readFacts` | function | Every memory in the store, honouring the `enabled` gate on {@link MemoryConfig } : when memory is disabled the call resolves to `[]` without touching disk.  |
 | `readFactsFromMarkdown` | function | Every memory in the store: the per-memory files, plus any legacy `## Facts` bullets still in `MEMORY.md`.  |
 | `ReadFileOptions` | interface | Options for a bounded read of a memory file. |
-| `readLegacyEntriesIn` | function |  |
-| `readMemoryEntriesIn` | function |  |
+| `readLegacyEntriesIn` | function | The pre-#389 `## Facts` bullets of one root's `MEMORY.md`, each with the id {@link listFactEntries } reports for it, or `[]` when that root has no index. |
+| `readMemoryEntriesIn` | function | The per-memory files in one root, each with the id {@link listFactEntries } reports for it, oldest `modified` first.  |
 | `readMemoryFileBounded` | function | Read a memory file, limited to a bounded range of lines. |
 | `redactSecrets` | function | Canonical credential-redaction primitive (ADR D68).  |
 | `removeFactEntry` | function | Remove one stored memory from the write root: the per-memory file and its `MEMORY.md` index line, or one legacy bullet inside `## Facts`.  |
@@ -1262,8 +1262,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `readFacts` | function | Every memory in the store, honouring the `enabled` gate on {@link MemoryConfig } : when memory is disabled the call resolves to `[]` without touching disk.  |
 | `readFactsFromMarkdown` | function | Every memory in the store: the per-memory files, plus any legacy `## Facts` bullets still in `MEMORY.md`.  |
 | `ReadFileOptions` | interface | Options for a bounded read of a memory file. |
-| `readLegacyEntriesIn` | function |  |
-| `readMemoryEntriesIn` | function |  |
+| `readLegacyEntriesIn` | function | The pre-#389 `## Facts` bullets of one root's `MEMORY.md`, each with the id {@link listFactEntries } reports for it, or `[]` when that root has no index. |
+| `readMemoryEntriesIn` | function | The per-memory files in one root, each with the id {@link listFactEntries } reports for it, oldest `modified` first.  |
 | `readMemoryFileBounded` | function | Read a memory file, limited to a bounded range of lines. |
 | `removeFactEntry` | function | Remove one stored memory from the write root: the per-memory file and its `MEMORY.md` index line, or one legacy bullet inside `## Facts`.  |
 | `remPhase` | function | REM phase — single-link agglomerative clustering by cosine similarity. |

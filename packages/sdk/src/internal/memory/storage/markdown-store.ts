@@ -152,6 +152,10 @@ export interface FactEntry {
   legacy: boolean;
 }
 
+/**
+ * The per-memory files in one root, each with the id {@link listFactEntries} reports for it, oldest
+ * `modified` first. A root that cannot be listed reads as empty, as it always has for recall.
+ */
 export async function readMemoryEntriesIn(dir: MemoryRoot | string): Promise<FactEntry[]> {
   let entries: string[];
   try {
@@ -174,6 +178,10 @@ async function readLegacyFactsSectionIn(dir: string): Promise<MemoryFact[]> {
   return (await readLegacyEntriesIn(dir)).map((e) => e.fact);
 }
 
+/**
+ * The pre-#389 `## Facts` bullets of one root's `MEMORY.md`, each with the id {@link listFactEntries}
+ * reports for it, or `[]` when that root has no index.
+ */
 export async function readLegacyEntriesIn(dir: string): Promise<FactEntry[]> {
   try {
     const facts = parseFactsSection(await readFile(join(dir, "MEMORY.md"), "utf8"));

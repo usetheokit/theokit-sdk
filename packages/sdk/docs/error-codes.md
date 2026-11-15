@@ -106,7 +106,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_memory_backend` | domain | ConfigurationError | `packages/sdk/src/internal/memory/index-manager-dispatch.ts:24` |
 | `invalid_memory_ceiling` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:23` +1 |
 | `invalid_memory_directory` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/memory-root.ts:161` |
-| `invalid_memory_kind` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/markdown-store.ts:295` |
+| `invalid_memory_kind` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/markdown-store.ts:303` |
 | `invalid_model_param` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/model-selection.ts:43` +1 |
 | `invalid_model_selection` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/model-selection.ts:25` |
 | `invalid_processor_options` | domain | ConfigurationError | `packages/sdk/src/built-in-processors.ts:86` |
@@ -144,7 +144,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `memory_fact_not_removable` | domain | — | `packages/sdk/src/errors.ts:507` |
 | `memory_path_escapes_root` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:115` +1 |
 | `memory_path_traversal` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:307` |
-| `memory_threat_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/markdown-store.ts:312` |
+| `memory_threat_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/markdown-store.ts:320` |
 | `memory_tool_bad_args` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:138` +1 |
 | `migration_destination_exists` | domain | ConfigurationError | `packages/sdk/src/internal/memory/migrate-sqlite-to-lance.ts:172` |
 | `missing_api_key` | domain | AuthenticationError, ConfigurationError | `packages/sdk/src/internal/agent/helpers.ts:226` +2 |
