@@ -56,6 +56,7 @@ export {
   resolveMemoryRoot,
   type SqliteFactRow,
   unlessMissing,
+  withCeilingLock,
 } from "@theokit/sdk/internal/memory-store";
 
 /** One note discovered under `notes/`: its file name without the `.md` suffix, and its absolute path. */

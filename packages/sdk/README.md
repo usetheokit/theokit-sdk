@@ -106,7 +106,7 @@ const facts = await listMemoryFacts(process.cwd());
 const removed = await removeMemoryFact(process.cwd(), facts[0].id); // true, or false for an unknown id
 ```
 
-`listMemoryFacts` covers per-memory files and legacy `## Facts` bullets, in the order the agent reads them. `removeMemoryFact` deletes the file and its `MEMORY.md` index line (or one legacy bullet), serialized with the SDK's writes. Entries from another tool's store (for example the Claude Code CLI's) have `removable: false`, and removing one rejects with `MemoryFactNotRemovableError`. Removal also updates the memory search indexes (sqlite is re-synced; Lance `memory` rows holding the fact are deleted or rewritten without it, and open handles are refreshed), so recall does not return it. Ids of entries outside the write root include a root hash. Two identical legacy bullets in one root share an id, and removal takes the first.
+`listMemoryFacts` covers per-memory files and legacy `## Facts` bullets, in the order the agent reads them. `removeMemoryFact` deletes the file and its `MEMORY.md` index line (or one legacy bullet), serialized with the SDK's writes. Entries from another tool's store (for example the Claude Code CLI's) have `removable: false`, and removing one rejects with `MemoryFactNotRemovableError`. Removal does not touch the search indexes: the next `IndexManager.sync()` drops the entry from the sqlite index; Lance rows copied by the one-time migration are not linked to their source file and are not changed. Ids of entries outside the write root include a root hash. Two identical legacy bullets in one root share an id, and removal takes the first.
 
 ## Plugins
 

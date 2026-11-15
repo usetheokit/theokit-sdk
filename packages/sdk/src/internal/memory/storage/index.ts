@@ -131,6 +131,7 @@ export {
   readLegacyEntriesIn,
   readMemoryEntriesIn,
   unlessMissing,
+  withCeilingLock,
 } from "./markdown-store.js";
 // The declared fact ceiling (B-380): one validator and one refusal for both write families, so
 // the markdown store and the satellite's in-memory provider refuse with the same words.

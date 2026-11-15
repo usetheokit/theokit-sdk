@@ -368,7 +368,7 @@ const CEILING_LOCK: FileLockOptions = { retries: 10 };
  * the CLI's `~/.claude/projects/<project>/memory`, the parent and the short-lived `memory.lock`
  * sit in the CLI's tree, which is accepted because the lock is removed on release.
  */
-async function withCeilingLock(targetDir: string, fn: () => Promise<void>): Promise<void> {
+export async function withCeilingLock<T>(targetDir: string, fn: () => Promise<T>): Promise<T> {
   const lockTarget = resolve(targetDir);
   await mkdir(dirname(lockTarget), { recursive: true });
   return withFileLock(lockTarget, fn, CEILING_LOCK);

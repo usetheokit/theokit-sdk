@@ -4,7 +4,6 @@ import { join } from "node:path";
 
 import { ConfigurationError } from "../../errors.js";
 import type { EmbeddingRuntime } from "./embedding-adapter.js";
-import { registerLanceHandle } from "./storage/lance-handles.js";
 import { type MemoryRoot, resolveMemoryRoot } from "./storage/memory-root.js";
 
 /**
@@ -38,7 +37,6 @@ interface LanceTable {
   add: (rows: ReadonlyArray<LanceFactRecord>) => Promise<void>;
   search: (vector: ReadonlyArray<number>) => LanceQuery;
   delete: (predicate: string) => Promise<void>;
-  checkoutLatest: () => Promise<void>;
   countRows: () => Promise<number>;
   // EC-8: schema introspection for dimension check.
   schema: () => Promise<{
@@ -192,7 +190,6 @@ export class LanceIndex {
       table = await conn.createTable(tableName, [bootstrap]);
       await table.delete("namespace = '__bootstrap__'");
     }
-    registerLanceHandle(storagePath, table);
     return new LanceIndex(table, opts.embedding, dim);
   }
 

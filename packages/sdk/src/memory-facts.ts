@@ -40,14 +40,11 @@ export function listMemoryFacts(
  * `true` when removed and `false` when no entry has that id. Rejects with
  * {@link MemoryFactNotRemovableError} for an entry outside the write root.
  *
- * Search indexes: removal updates them. The sqlite index re-walks the corpus, so the deleted file
- * leaves it and an edited `MEMORY.md` is re-chunked in place (the other facts stay searchable;
- * vectors for re-chunked text are filled in by the next `sync()`). In a Lance index, only
- * `source: "memory"` rows are touched: a row that is the fact is deleted, and a migrated chunk that
- * contains it is rewritten without it (deleted when only headings are left), keeping its vector.
- * Rows stay while another stored entry has the same text. Open `LanceIndex` handles are refreshed,
- * so an agent already running does not recall it. A missing index or an absent `@lancedb/lancedb`
- * means nothing to drop.
+ * Search indexes: removal does not touch them; the next `IndexManager.sync()` drops the entry. The
+ * sqlite index re-walks the corpus, so the deleted file leaves it and an edited `MEMORY.md` is
+ * re-chunked. A Lance index holds a copy made by the one-time sqlite-to-Lance migration, with no
+ * link back to the file it came from, so removal does not change those rows; they are not
+ * refreshed by `sync()`.
  *
  * Two identical legacy bullets in one root share an id, so removing that id removes one of them
  * (the first); the second is still listed under the same id.
@@ -59,8 +56,8 @@ export function removeMemoryFact(
   id: string,
   settings?: Partial<MemorySettings>,
 ): Promise<boolean> {
-  return load().then((m) => m.removeFactAndForget(cwd, id, settings));
+  return load().then((m) => m.removeFactEntry(cwd, id, settings));
 }
 
 // Loaded on demand so the store and index code stay out of the entry bundle.
-const load = () => import("./internal/memory/storage/facts-api.js");
+const load = () => import("./internal/memory/storage/memory-fact-entries.js");

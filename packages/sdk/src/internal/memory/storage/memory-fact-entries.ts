@@ -12,6 +12,7 @@ import {
   readLegacyEntriesIn,
   readMemoryEntriesIn,
   unlessMissing,
+  withCeilingLock,
 } from "./markdown-store.js";
 import { type MemoryLocationConfig, memoryReadRoots, resolveMemoryRoot } from "./memory-root.js";
 
@@ -63,7 +64,7 @@ export async function listFactEntries(
 /**
  * Remove one stored memory from the write root: the per-memory file and its `MEMORY.md` index
  * line, or one legacy bullet inside `## Facts`. Serialized with {@link appendFactToMarkdown} on the
- * same mutex; both files are written atomically. Resolves the removed fact's text, or `undefined`
+ * same mutex and cross-process lock; both files are written atomically. Resolves `true` when removed, `false`
  * when no entry has the id, and throws {@link MemoryFactNotRemovableError} when the entry exists
  * only outside the write root.
  */
@@ -71,20 +72,22 @@ export function removeFactEntry(
   cwd: string,
   id: string,
   config?: MemoryLocationConfig,
-): Promise<string | undefined> {
+): Promise<boolean> {
   const writeRoot = resolveMemoryRoot(cwd, config);
-  return withCwdMutex(writeRoot, async () => {
-    const matches = (await allFactEntries(cwd, config)).filter((e) => e.id === id);
-    if (matches.length === 0) return undefined;
-    const target = matches.find((e) => resolve(e.root) === resolve(writeRoot));
-    if (target === undefined)
-      throw new MemoryFactNotRemovableError(id, (matches[0] as FactEntry).root);
-    if (target.legacy)
-      return (await removeLegacyBullet(writeRoot, target.fact.text)) ? target.fact.text : undefined;
-    await unlink(join(writeRoot, target.id));
-    await removeIndexLine(writeRoot, target.id);
-    return target.fact.text;
-  });
+  // The same two locks as the writer: the in-process mutex, then the cross-process file lock.
+  return withCwdMutex(writeRoot, () =>
+    withCeilingLock(writeRoot, async () => {
+      const matches = (await allFactEntries(cwd, config)).filter((e) => e.id === id);
+      if (matches.length === 0) return false;
+      const target = matches.find((e) => resolve(e.root) === resolve(writeRoot));
+      if (target === undefined)
+        throw new MemoryFactNotRemovableError(id, (matches[0] as FactEntry).root);
+      if (target.legacy) return removeLegacyBullet(writeRoot, target.fact.text);
+      await unlink(join(writeRoot, target.id));
+      await removeIndexLine(writeRoot, target.id);
+      return true;
+    }),
+  );
 }
 
 /** Drop the `MEMORY.md` line that links to `file`, if the index has one. */
