@@ -161,7 +161,7 @@ describe("acquireInstanceLock", () => {
     const lock = await acquireInstanceLock(dir);
     rmSync(lockPath);
     mkdirSync(lockPath); // reading a directory fails with EISDIR
-    await expect(lock.release()).rejects.toThrow();
+    await expect(lock.release()).rejects.toMatchObject({ code: "EISDIR" });
     rmSync(lockPath, { recursive: true });
     writeFileSync(lockPath, JSON.stringify({ pid: process.pid, nonce: "other" }));
     await lock.release(); // retried, ownership verified absent
