@@ -10,7 +10,6 @@ import type { McpServerConfig } from "./mcp.js";
 import type { MemoryProvider } from "./memory-provider.js";
 import type { PluginsSettings, ProviderRoutingSettings } from "./providers.js";
 import type { SendOptions } from "./run.js";
-import type { BuiltinToolName } from "./runtime/builtin-tool-names.js";
 
 // T4.1 / D438 — primitives now live in `./agent-prims.ts` (leaf file) so
 // `./run.ts` and `./messages.ts` can reach them without cycling through
@@ -148,13 +147,17 @@ export interface CompatSourceAdapter {
  * one in {@link AgentOptions.withheldBuiltinTools} both stops it being declared and releases the
  * name, because nothing of the SDK's is occupying it any more.
  *
- * The runtime list is `BUILTIN_TOOL_NAMES`; this union is derived from it.
+ * The runtime list is `BUILTIN_TOOL_NAMES` (`src/builtin-tools.ts`). This union is declared here, not
+ * derived from that list, because a type module may not depend on a runtime one
+ * (`types-dont-import-runtime`), the same reason {@link PermissionMode} lives in a type leaf. The list is
+ * checked against the union in both directions at compile time, so a name added to one and not the
+ * other fails `pnpm typecheck`.
  *
  * Named for usetheokit/theokit-sdk#381, which is the report that the catalog had no opt-out.
  *
  * @public
  */
-export type { BuiltinToolName };
+export type BuiltinToolName = "shell" | "memory_search" | "memory_get";
 
 /**
  * Local agent configuration.
