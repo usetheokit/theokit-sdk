@@ -1,5 +1,13 @@
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -133,6 +141,31 @@ describe("acquireInstanceLock", () => {
     expect(JSON.parse(readFileSync(lockPath, "utf8")).pid).toBe(process.pid);
     expect(existsSync(guard)).toBe(true); // superseded, never deleted by others
     await lock.release();
+  });
+
+  it("takes over after many takers crashed on the same generation", async () => {
+    writeStale("gen1");
+    const dead = deadPid();
+    for (let k = 0; k < 40; k++) {
+      writeFileSync(
+        `${lockPath}.takeover.gen1.${k}`,
+        JSON.stringify({ pid: dead, nonce: `crashed${k}` }),
+      );
+    }
+    const lock = await acquireInstanceLock(dir);
+    expect(JSON.parse(readFileSync(lockPath, "utf8")).pid).toBe(process.pid);
+    await lock.release();
+  });
+
+  it("release propagates a failure and a later call retries", async () => {
+    const lock = await acquireInstanceLock(dir);
+    rmSync(lockPath);
+    mkdirSync(lockPath); // reading a directory fails with EISDIR
+    await expect(lock.release()).rejects.toThrow();
+    rmSync(lockPath, { recursive: true });
+    writeFileSync(lockPath, JSON.stringify({ pid: process.pid, nonce: "other" }));
+    await lock.release(); // retried, ownership verified absent
+    expect(existsSync(lockPath)).toBe(true);
   });
 
   it("release never removes a takeover guard", async () => {

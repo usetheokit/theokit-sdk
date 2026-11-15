@@ -112,8 +112,6 @@ async function tryLink(lockPath: string, nonce: string): Promise<LinkResult> {
   }
 }
 
-const MAX_GUARDS = 16;
-
 /**
  * Publishes a takeover guard for one stale generation: `<lock>.takeover.<staleNonce>.<k>`, a
  * hard link to a fully written file, so it is never seen partial. Guard `k` whose owner is dead
@@ -127,13 +125,12 @@ async function claimGuard(
 ): Promise<string | undefined> {
   const file = await writeClaim(lockPath, nonce, "guard");
   try {
-    for (let k = 0; k < MAX_GUARDS; k++) {
+    for (let k = 0; ; k++) {
       const guard = `${lockPath}.takeover.${stale.nonce}.${k}`;
       const slot = await claimSlot(lockPath, file, guard);
       if (slot === "taken") return guard;
       if (slot === "live") return undefined;
     }
-    return undefined;
   } finally {
     await quietUnlink(file);
   }
@@ -189,15 +186,25 @@ async function takeOver(lockPath: string, stale: Holder, nonce: string): Promise
   }
 }
 
+async function unlinkIfPresent(path: string): Promise<void> {
+  try {
+    await unlink(path);
+  } catch (err) {
+    if (errCode(err) !== "ENOENT") throw err;
+  }
+}
+
 function makeLock(lockPath: string, nonce: string): InstanceLock {
   let released = false;
   return {
     path: lockPath,
     async release() {
       if (released) return;
+      const holder = await readHolder(lockPath); // failures propagate; a later call retries
+      if (holder && holder.nonce === nonce) {
+        await unlinkIfPresent(lockPath);
+      }
       released = true;
-      const holder = await readHolder(lockPath).catch(() => null);
-      if (holder && holder.nonce === nonce) await quietUnlink(lockPath);
     },
   };
 }
