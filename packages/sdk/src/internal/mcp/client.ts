@@ -126,6 +126,9 @@ abstract class BaseMcpClient implements McpClient {
 
   filteredOut: readonly string[] = [];
 
+  /** `include` names already warned about, so repeated listings stay quiet. */
+  private readonly warnedIncludes = new Set<string>();
+
   abstract close(): Promise<void>;
 
   protected abstract request(method: string, params: Record<string, unknown>): Promise<unknown>;
@@ -138,7 +141,7 @@ abstract class BaseMcpClient implements McpClient {
     const listed = await rpcListTools((method, params) => this.request(method, params));
     const filter = this.toolFilter();
     this.filteredOut = filteredToolNames(filter, listed);
-    return applyToolFilter(this.name, filter, listed);
+    return applyToolFilter(this.name, filter, listed, this.warnedIncludes);
   }
 
   call(method: string, params: Record<string, unknown>): Promise<unknown> {

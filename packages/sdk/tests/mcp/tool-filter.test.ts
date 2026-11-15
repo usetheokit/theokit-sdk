@@ -120,6 +120,15 @@ describe("mcp tool filter", () => {
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain("fixture");
   });
+
+  it("listing again does not repeat the include warning", async () => {
+    const messages: string[] = [];
+    setDiagnosticsSink((m) => messages.push(m));
+    const client = await connect({ include: ["a", "tpyo"] });
+    await client.listTools();
+    await client.listTools();
+    expect(messages.filter((m) => m.includes("tpyo"))).toHaveLength(1);
+  });
 });
 
 describe("mcp tool filter validation", () => {

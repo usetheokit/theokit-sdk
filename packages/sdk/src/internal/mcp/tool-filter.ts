@@ -12,10 +12,16 @@ export function isToolAllowed(filter: McpToolFilter, name: string): boolean {
 }
 
 /** One warning per `include` name the server does not list, so a typo is visible. */
-function warnUnlistedIncludes(server: string, filter: McpToolFilter, listed: McpTool[]): void {
+function warnUnlistedIncludes(
+  server: string,
+  filter: McpToolFilter,
+  listed: McpTool[],
+  warned: Set<string>,
+): void {
   const names = new Set(listed.map((tool) => tool.name));
   for (const wanted of new Set(filter.include ?? [])) {
-    if (names.has(wanted)) continue;
+    if (names.has(wanted) || warned.has(wanted)) continue;
+    warned.add(wanted);
     diag(
       `[theokit-sdk] mcp tools.include names "${wanted}", which server "${server}" does not list\n`,
     );
@@ -27,9 +33,10 @@ export function applyToolFilter(
   server: string,
   filter: McpToolFilter | undefined,
   listed: McpTool[],
+  warned: Set<string> = new Set(),
 ): McpTool[] {
   if (filter === undefined) return listed;
-  warnUnlistedIncludes(server, filter, listed);
+  warnUnlistedIncludes(server, filter, listed, warned);
   return listed.filter((tool) => isToolAllowed(filter, tool.name));
 }
 

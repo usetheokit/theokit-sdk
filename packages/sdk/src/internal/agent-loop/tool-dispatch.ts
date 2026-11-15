@@ -130,7 +130,9 @@ async function dispatchSingleCall(
   parentSpan?: ToolSpan,
 ): Promise<LlmContentPart> {
   // A call naming a filtered-out MCP tool exactly must not be case-repaired onto a distinct offered tool.
-  const filtered = isFilteredMcpToolName(inputs, call.name);
+  // An offered tool with exactly this name wins (a filtered `a.b` and an offered `a_b` share a model name).
+  const filtered =
+    isFilteredMcpToolName(inputs, call.name) && !tools.some((tool) => tool.name === call.name);
   const { call: workingCall, repairs } = filtered
     ? { call, repairs: [] as ReadonlyArray<string> }
     : applyRepairAndExtractCall(tools, call);
@@ -145,8 +147,7 @@ async function dispatchSingleCall(
   const forkVeto = vetoFromForkWhitelist(dc);
   if (forkVeto !== undefined) return forkVeto;
 
-  // A filtered name wins over an offered tool whose sanitized model-facing name is the same.
-  const resolved = filtered ? undefined : tools.find((tool) => tool.name === workingCall.name);
+  const resolved = tools.find((tool) => tool.name === workingCall.name);
   const toolSpan = startToolCallSpan(dc, resolved, repairs);
   events.push(buildToolUseRunning(dc));
 

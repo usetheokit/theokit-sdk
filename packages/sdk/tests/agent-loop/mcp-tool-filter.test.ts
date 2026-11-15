@@ -178,7 +178,7 @@ describe("mcp tool filter in the agent loop", () => {
     }
   });
 
-  it("a filtered a.b is refused even though the offered a_b has the same model-facing name", async () => {
+  it("an offered a_b stays callable when a filtered a.b has the same model-facing name", async () => {
     const server = SERVER.replace('["a", "b", "danger"]', '["a.b", "a_b"]');
     writeFileSync(join(dir, "sanit.cjs"), server);
     const collide = createMcpClient("fixture", {
@@ -213,9 +213,13 @@ describe("mcp tool filter in the agent loop", () => {
       const done = events.find(
         (e): e is SDKToolUseMessage => e.type === "tool_call" && e.status !== "running",
       );
-      expect(done?.status).toBe("error");
-      expect(JSON.stringify(done?.result) + JSON.stringify(results)).toContain("filtered out");
-      expect(serverCalls()).toEqual([]);
+      expect(done?.status).not.toBe("error");
+      expect(JSON.stringify(results)).toContain("ran a_b");
+      expect(serverCalls()).toEqual(["a_b"]);
+      // the client still refuses the filtered server name itself
+      const refused = await collide.callTool("a.b", {});
+      expect(refused.isError).toBe(true);
+      expect(serverCalls()).toEqual(["a_b"]);
     } finally {
       await collide.close();
     }
