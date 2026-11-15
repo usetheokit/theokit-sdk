@@ -3,7 +3,6 @@
  * declared — `tests/lint/types-name-their-owner.test.ts` re-derives it.
  *
  */
-
 import type { BudgetTracker } from "./budget-tracker.js";
 import type { BuiltinToolName } from "./builtin-tool-names.js";
 import type { ContextSettings } from "./context.js";
@@ -149,7 +148,7 @@ export interface CompatSourceAdapter {
  * one in {@link AgentOptions.withheldBuiltinTools} both stops it being declared and releases the
  * name, because nothing of the SDK's is occupying it any more.
  *
- * The union is derived from the runtime list `BUILTIN_TOOL_NAMES` (`./builtin-tool-names.ts`).
+ * The runtime list is `BUILTIN_TOOL_NAMES`; it is typed against the tuple this union is derived from.
  *
  * Named for usetheokit/theokit-sdk#381, which is the report that the catalog had no opt-out.
  *

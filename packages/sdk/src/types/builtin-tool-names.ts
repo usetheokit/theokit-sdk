@@ -1,17 +1,13 @@
 /**
  * Owner: `src/` (3 of 3 importers). Derived from the import graph, not declared.
  *
- * The single declaration of the builtin tool names. `BuiltinToolName` is derived from it, so the two
- * cannot diverge.
- *
- * The array is a binding, not an `export const` line: `src/types/` may not import a runtime module
- * (`types-dont-import-runtime`), so the source of the union has to live beside it. The runtime entry
- * point is `src/builtin-tools.ts`, which re-exports the value; nothing reaches the public `export type *`
- * barrel as a value from here.
+ * The names of the tools the SDK declares on its own initiative. This is a type only, because
+ * `src/types/` holds no runtime values and may not import a runtime module. The runtime list,
+ * `BUILTIN_TOOL_NAMES` in `src/builtin-tools.ts`, is annotated with {@link BuiltinToolNameList}, so a
+ * name added to one and not the other fails typecheck; {@link BuiltinToolName} is derived from this
+ * tuple, so there is no second union to maintain.
  */
-const BUILTIN_TOOL_NAMES = ["shell", "memory_search", "memory_get"] as const;
+export type BuiltinToolNameList = readonly ["shell", "memory_search", "memory_get"];
 
 /** @public */
-export type BuiltinToolName = (typeof BUILTIN_TOOL_NAMES)[number];
-
-export { BUILTIN_TOOL_NAMES };
+export type BuiltinToolName = BuiltinToolNameList[number];

@@ -111,7 +111,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `BudgetTracker` | interface | The kernel-facing contract.  |
 | `BudgetUsageEvent` | interface | Single usage event recorded during one LLM call. |
 | `BudgetWindow` | type | Time window for a budget limit (D382 — UTC calendar-aligned).  |
-| `BUILTIN_TOOL_NAMES` | const | Owner: `src/` (3 of 3 importers).  |
+| `BUILTIN_TOOL_NAMES` | const | The names of the tools the SDK declares on its own initiative (and reserves against custom tools).  |
 | `BuiltinToolName` | type |  |
 | `chargeAndCheckThresholds` | function | Charge the budget + dispatch threshold/exceed callbacks (EC-8 isolated).  |
 | `CloudEnv` | interface | Cloud execution environment. |
