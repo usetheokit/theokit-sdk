@@ -147,6 +147,12 @@ export interface CompatSourceAdapter {
  * one in {@link AgentOptions.withheldBuiltinTools} both stops it being declared and releases the
  * name, because nothing of the SDK's is occupying it any more.
  *
+ * The runtime list is `BUILTIN_TOOL_NAMES` (`src/builtin-tools.ts`). This union is declared here, not
+ * derived from that list, because a type module may not depend on a runtime one
+ * (`types-dont-import-runtime`), the same reason {@link PermissionMode} lives in a type leaf. The list is
+ * checked against the union in both directions at compile time, so a name added to one and not the
+ * other fails `pnpm typecheck`.
+ *
  * Named for usetheokit/theokit-sdk#381, which is the report that the catalog had no opt-out.
  *
  * @public
