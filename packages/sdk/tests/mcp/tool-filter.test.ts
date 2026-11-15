@@ -100,6 +100,18 @@ describe("mcp tool filter", () => {
     expect(calls).toEqual(["a"]);
   });
 
+  it("a raw tools/call of a filtered tool through call() is refused without a request", async () => {
+    const client = await connect({ exclude: ["danger"] });
+    const result = (await client.call?.("tools/call", { name: "danger", arguments: {} })) as {
+      isError?: boolean;
+      content: { text: string }[];
+    };
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("danger");
+    expect(result.content[0]?.text).toContain("fixture");
+    expect(existsSync(logFile)).toBe(false);
+  });
+
   it("an include name the server does not list warns once, naming it", async () => {
     const messages: string[] = [];
     setDiagnosticsSink((m) => messages.push(m));

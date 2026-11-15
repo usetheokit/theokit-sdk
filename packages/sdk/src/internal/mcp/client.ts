@@ -16,6 +16,7 @@ import {
   filteredToolNames,
   type McpToolFilter,
   refuseFilteredCall,
+  refuseFilteredRawCall,
 } from "./tool-filter.js";
 import type { McpTool, McpToolCallResult } from "./types.js";
 
@@ -114,7 +115,8 @@ abstract class BaseMcpClient implements McpClient {
   }
 
   call(method: string, params: Record<string, unknown>): Promise<unknown> {
-    return this.request(method, params);
+    const refused = refuseFilteredRawCall(this.name, this.toolFilter(), method, params);
+    return refused !== undefined ? Promise.resolve(refused) : this.request(method, params);
   }
 
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult> {

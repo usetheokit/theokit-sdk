@@ -59,3 +59,14 @@ export function filteredToolNames(
   if (filter === undefined) return [];
   return listed.filter((tool) => !isToolAllowed(filter, tool.name)).map((tool) => tool.name);
 }
+
+/** The refusal for a raw `tools/call` request naming a filtered-out tool, else `undefined`. */
+export function refuseFilteredRawCall(
+  server: string,
+  filter: McpToolFilter | undefined,
+  method: string,
+  params: Record<string, unknown>,
+): McpToolCallResult | undefined {
+  if (method !== "tools/call") return undefined;
+  return refuseFilteredCall(server, filter, String(params.name));
+}
