@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
 import { listMemoryFacts, MemoryFactNotRemovableError, removeMemoryFact } from "../../src/index.js";
+import { isLanceAvailable, LanceIndex } from "../../src/internal/memory/lance-index.js";
 import {
   appendFactToMarkdown,
   readFactsFromMarkdown,
@@ -79,9 +80,9 @@ describe("listMemoryFacts / removeMemoryFact", () => {
     );
     const cli = (await listMemoryFacts(cwd)).find((f) => f.text === "The CLI fact.");
     expect(cli?.removable).toBe(false);
-    const err = await removeMemoryFact(cwd, "cli-note.md").catch((e: unknown) => e);
+    const err = await removeMemoryFact(cwd, cli?.id as string).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(MemoryFactNotRemovableError);
-    expect((err as MemoryFactNotRemovableError).factId).toBe("cli-note.md");
+    expect((err as MemoryFactNotRemovableError).factId).toBe(cli?.id);
     expect((err as MemoryFactNotRemovableError).root).toBe(dir);
     expect(existsSync(join(dir, "cli-note.md"))).toBe(true);
   });
@@ -114,5 +115,64 @@ describe("listMemoryFacts / removeMemoryFact", () => {
     expect(
       (await again.search("alpha")).every((h) => !h.path?.endsWith(target?.id as string)),
     ).toBe(true);
+  });
+
+  it("a same-named file in another root gets its own id and is not removed through the write root", async () => {
+    const dir = claudeProjectMemoryDir(cwd);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "alpha-fact.md"),
+      "---\nname: alpha-fact\ndescription: alpha-fact\nmetadata:\n  node_type: memory\n  type: project\n---\n\nCLI alpha.\n",
+    );
+    const all = await listMemoryFacts(cwd);
+    const own = all.find((f) => f.text === "alpha fact" && f.removable && f.id.endsWith(".md"));
+    const cli = all.find((f) => f.text === "CLI alpha.");
+    expect(own?.id).toBe("alpha-fact.md");
+    expect(cli?.id).not.toBe(own?.id);
+    const err = await removeMemoryFact(cwd, cli?.id as string).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(MemoryFactNotRemovableError);
+    expect(existsSync(join(cwd, ".theokit", "memory", "alpha-fact.md"))).toBe(true);
+  });
+
+  it("removing a legacy bullet leaves the other legacy facts searchable at once", async () => {
+    const { IndexManager } = await import("../../src/internal/memory/index-manager.js");
+    writeFileSync(md(), `${readFileSync(md(), "utf8")}- zebra stripes\n`);
+    const index = await IndexManager.open({ cwd });
+    await index.sync();
+    index.close();
+    const target = (await listMemoryFacts(cwd)).find((f) => f.text === "legacy one");
+    await removeMemoryFact(cwd, target?.id as string);
+    const again = await IndexManager.open({ cwd });
+    onTestFinished(() => again.close());
+    expect((await again.search("zebra")).length).toBeGreaterThan(0);
+    expect((await again.search("legacy")).length).toBe(0);
+  });
+
+  it.skipIf(!isLanceAvailable())("deletes the fact's rows from a Lance index", async () => {
+    const embedding = {
+      id: "t",
+      model: "t",
+      dimension: 4,
+      embed: async (t: ReadonlyArray<string>) => t.map(() => [1, 0, 0, 0]),
+      stats: () => ({ cacheHits: 0, cacheMisses: 0, httpCalls: 0, retries: 0 }),
+    };
+    const lance = await LanceIndex.open({ cwd, embedding });
+    const row = {
+      source: "memory" as const,
+      namespace: "n",
+      scope: "s",
+      user_id: "u",
+      timestamp: 0,
+    };
+    await lance.addFacts([
+      { id: "1", text: "alpha fact", ...row },
+      { id: "2", text: "beta fact", ...row },
+    ]);
+    const target = (await listMemoryFacts(cwd)).find((f) => f.id === "alpha-fact.md");
+    await removeMemoryFact(cwd, target?.id as string);
+    // A fresh handle: the open one may hold the table version from before the delete.
+    const fresh = await LanceIndex.open({ cwd, embedding });
+    const hits = await fresh.search("x", { namespace: "n" });
+    expect(hits.map((h) => h.text)).toEqual(["beta fact"]);
   });
 });

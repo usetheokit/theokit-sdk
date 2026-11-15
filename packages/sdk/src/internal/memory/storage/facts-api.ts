@@ -1,16 +1,17 @@
-import { forgetIndexedFiles } from "../index-forget.js";
+import { forgetIndexedFacts } from "../index-forget.js";
 import { type FactEntryInfo, listFactEntries, removeFactEntry } from "./memory-fact-entries.js";
 import type { MemoryLocationConfig } from "./memory-root.js";
 
 export { type FactEntryInfo, listFactEntries };
 
-/** Remove one entry, then drop its rows from the sqlite search index. Whether anything went. */
+/** Remove one entry, then drop it from the search indexes. Whether anything went. */
 export async function removeFactAndForget(
   cwd: string,
   id: string,
   config?: MemoryLocationConfig,
 ): Promise<boolean> {
-  const touched = await removeFactEntry(cwd, id, config);
-  await forgetIndexedFiles(cwd, touched, config);
-  return touched.length > 0;
+  const text = await removeFactEntry(cwd, id, config);
+  if (text === undefined) return false;
+  await forgetIndexedFacts(cwd, text, config);
+  return true;
 }

@@ -9,7 +9,7 @@ export { MemoryFactNotRemovableError };
  * @public
  */
 export interface StoredMemoryFact {
-  /** Stable for the life of the entry: the per-memory file's name, or a hash of a legacy bullet's root + text. */
+  /** Stable for the life of the entry: the per-memory file's name in the write root; for another root, a root hash and the file name; for a legacy bullet, a hash of root + text. */
   id: string;
   text: string;
   modified?: string;
@@ -40,11 +40,11 @@ export function listMemoryFacts(
  * `true` when removed and `false` when no entry has that id. Rejects with
  * {@link MemoryFactNotRemovableError} for an entry outside the write root.
  *
- * Search index: the sqlite index's rows for the deleted file (or for `MEMORY.md`, when a legacy
- * bullet went) are deleted here, so the fact is not recalled before the next sync; that sync also
- * prunes any file that left the disk and re-chunks the edited `MEMORY.md`. The Lance backend is not
- * touched: its ids are content hashes with no link to a file, so a Lance index keeps the fact until
- * it is rebuilt.
+ * Search indexes: removal updates them. The sqlite index re-walks the corpus, so the deleted file
+ * leaves it and an edited `MEMORY.md` is re-chunked in place (the other facts stay searchable;
+ * vectors for re-chunked text are filled in by the next `sync()`). In a Lance index, rows whose
+ * `text` equals the removed fact's are deleted (a handle opened before the removal may need to be
+ * reopened to see it). A missing index or an absent `@lancedb/lancedb` means nothing to drop.
  *
  * Two identical legacy bullets in one root share an id, so removing that id removes one of them
  * (the first); the second is still listed under the same id.

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
@@ -29,7 +30,16 @@ async function allFactEntries(cwd: string, config?: MemoryLocationConfig): Promi
   // Same two passes, same order, as readFactsFromMarkdown.
   for (const dir of roots) entries.push(...(await readMemoryEntriesIn(dir)));
   for (const dir of roots) entries.push(...(await readLegacyEntriesIn(dir)));
-  return entries;
+  // A file name is only unique inside its root. Outside the write root the id carries the root, so
+  // two roots holding a same-named file never share an id.
+  const writeRoot = resolve(resolveMemoryRoot(cwd, config));
+  return entries.map((e) =>
+    e.legacy || resolve(e.root) === writeRoot ? e : { ...e, id: `${rootTag(e.root)}:${e.id}` },
+  );
+}
+
+function rootTag(root: string): string {
+  return createHash("sha256").update(resolve(root)).digest("hex").slice(0, 12);
 }
 
 /**
@@ -53,28 +63,27 @@ export async function listFactEntries(
 /**
  * Remove one stored memory from the write root: the per-memory file and its `MEMORY.md` index
  * line, or one legacy bullet inside `## Facts`. Serialized with {@link appendFactToMarkdown} on the
- * same mutex; both files are written atomically. Resolves the absolute paths it changed (the
- * deleted file and/or `MEMORY.md`), or `[]` when no entry has the id, and throws {@link MemoryFactNotRemovableError} when the entry exists only outside the write root.
+ * same mutex; both files are written atomically. Resolves the removed fact's text, or `undefined`
+ * when no entry has the id, and throws {@link MemoryFactNotRemovableError} when the entry exists
+ * only outside the write root.
  */
 export function removeFactEntry(
   cwd: string,
   id: string,
   config?: MemoryLocationConfig,
-): Promise<string[]> {
+): Promise<string | undefined> {
   const writeRoot = resolveMemoryRoot(cwd, config);
   return withCwdMutex(writeRoot, async () => {
     const matches = (await allFactEntries(cwd, config)).filter((e) => e.id === id);
-    if (matches.length === 0) return [];
+    if (matches.length === 0) return undefined;
     const target = matches.find((e) => resolve(e.root) === resolve(writeRoot));
     if (target === undefined)
       throw new MemoryFactNotRemovableError(id, (matches[0] as FactEntry).root);
-    const memoryMd = join(writeRoot, "MEMORY.md");
     if (target.legacy)
-      return (await removeLegacyBullet(writeRoot, target.fact.text)) ? [memoryMd] : [];
-    const file = join(writeRoot, target.id);
-    await unlink(file);
+      return (await removeLegacyBullet(writeRoot, target.fact.text)) ? target.fact.text : undefined;
+    await unlink(join(writeRoot, target.id));
     await removeIndexLine(writeRoot, target.id);
-    return [file, memoryMd];
+    return target.fact.text;
   });
 }
 
