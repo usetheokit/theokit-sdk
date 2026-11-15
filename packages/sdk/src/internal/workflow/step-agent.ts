@@ -38,6 +38,32 @@ async function waitCancellable(
   }
 }
 
+type SentRun = Awaited<ReturnType<AgentStep["agent"]["send"]>>;
+
+/** Awaits `send`; on abort stops waiting and cancels any run the send returns later. */
+async function sendCancellable(sent: Promise<SentRun>, signal: AbortSignal): Promise<SentRun> {
+  const abortError = (): DOMException =>
+    new DOMException(String(signal.reason ?? "Aborted"), "AbortError");
+  const cancelLate = (): void => void sent.then((r) => r.cancel()).catch(() => undefined);
+  if (signal.aborted) {
+    cancelLate();
+    throw abortError();
+  }
+  let onAbort: (() => void) | undefined;
+  const aborted = new Promise<never>((_, reject) => {
+    onAbort = (): void => reject(abortError());
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    return await Promise.race([sent, aborted]);
+  } catch (err) {
+    if (signal.aborted) cancelLate();
+    throw err;
+  } finally {
+    if (onAbort !== undefined) signal.removeEventListener("abort", onAbort);
+  }
+}
+
 function unwrapResult(result: RunResult, signal: AbortSignal): string {
   if (result.status === "cancelled" || signal.aborted) {
     throw new DOMException(String(signal.reason ?? "Aborted"), "AbortError");
@@ -123,10 +149,11 @@ export async function runAgentStep(
 
   const exec = async (): Promise<string> => {
     // SE3 — forward the step's provenance onto the agent's turn (metadata-only).
-    const run = await step.agent.send(
+    const sent = step.agent.send(
       prompt,
       step.origin !== undefined ? { origin: step.origin } : undefined,
     );
+    const run = await sendCancellable(sent, ctx.signal);
     const result = await waitCancellable(run, ctx.signal);
     return unwrapResult(result, ctx.signal);
   };
