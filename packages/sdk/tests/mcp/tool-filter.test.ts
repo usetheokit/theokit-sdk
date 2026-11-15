@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { serializeCloudAgentConfig } from "../../src/internal/cloud-agent/cloud-config-serializer.js";
 import { setDiagnosticsSink } from "../../src/internal/diagnostics.js";
 import { createMcpClient, type McpClient } from "../../src/internal/mcp/client.js";
+import { validateAgentOptions } from "../../src/internal/runtime/validation/validate-agent-options.js";
 import type { McpServerConfig } from "../../src/types/mcp.js";
 
 const SERVER = `
@@ -197,5 +198,38 @@ describe("mcp tool filter in the cloud payload", () => {
       expect(sent.tools).toEqual({ exclude: ["danger"], include: ["a"] });
       expect(JSON.stringify(payload)).not.toContain("secret");
     }
+  });
+});
+
+describe("mcp tool filter validation (source)", () => {
+  const check = (tools: unknown) =>
+    validateAgentOptions({
+      apiKey: "theo_test_1035",
+      model: { id: "composer-2" },
+      local: { cwd: dir },
+      mcpServers: { pw: { command: "node", tools } as unknown as McpServerConfig },
+    });
+
+  it.each([
+    [{ exclude: [""] }],
+    [{ include: "a" }],
+    [{ include: [1] }],
+    ["x"],
+    [[]],
+    [null],
+    [{ exclude: new Array(1) }],
+  ])("rejects %j", (tools) => {
+    expect(() => check(tools)).toThrow(/"pw"/);
+    try {
+      check(tools);
+    } catch (e) {
+      expect((e as ConfigurationError).code).toBe("invalid_mcp_tool_filter");
+    }
+  });
+
+  it("accepts absent, empty and valid filters", () => {
+    expect(() => check(undefined)).not.toThrow();
+    expect(() => check({})).not.toThrow();
+    expect(() => check({ include: ["a"], exclude: ["b"] })).not.toThrow();
   });
 });
