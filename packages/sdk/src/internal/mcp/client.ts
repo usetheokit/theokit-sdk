@@ -10,7 +10,6 @@ import { resolveChildEnv } from "../runtime/lifecycle/env-policy.js";
 import { safePathJoin } from "../security/path-guard.js";
 import { DEFAULT_MCP_TIMEOUT_MS, handshakeAwareTimeout } from "./handshake-timeout.js";
 import { resolveBearer } from "./oauth-bearer.js";
-import { rpcCallTool, rpcInitialize, rpcListTools } from "./rpc.js";
 import {
   applyToolFilter,
   filteredToolNames,
@@ -86,6 +85,34 @@ function isAbortLike(cause: unknown): boolean {
   if (typeof cause !== "object" || cause === null || !("name" in cause)) return false;
   const name = (cause as { name: unknown }).name;
   return name === "TimeoutError" || name === "AbortError";
+}
+
+type RpcRequester = (method: string, params: Record<string, unknown>) => Promise<unknown>;
+
+async function rpcInitialize(request: RpcRequester): Promise<void> {
+  await request("initialize", {
+    protocolVersion: "2024-11-05",
+    capabilities: { tools: {} },
+    clientInfo: { name: "theokit-sdk", version: "0.0.0" },
+  });
+}
+
+async function rpcListTools(request: RpcRequester): Promise<McpTool[]> {
+  const response = await request("tools/list", {});
+  return (response as { result?: { tools?: McpTool[] } }).result?.tools ?? [];
+}
+
+async function rpcCallTool(
+  request: RpcRequester,
+  name: string,
+  args: Record<string, unknown>,
+): Promise<McpToolCallResult> {
+  const response = await request("tools/call", { name, arguments: args });
+  const result = (response as { result?: McpToolCallResult }).result;
+  if (result === undefined) {
+    return { content: [{ type: "text", text: "MCP returned empty result" }], isError: true };
+  }
+  return result;
 }
 
 /** Shared base wiring `initialize` / `listTools` / `callTool` onto an

@@ -177,4 +177,47 @@ describe("mcp tool filter in the agent loop", () => {
       await collide.close();
     }
   });
+
+  it("a filtered a.b is refused even though the offered a_b has the same model-facing name", async () => {
+    const server = SERVER.replace('["a", "b", "danger"]', '["a.b", "a_b"]');
+    writeFileSync(join(dir, "sanit.cjs"), server);
+    const collide = createMcpClient("fixture", {
+      command: process.execPath,
+      args: [join(dir, "sanit.cjs"), logFile],
+      tools: { exclude: ["a.b"] },
+    });
+    await collide.initialize();
+    await collide.listTools();
+    try {
+      const offeredTool: ResolvedTool = {
+        name: "mcp_fixture_a_b",
+        description: "a_b",
+        inputSchema: { type: "object" },
+        origin: "mcp",
+        mcpServerName: "fixture",
+        mcpToolName: "a_b",
+      };
+      const inputs = {
+        agentId: "a-1",
+        runId: "r-1",
+        hooks: { run: async () => ({}) },
+        mcp: new Map([["fixture", collide]]),
+      } as unknown as AgentLoopInputs;
+      const events: SDKMessage[] = [];
+      const results = await dispatchTools(
+        inputs,
+        [offeredTool],
+        [{ type: "tool_use", id: "c-3", name: "mcp_fixture_a_b", input: {} }],
+        events,
+      );
+      const done = events.find(
+        (e): e is SDKToolUseMessage => e.type === "tool_call" && e.status !== "running",
+      );
+      expect(done?.status).toBe("error");
+      expect(JSON.stringify(done?.result) + JSON.stringify(results)).toContain("filtered out");
+      expect(serverCalls()).toEqual([]);
+    } finally {
+      await collide.close();
+    }
+  });
 });
