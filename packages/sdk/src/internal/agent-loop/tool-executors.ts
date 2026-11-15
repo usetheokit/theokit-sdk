@@ -4,6 +4,7 @@ import type { ToolContextMessage } from "../../types/agent-prims.js";
 import type { ToolResultContentBlock } from "../../types/content-blocks.js";
 import type { LlmToolCallPart } from "../llm/types.js";
 import { runShell, type ShellExecuteOptions } from "../runtime/tools/shell-tool.js";
+import { mcpModelToolName } from "./mcp-tool-name.js";
 import type { AgentLoopInputs, ResolvedTool } from "./types.js";
 
 /** @internal */
@@ -35,6 +36,8 @@ export async function executeTool(
   call: LlmToolCallPart,
 ): Promise<ToolResult> {
   if (resolved === undefined) {
+    const refused = await refuseFilteredMcpCall(inputs, call);
+    if (refused !== undefined) return refused;
     return { stdout: "", stderr: `Unknown tool ${call.name}`, exitCode: 127 };
   }
   if (resolved.origin === "shell") return runShellTool(inputs, call);
@@ -136,6 +139,35 @@ async function runShellTool(inputs: AgentLoopInputs, call: LlmToolCallPart): Pro
   const final: ToolResult = { stdout: result.stdout, stderr: result.stderr };
   if (result.exitCode !== null && result.exitCode !== undefined) final.exitCode = result.exitCode;
   return final;
+}
+
+/**
+ * A model call of an MCP tool the server's `tools` filter withheld is not in the catalog. Route it to
+ * the client so the model gets the error naming the server's own tool and server key; the client
+ * refuses it before any request is sent.
+ */
+async function refuseFilteredMcpCall(
+  inputs: AgentLoopInputs,
+  call: LlmToolCallPart,
+): Promise<ToolResult | undefined> {
+  for (const [server, client] of inputs.mcp?.entries() ?? []) {
+    const tool = (client.filteredOut ?? []).find((n) => mcpModelToolName(server, n) === call.name);
+    if (tool !== undefined) {
+      return runMcpTool(
+        inputs,
+        {
+          name: call.name,
+          description: "",
+          inputSchema: {},
+          origin: "mcp",
+          mcpServerName: server,
+          mcpToolName: tool,
+        },
+        call,
+      );
+    }
+  }
+  return undefined;
 }
 
 async function runMcpTool(

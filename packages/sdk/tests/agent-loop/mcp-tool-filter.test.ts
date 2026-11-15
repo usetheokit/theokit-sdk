@@ -63,11 +63,13 @@ const serverCalls = () =>
 describe("mcp tool filter in the agent loop", () => {
   it("offers the model a and b only, and a model call of danger never reaches the server", async () => {
     const offered: string[][] = [];
+    let secondRequest = "";
     let round = 0;
     const llm: LlmClient = {
       name: "stub",
       async *stream(request: LlmRequest): AsyncGenerator<LlmEvent, LlmFinish, void> {
         offered.push((request.tools ?? []).map((t) => t.name));
+        if (round === 1) secondRequest = JSON.stringify(request.messages);
         if (round++ === 0) {
           return {
             stopReason: "tool_use",
@@ -95,6 +97,9 @@ describe("mcp tool filter in the agent loop", () => {
     const first = offered[0] ?? [];
     expect(first).toEqual(expect.arrayContaining(["mcp_fixture_a", "mcp_fixture_b"]));
     expect(first).not.toContain("mcp_fixture_danger");
+    // The model-facing tool result of its own call of danger names the tool and the server.
+    expect(secondRequest).toContain("filtered out");
+    expect(secondRequest).toContain('MCP tool \\"danger\\" on server \\"fixture\\"');
     expect(serverCalls()).toEqual([]);
   });
 
@@ -114,7 +119,7 @@ describe("mcp tool filter in the agent loop", () => {
       mcp: new Map([["fixture", client]]),
     } as unknown as AgentLoopInputs;
     const events: SDKMessage[] = [];
-    await dispatchTools(
+    const results = await dispatchTools(
       inputs,
       [forced],
       [{ type: "tool_use", id: "c-1", name: "mcp_fixture_danger", input: {} }],
@@ -124,7 +129,7 @@ describe("mcp tool filter in the agent loop", () => {
       (e): e is SDKToolUseMessage => e.type === "tool_call" && e.status !== "running",
     );
     expect(done?.status).toBe("error");
-    const text = JSON.stringify(done?.result);
+    const text = JSON.stringify(done?.result) + JSON.stringify(results);
     expect(text).toContain("danger");
     expect(text).toContain("fixture");
     expect(serverCalls()).toEqual([]);

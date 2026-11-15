@@ -50,3 +50,12 @@ export function refuseFilteredCall(
     isError: true,
   };
 }
+
+/** The listed names the filter withholds, so a forced call of one can be refused by name. */
+export function filteredToolNames(
+  filter: McpToolFilter | undefined,
+  listed: McpTool[],
+): readonly string[] {
+  if (filter === undefined) return [];
+  return listed.filter((tool) => !isToolAllowed(filter, tool.name)).map((tool) => tool.name);
+}

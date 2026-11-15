@@ -30,6 +30,7 @@ import type { McpClient, McpTool } from "../mcp/client.js";
 import type { MemoryProviderHandle } from "../runtime/memory-glue/memory-provider.js";
 import { createDoomLoopTracker, type DoomLoopTracker } from "./doom-loop-tracker.js";
 import { createEventLog, type LiveEventLog } from "./live-events.js";
+import { mcpModelToolName } from "./mcp-tool-name.js";
 import { buildSystemEvent, buildUserEvent } from "./message-builders.js";
 import type { ResolvedTool } from "./tool-dispatch.js";
 import type { AgentLoopInputs } from "./types.js";
@@ -310,7 +311,7 @@ async function collectTools(
     const mcpTools = await safeListTools(client, serverName, sink);
     for (const tool of mcpTools) {
       tools.push({
-        name: `mcp_${sanitize(serverName)}_${sanitize(tool.name)}`,
+        name: mcpModelToolName(serverName, tool.name),
         description: tool.description,
         inputSchema: tool.inputSchema,
         origin: "mcp",
@@ -321,8 +322,4 @@ async function collectTools(
     }
   }
   return tools;
-}
-
-function sanitize(name: string): string {
-  return name.replace(/[^a-zA-Z0-9-]+/g, "_").replace(/^[_-]+|[_-]+$/g, "");
 }

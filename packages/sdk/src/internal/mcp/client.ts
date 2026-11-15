@@ -11,7 +11,12 @@ import { safePathJoin } from "../security/path-guard.js";
 import { DEFAULT_MCP_TIMEOUT_MS, handshakeAwareTimeout } from "./handshake-timeout.js";
 import { resolveBearer } from "./oauth-bearer.js";
 import { rpcCallTool, rpcInitialize, rpcListTools } from "./rpc.js";
-import { applyToolFilter, type McpToolFilter, refuseFilteredCall } from "./tool-filter.js";
+import {
+  applyToolFilter,
+  filteredToolNames,
+  type McpToolFilter,
+  refuseFilteredCall,
+} from "./tool-filter.js";
 import type { McpTool, McpToolCallResult } from "./types.js";
 
 /**
@@ -29,6 +34,8 @@ export interface McpClient {
   readonly name: string;
   /** `true` when the server's config sets `sequential`: the loop runs its calls one at a time. */
   readonly sequential?: boolean;
+  /** Names the server lists but its `tools` filter withholds from the model (set by `listTools`). */
+  readonly filteredOut?: readonly string[];
   initialize(): Promise<void>;
   listTools(): Promise<McpTool[]>;
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult>;
@@ -89,6 +96,8 @@ abstract class BaseMcpClient implements McpClient {
   /** The server's `tools` filter from its config, if any. */
   protected abstract toolFilter(): McpToolFilter | undefined;
 
+  filteredOut: readonly string[] = [];
+
   abstract close(): Promise<void>;
 
   protected abstract request(method: string, params: Record<string, unknown>): Promise<unknown>;
@@ -99,7 +108,9 @@ abstract class BaseMcpClient implements McpClient {
 
   async listTools(): Promise<McpTool[]> {
     const listed = await rpcListTools((method, params) => this.request(method, params));
-    return applyToolFilter(this.name, this.toolFilter(), listed);
+    const filter = this.toolFilter();
+    this.filteredOut = filteredToolNames(filter, listed);
+    return applyToolFilter(this.name, filter, listed);
   }
 
   call(method: string, params: Record<string, unknown>): Promise<unknown> {
