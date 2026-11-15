@@ -1,5 +1,19 @@
 # Changelog
 
+## 5.22.0
+
+### Minor Changes
+
+- [#1169](https://github.com/usetheokit/theokit-sdk/pull/1169) [`8084fa4`](https://github.com/usetheokit/theokit-sdk/commit/8084fa4dbaada9caf7a5cf44b96ccb41409f9ce0) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - New `explainSkills` in `@theokit/sdk/skills`. It reports the skill roots consulted, the skills an agent loads (with their root), invalid skills, shadowed duplicates, and `skills.enabled` names that match nothing, from the same walk `agent.skills.list()` uses.
+
+- [#1175](https://github.com/usetheokit/theokit-sdk/pull/1175) [`15259e6`](https://github.com/usetheokit/theokit-sdk/commit/15259e6ca4294f898e5ace7ce238a37582771ddc) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `loadProjectEnv` accepts `{ extraSovereignKeys }` to protect app-specific variables and returns a `ProjectEnvReport` (`set`, `refused`). `LoadProjectEnvOptions` and `ProjectEnvReport` are exported.
+
+### Patch Changes
+
+- [#1179](https://github.com/usetheokit/theokit-sdk/pull/1179) [`b17f753`](https://github.com/usetheokit/theokit-sdk/commit/b17f7539c302b8a9e409936edf7f0a7e9e6c2459) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `loadProjectEnv` sorts the keys it reports with an explicit `localeCompare` compare function.
+
+- [#1163](https://github.com/usetheokit/theokit-sdk/pull/1163) [`d477376`](https://github.com/usetheokit/theokit-sdk/commit/d4773767e371b52a98135544fb6304f66dbb422c) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `createWriteFileTool`, `createEditFileTool` and `createApplyPatchTool` accept `baseDir`: the base for relative paths, separate from the `projectRoot` boundary. A `baseDir` outside `projectRoot` throws `BaseDirOutsideProjectRootError` at construction.
+
 ## 5.21.0
 
 ### Minor Changes
