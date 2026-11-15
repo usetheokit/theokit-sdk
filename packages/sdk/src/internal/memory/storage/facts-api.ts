@@ -1,4 +1,4 @@
-import { forgetIndexedFacts } from "../index-forget.js";
+import { forgetIndexedFacts } from "./index-forget.js";
 import { type FactEntryInfo, listFactEntries, removeFactEntry } from "./memory-fact-entries.js";
 import type { MemoryLocationConfig } from "./memory-root.js";
 
@@ -12,6 +12,9 @@ export async function removeFactAndForget(
 ): Promise<boolean> {
   const text = await removeFactEntry(cwd, id, config);
   if (text === undefined) return false;
-  await forgetIndexedFacts(cwd, text, config);
+  const stillStored = (await listFactEntries(cwd, config)).some(
+    (e) => e.removable && e.text === text,
+  );
+  await forgetIndexedFacts(cwd, text, stillStored, config);
   return true;
 }

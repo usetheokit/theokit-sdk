@@ -42,9 +42,12 @@ export function listMemoryFacts(
  *
  * Search indexes: removal updates them. The sqlite index re-walks the corpus, so the deleted file
  * leaves it and an edited `MEMORY.md` is re-chunked in place (the other facts stay searchable;
- * vectors for re-chunked text are filled in by the next `sync()`). In a Lance index, rows whose
- * `text` equals the removed fact's are deleted (a handle opened before the removal may need to be
- * reopened to see it). A missing index or an absent `@lancedb/lancedb` means nothing to drop.
+ * vectors for re-chunked text are filled in by the next `sync()`). In a Lance index, only
+ * `source: "memory"` rows are touched: a row that is the fact is deleted, and a migrated chunk that
+ * contains it is rewritten without it (deleted when only headings are left), keeping its vector.
+ * Rows stay while another stored entry has the same text. Open `LanceIndex` handles are refreshed,
+ * so an agent already running does not recall it. A missing index or an absent `@lancedb/lancedb`
+ * means nothing to drop.
  *
  * Two identical legacy bullets in one root share an id, so removing that id removes one of them
  * (the first); the second is still listed under the same id.
