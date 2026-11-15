@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1409 export(s) across 56 entry point(s).
+1411 export(s) across 56 entry point(s).
 
 ## `@theokit/acp`
 
@@ -742,6 +742,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `voyageMemoryEmbeddingProviderAdapter` | const | Voyage AI embeddings, over the standard OpenAI wire.  |
 | `wikiDir` | function | `<memory root>/wiki`.  |
 | `WikiFile` | interface | Wiki supplement discovery (ADR Phase 10 of memory-system-peer-project-parity).  |
+| `withCeilingLock` | function | Run `fn` holding a lock that other SDK processes writing `targetDir` with a ceiling also take (B-380, LCR0111).  |
 | `writeEmbeddingIdentity` | function | Persist the embedding identity in the `meta` table. |
 | `writeSessionSummary` | function | Write a session summary file.  |
 
@@ -1288,6 +1289,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `vectorSearch` | function | Run a nearest-neighbour search over the stored embeddings. |
 | `wikiDir` | function | `<memory root>/wiki`.  |
 | `WikiFile` | interface | Wiki supplement discovery (ADR Phase 10 of memory-system-peer-project-parity).  |
+| `withCeilingLock` | function | Run `fn` holding a lock that other SDK processes writing `targetDir` with a ceiling also take (B-380, LCR0111).  |
 | `writeEmbeddingIdentity` | function | Persist the embedding identity in the `meta` table. |
 | `writeSessionSummary` | function | Write a session summary file.  |
 
