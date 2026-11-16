@@ -23,7 +23,7 @@
  * @internal
  */
 
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { link, readFile, rename, unlink } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -195,7 +195,9 @@ async function takeOver(
   raw: string,
   guards: string[],
 ): Promise<boolean> {
-  const generation = parseHolder(raw).nonce ?? randomBytes(4).toString("hex");
+  // Derived from the stale content itself, so every contender names the same guard, even when the
+  // content is malformed and carries no nonce.
+  const generation = createHash("sha256").update(raw).digest("hex").slice(0, 32);
   const guard = `${lockPath}.takeover.${generation}`;
   if (!(await createExclusive(guard, String(process.pid), { mode: 0o600 }))) {
     await new Promise((r) => setTimeout(r, 25));

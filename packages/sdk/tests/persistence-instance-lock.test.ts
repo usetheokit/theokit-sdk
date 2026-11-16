@@ -119,22 +119,36 @@ describe("acquireInstanceLock", () => {
     expect(err.message).toContain("hard links");
   });
 
-  it("two processes taking over one stale lock end with exactly one holder", async () => {
-    writeFileSync(lockPath, JSON.stringify({ pid: deadPid(), nonce: "stale" }));
-    const barrier = mkdtempSync(path.join(root, "barrier-"));
-    const run = (id: string) =>
-      new Promise<number | null>((res) => {
-        const c = spawn(process.execPath, ["--experimental-strip-types", CHILD, dir, barrier, id], {
-          stdio: "inherit",
+  it.each([
+    ["a dead pid", () => JSON.stringify({ pid: deadPid(), nonce: "stale" })],
+    ["malformed content", () => "not json"],
+    ["no nonce", () => JSON.stringify({ pid: deadPid() })],
+  ])(
+    "two processes taking over one stale lock (%s) end with exactly one holder",
+    async (_name, content) => {
+      writeFileSync(lockPath, content());
+      const barrier = mkdtempSync(path.join(root, "barrier-"));
+      const run = (id: string) =>
+        new Promise<number | null>((res) => {
+          const c = spawn(
+            process.execPath,
+            ["--experimental-strip-types", CHILD, dir, barrier, id],
+            {
+              stdio: "inherit",
+            },
+          );
+          c.on("exit", (code) => res(code));
         });
-        c.on("exit", (code) => res(code));
-      });
-    const codes = await Promise.all([run("a"), run("b")]);
-    expect(codes).toEqual([0, 0]);
-    const results = ["a", "b"].map((id) =>
-      JSON.parse(readFileSync(path.join(barrier, `result.${id}`), "utf8")),
-    );
-    expect(results.filter((r) => r.ok)).toHaveLength(1);
-    expect(results.filter((r) => !r.ok).every((r) => r.name === "InstanceLockedError")).toBe(true);
-  }, 30000);
+      const codes = await Promise.all([run("a"), run("b")]);
+      expect(codes).toEqual([0, 0]);
+      const results = ["a", "b"].map((id) =>
+        JSON.parse(readFileSync(path.join(barrier, `result.${id}`), "utf8")),
+      );
+      expect(results.filter((r) => r.ok)).toHaveLength(1);
+      expect(results.filter((r) => !r.ok).every((r) => r.name === "InstanceLockedError")).toBe(
+        true,
+      );
+    },
+    30000,
+  );
 });
