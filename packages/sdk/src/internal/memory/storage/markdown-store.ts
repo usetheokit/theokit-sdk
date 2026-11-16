@@ -152,6 +152,7 @@ export interface FactEntry {
   legacy: boolean;
 }
 
+/** The per-memory files of one root, oldest first, each with the fact it reads as. */
 export async function readMemoryEntriesIn(dir: MemoryRoot | string): Promise<FactEntry[]> {
   let entries: string[];
   try {
@@ -174,6 +175,7 @@ async function readLegacyFactsSectionIn(dir: string): Promise<MemoryFact[]> {
   return (await readLegacyEntriesIn(dir)).map((e) => e.fact);
 }
 
+/** The legacy `## Facts` bullets of one root's `MEMORY.md`, each with the fact it reads as. */
 export async function readLegacyEntriesIn(dir: string): Promise<FactEntry[]> {
   try {
     const facts = parseFactsSection(await readFile(join(dir, "MEMORY.md"), "utf8"));
