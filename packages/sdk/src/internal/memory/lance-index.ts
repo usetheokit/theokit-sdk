@@ -149,6 +149,15 @@ export class LanceIndex {
     private readonly embeddingDim: number,
   ) {}
 
+  /** Tail of the write queue: adds and removals on this index run one at a time, in call order. */
+  private writeQueue: Promise<unknown> = Promise.resolve();
+
+  private serialized<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.writeQueue.then(task, task);
+    this.writeQueue = run.catch(() => undefined);
+    return run;
+  }
+
   static async open(opts: OpenLanceOptions): Promise<LanceIndex> {
     const lance = requireLance();
     const storagePath =
@@ -195,6 +204,14 @@ export class LanceIndex {
 
   async addFacts(facts: ReadonlyArray<Omit<LanceFactRecord, "embedding">>): Promise<void> {
     if (facts.length === 0) return;
+    // Serialized with `removeFacts`: a removal issued while this add is embedding runs after the
+    // rows land, so it deletes them instead of being overtaken.
+    await this.serialized(() => this.addFactsNow(facts));
+  }
+
+  private async addFactsNow(
+    facts: ReadonlyArray<Omit<LanceFactRecord, "embedding">>,
+  ): Promise<void> {
     const texts = facts.map((f) => f.text);
     const embeddings = await this.embedding.embed(texts);
     const rows: LanceFactRecord[] = facts.map((f, i) => ({
@@ -247,14 +264,19 @@ export class LanceIndex {
     return this.table.countRows();
   }
 
+  /**
+   * Remove facts by id. A fact split across chunks is stored as `<id>#<n>` rows, so each id removes
+   * the exact row and every `<id>#…` chunk; nothing else matches (LIKE wildcards in ids are escaped).
+   * Runs after any add already queued on this index.
+   */
   async removeFacts(ids: ReadonlyArray<string>): Promise<void> {
     if (ids.length === 0) return;
-    // Build a parameterized-style delete predicate. Lance's delete still
-    // takes a string predicate, so we explicitly quote-escape each id —
-    // ids in our system are content-hashed (alphanumeric), so the risk
-    // is low, but we belt-and-suspenders.
-    const escaped = ids.map((id) => `'${id.replace(/'/g, "''")}'`).join(", ");
-    await this.table.delete(`id IN (${escaped})`);
+    const predicates = ids.flatMap((id) => {
+      const quoted = id.replace(/'/g, "''");
+      const likeEscaped = id.replace(/[\\%_]/g, "\\$&").replace(/'/g, "''");
+      return [`id = '${quoted}'`, `id LIKE '${likeEscaped}#%'`];
+    });
+    await this.serialized(() => this.table.delete(predicates.join(" OR ")));
   }
 
   async close(): Promise<void> {
