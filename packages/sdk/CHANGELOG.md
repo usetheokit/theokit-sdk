@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.23.0
+
+### Minor Changes
+
+- [#1182](https://github.com/usetheokit/theokit-sdk/pull/1182) [`fc92efe`](https://github.com/usetheokit/theokit-sdk/commit/fc92efe48a62bdd533d2b1ed6b32051eebfb1022) Thanks [@usetheodev](https://github.com/usetheodev)! - New runtime exports `BUILTIN_TOOL_NAMES` and `isBuiltinToolName`, so an app that accepts tool names from configuration can refuse one that collides with an SDK builtin at load time.
+
 ## 5.22.0
 
 ### Minor Changes
