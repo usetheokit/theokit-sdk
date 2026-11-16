@@ -108,6 +108,10 @@ const removed = await removeMemoryFact(process.cwd(), facts[0].id); // true, or 
 
 `listMemoryFacts` covers per-memory files and legacy `## Facts` bullets, in the order the agent reads them. `removeMemoryFact` deletes the file and its `MEMORY.md` index line (or one legacy bullet), serialized with the SDK's writes. Entries from another tool's store (for example the Claude Code CLI's) have `removable: false`, and removing one rejects with `MemoryFactNotRemovableError`. Removal does not touch the search indexes: the next `IndexManager.sync()` drops the entry from the sqlite index; Lance rows copied by the one-time migration are not linked to their source file and are not changed. Ids of entries outside the write root include a root hash. Two identical legacy bullets in one root share an id, and removal takes the first.
 
+## Builtin tool names
+
+`BUILTIN_TOOL_NAMES` (`"shell"`, `"memory_search"`, `"memory_get"`) lists the tools the SDK declares itself; these are the names `withheldBuiltinTools` accepts and a custom tool may not claim. `isBuiltinToolName(name)` tests one, so an app that takes tool names from configuration can refuse a collision at load time. Withholding a builtin via `withheldBuiltinTools` releases its name, so a custom tool may then use it.
+
 ## Plugins
 
 `listWorkspacePlugins(cwd, { compatSources })` lists the plugins an agent opened on `cwd` would load
