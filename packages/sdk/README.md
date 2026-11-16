@@ -175,7 +175,12 @@ if (r.truncated.stdout) console.error("stdout was cut at maxOutputBytes");
 import { acquireInstanceLock } from "@theokit/sdk/persistence";
 
 const lock = await acquireInstanceLock(stateDir);
-process.on("exit", () => void lock.release());
+
+// on application shutdown, await the release before the process exits
+process.once("SIGTERM", async () => {
+  await lock.release();
+  process.exit(0);
+});
 ```
 
 Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must share one pid namespace (not containers or hosts sharing a volume). The lock needs a filesystem with hard links; without one the call rejects with `InstanceLockedError`.

@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("node:fs/promises", async (orig) => {
   const actual = await orig<typeof import("node:fs/promises")>();
-  return { ...actual, link: vi.fn(actual.link) };
+  return { ...actual, link: vi.fn(actual.link), readFile: vi.fn(actual.readFile) };
 });
 
 import { acquireInstanceLock, InstanceLockedError } from "../src/persistence.js";
@@ -79,14 +79,35 @@ describe("acquireInstanceLock", () => {
   });
 
   it("concurrent release() calls share one removal and never remove a later lock", async () => {
+    const actualRead = (
+      await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises")
+    ).readFile;
     const a = await acquireInstanceLock(dir);
-    const p1 = a.release();
-    const p2 = a.release();
-    await Promise.all([p1, p2]);
-    const b = await acquireInstanceLock(dir);
-    await a.release();
-    expect(readHolder().pid).toBe(process.pid);
-    await b.release();
+    const aNonce = readHolder().nonce;
+    // Pause every read the releases make, so each one has seen A's lock before any removes it.
+    const gates: Array<() => void> = [];
+    vi.mocked(fsp.readFile).mockImplementation((async (...args: Parameters<typeof actualRead>) => {
+      const content = await actualRead(...args);
+      await new Promise<void>((open) => gates.push(open));
+      return content;
+    }) as never);
+    try {
+      const p1 = a.release();
+      const p2 = a.release();
+      await vi.waitFor(() => expect(gates.length).toBeGreaterThan(0));
+      await new Promise((r) => setTimeout(r, 30)); // time for an independent second read to start
+      gates[0]?.();
+      await p1;
+      const b = await acquireInstanceLock(dir); // takes the lock A just removed
+      for (const open of gates.slice(1)) open(); // a second removal, if there is one, runs now
+      await p2;
+      expect(gates).toHaveLength(1);
+      expect(readHolder().nonce).not.toBe(aNonce);
+      vi.mocked(fsp.readFile).mockImplementation(actualRead as never);
+      await b.release();
+    } finally {
+      vi.mocked(fsp.readFile).mockImplementation(actualRead as never);
+    }
   });
 
   it("rejects when link fails with an error other than EEXIST", async () => {
@@ -103,7 +124,9 @@ describe("acquireInstanceLock", () => {
     const barrier = mkdtempSync(path.join(root, "barrier-"));
     const run = (id: string) =>
       new Promise<number | null>((res) => {
-        const c = spawn(process.execPath, [CHILD, dir, barrier, id], { stdio: "inherit" });
+        const c = spawn(process.execPath, ["--experimental-strip-types", CHILD, dir, barrier, id], {
+          stdio: "inherit",
+        });
         c.on("exit", (code) => res(code));
       });
     const codes = await Promise.all([run("a"), run("b")]);
