@@ -1,5 +1,11 @@
 # Changelog — @theokit/sdk-memory
 
+## 0.6.3
+
+### Patch Changes
+
+- [#1193](https://github.com/usetheokit/theokit-sdk/pull/1193) [`ec1a237`](https://github.com/usetheokit/theokit-sdk/commit/ec1a237ca284a6eb435e5e2c2704e5b864d74d66) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Test only: the `remPhase` "facts left out" tests pass a small explicit cap instead of building 501 facts, so they no longer time out on a slow machine.
+
 ## 0.6.2
 
 ### Patch Changes
