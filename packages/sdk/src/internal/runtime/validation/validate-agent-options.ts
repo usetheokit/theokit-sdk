@@ -1,3 +1,4 @@
+import { BUILTIN_TOOL_NAMES } from "../../../builtin-tools.js";
 import { ConfigurationError } from "../../../errors.js";
 import type {
   AgentDefinition,
@@ -176,11 +177,6 @@ function validateSubagents(agents: Record<string, AgentDefinition> | undefined):
 }
 
 const TOOL_NAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/;
-/**
- * The SDK's own tool names, typed against the public {@link BuiltinToolName} union so a name that is
- * not a builtin cannot be added here by accident. The union stays the contract; this is the list.
- */
-const BUILTIN_TOOL_NAMES: ReadonlyArray<BuiltinToolName> = ["shell", "memory_search", "memory_get"];
 const RESERVED_TOOL_NAMES: ReadonlySet<string> = new Set(BUILTIN_TOOL_NAMES);
 
 /**
