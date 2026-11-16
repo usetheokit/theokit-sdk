@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1390 export(s) across 56 entry point(s).
+1392 export(s) across 56 entry point(s).
 
 ## `@theokit/acp`
 
@@ -111,6 +111,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `BudgetTracker` | interface | The kernel-facing contract.  |
 | `BudgetUsageEvent` | interface | Single usage event recorded during one LLM call. |
 | `BudgetWindow` | type | Time window for a budget limit (D382 — UTC calendar-aligned).  |
+| `BUILTIN_TOOL_NAMES` | const | The names of the tools the SDK declares on its own initiative (and reserves against custom tools).  |
 | `BuiltinToolName` | type | A tool the SDK declares to the model on its own initiative — not one the consumer passed in {@link AgentOptions.tools } , and not one an MCP server exposed.  |
 | `chargeAndCheckThresholds` | function | Charge the budget + dispatch threshold/exceed callbacks (EC-8 isolated).  |
 | `CloudEnv` | interface | Cloud execution environment. |
@@ -217,6 +218,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `InteractionUpdate` | type | Lowest-level raw update from a run.  |
 | `InvalidateCacheOptions` | interface | Options for {@link SDKAgent.invalidateCache } . |
 | `InvalidTaskIdError` | class | Thrown when a user-supplied task ID violates the grammar `^[a-z0-9][a-z0-9_-]*$` (D368) OR starts with a reserved adapter prefix (`wf-` / `b-` / `cron-`, EC-5). |
+| `isBuiltinToolName` | function | True when `name` is the name of an SDK builtin tool. |
 | `isInside` | function | Whether `child` is inside `parent`.  |
 | `isTransientError` | function | Is this error transient (worth retrying)?  |
 | `isValidTaskId` | function | Validates a task ID against the public grammar + reserved prefixes.  |
