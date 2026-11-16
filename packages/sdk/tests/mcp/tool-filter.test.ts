@@ -4,11 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Agent, ConfigurationError } from "../../src/index.js";
+import { runAgentLoop } from "../../src/internal/agent-loop/loop.js";
 import { safeListTools } from "../../src/internal/agent-loop/loop-context-init.js";
 import { dispatchTools } from "../../src/internal/agent-loop/tool-dispatch.js";
 import type { AgentLoopInputs, ResolvedTool } from "../../src/internal/agent-loop/types.js";
 import { serializeCloudAgentConfig } from "../../src/internal/cloud-agent/cloud-config-serializer.js";
 import { setDiagnosticsSink } from "../../src/internal/diagnostics.js";
+import type { LlmClient, LlmEvent, LlmFinish, LlmRequest } from "../../src/internal/llm/types.js";
 import { createMcpClient, type McpClient } from "../../src/internal/mcp/client.js";
 import { HooksExecutor } from "../../src/internal/runtime/hooks/hooks-executor.js";
 import type { McpStdioServerConfig } from "../../src/types/mcp.js";
@@ -63,6 +65,14 @@ async function start(tools?: McpStdioServerConfig["tools"]): Promise<McpClient> 
   clients.push(client);
   await client.initialize();
   return client;
+}
+
+function toolResults(request: LlmRequest): Array<{ content: unknown; isError?: boolean }> {
+  const parts = request.messages.flatMap((m) => (typeof m.content === "string" ? [] : m.content));
+  return parts.filter((p) => p.type === "tool_result") as Array<{
+    content: unknown;
+    isError?: boolean;
+  }>;
 }
 
 const requests = (): string[] => readFileSync(logFile, "utf8").split("\n").filter(Boolean);
@@ -121,6 +131,64 @@ describe("MCP tool filter (#1035)", () => {
     expect(requests().some((r) => r === "tools/call:danger")).toBe(false);
     await client.callTool("a", {});
     expect(requests()).toContain("tools/call:a");
+  });
+
+  it("refuses a raw tools/call for a filtered-out name and passes other methods", async () => {
+    const client = await start({ exclude: ["danger"] });
+    const refused = (await client.call?.("tools/call", { name: "danger", arguments: {} })) as {
+      result: { isError: boolean; content: Array<{ text: string }> };
+    };
+    expect(refused.result.isError).toBe(true);
+    expect(refused.result.content[0]?.text).toMatch(/danger.*fx/);
+    expect(requests().some((r) => r.startsWith("tools/call:"))).toBe(false);
+    await client.call?.("tools/call", { name: "a", arguments: {} });
+    expect(requests()).toContain("tools/call:a");
+    await client.call?.("tools/list", {});
+    expect(requests()).toContain("tools/list:");
+  });
+
+  it("the agent loop offers the model a and b only, and a forced danger call errors with no server call", async () => {
+    const client = await start({ exclude: ["danger"] });
+    const offered: string[][] = [];
+    const resultParts: Array<{ content: unknown; isError?: boolean }> = [];
+    let round = 0;
+    const llm: LlmClient = {
+      name: "stub",
+      async *stream(request: LlmRequest): AsyncGenerator<LlmEvent, LlmFinish, void> {
+        offered.push((request.tools ?? []).map((t) => t.name));
+        round += 1;
+        if (round === 1) {
+          return {
+            stopReason: "tool_use",
+            text: "",
+            toolCalls: [{ type: "tool_use", id: "c1", name: "mcp_fx_danger", input: {} }],
+          };
+        }
+        resultParts.push(...toolResults(request));
+        yield { type: "text_delta", text: "done" };
+        return { stopReason: "end_turn", text: "done", toolCalls: [] };
+      },
+    };
+    const hooks = new HooksExecutor(dir);
+    await hooks.initialize(false);
+    await runAgentLoop({
+      agentId: "filter",
+      runId: "run-filter",
+      model: { id: "openai/gpt-4o-mini" },
+      userMessage: "go",
+      llm,
+      mcp: new Map([["fx", client]]),
+      hooks,
+      shellCwd: dir,
+      shellSandbox: false,
+    });
+    const mcpOffered = (offered[0] ?? []).filter((n) => n.startsWith("mcp_"));
+    expect(mcpOffered.sort()).toEqual(["mcp_fx_a", "mcp_fx_b"]);
+    expect(resultParts).toHaveLength(1);
+    expect(resultParts[0]?.isError).toBe(true);
+    expect(String(resultParts[0]?.content)).toMatch(/danger/);
+    expect(String(resultParts[0]?.content)).toMatch(/fx/);
+    expect(requests().some((r) => r.startsWith("tools/call:"))).toBe(false);
   });
 
   it("warns once about an include name the server does not list", async () => {

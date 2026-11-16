@@ -59,6 +59,15 @@ export function withToolFilter<C extends FilterableClient>(
   const exclude = new Set(filter.exclude ?? []);
   const allowed = (name: string): boolean =>
     (include === undefined || include.has(name)) && !exclude.has(name);
+  const refusal = (name: string) => ({
+    content: [
+      {
+        type: "text" as const,
+        text: `Tool "${name}" is not available on MCP server "${serverName}"`,
+      },
+    ],
+    isError: true,
+  });
   let warned = false;
   const filtered = {
     get name() {
@@ -69,7 +78,16 @@ export function withToolFilter<C extends FilterableClient>(
     },
     initialize: () => client.initialize(),
     close: () => client.close(),
-    ...(client.call === undefined ? {} : { call: client.call.bind(client) }),
+    ...(client.call === undefined
+      ? {}
+      : {
+          // A raw `tools/call` goes through the same gate; every other method passes untouched.
+          call: async (method: string, params: Record<string, unknown>) => {
+            const target = method === "tools/call" ? String(params.name) : undefined;
+            if (target !== undefined && !allowed(target)) return { result: refusal(target) };
+            return client.call?.(method, params);
+          },
+        }),
     async listTools() {
       const listed = await client.listTools();
       if (include !== undefined && !warned) {
@@ -86,14 +104,7 @@ export function withToolFilter<C extends FilterableClient>(
       return listed.filter((t) => allowed(t.name));
     },
     async callTool(name: string, args: Record<string, unknown>) {
-      if (!allowed(name)) {
-        return {
-          content: [
-            { type: "text", text: `Tool "${name}" is not available on MCP server "${serverName}"` },
-          ],
-          isError: true,
-        };
-      }
+      if (!allowed(name)) return refusal(name);
       return client.callTool(name, args);
     },
   };
