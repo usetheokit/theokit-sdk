@@ -164,8 +164,8 @@ async function claimSlot(
 /**
  * Replaces a stale lock. Only the owner of a per-generation takeover guard proceeds; it re-reads
  * the lock and replaces it only if the nonce is unchanged and the holder is still dead. If the
- * lock is gone, it returns false so the caller retries the exclusive link, never a rename over the
- * path. The guard is removed by its owner afterwards. Returns false when it lost a race.
+ * lock is gone, it returns false so the caller retries the exclusive link. The stale file is renamed aside
+ * and checked before the path is taken with an exclusive link, never overwritten. The guard is removed by its owner afterwards. Returns false when it lost a race.
  */
 async function takeOver(lockPath: string, stale: Holder, nonce: string): Promise<boolean> {
   const guard = await claimGuard(lockPath, stale, nonce);
@@ -173,14 +173,24 @@ async function takeOver(lockPath: string, stale: Holder, nonce: string): Promise
   try {
     const current = await readHolder(lockPath);
     if (!current || current.nonce !== stale.nonce || pidAlive(current.pid)) return false;
-    const claim = await writeClaim(lockPath, nonce, "claim");
+    // Move whatever is at the path aside atomically, so we judge the file we remove and never
+    // overwrite a holder that linked in after the re-read. Then take the empty path exclusively.
+    const aside = `${lockPath}.stale.${process.pid}.${nonce}`;
     try {
-      await rename(claim, lockPath);
+      await rename(lockPath, aside);
     } catch (err) {
-      await quietUnlink(claim);
+      if (errCode(err) === "ENOENT") return false;
       throw err;
     }
-    return true;
+    const moved = await readHolder(aside).catch(() => undefined);
+    if (!moved || moved.nonce !== stale.nonce || pidAlive(moved.pid)) {
+      // Not the stale lock we meant to replace: put it back (exclusively) and lose the race.
+      await link(aside, lockPath).catch(() => undefined);
+      await quietUnlink(aside);
+      return false;
+    }
+    await quietUnlink(aside);
+    return (await tryLink(lockPath, nonce)) === "taken";
   } finally {
     await quietUnlink(guard);
   }
