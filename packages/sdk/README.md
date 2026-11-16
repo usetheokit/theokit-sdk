@@ -26,6 +26,15 @@
 
 For the full reference, see the [root README](https://github.com/usetheokit/theokit-sdk#readme). The exported TypeScript types are the canonical contract.
 
+## Squad cancellation and disposal
+
+`Squad.run(input, options?)` takes `SquadRunOptions`:
+
+- `signal` — aborting cancels the member run in flight; the run resolves with `status: "cancelled"`.
+- `timeoutMs` — shorthand for a timer signal; on expiry the run resolves with `status: "cancelled"` and `timedOut: true`.
+
+Members built from an `AgentDefinition` are always disposed after the run. Pass `ownsMembers: true` to `Squad.create` to also dispose the `SDKAgent` members you passed in (default `false`). A disposal failure never fails the run; it goes to `onDisposeError(error, memberIndex)` (default: a redacted diagnostic).
+
 ## Capability map
 
 New here? The exported TypeScript types are the discovery front-door and the canonical contract — every harness primitive with its import path, signature and JSDoc example (`compactTranscript`, `buildRepoMap`, `isTransientError`, `@theokit/sdk/persistence`, ...), surfaced by your editor.

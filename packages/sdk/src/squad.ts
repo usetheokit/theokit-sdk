@@ -14,6 +14,8 @@
  */
 
 import { ConfigurationError } from "./errors.js";
+import { diagFailure } from "./internal/diagnostics.js";
+import { redactSecrets } from "./internal/security/redact.js";
 import type { AgentDefinition, SDKAgent } from "./types/agent.js";
 import type { StepResult } from "./types/workflow.js";
 import { agentStep, Workflow } from "./workflow.js";
@@ -47,6 +49,22 @@ export interface SquadOptions {
   process?: "sequential" | "hierarchical";
   /** Optional squad name (surfaced on the underlying workflow). Default `"squad"`. */
   name?: string;
+  /** Dispose the SDKAgent members passed in after each run. Default false. */
+  ownsMembers?: boolean;
+  /** Receives a member disposal failure. Default: diagFailure. Disposal failures never fail the run. */
+  onDisposeError?: (error: unknown, memberIndex: number) => void;
+}
+
+/**
+ * Options for {@link Squad.run}.
+ *
+ * @public
+ */
+export interface SquadRunOptions {
+  /** Aborting cancels the member run in flight and resolves with status "cancelled". */
+  signal?: AbortSignal;
+  /** Shorthand for a timer signal. On expiry the run is cancelled and resolves with status "cancelled" and `timedOut: true`. */
+  timeoutMs?: number;
 }
 
 /**
@@ -59,6 +77,8 @@ export interface SquadRun {
   readonly result: unknown;
   readonly status: "running" | "completed" | "failed" | "suspended" | "cancelled";
   readonly steps: ReadonlyArray<StepResult>;
+  /** True when the run was cancelled because `timeoutMs` expired. */
+  readonly timedOut?: boolean;
 }
 
 /**
@@ -68,7 +88,7 @@ export interface SquadRun {
  */
 export interface Squad {
   /** Run the team over `input`, threading each agent's output to the next. */
-  run(input: unknown): Promise<SquadRun>;
+  run(input: unknown, options?: SquadRunOptions): Promise<SquadRun>;
 }
 
 /**
@@ -121,34 +141,148 @@ function createSquad(options: SquadOptions): Squad {
   }
 
   return {
-    run: async (input: unknown): Promise<SquadRun> => {
-      const run = await (await buildPipeline(agents, options.name)).run(input);
-      return { result: run.output, status: run.status, steps: run.stepResults };
+    run: (input: unknown, runOptions?: SquadRunOptions): Promise<SquadRun> =>
+      runSquad(options, input, runOptions),
+  };
+}
+
+/** Joins the caller's signal with a `timeoutMs` timer. `timedOut()` reports whether the timer won. */
+function withTimeout(runOptions: SquadRunOptions | undefined): {
+  signal: AbortSignal | undefined;
+  timedOut: () => boolean;
+  clear: () => void;
+} {
+  const ctrl = new AbortController();
+  const external = runOptions?.signal;
+  let fired = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const onExternal = (): void => ctrl.abort(external?.reason);
+  if (external?.aborted) ctrl.abort(external.reason);
+  else external?.addEventListener("abort", onExternal, { once: true });
+  const ms = runOptions?.timeoutMs;
+  if (ms !== undefined && !ctrl.signal.aborted) {
+    timer = setTimeout(() => {
+      fired = true;
+      ctrl.abort(new Error(`Squad run timed out after ${String(ms)}ms`));
+    }, ms);
+  }
+  const needed = external !== undefined || ms !== undefined;
+  return {
+    signal: needed ? ctrl.signal : undefined,
+    timedOut: () => fired,
+    clear: () => {
+      if (timer !== undefined) clearTimeout(timer);
+      external?.removeEventListener("abort", onExternal);
     },
   };
 }
 
+/** Disposes with `allSettled`; a failure goes to `onDisposeError` and never reaches the run result. */
+async function disposeMembers(
+  owned: ReadonlyArray<{ agent: SDKAgent; index: number }>,
+  onError: SquadOptions["onDisposeError"],
+): Promise<void> {
+  const settled = await Promise.allSettled(
+    owned.map((m) => Promise.resolve().then(() => m.agent.dispose())),
+  );
+  settled.forEach((r, k) => {
+    if (r.status !== "rejected") return;
+    const index = owned[k]?.index ?? -1;
+    try {
+      if (onError !== undefined) onError(r.reason, index);
+      else {
+        const msg = r.reason instanceof Error ? r.reason.message : String(r.reason);
+        diagFailure(redactSecrets(`squad member ${String(index)} failed to dispose: ${msg}`));
+      }
+    } catch {
+      // a throwing error handler must not fail the run
+    }
+  });
+}
+
+async function runSquad(
+  options: SquadOptions,
+  input: unknown,
+  runOptions: SquadRunOptions | undefined,
+): Promise<SquadRun> {
+  const timer = withTimeout(runOptions);
+  const owned: Array<{ agent: SDKAgent; index: number }> = [];
+  try {
+    const pipeline = await buildPipeline(
+      options.agents,
+      options.name,
+      owned,
+      options.ownsMembers === true,
+      timer.signal,
+    );
+    const run = await pipeline.run(input, timer.signal ? { signal: timer.signal } : undefined);
+    return {
+      result: run.output,
+      status: run.status,
+      steps: run.stepResults,
+      ...(timer.timedOut() && run.status === "cancelled" ? { timedOut: true } : {}),
+    };
+  } catch (err) {
+    if (err instanceof SquadAborted) {
+      return {
+        result: undefined,
+        status: "cancelled",
+        steps: [],
+        ...(timer.timedOut() ? { timedOut: true } : {}),
+      };
+    }
+    throw err;
+  } finally {
+    timer.clear();
+    await disposeMembers(owned, options.onDisposeError);
+  }
+}
+
+/** Raised by `buildPipeline` when the signal aborted before every member was built. */
+class SquadAborted extends Error {}
+
+async function resolveMember(
+  member: SDKAgent | AgentDefinition,
+  index: number,
+  owned: Array<{ agent: SDKAgent; index: number }>,
+): Promise<SDKAgent> {
+  if (isBuiltAgent(member)) return member;
+  const agent = await materialize(member, index);
+  owned.push({ agent, index });
+  return agent;
+}
+
+function registerPassedIn(
+  agents: ReadonlyArray<SDKAgent | AgentDefinition>,
+  owned: Array<{ agent: SDKAgent; index: number }>,
+): void {
+  agents.forEach((m, index) => {
+    if (isBuiltAgent(m)) owned.push({ agent: m, index });
+  });
+}
+
 /**
- * Builds the sequential pipeline, materializing the members that are still raw data.
- *
- * Extracted from `run` because the cognitive-complexity gate rejected the combined function — and because
- * "building the pipeline" and "running it and translating the result" are two responsibilities that were only
- * together by proximity.
+ * Builds the sequential pipeline, materializing the members that are still raw data. Members to dispose
+ * are pushed onto `owned`: materialized agents always, passed-in agents only with `ownsMembers`, and the
+ * latter are registered before any definition is materialized.
  */
 async function buildPipeline(
   agents: ReadonlyArray<SDKAgent | AgentDefinition>,
   name: string | undefined,
+  owned: Array<{ agent: SDKAgent; index: number }>,
+  ownsMembers: boolean,
+  signal: AbortSignal | undefined,
 ): Promise<ReturnType<ReturnType<typeof Workflow.create>["commit"]>> {
+  if (ownsMembers) registerPassedIn(agents, owned);
   // Compose Workflow + agentStep — identity threading: each agent's prompt is the previous agent's
   // output (the run input for the first agent).
   let builder = Workflow.create({ name: name ?? "squad" });
   for (let i = 0; i < agents.length; i++) {
     const member = agents[i];
     if (member === undefined) continue;
-    // M81 — materializes at RUN time, not at construction: `Squad.create` is synchronous and an
-    // `AgentDefinition` only becomes an agent with an `await`. Deferring to here keeps construction cheap and
-    // avoids requiring a resolved credential to assemble a team before the first run.
-    const agent = isBuiltAgent(member) ? member : await materialize(member, i);
+    if (signal?.aborted) throw new SquadAborted("aborted before member was built");
+    // M81 — materializes at RUN time, not at construction (`Squad.create` is synchronous).
+    const agent = await resolveMember(member, i, owned);
     // SE3 — the first agent receives the human input (no peer origin); every subsequent agent
     // receives its predecessor's output, so its turn carries `{ kind: "peer", from: "agent-<i-1>" }`.
     const opts = i > 0 ? { origin: { kind: "peer" as const, from: `agent-${i - 1}` } } : undefined;

@@ -88,3 +88,25 @@ describe("M81 T2.2 — Squad.create accepts AgentDefinition", () => {
     }
   });
 });
+
+describe("Squad disposes the agents it materialized", () => {
+  it("test_definitions_are_disposed_after_run", async () => {
+    const { vi } = await import("vitest");
+    const { Agent } = await import("../src/agent.js");
+    const disposed: string[] = [];
+    const spy = vi.spyOn(Agent, "create").mockImplementation((async (o: { agentId?: string }) => ({
+      agentId: o.agentId,
+      send: async () => ({ wait: async () => ({ id: "r", status: "finished", result: "ok" }) }),
+      dispose: async () => {
+        disposed.push(String(o.agentId));
+      },
+    })) as never);
+    try {
+      const run = await Squad.create({ agents: [definition, definition] }).run("go");
+      expect(run.status).toBe("completed");
+      expect(disposed.sort()).toEqual(["squad-member-0", "squad-member-1"]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
