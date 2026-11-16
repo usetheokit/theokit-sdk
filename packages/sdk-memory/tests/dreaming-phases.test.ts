@@ -152,15 +152,18 @@ describe("sdk-memory dreaming-phases (iter 54)", () => {
       expect(result.clusters[0]?.representativeText).toBe("the longer one");
     });
 
-    // B-380: the 500-fact cap drops the remainder from clustering, and the result has to say how
-    // many it dropped. One-hot vectors keep every fact distinct, so nothing merges the count away.
-    it("remPhase reports one fact left out of 501", async () => {
-      const rem = await remPhase(distinctFacts(501), oneHotEmbedding());
+    // B-380: the cap drops the remainder from clustering, and the result has to say how many it
+    // dropped. One-hot vectors keep every fact distinct, so nothing merges the count away. The cap
+    // is passed explicitly (a small one) so the test does not depend on the machine's speed (#1192).
+    const CAP = 10;
+
+    it("remPhase reports one fact left out of one over the cap", async () => {
+      const rem = await remPhase(distinctFacts(CAP + 1), oneHotEmbedding(), undefined, CAP);
       expect(rem.factsLeftOut).toBe(1);
     });
 
-    it("remPhase reports zero left out at 500", async () => {
-      const rem = await remPhase(distinctFacts(500), oneHotEmbedding());
+    it("remPhase reports zero left out at the cap", async () => {
+      const rem = await remPhase(distinctFacts(CAP), oneHotEmbedding(), undefined, CAP);
       expect(rem.factsLeftOut).toBe(0);
     });
 
