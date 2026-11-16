@@ -66,6 +66,20 @@ describe("acquireInstanceLock", () => {
     await l.release();
   });
 
+  it("resolves a relative options.path so release() survives a cwd change", async () => {
+    const start = process.cwd();
+    process.chdir(root);
+    try {
+      const l = await acquireInstanceLock(dir, { path: "rel.lock" });
+      expect(path.isAbsolute(l.path)).toBe(true);
+      process.chdir(start);
+      await l.release();
+      expect(() => readFileSync(path.join(root, "rel.lock"))).toThrow();
+    } finally {
+      process.chdir(start);
+    }
+  });
+
   it("release() does not remove a lock another holder took over", async () => {
     const a = await acquireInstanceLock(dir);
     // simulate a crash of A: its lock now names a dead pid, then B takes over

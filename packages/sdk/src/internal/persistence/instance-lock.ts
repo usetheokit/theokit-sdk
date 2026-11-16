@@ -121,7 +121,7 @@ export async function acquireWithHooks(
   options: { path?: string } | undefined,
   hooks: InstanceLockHooks,
 ): Promise<InstanceLock> {
-  const lockPath = options?.path ?? `${resolve(dir)}.instance.lock`;
+  const lockPath = resolve(options?.path ?? `${resolve(dir)}.instance.lock`);
   const nonce = randomBytes(16).toString("hex");
   const content = JSON.stringify({ pid: process.pid, nonce });
   const claimPath = `${lockPath}.claim.${process.pid}.${nonce}`;
