@@ -3,6 +3,7 @@ import { ToolError } from "../../tool-error.js";
 import type { ToolContextMessage } from "../../types/agent-prims.js";
 import type { ToolResultContentBlock } from "../../types/content-blocks.js";
 import type { LlmToolCallPart } from "../llm/types.js";
+import { refuseFilteredCall } from "../mcp/tool-filter.js";
 import { runShell, type ShellExecuteOptions } from "../runtime/tools/shell-tool.js";
 import type { AgentLoopInputs, ResolvedTool } from "./types.js";
 
@@ -35,6 +36,8 @@ export async function executeTool(
   call: LlmToolCallPart,
 ): Promise<ToolResult> {
   if (resolved === undefined) {
+    const refusal = await refuseFilteredCall(inputs.mcp, call.name);
+    if (refusal !== undefined) return { stdout: "", stderr: refusal, exitCode: 1 };
     return { stdout: "", stderr: `Unknown tool ${call.name}`, exitCode: 127 };
   }
   if (resolved.origin === "shell") return runShellTool(inputs, call);
