@@ -288,20 +288,19 @@ export class LanceIndex {
   /**
    * Remove facts by id. A fact split across chunks is stored as `<id>#<n>` rows (`n` digits only),
    * so each id removes the exact row and every such chunk; `<id>#other` and other ids are kept.
-   * `scope` narrows the removal to one namespace and/or source, so a same-named row owned by
-   * another namespace or source (a note, a wiki page) survives. Runs after any add already queued
+   * `scope` is required: only rows of that namespace AND source are touched, so a same-named row
+   * owned by another namespace or source (a note, a wiki page) survives. Runs after any add already queued
    * on this storage path, including adds from other `LanceIndex` objects opened on it.
    */
   async removeFacts(
     ids: ReadonlyArray<string>,
-    scope: { namespace?: string; source?: "memory" | "sessions" | "wiki" } = {},
+    scope: { namespace: string; source: "memory" | "sessions" | "wiki" },
   ): Promise<void> {
     if (ids.length === 0) return;
-    const filters: string[] = [];
-    if (scope.namespace !== undefined) {
-      filters.push(`namespace = '${escapeSqlValue(scope.namespace)}'`);
-    }
-    if (scope.source !== undefined) filters.push(`source = '${escapeSqlValue(scope.source)}'`);
+    const filters = [
+      `namespace = '${escapeSqlValue(scope.namespace)}'`,
+      `source = '${escapeSqlValue(scope.source)}'`,
+    ];
     await this.serialized(() => this.removeNow(ids, filters));
   }
 

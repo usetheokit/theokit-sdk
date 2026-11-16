@@ -70,6 +70,7 @@ function makeIndex(embedDelay = 0, failFirstAdd = false, key?: string, rowsIn?: 
   return { index: new Ctor(table, embedding, 2, key ?? `test-${keyCounter++}`), rows, log };
 }
 
+const SCOPE = { namespace: "default", source: "memory" } as const;
 const fact = (id: string, source: "memory" | "wiki" = "memory") => ({
   id,
   text: id,
@@ -87,21 +88,21 @@ describe("LanceIndex.removeFacts", () => {
       ["f1", "f1#0", "f1#1", "f1#2", "f10#0", "f1x", "note-1"].map((i) => fact(i)),
     );
     await index.addFacts([fact("w1", "wiki")]);
-    await index.removeFacts(["f1"]);
+    await index.removeFacts(["f1"], SCOPE);
     expect(rows.map((r) => r.id).sort()).toEqual(["f10#0", "f1x", "note-1", "w1"]);
   });
 
   it("does not treat LIKE wildcards in an id as patterns", async () => {
     const { index, rows } = makeIndex();
     await index.addFacts([fact("a_b#0"), fact("axb#0"), fact("a%#0"), fact("q'#0")]);
-    await index.removeFacts(["a_b", "a%", "q'"]);
+    await index.removeFacts(["a_b", "a%", "q'"], SCOPE);
     expect(rows.map((r) => r.id)).toEqual(["axb#0"]);
   });
 
   it("a removal issued during an in-flight add runs after it", async () => {
     const { index, rows, log } = makeIndex(30);
     const add = index.addFacts([fact("f1#0"), fact("f1#1"), fact("keep")]);
-    const rm = index.removeFacts(["f1"]);
+    const rm = index.removeFacts(["f1"], SCOPE);
     await Promise.all([add, rm]);
     expect(log).toEqual(["add", "delete"]);
     expect(rows.map((r) => r.id)).toEqual(["keep"]);
@@ -111,15 +112,25 @@ describe("LanceIndex.removeFacts", () => {
     const { index, rows } = makeIndex(0, true);
     await expect(index.addFacts([fact("x#0")])).rejects.toThrow("boom");
     await index.addFacts([fact("f1#0"), fact("keep")]);
-    await index.removeFacts(["f1"]);
+    await index.removeFacts(["f1"], SCOPE);
     expect(rows.map((r) => r.id)).toEqual(["keep"]);
   });
 
   it("keeps `<id>#other` rows that are not numbered chunks", async () => {
     const { index, rows } = makeIndex();
     await index.addFacts([fact("f1#0"), fact("f1#other"), fact("f1#1#x")]);
-    await index.removeFacts(["f1"]);
+    await index.removeFacts(["f1"], SCOPE);
     expect(rows.map((r) => r.id).sort()).toEqual(["f1#1#x", "f1#other"]);
+  });
+
+  it("an ordinary removal keeps a wiki row and another namespace that share the id", async () => {
+    const { index, rows } = makeIndex();
+    await index.addFacts([fact("f1"), fact("f1", "wiki"), { ...fact("f1"), namespace: "other" }]);
+    await index.removeFacts(["f1"], SCOPE);
+    expect(rows.map((r) => `${r.namespace}/${r.source}`).sort()).toEqual([
+      "default/wiki",
+      "other/memory",
+    ]);
   });
 
   it("scope keeps same-named rows of another source or namespace", async () => {
@@ -129,7 +140,7 @@ describe("LanceIndex.removeFacts", () => {
       fact("f1#1", "wiki"),
       { ...fact("f1#2"), namespace: "other" },
     ]);
-    await index.removeFacts(["f1"], { namespace: "default", source: "memory" });
+    await index.removeFacts(["f1"], SCOPE);
     expect(rows.map((r) => r.id).sort()).toEqual(["f1#1", "f1#2"]);
   });
 
@@ -138,7 +149,7 @@ describe("LanceIndex.removeFacts", () => {
     const slow = makeIndex(30, false, "same-path", shared);
     const other = makeIndex(0, false, "same-path", shared);
     const add = slow.index.addFacts([fact("f1#0"), fact("keep")]);
-    const rm = other.index.removeFacts(["f1"]);
+    const rm = other.index.removeFacts(["f1"], SCOPE);
     await Promise.all([add, rm]);
     expect(shared.map((r) => r.id)).toEqual(["keep"]);
   });
