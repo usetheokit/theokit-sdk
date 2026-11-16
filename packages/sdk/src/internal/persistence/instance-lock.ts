@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { link, readFile, rename, unlink, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { link, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 import { TheokitAgentError } from "../../errors-base.js";
 
 /** A lock held by this process. */
@@ -164,8 +164,10 @@ async function claimSlot(
 /**
  * Replaces a stale lock. Only the owner of a per-generation takeover guard proceeds; it re-reads
  * the lock and replaces it only if the nonce is unchanged and the holder is still dead. If the
- * lock is gone, it returns false so the caller retries the exclusive link. The stale file is renamed aside
- * and checked before the path is taken with an exclusive link, never overwritten. The guard is removed by its owner afterwards. Returns false when it lost a race.
+ * lock is gone, it returns false so the caller retries the exclusive link. The replacement is a
+ * rename over the stale file; a contender that links into the path meanwhile is safe because it
+ * checks for live takeover guards after linking and yields (see `yieldToTakeover`). The guard is
+ * removed by its owner afterwards. Returns false when it lost a race.
  */
 async function takeOver(lockPath: string, stale: Holder, nonce: string): Promise<boolean> {
   const guard = await claimGuard(lockPath, stale, nonce);
@@ -173,27 +175,42 @@ async function takeOver(lockPath: string, stale: Holder, nonce: string): Promise
   try {
     const current = await readHolder(lockPath);
     if (!current || current.nonce !== stale.nonce || pidAlive(current.pid)) return false;
-    // Move whatever is at the path aside atomically, so we judge the file we remove and never
-    // overwrite a holder that linked in after the re-read. Then take the empty path exclusively.
-    const aside = `${lockPath}.stale.${process.pid}.${nonce}`;
+    const claim = await writeClaim(lockPath, nonce, "claim");
     try {
-      await rename(lockPath, aside);
+      await rename(claim, lockPath);
     } catch (err) {
-      if (errCode(err) === "ENOENT") return false;
+      await quietUnlink(claim);
       throw err;
     }
-    const moved = await readHolder(aside).catch(() => undefined);
-    if (!moved || moved.nonce !== stale.nonce || pidAlive(moved.pid)) {
-      // Not the stale lock we meant to replace: put it back (exclusively) and lose the race.
-      await link(aside, lockPath).catch(() => undefined);
-      await quietUnlink(aside);
-      return false;
-    }
-    await quietUnlink(aside);
-    return (await tryLink(lockPath, nonce)) === "taken";
+    return true;
   } finally {
     await quietUnlink(guard);
   }
+}
+
+/** True when a live (or unreadable) takeover guard exists for this lock. */
+async function takeoverActive(lockPath: string): Promise<boolean> {
+  const prefix = `${basename(lockPath)}.takeover.`;
+  for (const name of await readdir(dirname(lockPath))) {
+    if (!name.startsWith(prefix)) continue;
+    const owner = await readHolder(join(dirname(lockPath), name)).catch(() => undefined);
+    if (owner === null) continue; // removed meanwhile
+    if (owner === undefined || pidAlive(owner.pid)) return true;
+  }
+  return false;
+}
+
+/**
+ * A fresh holder that linked into an empty path while a taker is mid-takeover could be overwritten
+ * by the taker's rename. The taker publishes its guard before re-reading the lock, so a holder that
+ * links first and then finds no live guard is seen by the taker's re-read, and one that finds a
+ * guard backs out here and retries.
+ */
+async function yieldToTakeover(lockPath: string, nonce: string): Promise<boolean> {
+  if (!(await takeoverActive(lockPath))) return false;
+  const holder = await readHolder(lockPath).catch(() => null);
+  if (holder && holder.nonce === nonce) await quietUnlink(lockPath);
+  return true;
 }
 
 async function unlinkIfPresent(path: string): Promise<void> {
@@ -230,7 +247,8 @@ function makeLock(lockPath: string, nonce: string): InstanceLock {
 
 /** One try: true when the lock is ours; false to retry; throws when a live holder owns it. */
 async function attemptOnce(lockPath: string, nonce: string): Promise<boolean> {
-  if ((await tryLink(lockPath, nonce)) === "taken") return true;
+  if ((await tryLink(lockPath, nonce)) === "taken")
+    return !(await yieldToTakeover(lockPath, nonce));
   const holder = await readHolder(lockPath);
   if (holder === null) return false; // vanished between link and read
   if (holder === undefined) throw locked(lockPath);

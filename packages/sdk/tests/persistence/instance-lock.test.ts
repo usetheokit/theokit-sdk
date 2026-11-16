@@ -17,7 +17,7 @@ const linkFail = vi.hoisted(() => ({
   code: undefined as string | undefined,
   onGuard: undefined as (() => void) | undefined,
   onAbsentRead: undefined as ((path: string) => void) | undefined,
-  onRead: undefined as ((path: string) => void) | undefined,
+  onRead: undefined as ((path: string) => void | Promise<void>) | undefined,
 }));
 vi.mock("node:fs/promises", async (importOriginal) => {
   const real = await importOriginal<typeof import("node:fs/promises")>();
@@ -26,7 +26,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
     readFile: (async (...args: Parameters<typeof real.readFile>) => {
       try {
         const text = await real.readFile(...args);
-        linkFail.onRead?.(String(args[0]));
+        await linkFail.onRead?.(String(args[0]));
         return text;
       } catch (err) {
         const hook = linkFail.onAbsentRead;
@@ -199,24 +199,28 @@ describe("acquireInstanceLock", () => {
     expect(readFileSync(lockPath, "utf8")).toBe(other);
   });
 
-  it("does not overwrite a holder that links in after the re-read found the stale lock", async () => {
+  it("a contender linking in during a takeover backs out and is never overwritten", async () => {
     writeStale("gen1");
-    const other = JSON.stringify({ pid: process.pid, nonce: "live-other" });
     let armed = false;
+    let contender: Promise<unknown> | undefined;
     linkFail.onGuard = () => {
       armed = true;
     };
-    linkFail.onRead = (path) => {
+    linkFail.onRead = async (path) => {
       if (!armed || path !== lockPath) return;
       armed = false;
-      // operator removes the stale lock and a new holder links in before the takeover replaces it
+      // the stale lock is removed and a contender acquires while the taker holds its guard
       unlinkSync(lockPath);
-      writeFileSync(lockPath, other);
+      contender = acquireInstanceLock(dir).catch((e) => e);
+      const err = await contender;
+      expect(err).toBeInstanceOf(InstanceLockedError);
+      expect(existsSync(lockPath)).toBe(false); // it never kept the lock
     };
-    const err = await acquireInstanceLock(dir).catch((e) => e);
-    expect(err).toBeInstanceOf(InstanceLockedError);
-    expect(err.holderPid).toBe(process.pid);
-    expect(readFileSync(lockPath, "utf8")).toBe(other);
+    const lock = await acquireInstanceLock(dir);
+    expect(contender).toBeDefined();
+    expect(JSON.parse(readFileSync(lockPath, "utf8")).pid).toBe(process.pid);
+    await lock.release();
+    expect(existsSync(lockPath)).toBe(false);
   });
 
   it("an empty takeover guard blocks contenders and stays in place", async () => {
