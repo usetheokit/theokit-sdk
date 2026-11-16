@@ -196,15 +196,24 @@ async function unlinkIfPresent(path: string): Promise<void> {
 
 function makeLock(lockPath: string, nonce: string): InstanceLock {
   let released = false;
+  let removal: Promise<void> | undefined;
+  const remove = async (): Promise<void> => {
+    const holder = await readHolder(lockPath); // failures propagate; a later call retries
+    if (holder && holder.nonce === nonce) {
+      await unlinkIfPresent(lockPath);
+    }
+    released = true;
+  };
   return {
     path: lockPath,
-    async release() {
-      if (released) return;
-      const holder = await readHolder(lockPath); // failures propagate; a later call retries
-      if (holder && holder.nonce === nonce) {
-        await unlinkIfPresent(lockPath);
-      }
-      released = true;
+    release() {
+      if (released) return Promise.resolve();
+      // Concurrent calls share the first call's removal, so a second never unlinks a lock
+      // that another holder took after the first finished.
+      removal ??= remove().finally(() => {
+        removal = undefined;
+      });
+      return removal;
     },
   };
 }

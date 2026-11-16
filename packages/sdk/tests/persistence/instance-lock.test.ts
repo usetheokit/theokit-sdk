@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   unlinkSync,
@@ -202,25 +203,65 @@ describe("acquireInstanceLock", () => {
     await lock.release();
   });
 
+  it("concurrent release calls share one removal", async () => {
+    const mine = await acquireInstanceLock(dir);
+    const first = mine.release();
+    const second = mine.release();
+    expect(second).toBe(first);
+    // another holder takes the lock the moment the first removal is done
+    await first;
+    const other = JSON.stringify({ pid: process.pid, nonce: "someone-else" });
+    writeFileSync(lockPath, other);
+    await second;
+    await mine.release();
+    expect(readFileSync(lockPath, "utf8")).toBe(other);
+  });
+
   it("two concurrent takeovers of one stale lock end with one holder", async () => {
     writeStale();
     const tsx = resolve(__dirname, "../../../../node_modules/.bin/tsx");
+    expect(existsSync(tsx), `tsx missing at ${tsx}: run pnpm install`).toBe(true);
     const impl = resolve(__dirname, "../../src/persistence.ts");
+    expect(existsSync(impl)).toBe(true);
     const script = join(root, "child.mjs");
+    const barrier = join(root, "barrier");
+    mkdirSync(barrier);
+    // Each child waits, after reading the stale lock, until both children have read it.
     writeFileSync(
       script,
-      `import { acquireInstanceLock } from ${JSON.stringify(impl)};
-try { await acquireInstanceLock(process.argv[2]); console.log("held"); }
+      `import fsp from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
+import { writeFileSync, readdirSync } from "node:fs";
+const [dir, barrier] = process.argv.slice(2);
+const lockPath = dir + ".instance.lock";
+const realRead = fsp.readFile;
+let waited = false;
+fsp.readFile = async (...args) => {
+  const text = await realRead(...args);
+  if (!waited && String(args[0]) === lockPath) {
+    waited = true;
+    writeFileSync(barrier + "/" + process.pid, "");
+    const deadline = Date.now() + 30000;
+    while (readdirSync(barrier).length < 2 && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 5));
+    }
+  }
+  return text;
+};
+syncBuiltinESMExports();
+const { acquireInstanceLock } = await import(${JSON.stringify(impl)});
+try { await acquireInstanceLock(dir); console.log("held"); }
 catch (e) { console.log(e.name === "InstanceLockedError" ? "locked" : "error " + e.message); }
 process.stdin.resume(); process.stdin.on("end", () => process.exit(0));`,
     );
     const run = () =>
       new Promise<{ out: string; child: ReturnType<typeof spawn> }>((res) => {
-        const child = spawn(tsx, [script, dir], { stdio: ["pipe", "pipe", "inherit"] });
+        const child = spawn(tsx, [script, dir, barrier], { stdio: ["pipe", "pipe", "inherit"] });
         child.stdout.once("data", (d) => res({ out: String(d).trim(), child }));
       });
     const results = await Promise.all([run(), run()]);
     for (const r of results) r.child.stdin?.end();
+    expect(readdirSync(barrier)).toHaveLength(2);
     expect(results.map((r) => r.out).sort()).toEqual(["held", "locked"]);
   }, 60_000);
 });
