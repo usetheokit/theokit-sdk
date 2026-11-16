@@ -108,8 +108,14 @@ function isBuiltAgent(m: SDKAgent | AgentDefinition): m is SDKAgent {
  * `Agent` is imported dynamically because `squad.ts` is consumed by paths that do not want to drag the
  * whole agent in just to declare a team; the cost is only paid by callers actually passing raw data.
  */
-async function materialize(def: AgentDefinition, index: number): Promise<SDKAgent> {
+async function materialize(
+  def: AgentDefinition,
+  index: number,
+  signal?: AbortSignal,
+): Promise<SDKAgent> {
   const { Agent } = await import("./agent.js");
+  // The import is asynchronous: re-check immediately before creating, so an abort during it creates nothing.
+  if (signal?.aborted) throw new SquadAborted("aborted before member was created");
   return Agent.create({
     // `AgentDefinition.model` admits the sentinel `'inherit'`, which is not a model id. Inheriting
     // here means "declare nothing and let the default apply" — forwarding the literal would create
@@ -156,12 +162,17 @@ function withTimeout(runOptions: SquadRunOptions | undefined): {
   const external = runOptions?.signal;
   let fired = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const onExternal = (): void => ctrl.abort(external?.reason);
+  const onExternal = (): void => {
+    // The external abort won: the timer must not later claim the run as timed out.
+    if (timer !== undefined) clearTimeout(timer);
+    ctrl.abort(external?.reason);
+  };
   if (external?.aborted) ctrl.abort(external.reason);
   else external?.addEventListener("abort", onExternal, { once: true });
   const ms = runOptions?.timeoutMs;
   if (ms !== undefined && !ctrl.signal.aborted) {
     timer = setTimeout(() => {
+      if (ctrl.signal.aborted) return;
       fired = true;
       ctrl.abort(new Error(`Squad run timed out after ${String(ms)}ms`));
     }, ms);
@@ -245,9 +256,10 @@ async function resolveMember(
   member: SDKAgent | AgentDefinition,
   index: number,
   owned: Array<{ agent: SDKAgent; index: number }>,
+  signal?: AbortSignal,
 ): Promise<SDKAgent> {
   if (isBuiltAgent(member)) return member;
-  const agent = await materialize(member, index);
+  const agent = await materialize(member, index, signal);
   owned.push({ agent, index });
   return agent;
 }
@@ -282,7 +294,7 @@ async function buildPipeline(
     if (member === undefined) continue;
     if (signal?.aborted) throw new SquadAborted("aborted before member was built");
     // M81 — materializes at RUN time, not at construction (`Squad.create` is synchronous).
-    const agent = await resolveMember(member, i, owned);
+    const agent = await resolveMember(member, i, owned, signal);
     // SE3 — the first agent receives the human input (no peer origin); every subsequent agent
     // receives its predecessor's output, so its turn carries `{ kind: "peer", from: "agent-<i-1>" }`.
     const opts = i > 0 ? { origin: { kind: "peer" as const, from: `agent-${i - 1}` } } : undefined;

@@ -110,3 +110,59 @@ describe("Squad disposes the agents it materialized", () => {
     }
   });
 });
+
+describe("Squad stops building once the signal aborts", () => {
+  async function spyCreate(onCreate?: () => void) {
+    const { vi } = await import("vitest");
+    const { Agent } = await import("../src/agent.js");
+    return vi.spyOn(Agent, "create").mockImplementation((async () => {
+      onCreate?.();
+      return {
+        agentId: "m",
+        send: async () => ({ wait: async () => ({ id: "r", status: "finished", result: "ok" }) }),
+        dispose: async () => {},
+      };
+    }) as never);
+  }
+
+  it("never calls Agent.create when the signal is already aborted", async () => {
+    const spy = await spyCreate();
+    try {
+      const ctrl = new AbortController();
+      ctrl.abort();
+      const run = await Squad.create({ agents: [definition] }).run("go", { signal: ctrl.signal });
+      expect(run.status).toBe("cancelled");
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("does not create the next member when the signal aborts between members", async () => {
+    const ctrl = new AbortController();
+    const spy = await spyCreate(() => ctrl.abort());
+    try {
+      const run = await Squad.create({ agents: [definition, definition] }).run("go", {
+        signal: ctrl.signal,
+      });
+      expect(run.status).toBe("cancelled");
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("does not create a member when the signal aborts during asynchronous preparation", async () => {
+    const spy = await spyCreate();
+    try {
+      const ctrl = new AbortController();
+      const p = Squad.create({ agents: [definition] }).run("go", { signal: ctrl.signal });
+      ctrl.abort(); // run() is suspended on the lazy import of the agent module
+      const run = await p;
+      expect(run.status).toBe("cancelled");
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});

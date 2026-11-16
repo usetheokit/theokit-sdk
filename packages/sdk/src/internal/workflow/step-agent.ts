@@ -15,7 +15,9 @@ import { WorkflowSuspendedSentinel } from "./ctx.js";
 import { errToShape } from "./error-shape.js";
 import { withRetry } from "./retry-policy.js";
 
-/** Thrown inside `exec` when the in-flight run was cancelled; mapped to a `cancelled` step result. */
+/** Thrown by `waitOrCancel` when the in-flight run was cancelled; mapped to a `cancelled` step result. */
+const CANCELLED = Symbol("agent-step-cancelled");
+
 class AgentStepCancelled extends Error {}
 
 /** Cancels `run` once the signal aborts; resolves "aborted" then. Call `off` to detach. */
@@ -83,7 +85,10 @@ function errorResult(
 ): StepResult {
   // Re-throw suspend sentinel so the executor can persist a snapshot.
   if (err instanceof WorkflowSuspendedSentinel) throw err;
-  if (err instanceof AgentStepCancelled) return cancelledResult(step, startedAt, signal);
+  // `withRetry` throws AbortError when the signal fires before an attempt or during backoff.
+  if (signal.aborted && err instanceof Error && err.name === "AbortError") {
+    return cancelledResult(step, startedAt, signal);
+  }
   return {
     stepId: step.id,
     kind: "agent",
@@ -146,13 +151,19 @@ export async function runAgentStep(
     };
   }
 
-  const exec = async (): Promise<string> => {
+  // A cancelled run RETURNS the sentinel (never throws), so `withRetry` cannot retry it.
+  const exec = async (): Promise<string | typeof CANCELLED> => {
     // SE3 — forward the step's provenance onto the agent's turn (metadata-only).
     const run = await step.agent.send(
       prompt,
       step.origin !== undefined ? { origin: step.origin } : undefined,
     );
-    return resultText(await waitOrCancel(run, ctx.signal));
+    try {
+      return resultText(await waitOrCancel(run, ctx.signal));
+    } catch (err) {
+      if (err instanceof AgentStepCancelled) return CANCELLED;
+      throw err;
+    }
   };
 
   try {
@@ -160,6 +171,7 @@ export async function runAgentStep(
       step.retry !== undefined
         ? await withRetry(exec, step.retry, ctx.signal)
         : { value: await exec(), attempts: 1 };
+    if (value === CANCELLED) return cancelledResult(step, startedAt, ctx.signal);
     return {
       stepId: step.id,
       kind: "agent",
