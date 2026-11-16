@@ -24,10 +24,11 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { link, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { link, readFile, rename, unlink } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { TheokitAgentError } from "../../errors-base.js";
+import { createExclusive } from "./exclusive-create.js";
 
 /** A held instance lock. */
 export interface InstanceLock {
@@ -107,7 +108,10 @@ async function unlinkQuiet(path: string): Promise<void> {
  *
  * Liveness is `kill(pid, 0)`: every process contending for the lock must share one pid namespace.
  */
-export function acquireInstanceLock(dir: string, options?: { path?: string }): Promise<InstanceLock> {
+export function acquireInstanceLock(
+  dir: string,
+  options?: { path?: string },
+): Promise<InstanceLock> {
   return acquireWithHooks(dir, options, {});
 }
 
@@ -123,7 +127,9 @@ export async function acquireWithHooks(
   const claimPath = `${lockPath}.claim.${process.pid}.${nonce}`;
   const guards: string[] = [];
 
-  await writeFile(claimPath, content, { flag: "wx", mode: 0o600 });
+  if (!(await createExclusive(claimPath, content, { mode: 0o600 }))) {
+    throw new Error(`instance lock claim file already exists: ${claimPath}`);
+  }
   try {
     await takeLock(lockPath, claimPath, hooks, guards);
   } catch (e) {
@@ -147,6 +153,23 @@ export async function acquireWithHooks(
   };
 }
 
+/** Links the claim to the lock path. True when taken, false on `EEXIST`. */
+async function tryLink(lockPath: string, claimPath: string): Promise<boolean> {
+  try {
+    await link(claimPath, lockPath);
+    return true;
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === "EEXIST") return false;
+    throw new InstanceLockedError(
+      lockPath,
+      undefined,
+      `cannot take the instance lock ${lockPath}: it needs a filesystem with hard links ` +
+        `(link failed: ${code ?? String(e)})`,
+    );
+  }
+}
+
 async function takeLock(
   lockPath: string,
   claimPath: string,
@@ -154,28 +177,13 @@ async function takeLock(
   guards: string[],
 ): Promise<void> {
   let takeovers = 0;
-  for (;;) {
-    try {
-      await link(claimPath, lockPath);
-      return;
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== "EEXIST") {
-        throw new InstanceLockedError(
-          lockPath,
-          undefined,
-          `cannot take the instance lock ${lockPath}: it needs a filesystem with hard links ` +
-            `(link failed: ${(e as NodeJS.ErrnoException).code ?? String(e)})`,
-        );
-      }
-    }
+  while (!(await tryLink(lockPath, claimPath))) {
     const raw = await readLock(lockPath);
     if (raw === undefined) continue; // released meanwhile
-    const holder = parseHolder(raw);
-    if (holder.pid !== undefined && isAlive(holder.pid)) {
-      throw new InstanceLockedError(lockPath, holder.pid);
-    }
+    const { pid } = parseHolder(raw);
+    if (pid !== undefined && isAlive(pid)) throw new InstanceLockedError(lockPath, pid);
     await hooks.afterStaleRead?.();
-    if (takeovers++ >= TAKEOVER_ATTEMPTS) throw new InstanceLockedError(lockPath, holder.pid);
+    if (takeovers++ >= TAKEOVER_ATTEMPTS) throw new InstanceLockedError(lockPath, pid);
     if (await takeOver(lockPath, claimPath, raw, guards)) return;
   }
 }
@@ -189,14 +197,9 @@ async function takeOver(
 ): Promise<boolean> {
   const generation = parseHolder(raw).nonce ?? randomBytes(4).toString("hex");
   const guard = `${lockPath}.takeover.${generation}`;
-  try {
-    await writeFile(guard, String(process.pid), { flag: "wx", mode: 0o600 });
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === "EEXIST") {
-      await new Promise((r) => setTimeout(r, 25));
-      return false; // another process owns this generation; the caller re-reads the lock
-    }
-    throw e;
+  if (!(await createExclusive(guard, String(process.pid), { mode: 0o600 }))) {
+    await new Promise((r) => setTimeout(r, 25));
+    return false; // another process owns this generation; the caller re-reads the lock
   }
   guards.push(guard);
   const again = await readLock(lockPath);

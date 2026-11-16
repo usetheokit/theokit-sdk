@@ -88,7 +88,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `hooks_read_error` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:243` |
 | `hooks_unsupported_field` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:393` |
 | `hooks_unsupported_type` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:409` |
-| `instance_locked` | domain | — | `packages/sdk/src/internal/persistence/instance-lock.ts:50` |
+| `instance_locked` | domain | — | `packages/sdk/src/internal/persistence/instance-lock.ts:47` +1 |
 | `interactive_unavailable` | domain | InteractiveUnavailableError | `packages/sdk/src/interactive/types.ts:28` +1 |
 | `INTERNAL_SERVER_ERROR` | domain | — | `packages/sdk/src/server/errors-envelope.ts:100` |
 | `invalid_argument` | domain | TheokitAgentError | `packages/sdk/src/compaction.ts:79` |

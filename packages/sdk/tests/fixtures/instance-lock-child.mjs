@@ -1,8 +1,9 @@
 // Child for instance-lock.test.ts: takes over a stale lock, with a barrier so that both children
 // have read the stale lock before either takes it. Runs the TypeScript source (no build, no skip).
 // argv: dir barrierDir id
-import { register } from "node:module";
+
 import { existsSync, readdirSync, writeFileSync } from "node:fs";
+import { register } from "node:module";
 import { join } from "node:path";
 
 register(
@@ -13,7 +14,7 @@ register(
 );
 
 const [dir, barrier, id] = process.argv.slice(2);
-const { acquireWithHooks } = await import("../../../src/internal/persistence/instance-lock.ts");
+const { acquireWithHooks } = await import("../../src/internal/persistence/instance-lock.ts");
 const waitFor = async (pred) => {
   const end = Date.now() + 15000;
   while (!pred()) {

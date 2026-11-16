@@ -11,7 +11,7 @@ vi.mock("node:fs/promises", async (orig) => {
   return { ...actual, link: vi.fn(actual.link) };
 });
 
-import { acquireInstanceLock, InstanceLockedError } from "../../src/persistence.js";
+import { acquireInstanceLock, InstanceLockedError } from "../src/persistence.js";
 
 const CHILD = fileURLToPath(new URL("./fixtures/instance-lock-child.mjs", import.meta.url));
 
@@ -35,7 +35,8 @@ function deadPid(): number {
   return Number(r.stdout);
 }
 
-const readHolder = () => JSON.parse(readFileSync(lockPath, "utf8")) as { pid: number; nonce: string };
+const readHolder = () =>
+  JSON.parse(readFileSync(lockPath, "utf8")) as { pid: number; nonce: string };
 
 describe("acquireInstanceLock", () => {
   it("refuses a second holder, naming the live pid", async () => {
@@ -89,7 +90,9 @@ describe("acquireInstanceLock", () => {
   });
 
   it("rejects when link fails with an error other than EEXIST", async () => {
-    vi.mocked(fsp.link).mockRejectedValueOnce(Object.assign(new Error("nope"), { code: "ENOTSUP" }));
+    vi.mocked(fsp.link).mockRejectedValueOnce(
+      Object.assign(new Error("nope"), { code: "ENOTSUP" }),
+    );
     const err = await acquireInstanceLock(dir).catch((e) => e);
     expect(err).toBeInstanceOf(InstanceLockedError);
     expect(err.message).toContain("hard links");
