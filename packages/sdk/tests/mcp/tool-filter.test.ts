@@ -3,15 +3,15 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { Agent, ConfigurationError } from "../src/index.js";
-import { safeListTools } from "../src/internal/agent-loop/loop-context-init.js";
-import { dispatchTools } from "../src/internal/agent-loop/tool-dispatch.js";
-import type { AgentLoopInputs, ResolvedTool } from "../src/internal/agent-loop/types.js";
-import { serializeCloudAgentConfig } from "../src/internal/cloud-agent/cloud-config-serializer.js";
-import { setDiagnosticsSink } from "../src/internal/diagnostics.js";
-import { createMcpClient, type McpClient } from "../src/internal/mcp/client.js";
-import { HooksExecutor } from "../src/internal/runtime/hooks/hooks-executor.js";
-import type { McpStdioServerConfig } from "../src/types/mcp.js";
+import { Agent, ConfigurationError } from "../../src/index.js";
+import { safeListTools } from "../../src/internal/agent-loop/loop-context-init.js";
+import { dispatchTools } from "../../src/internal/agent-loop/tool-dispatch.js";
+import type { AgentLoopInputs, ResolvedTool } from "../../src/internal/agent-loop/types.js";
+import { serializeCloudAgentConfig } from "../../src/internal/cloud-agent/cloud-config-serializer.js";
+import { setDiagnosticsSink } from "../../src/internal/diagnostics.js";
+import { createMcpClient, type McpClient } from "../../src/internal/mcp/client.js";
+import { HooksExecutor } from "../../src/internal/runtime/hooks/hooks-executor.js";
+import type { McpStdioServerConfig } from "../../src/types/mcp.js";
 
 const SERVER = `
 const fs = require("node:fs");

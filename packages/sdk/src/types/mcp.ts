@@ -37,6 +37,7 @@ export type McpStdioServerConfig = {
    * state, such as a browser MCP server where a snapshot must wait for the navigation before it.
    * Calls to other servers or non-MCP tools in the same step are not held behind it. Default `false`.
    */
+  sequential?: boolean;
   /**
    * Filter the tools this server offers, by the server's own tool names. `include` keeps only the
    * listed names; `exclude` drops names and is applied after `include`. A call to a filtered-out
@@ -48,7 +49,6 @@ export type McpStdioServerConfig = {
     /** These names are never offered. Applied after include. */
     exclude?: string[];
   };
-  sequential?: boolean;
 };
 
 /**
@@ -109,6 +109,7 @@ export type McpHttpServerConfig = {
    * state, such as a browser MCP server where a snapshot must wait for the navigation before it.
    * Calls to other servers or non-MCP tools in the same step are not held behind it. Default `false`.
    */
+  sequential?: boolean;
   /**
    * Filter the tools this server offers, by the server's own tool names. `include` keeps only the
    * listed names; `exclude` drops names and is applied after `include`. A call to a filtered-out
@@ -120,7 +121,6 @@ export type McpHttpServerConfig = {
     /** These names are never offered. Applied after include. */
     exclude?: string[];
   };
-  sequential?: boolean;
 };
 
 /**

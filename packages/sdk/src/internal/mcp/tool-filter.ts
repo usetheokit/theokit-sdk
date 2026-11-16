@@ -10,7 +10,17 @@
 import { ConfigurationError } from "../../errors.js";
 import type { McpServerConfig } from "../../types/mcp.js";
 import { diag } from "../diagnostics.js";
-import type { McpClient, McpTool, McpToolCallResult } from "./client.js";
+
+/** The slice of `McpClient` the filter needs; structural, so this module does not import `client.ts`. */
+interface FilterableClient {
+  readonly name: string;
+  readonly sequential?: boolean;
+  initialize(): Promise<void>;
+  listTools(): Promise<Array<{ name: string }>>;
+  callTool(name: string, args: Record<string, unknown>): Promise<unknown>;
+  close(): Promise<void>;
+  call?(method: string, params: Record<string, unknown>): Promise<unknown>;
+}
 
 export type McpToolFilter = NonNullable<McpServerConfig["tools"]>;
 
@@ -39,18 +49,18 @@ export function validateMcpToolFilter(serverName: string, config: McpServerConfi
 }
 
 /** Wraps `client` so only the tools the filter allows are listed or callable. */
-export function withToolFilter(
-  client: McpClient,
+export function withToolFilter<C extends FilterableClient>(
+  client: C,
   serverName: string,
   filter: McpToolFilter | undefined,
-): McpClient {
+): C {
   if (filter === undefined) return client;
   const include = filter.include === undefined ? undefined : new Set(filter.include);
   const exclude = new Set(filter.exclude ?? []);
   const allowed = (name: string): boolean =>
     (include === undefined || include.has(name)) && !exclude.has(name);
   let warned = false;
-  return {
+  const filtered = {
     get name() {
       return client.name;
     },
@@ -60,7 +70,7 @@ export function withToolFilter(
     initialize: () => client.initialize(),
     close: () => client.close(),
     ...(client.call === undefined ? {} : { call: client.call.bind(client) }),
-    async listTools(): Promise<McpTool[]> {
+    async listTools() {
       const listed = await client.listTools();
       if (include !== undefined && !warned) {
         warned = true;
@@ -75,7 +85,7 @@ export function withToolFilter(
       }
       return listed.filter((t) => allowed(t.name));
     },
-    async callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult> {
+    async callTool(name: string, args: Record<string, unknown>) {
       if (!allowed(name)) {
         return {
           content: [
@@ -87,4 +97,5 @@ export function withToolFilter(
       return client.callTool(name, args);
     },
   };
+  return filtered as unknown as C;
 }
