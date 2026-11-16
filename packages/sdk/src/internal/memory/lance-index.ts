@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import { ConfigurationError } from "../../errors.js";
 import type { EmbeddingRuntime } from "./embedding-adapter.js";
@@ -37,6 +37,7 @@ interface LanceTable {
   add: (rows: ReadonlyArray<LanceFactRecord>) => Promise<void>;
   search: (vector: ReadonlyArray<number>) => LanceQuery;
   delete: (predicate: string) => Promise<void>;
+  query: () => LanceScan;
   countRows: () => Promise<number>;
   // EC-8: schema introspection for dimension check.
   schema: () => Promise<{
@@ -47,6 +48,12 @@ interface LanceTable {
       type: { listSize?: number; fixedSize?: number };
     }>;
   }>;
+}
+
+interface LanceScan {
+  where: (filter: string) => LanceScan;
+  select: (columns: string[]) => LanceScan;
+  toArray: () => Promise<ReadonlyArray<{ id: string }>>;
 }
 
 interface LanceQuery {
@@ -135,6 +142,12 @@ function requireLance(): LanceModule {
   }
 }
 
+const WRITE_QUEUES = new Map<string, Promise<unknown>>();
+let nextAnonymousKey = 0;
+
+/** A chunk of fact `<id>` is stored as `<id>#<digits>`; anything else after the `#` is not one. */
+const CHUNK_SUFFIX = /^#\d+$/;
+
 /**
  * Lance-backed memory index. Public API mirrors the SQLite one logically:
  * `addFacts`, `search`, `countFacts`, `removeFacts`, `close`.
@@ -147,14 +160,22 @@ export class LanceIndex {
     private readonly table: LanceTable,
     private readonly embedding: EmbeddingRuntime,
     private readonly embeddingDim: number,
+    /** Identity of the storage the table lives in; instances sharing it share one write queue. */
+    private readonly queueKey: string = `anonymous:${nextAnonymousKey++}`,
   ) {}
 
-  /** Tail of the write queue: adds and removals on this index run one at a time, in call order. */
-  private writeQueue: Promise<unknown> = Promise.resolve();
-
+  /**
+   * Adds and removals on one storage path run one at a time, in call order, even across several
+   * `LanceIndex` objects opened on that path in this process (not across processes).
+   */
   private serialized<T>(task: () => Promise<T>): Promise<T> {
-    const run = this.writeQueue.then(task, task);
-    this.writeQueue = run.catch(() => undefined);
+    const tail = WRITE_QUEUES.get(this.queueKey) ?? Promise.resolve();
+    const run = tail.then(task, task);
+    const next = run.catch(() => undefined);
+    WRITE_QUEUES.set(this.queueKey, next);
+    void next.then(() => {
+      if (WRITE_QUEUES.get(this.queueKey) === next) WRITE_QUEUES.delete(this.queueKey);
+    });
     return run;
   }
 
@@ -199,7 +220,7 @@ export class LanceIndex {
       table = await conn.createTable(tableName, [bootstrap]);
       await table.delete("namespace = '__bootstrap__'");
     }
-    return new LanceIndex(table, opts.embedding, dim);
+    return new LanceIndex(table, opts.embedding, dim, resolve(storagePath));
   }
 
   async addFacts(facts: ReadonlyArray<Omit<LanceFactRecord, "embedding">>): Promise<void> {
@@ -265,23 +286,49 @@ export class LanceIndex {
   }
 
   /**
-   * Remove facts by id. A fact split across chunks is stored as `<id>#<n>` rows, so each id removes
-   * the exact row and every `<id>#…` chunk; nothing else matches (LIKE wildcards in ids are escaped).
-   * Runs after any add already queued on this index.
+   * Remove facts by id. A fact split across chunks is stored as `<id>#<n>` rows (`n` digits only),
+   * so each id removes the exact row and every such chunk; `<id>#other` and other ids are kept.
+   * `scope` narrows the removal to one namespace and/or source, so a same-named row owned by
+   * another namespace or source (a note, a wiki page) survives. Runs after any add already queued
+   * on this storage path, including adds from other `LanceIndex` objects opened on it.
    */
-  async removeFacts(ids: ReadonlyArray<string>): Promise<void> {
+  async removeFacts(
+    ids: ReadonlyArray<string>,
+    scope: { namespace?: string; source?: "memory" | "sessions" | "wiki" } = {},
+  ): Promise<void> {
     if (ids.length === 0) return;
-    const predicates = ids.flatMap((id) => {
-      const quoted = id.replace(/'/g, "''");
-      const likeEscaped = id.replace(/[\\%_]/g, "\\$&").replace(/'/g, "''");
-      return [`id = '${quoted}'`, `id LIKE '${likeEscaped}#%'`];
-    });
-    await this.serialized(() => this.table.delete(predicates.join(" OR ")));
+    const filters: string[] = [];
+    if (scope.namespace !== undefined) {
+      filters.push(`namespace = '${escapeSqlValue(scope.namespace)}'`);
+    }
+    if (scope.source !== undefined) filters.push(`source = '${escapeSqlValue(scope.source)}'`);
+    await this.serialized(() => this.removeNow(ids, filters));
+  }
+
+  private async removeNow(ids: ReadonlyArray<string>, filters: string[]): Promise<void> {
+    const sqlLiteral = (v: string): string => v.replace(/'/g, "''");
+    const likeLiteral = (v: string): string => v.replace(/[\\%_]/g, "\\$&").replace(/'/g, "''");
+    const idMatch = ids
+      .flatMap((id) => [`id = '${sqlLiteral(id)}'`, `id LIKE '${likeLiteral(id)}#%'`])
+      .join(" OR ");
+    const where = [`(${idMatch})`, ...filters].join(" AND ");
+    const candidates = await this.table.query().where(where).select(["id"]).toArray();
+    const wanted = new Set(ids);
+    const doomed = candidates.map((r) => r.id).filter((id) => isChunkOf(id, wanted));
+    if (doomed.length === 0) return;
+    const exact = doomed.map((id) => `id = '${sqlLiteral(id)}'`).join(" OR ");
+    await this.table.delete([`(${exact})`, ...filters].join(" AND "));
   }
 
   async close(): Promise<void> {
     // Lance auto-closes on GC; no explicit shutdown needed.
   }
+}
+
+function isChunkOf(id: string, wanted: ReadonlySet<string>): boolean {
+  if (wanted.has(id)) return true;
+  const cut = id.lastIndexOf("#");
+  return cut > 0 && CHUNK_SUFFIX.test(id.slice(cut)) && wanted.has(id.slice(0, cut));
 }
 
 /**
