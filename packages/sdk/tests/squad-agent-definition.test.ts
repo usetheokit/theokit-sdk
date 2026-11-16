@@ -90,7 +90,7 @@ describe("M81 T2.2 — Squad.create accepts AgentDefinition", () => {
 });
 
 describe("Squad disposes the agents it materialized", () => {
-  it("test_definitions_are_disposed_after_run", async () => {
+  it("disposes both materialized definitions after run", async () => {
     const { vi } = await import("vitest");
     const { Agent } = await import("../src/agent.js");
     const disposed: string[] = [];
