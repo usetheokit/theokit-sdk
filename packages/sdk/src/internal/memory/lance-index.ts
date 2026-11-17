@@ -37,7 +37,8 @@ interface LanceTable {
   add: (rows: ReadonlyArray<LanceFactRecord>) => Promise<void>;
   search: (vector: ReadonlyArray<number>) => LanceQuery;
   delete: (predicate: string) => Promise<void>;
-  query: () => LanceScan;
+  checkoutLatest: () => Promise<void>;
+  addColumns: (transforms: ReadonlyArray<{ name: string; valueSql: string }>) => Promise<unknown>;
   countRows: () => Promise<number>;
   // EC-8: schema introspection for dimension check.
   schema: () => Promise<{
@@ -48,12 +49,6 @@ interface LanceTable {
       type: { listSize?: number; fixedSize?: number };
     }>;
   }>;
-}
-
-interface LanceScan {
-  where: (filter: string) => LanceScan;
-  select: (columns: string[]) => LanceScan;
-  toArray: () => Promise<ReadonlyArray<{ id: string }>>;
 }
 
 interface LanceQuery {
@@ -80,6 +75,12 @@ export interface LanceFactRecord {
   scope: string;
   user_id: string;
   timestamp: number;
+  /**
+   * The fact this row is a chunk of. Rows of one split fact share it, so `removeFacts(<fact>)`
+   * finds them without guessing from the id. Defaults to `id` on write; rows written before this
+   * column existed were back-filled with their own `id`, so they only match an exact removal.
+   */
+  fact_id?: string;
 }
 
 /**
@@ -145,9 +146,6 @@ function requireLance(): LanceModule {
 const WRITE_QUEUES = new Map<string, Promise<unknown>>();
 let nextAnonymousKey = 0;
 
-/** A chunk of fact `<id>` is stored as `<id>#<digits>`; anything else after the `#` is not one. */
-const CHUNK_SUFFIX = /^#\d+$/;
-
 /**
  * Lance-backed memory index. Public API mirrors the SQLite one logically:
  * `addFacts`, `search`, `countFacts`, `removeFacts`, `close`.
@@ -196,6 +194,9 @@ export class LanceIndex {
       // in `type.listSize` (older API used `fixedSize`; we read both for
       // forward/backward safety).
       const schema = await table.schema();
+      if (!schema.fields.some((f) => f.name === "fact_id")) {
+        await table.addColumns([{ name: "fact_id", valueSql: "id" }]);
+      }
       const embField = schema.fields.find((f) => f.name === "embedding");
       const existingDim = embField?.type?.listSize ?? embField?.type?.fixedSize;
       if (typeof existingDim === "number" && existingDim !== dim) {
@@ -216,6 +217,7 @@ export class LanceIndex {
         scope: "__bootstrap__",
         user_id: "__bootstrap__",
         timestamp: 0,
+        fact_id: "__bootstrap__",
       };
       table = await conn.createTable(tableName, [bootstrap]);
       await table.delete("namespace = '__bootstrap__'");
@@ -237,6 +239,7 @@ export class LanceIndex {
     const embeddings = await this.embedding.embed(texts);
     const rows: LanceFactRecord[] = facts.map((f, i) => ({
       ...f,
+      fact_id: f.fact_id ?? f.id,
       embedding: embeddings[i] ?? new Array(this.embeddingDim).fill(0),
     }));
     await this.table.add(rows);
@@ -286,37 +289,31 @@ export class LanceIndex {
   }
 
   /**
-   * Remove facts by id. A fact split across chunks is stored as `<id>#<n>` rows (`n` digits only),
-   * so each id removes the exact row and every such chunk; `<id>#other` and other ids are kept.
-   * `scope` is required: only rows of that namespace AND source are touched, so a same-named row
-   * owned by another namespace or source (a note, a wiki page) survives. Runs after any add already queued
-   * on this storage path, including adds from other `LanceIndex` objects opened on it.
+   * Remove facts by id: the row with that id and every row whose `fact_id` is that id (the chunks
+   * of a split fact). Rows are linked by `fact_id`, never by id shape, so an unrelated row named
+   * `<id>#0` is kept. `scope` is required: only rows of that namespace AND source are touched, so
+   * a same-named row owned by another namespace or source (a note, a wiki page) survives. Runs
+   * after any add already queued on this storage path, including adds from other `LanceIndex`
+   * objects opened on it.
    */
   async removeFacts(
     ids: ReadonlyArray<string>,
     scope: { namespace: string; source: "memory" | "sessions" | "wiki" },
   ): Promise<void> {
     if (ids.length === 0) return;
-    const filters = [
+    const idMatch = ids
+      .map((id) => `id = '${idLiteral(id)}' OR fact_id = '${idLiteral(id)}'`)
+      .join(" OR ");
+    const where = [
+      `(${idMatch})`,
       `namespace = '${escapeSqlValue(scope.namespace)}'`,
       `source = '${escapeSqlValue(scope.source)}'`,
-    ];
-    await this.serialized(() => this.removeNow(ids, filters));
-  }
-
-  private async removeNow(ids: ReadonlyArray<string>, filters: string[]): Promise<void> {
-    const sqlLiteral = (v: string): string => v.replace(/'/g, "''");
-    const likeLiteral = (v: string): string => v.replace(/[\\%_]/g, "\\$&").replace(/'/g, "''");
-    const idMatch = ids
-      .flatMap((id) => [`id = '${sqlLiteral(id)}'`, `id LIKE '${likeLiteral(id)}#%'`])
-      .join(" OR ");
-    const where = [`(${idMatch})`, ...filters].join(" AND ");
-    const candidates = await this.table.query().where(where).select(["id"]).toArray();
-    const wanted = new Set(ids);
-    const doomed = candidates.map((r) => r.id).filter((id) => isChunkOf(id, wanted));
-    if (doomed.length === 0) return;
-    const exact = doomed.map((id) => `id = '${sqlLiteral(id)}'`).join(" OR ");
-    await this.table.delete([`(${exact})`, ...filters].join(" AND "));
+    ].join(" AND ");
+    await this.serialized(async () => {
+      // A table handle reads the version it opened; another handle on this path may have added since.
+      await this.table.checkoutLatest();
+      await this.table.delete(where);
+    });
   }
 
   async close(): Promise<void> {
@@ -324,10 +321,14 @@ export class LanceIndex {
   }
 }
 
-function isChunkOf(id: string, wanted: ReadonlySet<string>): boolean {
-  if (wanted.has(id)) return true;
-  const cut = id.lastIndexOf("#");
-  return cut > 0 && CHUNK_SUFFIX.test(id.slice(cut)) && wanted.has(id.slice(0, cut));
+/**
+ * An id as a Lance string literal: control characters rejected, `'` doubled, and nothing else
+ * touched. Lance literals have no backslash escape, so unlike `escapeSqlValue` this keeps `\\`
+ * as the one character it is; the stored id then matches itself.
+ */
+function idLiteral(value: string): string {
+  escapeSqlValue(value);
+  return value.replace(/'/g, "''");
 }
 
 /**
