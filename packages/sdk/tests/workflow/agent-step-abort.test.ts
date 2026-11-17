@@ -59,7 +59,12 @@ describe("agentStep cancellation", () => {
   it("an abort while send is still pending settles cancelled and cancels the late run", async () => {
     const cancel = vi.fn();
     let release: (r: unknown) => void = () => {};
-    const send = vi.fn(() => new Promise((resolve) => { release = resolve; }));
+    const send = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
     const agent = { agentId: "p", send } as unknown as SDKAgent;
     const wf = Workflow.create({ name: "w" })
       .then(agentStep("s", agent, () => "go"))
