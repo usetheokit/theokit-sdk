@@ -66,7 +66,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
   };
 });
 
-import { acquireInstanceLock, InstanceLockedError } from "../../src/persistence.js";
+import { acquireInstanceLock, InstanceLockedError } from "../src/persistence.js";
 
 let root: string;
 let dir: string;
@@ -259,8 +259,8 @@ describe("acquireInstanceLock", () => {
 
   it("two concurrent takeovers of one stale lock end with one holder", async () => {
     writeStale();
-    const tsx = resolve(__dirname, "../../../../node_modules/.bin/tsx");
-    const impl = resolve(__dirname, "../../src/persistence.ts");
+    const tsx = resolve(__dirname, "../../../node_modules/.bin/tsx");
+    const impl = resolve(__dirname, "../src/persistence.ts");
     const script = join(root, "child.mjs");
     writeFileSync(
       script,
