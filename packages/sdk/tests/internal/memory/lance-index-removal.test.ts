@@ -114,14 +114,13 @@ describe.skipIf(!isLanceAvailable())("LanceIndex.removeFacts (real LanceDB)", ()
   });
 
   it("a table written before `fact_id` existed gains it and still removes exact ids", async () => {
-    const { dir } = await open();
-    const lance = await import("@lancedb/lancedb");
-    const conn = await lance.connect(dir);
-    await conn.dropTable("facts");
-    await conn.createTable("facts", [
-      { ...fact("old"), embedding: [0.5, 0.5] },
-      { ...fact("old#0"), embedding: [0.5, 0.5] },
-    ]);
+    const first = await open();
+    const { dir } = first;
+    await first.index.addFacts([fact("old"), fact("old#0")]);
+    const table = (
+      first.index as unknown as { table: { dropColumns(c: string[]): Promise<unknown> } }
+    ).table;
+    await table.dropColumns(["fact_id"]);
     const { index } = await open(dir);
     await index.removeFacts(["old"], SCOPE);
     expect(await ids(index)).toEqual(["old#0"]);
