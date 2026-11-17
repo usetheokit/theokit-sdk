@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-266 distinct code(s).
+270 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -56,6 +56,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `context_too_long` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:133` |
 | `credential_pool_ambiguous` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:71` +1 |
 | `credential_pool_empty` | domain | ConfigurationError | `packages/sdk/src/internal/llm/credential-pool.ts:91` |
+| `credential_provider_mismatch` | domain | ProviderCredentialError | `packages/sdk/src/internal/auth/resolve-provider-credential.ts:110` |
 | `cron_ambiguous_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:215` |
 | `cron_missing_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:233` +1 |
 | `cron_no_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:221` +1 |
@@ -151,6 +152,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `missing_credential` | domain | AuthenticationError | `packages/sdk/src/internal/providers/builtin/openai-chatgpt.ts:72` |
 | `missing_frontmatter` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:93` |
 | `missing_model` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:38` |
+| `model_provider_without_credential` | domain | ProviderCredentialError | `packages/sdk/src/internal/auth/resolve-provider-credential.ts:157` |
 | `model_unavailable` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:75` +2 |
 | `muse_not_installed` | domain | ConfigurationError | `packages/sdk/src/internal/llm/muse.ts:60` |
 | `muse_not_signed_in` | domain | AuthenticationError | `packages/sdk/src/internal/llm/muse.ts:67` |
@@ -159,6 +161,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `no_api_key` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-brave.ts:50` +1 |
 | `no_base_url` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-searxng.ts:35` |
 | `no_memory_adapter` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:141` +2 |
+| `no_provider_credential` | domain | ProviderCredentialError | `packages/sdk/src/internal/auth/resolve-provider-credential.ts:175` |
 | `no_such_session` | domain | NoSuchSessionError | `packages/sdk/src/interactive/types.ts:41` +1 |
 | `no_text_answer` | domain | — | `packages/sdk/src/errors.ts:656` |
 | `no_tool_call` | domain | — | `packages/sdk/src/errors.ts:656` |
@@ -181,6 +184,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `personality_empty_body` | domain | ConfigurationError | `packages/sdk/src/internal/personality/registry.ts:117` |
 | `personality_not_found` | domain | ConfigurationError | `packages/sdk/src/internal/personality/switch.ts:60` |
 | `personality_reserved_name` | domain | ConfigurationError | `packages/sdk/src/internal/personality/registry.ts:110` |
+| `pinned_credential_missing` | domain | ProviderCredentialError | `packages/sdk/src/internal/auth/resolve-provider-credential.ts:130` +1 |
 | `pipeline_duplicate_provider` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/system-prompt/pipeline.ts:33` |
 | `plugin_entry_import_failed` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/manifest-entry-import.ts:78` |
 | `plugin_entry_missing` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:137` |

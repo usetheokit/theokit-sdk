@@ -185,6 +185,18 @@ process.once("SIGTERM", async () => {
 
 Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must share one pid namespace (not containers or hosts sharing a volume). The lock needs a filesystem with hard links; without one the call rejects with `InstanceLockedError`.
 
+## `@theokit/sdk/auth`: choosing a provider credential
+
+`resolveProviderCredential({ env, model?, store?, providers?, pinnedEnvVar? })` returns
+`{ provider, apiKey, origin, baseUrl }`. Rules, in order:
+
+1. `pinnedEnvVar` set: that variable is used; empty or missing throws `pinned_credential_missing`.
+2. The model names a provider (`openai/gpt-4o-mini`): that provider's credential (env, then `store`) is used. None throws `model_provider_without_credential` and never falls back to another provider.
+3. A bare model id or no model: the first candidate by `priority` with a credential. None throws `no_provider_credential`, listing the variables checked.
+4. A key whose prefix names a different vendor than the provider it was found for throws `credential_provider_mismatch`.
+
+`DEFAULT_PROVIDER_CANDIDATES` is the one default order: `openrouter` (`OPENROUTER_API_KEY`), `anthropic` (`ANTHROPIC_API_KEY`), `openai` (`OPENAI_API_KEY`). It matches the chain `@theokit/agents` already uses. Errors are `ProviderCredentialError`; messages name variables, never values.
+
 ## `@theokit/sdk/context`
 
 `runDiscovery` finds context files (`AGENTS.md`, `CLAUDE.md`, ...) and inlines their `@path` imports.
