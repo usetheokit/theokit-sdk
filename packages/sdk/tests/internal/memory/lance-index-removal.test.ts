@@ -66,6 +66,19 @@ describe.skipIf(!isLanceAvailable())("LanceIndex.removeFacts (real LanceDB)", ()
     expect(await ids(index)).toEqual(["f1#0"]);
   });
 
+  it("without a scope removes the fact in every namespace and source", async () => {
+    const { index } = await open();
+    await index.addFacts([
+      fact("f1"),
+      fact("f1", { source: "wiki" }),
+      fact("f1", { namespace: "other" }),
+      fact("keep"),
+    ]);
+    await index.removeFacts(["f1"]);
+    expect(await ids(index)).toEqual(["keep"]);
+    expect(await index.search("x", { namespace: "other" })).toEqual([]);
+  });
+
   it("keeps a row named like the fact but linked to another fact", async () => {
     const { index } = await open();
     await index.addFacts([fact("f1", { fact_id: "other" }), fact("f1#0", { fact_id: "f1" })]);

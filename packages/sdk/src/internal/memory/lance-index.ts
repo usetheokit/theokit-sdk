@@ -291,21 +291,25 @@ export class LanceIndex {
   /**
    * Remove facts by id: every row whose `fact_id` is that id (a plain fact's `fact_id` is its own
    * id; a split fact's chunks share it). Rows are linked by `fact_id`, never by id shape, so an unrelated row named
-   * `<id>#0` is kept. `scope` is required: only rows of that namespace AND source are touched, so
+   * `<id>#0` is kept. Pass `scope` to touch only rows of that namespace AND source, so
    * a same-named row owned by another namespace or source (a note, a wiki page) survives. Runs
    * after any add already queued on this storage path, including adds from other `LanceIndex`
    * objects opened on it.
    */
   async removeFacts(
     ids: ReadonlyArray<string>,
-    scope: { namespace: string; source: "memory" | "sessions" | "wiki" },
+    scope?: { namespace: string; source: "memory" | "sessions" | "wiki" },
   ): Promise<void> {
     if (ids.length === 0) return;
     const idMatch = ids.map((id) => `fact_id = '${idLiteral(id)}'`).join(" OR ");
     const where = [
       `(${idMatch})`,
-      `namespace = '${escapeSqlValue(scope.namespace)}'`,
-      `source = '${escapeSqlValue(scope.source)}'`,
+      ...(scope
+        ? [
+            `namespace = '${escapeSqlValue(scope.namespace)}'`,
+            `source = '${escapeSqlValue(scope.source)}'`,
+          ]
+        : []),
     ].join(" AND ");
     await this.serialized(async () => {
       // A table handle reads the version it opened; another handle on this path may have added since.
