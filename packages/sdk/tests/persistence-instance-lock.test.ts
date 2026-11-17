@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as fsp from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -11,6 +11,7 @@ vi.mock("node:fs/promises", async (orig) => {
   return { ...actual, link: vi.fn(actual.link), readFile: vi.fn(actual.readFile) };
 });
 
+import { withMockedCwd } from "./helpers/with-cwd.js";
 import { acquireInstanceLock, InstanceLockedError } from "../src/persistence.js";
 
 const CHILD = fileURLToPath(new URL("./fixtures/instance-lock-child.mjs", import.meta.url));
@@ -67,17 +68,10 @@ describe("acquireInstanceLock", () => {
   });
 
   it("resolves a relative options.path so release() survives a cwd change", async () => {
-    const start = process.cwd();
-    process.chdir(root);
-    try {
-      const l = await acquireInstanceLock(dir, { path: "rel.lock" });
-      expect(path.isAbsolute(l.path)).toBe(true);
-      process.chdir(start);
-      await l.release();
-      expect(() => readFileSync(path.join(root, "rel.lock"))).toThrow();
-    } finally {
-      process.chdir(start);
-    }
+    const l = await withMockedCwd(root, () => acquireInstanceLock(dir, { path: "rel.lock" }));
+    expect(path.isAbsolute(l.path)).toBe(true);
+    await withMockedCwd(tmpdir(), () => l.release());
+    expect(existsSync(path.join(root, "rel.lock"))).toBe(false);
   });
 
   it("release() does not remove a lock another holder took over", async () => {
