@@ -55,4 +55,22 @@ describe("agentStep cancellation", () => {
     expect(run.stepResults[0]?.status).toBe("cancelled");
     expect(send).toHaveBeenCalledTimes(1);
   });
+
+  it("an abort while send is still pending settles cancelled and cancels the late run", async () => {
+    const cancel = vi.fn();
+    let release: (r: unknown) => void = () => {};
+    const send = vi.fn(() => new Promise((resolve) => { release = resolve; }));
+    const agent = { agentId: "p", send } as unknown as SDKAgent;
+    const wf = Workflow.create({ name: "w" })
+      .then(agentStep("s", agent, () => "go"))
+      .commit();
+    const ctrl = new AbortController();
+    const p = wf.run("in", { signal: ctrl.signal });
+    await vi.waitFor(() => expect(send).toHaveBeenCalled());
+    ctrl.abort();
+    const run = await p;
+    expect(run.status).toBe("cancelled");
+    release({ cancel, wait: () => new Promise<never>(() => {}) });
+    await vi.waitFor(() => expect(cancel).toHaveBeenCalledTimes(1));
+  });
 });

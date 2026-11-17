@@ -154,10 +154,28 @@ export async function runAgentStep(
   // A cancelled run RETURNS the sentinel (never throws), so `withRetry` cannot retry it.
   const exec = async (): Promise<string | typeof CANCELLED> => {
     // SE3 — forward the step's provenance onto the agent's turn (metadata-only).
-    const run = await step.agent.send(
-      prompt,
-      step.origin !== undefined ? { origin: step.origin } : undefined,
+    const sending = Promise.resolve(
+      step.agent.send(prompt, step.origin !== undefined ? { origin: step.origin } : undefined),
     );
+    // `send` can queue behind another run or slow startup: race it against the signal, and cancel a
+    // run that arrives after the abort so it never starts work.
+    let onAbort = (): void => {};
+    const abortedWhileSending = new Promise<"aborted">((resolve) => {
+      onAbort = () => resolve("aborted");
+      if (ctx.signal.aborted) return onAbort();
+      ctx.signal.addEventListener("abort", onAbort, { once: true });
+    });
+    let run: Awaited<typeof sending>;
+    try {
+      const first = await Promise.race([sending, abortedWhileSending]);
+      if (first === "aborted") {
+        void sending.then((late) => late.cancel?.()).catch(() => {});
+        return CANCELLED;
+      }
+      run = first;
+    } finally {
+      ctx.signal.removeEventListener("abort", onAbort);
+    }
     try {
       return resultText(await waitOrCancel(run, ctx.signal));
     } catch (err) {
