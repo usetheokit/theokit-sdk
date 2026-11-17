@@ -4,7 +4,8 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { appendFact, forgetFact } from "../../src/internal/memory/storage/markdown-store.js";
+import { forgetFact } from "../../src/internal/memory/storage/forget-fact.js";
+import { appendFact } from "../../src/internal/memory/storage/markdown-store.js";
 
 describe("forgetFact", () => {
   let cwd: string;
