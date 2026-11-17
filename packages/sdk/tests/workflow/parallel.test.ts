@@ -2,7 +2,7 @@
  * Tests for ParallelStep: concurrency, fail-fast, collect, EC-6 empty branches.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { fn, Workflow } from "../../src/workflow.js";
 
@@ -168,4 +168,55 @@ describe("workflow .parallel cancellation", () => {
       expect(run.stepResults.at(-1)?.status).toBe("cancelled");
     });
   }
+});
+
+describe("workflow .parallel nested cancellation", () => {
+  it("a cancelled inner step cancels the parallel and stops its branch", async () => {
+    const { runParallelStep } = await import("../../src/internal/workflow/step-parallel.js");
+    const after = vi.fn();
+    const dispatch = vi.fn(async (inner: { id: string }) => {
+      if (inner.id === "first") {
+        return {
+          stepId: "first",
+          kind: "agent" as const,
+          status: "cancelled" as const,
+          attempts: 1,
+          durationMs: 0,
+          error: { name: "AbortError", message: "cancelled" },
+        };
+      }
+      after();
+      return {
+        stepId: inner.id,
+        kind: "fn" as const,
+        status: "completed" as const,
+        attempts: 1,
+        durationMs: 0,
+      };
+    });
+    for (const errorPolicy of ["fail-fast", "collect"] as const) {
+      const result = await runParallelStep(
+        {
+          id: "p",
+          kind: "parallel",
+          errorPolicy,
+          branches: [
+            [
+              { id: "first", kind: "fn" },
+              { id: "second", kind: "fn" },
+            ],
+          ],
+        } as never,
+        undefined,
+        {
+          ctx: { signal: new AbortController().signal } as never,
+          options: {} as never,
+          prevStepResults: [],
+          dispatch: dispatch as never,
+        },
+      );
+      expect(result.status).toBe("cancelled");
+    }
+    expect(after).not.toHaveBeenCalled();
+  });
 });

@@ -74,29 +74,36 @@ export async function runForeachStep(
 
   // Siblings run under a signal of their own: an item that cancels itself aborts it.
   const siblingCtrl = new AbortController();
-  const itemSignal = mergeSignals(exec.ctx.signal, siblingCtrl.signal);
+  const merged = mergeSignals(exec.ctx.signal, siblingCtrl.signal);
+  const itemSignal = merged.signal;
   const itemExec: StepExecution = { ...exec, ctx: { ...exec.ctx, signal: itemSignal } };
   let cancelledResult: StepResult | undefined;
 
-  await Promise.all(
-    items.map(async (item, idx) => {
-      const release = await sem.acquire();
-      try {
-        if (itemSignal.aborted) return;
-        const r = await dispatch(step.step, item, itemExec);
-        if (r.status === "cancelled") {
-          cancelledResult ??= r;
-          siblingCtrl.abort(r.error?.message ?? "foreach item cancelled");
-        } else if (r.status === "failed") {
-          failures.push(new Error(`foreach item ${idx} failed: ${r.error?.message ?? "unknown"}`));
-        } else {
-          outputs[idx] = r.output;
+  try {
+    await Promise.all(
+      items.map(async (item, idx) => {
+        const release = await sem.acquire();
+        try {
+          if (itemSignal.aborted) return;
+          const r = await dispatch(step.step, item, itemExec);
+          if (r.status === "cancelled") {
+            cancelledResult ??= r;
+            siblingCtrl.abort(r.error?.message ?? "foreach item cancelled");
+          } else if (r.status === "failed") {
+            failures.push(
+              new Error(`foreach item ${idx} failed: ${r.error?.message ?? "unknown"}`),
+            );
+          } else {
+            outputs[idx] = r.output;
+          }
+        } finally {
+          release();
         }
-      } finally {
-        release();
-      }
-    }),
-  );
+      }),
+    );
+  } finally {
+    merged.dispose();
+  }
 
   if (cancelledResult !== undefined || exec.ctx.signal.aborted) {
     const reason = exec.ctx.signal.reason;
@@ -136,11 +143,22 @@ export async function runForeachStep(
   };
 }
 
-function mergeSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
-  if (a.aborted) return a;
-  if (b.aborted) return b;
+function mergeSignals(
+  a: AbortSignal,
+  b: AbortSignal,
+): { signal: AbortSignal; dispose: () => void } {
+  if (a.aborted) return { signal: a, dispose: () => {} };
+  if (b.aborted) return { signal: b, dispose: () => {} };
   const ctrl = new AbortController();
-  a.addEventListener("abort", () => ctrl.abort(a.reason), { once: true });
-  b.addEventListener("abort", () => ctrl.abort(b.reason), { once: true });
-  return ctrl.signal;
+  const onA = (): void => ctrl.abort(a.reason);
+  const onB = (): void => ctrl.abort(b.reason);
+  a.addEventListener("abort", onA, { once: true });
+  b.addEventListener("abort", onB, { once: true });
+  return {
+    signal: ctrl.signal,
+    dispose: () => {
+      a.removeEventListener("abort", onA);
+      b.removeEventListener("abort", onB);
+    },
+  };
 }

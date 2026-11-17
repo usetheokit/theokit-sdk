@@ -26,8 +26,16 @@ export async function runParallelStep(
   exec: StepExecution,
 ): Promise<StepResult> {
   const startedAt = Date.now();
-  const result = await runBranches(step, input, exec);
-  // Work that settled after the run's signal aborted (a plain fn ignores it) is not a completion.
+  const seen: { cancelled?: StepResult } = {};
+  const result = await runBranches(step, input, exec, seen);
+  // A cancelled inner step cancels the container; so does an abort that settled after a plain fn
+  // (which ignores the signal) returned normally.
+  if (seen.cancelled !== undefined) {
+    return {
+      ...cancelledParallel(step, startedAt, exec.ctx.signal),
+      ...(seen.cancelled.error !== undefined ? { error: seen.cancelled.error } : {}),
+    };
+  }
   if (exec.ctx.signal.aborted && result.status !== "suspended") {
     return cancelledParallel(step, startedAt, exec.ctx.signal);
   }
@@ -38,6 +46,7 @@ async function runBranches(
   step: ParallelStep,
   input: unknown,
   exec: StepExecution,
+  seen: { cancelled?: StepResult },
 ): Promise<StepResult> {
   const { ctx } = exec;
   const startedAt = Date.now();
@@ -76,6 +85,7 @@ async function runBranches(
         input,
         { ...exec, ctx: { ...ctx, signal: branchSignal }, prevStepResults: [] },
         branchIdx,
+        seen,
       );
     } finally {
       release();
@@ -145,11 +155,17 @@ async function runBranch(
   input: unknown,
   exec: StepExecution,
   branchIdx: number,
+  seen: { cancelled?: StepResult },
 ): Promise<unknown> {
   const { dispatch } = exec;
   let acc: unknown = input;
   for (const inner of branch) {
     const r = await dispatch(inner, acc, exec);
+    if (r.status === "cancelled") {
+      // Stop this branch; fail-fast aborts the siblings through the thrown error.
+      seen.cancelled ??= r;
+      throw new Error(`parallel branch ${branchIdx} step "${inner.id}" cancelled`);
+    }
     if (r.status === "failed") {
       throw new Error(
         `parallel branch ${branchIdx} step "${inner.id}" failed: ${r.error?.message ?? "unknown"}`,
