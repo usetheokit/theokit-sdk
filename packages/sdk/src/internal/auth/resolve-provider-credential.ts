@@ -61,6 +61,7 @@ export class ProviderCredentialError extends ConfigurationError {
   override readonly name: string = "ProviderCredentialError";
 }
 
+/** Input to {@link resolveProviderCredential}: the env, the optional model and store, and overrides. */
 export interface ResolveProviderCredentialInput {
   env: Record<string, string | undefined>;
   model?: string;

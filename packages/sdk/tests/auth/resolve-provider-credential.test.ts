@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import * as barrel from "../../src/auth/index.js";
 import {
   DEFAULT_PROVIDER_CANDIDATES,
@@ -9,6 +9,7 @@ import {
   resolveProviderCredential,
 } from "../../src/auth/index.js";
 import { getProviderProfile } from "../../src/providers.js";
+import { removeTempDirRobustSync } from "../helpers/temp-workspace.js";
 
 const ANT = "sk-ant-api03-secretvalue";
 const OAI = "sk-proj-secretvalue";
@@ -107,6 +108,7 @@ describe("resolveProviderCredential", () => {
 
 function mkHome(body: unknown): string {
   const home = mkdtempSync(join(tmpdir(), "rpc-"));
+  onTestFinished(() => removeTempDirRobustSync(home));
   const dir = join(home, ".t");
   mkdirSync(dir, { mode: 0o700 });
   writeFileSync(join(dir, "auth.json"), JSON.stringify(body), { mode: 0o600 });
