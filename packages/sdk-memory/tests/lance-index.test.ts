@@ -155,7 +155,7 @@ describe("sdk-memory lance-index (iter 68)", () => {
       expect(count).toBeGreaterThanOrEqual(3);
 
       // Remove one fact + verify count drops.
-      await index.removeFacts(["id-alpha"]);
+      await index.removeFacts(["id-alpha"], { namespace: "ns", source: "memory" });
       const after = await index.countFacts("ns");
       expect(after).toBe(count - 1);
 
