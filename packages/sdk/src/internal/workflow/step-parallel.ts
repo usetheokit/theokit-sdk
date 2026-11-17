@@ -69,9 +69,9 @@ async function runBranches(
   const sem = createSemaphore(Math.max(1, Math.min(concurrency, branchCount)));
 
   // Derived signal for fail-fast: aborts on first branch failure.
-  const failFastCtrl = policy === "fail-fast" ? new AbortController() : undefined;
-  const branchSignal =
-    policy === "fail-fast" ? mergeSignals(ctx.signal, failFastCtrl!.signal) : ctx.signal;
+  // Also aborted, under both policies, when an inner step cancels, so siblings stop at once.
+  const failFastCtrl = new AbortController();
+  const branchSignal = mergeSignals(ctx.signal, failFastCtrl.signal);
 
   // Gate each branch through the semaphore — acquire BEFORE running so the
   // permit cap is honored. (Eager-start would defeat concurrency limits.)
@@ -86,6 +86,7 @@ async function runBranches(
         { ...exec, ctx: { ...ctx, signal: branchSignal }, prevStepResults: [] },
         branchIdx,
         seen,
+        failFastCtrl,
       );
     } finally {
       release();
@@ -104,7 +105,7 @@ async function runBranches(
         output: outputs,
       };
     } catch (err) {
-      failFastCtrl?.abort(err);
+      failFastCtrl.abort(err);
       // Collect any settled rejections so the aggregate has all errors.
       const settled = await Promise.allSettled(semBranchPromises);
       const errors = settled
@@ -156,6 +157,7 @@ async function runBranch(
   exec: StepExecution,
   branchIdx: number,
   seen: { cancelled?: StepResult },
+  siblings: AbortController,
 ): Promise<unknown> {
   const { dispatch } = exec;
   let acc: unknown = input;
@@ -164,6 +166,7 @@ async function runBranch(
     if (r.status === "cancelled") {
       // Stop this branch; fail-fast aborts the siblings through the thrown error.
       seen.cancelled ??= r;
+      siblings.abort(r.error?.message ?? "parallel branch cancelled");
       throw new Error(`parallel branch ${branchIdx} step "${inner.id}" cancelled`);
     }
     if (r.status === "failed") {

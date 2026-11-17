@@ -218,3 +218,67 @@ describe("workflow .foreach cancellation", () => {
     expect(cancel).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("workflow .foreach over a parallel step", () => {
+  it("a branch that cancels aborts its siblings, and the foreach resolves cancelled", async () => {
+    const { runForeachStep } = await import("../../src/internal/workflow/step-foreach.js");
+    const { runParallelStep } = await import("../../src/internal/workflow/step-parallel.js");
+    for (const errorPolicy of ["fail-fast", "collect"] as const) {
+      const result = (r: "cancelled" | "completed") => ({
+        stepId: "x",
+        kind: "fn" as const,
+        status: r,
+        attempts: 1,
+        durationMs: 0,
+        ...(r === "cancelled" ? { error: { name: "AbortError", message: "cancelled" } } : {}),
+      });
+      const dispatch = vi.fn(
+        async (
+          s: { id: string; kind: string },
+          _i: unknown,
+          e: { ctx: { signal: AbortSignal } },
+        ) => {
+          if (s.kind === "parallel") {
+            return runParallelStep(s as never, undefined, { ...e, dispatch } as never);
+          }
+          if (s.id === "cancels") return result("cancelled");
+          await new Promise<void>((resolve) =>
+            e.ctx.signal.addEventListener("abort", () => resolve(), { once: true }),
+          );
+          return result("completed");
+        },
+      );
+      const out = await runForeachStep(
+        {
+          id: "fe",
+          kind: "foreach",
+          iterableFrom: "src",
+          concurrency: 1,
+          step: {
+            id: "par",
+            kind: "parallel",
+            errorPolicy,
+            branches: [[{ id: "cancels", kind: "fn" }], [{ id: "hangs", kind: "fn" }]],
+          },
+        } as never,
+        undefined,
+        {
+          ctx: { signal: new AbortController().signal } as never,
+          options: {} as never,
+          prevStepResults: [
+            {
+              stepId: "src",
+              kind: "fn",
+              status: "completed",
+              attempts: 1,
+              durationMs: 0,
+              output: [1],
+            },
+          ],
+          dispatch: dispatch as never,
+        },
+      );
+      expect(out.status).toBe("cancelled");
+    }
+  });
+});
