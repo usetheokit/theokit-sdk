@@ -3,7 +3,7 @@
  * EC-7 (foreach iterableFrom invalid), and max-iterations safety.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { fn, Workflow } from "../../src/workflow.js";
 
@@ -154,5 +154,67 @@ describe("workflow .dowhile", () => {
     const run = await wf.run(undefined);
     expect(run.status).toBe("failed");
     expect(run.error?.message).toMatch(/exceeded max iterations \(5\)/i);
+  });
+});
+
+describe("workflow .foreach cancellation", () => {
+  it("a self-cancelled item aborts its siblings and the step resolves cancelled", async () => {
+    const { runForeachStep } = await import("../../src/internal/workflow/step-foreach.js");
+    const cancel = vi.fn();
+    const dispatch = vi.fn(
+      async (_s: unknown, item: unknown, e: { ctx: { signal: AbortSignal } }) => {
+        if (item === "self") {
+          return {
+            stepId: "x",
+            kind: "agent" as const,
+            status: "cancelled" as const,
+            attempts: 1,
+            durationMs: 0,
+            error: { name: "AbortError", message: "cancelled" },
+          };
+        }
+        await new Promise<void>((resolve) =>
+          e.ctx.signal.addEventListener("abort", () => {
+            cancel();
+            resolve();
+          }),
+        );
+        return {
+          stepId: "x",
+          kind: "agent" as const,
+          status: "completed" as const,
+          attempts: 1,
+          durationMs: 0,
+        };
+      },
+    );
+    const ctx = { signal: new AbortController().signal } as never;
+    const result = await runForeachStep(
+      {
+        id: "fe",
+        kind: "foreach",
+        iterableFrom: "src",
+        step: { id: "x", kind: "fn" },
+        concurrency: 2,
+      } as never,
+      undefined,
+      {
+        ctx,
+        options: {} as never,
+        prevStepResults: [
+          {
+            stepId: "src",
+            kind: "fn",
+            status: "completed",
+            attempts: 1,
+            durationMs: 0,
+            output: ["hang", "self"],
+          },
+        ],
+        dispatch: dispatch as never,
+      },
+    );
+    expect(result.status).toBe("cancelled");
+    expect(cancel).toHaveBeenCalledTimes(1);
   });
 });

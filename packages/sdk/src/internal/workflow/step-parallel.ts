@@ -25,6 +25,20 @@ export async function runParallelStep(
   input: unknown,
   exec: StepExecution,
 ): Promise<StepResult> {
+  const startedAt = Date.now();
+  const result = await runBranches(step, input, exec);
+  // Work that settled after the run's signal aborted (a plain fn ignores it) is not a completion.
+  if (exec.ctx.signal.aborted && result.status !== "suspended") {
+    return cancelledParallel(step, startedAt, exec.ctx.signal);
+  }
+  return result;
+}
+
+async function runBranches(
+  step: ParallelStep,
+  input: unknown,
+  exec: StepExecution,
+): Promise<StepResult> {
   const { ctx } = exec;
   const startedAt = Date.now();
   const policy = step.errorPolicy ?? "fail-fast";
@@ -112,6 +126,17 @@ export async function runParallelStep(
     attempts: 1,
     durationMs: Date.now() - startedAt,
     output: outputs,
+  };
+}
+
+function cancelledParallel(step: ParallelStep, startedAt: number, signal: AbortSignal): StepResult {
+  return {
+    stepId: step.id,
+    kind: "parallel",
+    status: "cancelled",
+    attempts: 1,
+    durationMs: Date.now() - startedAt,
+    error: { name: "AbortError", message: String(signal.reason ?? "Aborted") },
   };
 }
 

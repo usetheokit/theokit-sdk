@@ -72,12 +72,22 @@ export async function runForeachStep(
   const failures: Error[] = [];
   const outputs: unknown[] = new Array(items.length);
 
+  // Siblings run under a signal of their own: an item that cancels itself aborts it.
+  const siblingCtrl = new AbortController();
+  const itemSignal = mergeSignals(exec.ctx.signal, siblingCtrl.signal);
+  const itemExec: StepExecution = { ...exec, ctx: { ...exec.ctx, signal: itemSignal } };
+  let cancelledResult: StepResult | undefined;
+
   await Promise.all(
     items.map(async (item, idx) => {
       const release = await sem.acquire();
       try {
-        const r = await dispatch(step.step, item, exec);
-        if (r.status === "failed") {
+        if (itemSignal.aborted) return;
+        const r = await dispatch(step.step, item, itemExec);
+        if (r.status === "cancelled") {
+          cancelledResult ??= r;
+          siblingCtrl.abort(r.error?.message ?? "foreach item cancelled");
+        } else if (r.status === "failed") {
           failures.push(new Error(`foreach item ${idx} failed: ${r.error?.message ?? "unknown"}`));
         } else {
           outputs[idx] = r.output;
@@ -87,6 +97,21 @@ export async function runForeachStep(
       }
     }),
   );
+
+  if (cancelledResult !== undefined || exec.ctx.signal.aborted) {
+    const reason = exec.ctx.signal.reason;
+    return {
+      stepId: step.id,
+      kind: "foreach",
+      status: "cancelled",
+      attempts: 1,
+      durationMs: Date.now() - startedAt,
+      error: (cancelledResult as StepResult | undefined)?.error ?? {
+        name: "AbortError",
+        message: String(reason ?? "Aborted"),
+      },
+    };
+  }
 
   if (failures.length > 0) {
     return {
@@ -109,4 +134,13 @@ export async function runForeachStep(
     durationMs: Date.now() - startedAt,
     output: outputs,
   };
+}
+
+function mergeSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
+  if (a.aborted) return a;
+  if (b.aborted) return b;
+  const ctrl = new AbortController();
+  a.addEventListener("abort", () => ctrl.abort(a.reason), { once: true });
+  b.addEventListener("abort", () => ctrl.abort(b.reason), { once: true });
+  return ctrl.signal;
 }

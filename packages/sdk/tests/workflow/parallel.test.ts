@@ -144,3 +144,28 @@ describe("workflow .parallel", () => {
     expect(peak).toBeLessThanOrEqual(2);
   });
 });
+
+describe("workflow .parallel cancellation", () => {
+  for (const errorPolicy of ["fail-fast", "collect"] as const) {
+    it(`${errorPolicy}: abort during the last branch fn that returns normally is cancelled`, async () => {
+      const ctrl = new AbortController();
+      const build = () =>
+        Workflow.create({ name: "par-abort" })
+          .parallel(
+            [
+              [
+                fn("last", async () => {
+                  ctrl.abort("stop");
+                  return 1;
+                }),
+              ],
+            ],
+            { id: "p", errorPolicy },
+          )
+          .commit();
+      const run = await build().run(undefined, { signal: ctrl.signal });
+      expect(run.status).toBe("cancelled");
+      expect(run.stepResults.at(-1)?.status).toBe("cancelled");
+    });
+  }
+});
