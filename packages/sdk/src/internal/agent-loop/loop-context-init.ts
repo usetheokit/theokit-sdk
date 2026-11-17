@@ -64,6 +64,8 @@ export interface LoopContext {
    * to the hard threshold (no progress). Threaded onto `AgentLoopOutput` → `RunResult.stoppedByDoomLoop`.
    */
   stoppedByDoomLoop?: boolean;
+  /** Tool calls a `pre_tool_call` handler deferred this run. */
+  deferredToolCalls?: readonly import("../../types/run.js").DeferredToolCall[];
   /** Per-run doom-loop detector; `undefined` when disabled via `SendOptions.doomLoop: false`. */
   doomLoop?: DoomLoopTracker;
   usage: UsageAccumulator;

@@ -1,5 +1,6 @@
 import type { ToolContextMessage } from "../../types/agent-prims.js";
 import type { BudgetTracker, BudgetUsageEvent } from "../../types/budget-tracker.js";
+import type { DeferredToolCall } from "../../types/run.js";
 import { IterationBudget } from "../budget/tracker/budget.js";
 import { diagFailure } from "../diagnostics.js";
 import type { LlmContentPart, LlmMessage, LlmThinkingPart, LlmToolCallPart } from "../llm/types.js";
@@ -448,6 +449,7 @@ export async function continueOrTerminate(
   // theokit#122 — and the REPLAY must carry it too: Anthropic verifies the signed block on the next
   // request, so an assistant turn that reaches the provider without it is rejected outright.
   ctx.messages.push(buildAssistantTurn(text, llmOutput.toolCalls, thinking));
+  const deferredSink: DeferredToolCall[] = [];
   const rawResults = await dispatchTools(
     // SE12 — forward a read-only text projection of the transcript-so-far to tool
     // handlers via `ctx.messages` (consumed by defineSubAgent's messageFilter).
@@ -456,7 +458,11 @@ export async function continueOrTerminate(
     llmOutput.toolCalls,
     ctx.events,
     ctx.sendSpan, // M3 #64 — nest tool.call spans under agent.send
+    deferredSink,
   );
+  if (deferredSink.length > 0) {
+    return endRunOnDeferredCalls(inputs, ctx, llmOutput.toolCalls, rawResults, deferredSink);
+  }
   const toolResults = await guardAndTransformToolResults(
     inputs,
     rawResults,
@@ -476,6 +482,48 @@ export async function continueOrTerminate(
   if ((await inspectDoomLoop(inputs, ctx, llmOutput.toolCalls, toolResults)) === "stop")
     return "done";
   return handleToolErrorContinuation(inputs, ctx, toolResults);
+}
+
+/**
+ * A gate deferred one or more calls: the other calls of the step have finished, so record them, keep
+ * the deferred calls unanswered, and end the run as `deferred`. The transcript then ends on the
+ * assistant message holding the unanswered `tool_use`.
+ */
+async function endRunOnDeferredCalls(
+  inputs: AgentLoopInputs,
+  ctx: LoopContext,
+  calls: LlmToolCallPart[],
+  rawResults: LlmContentPart[],
+  deferred: readonly DeferredToolCall[],
+): Promise<"done"> {
+  const pending = new Set(deferred.map((d) => d.toolUseId));
+  const answered = calls
+    .map((call, i) => ({ call, result: rawResults[i] }))
+    .filter(
+      (pair): pair is { call: LlmToolCallPart; result: LlmContentPart } =>
+        pair.result !== undefined && !pending.has(pair.call.id),
+    );
+  const answeredCalls = answered.map((a) => a.call);
+  const answeredResults = await guardAndTransformToolResults(
+    inputs,
+    answered.map((a) => a.result),
+    { agentId: inputs.agentId, runId: inputs.runId },
+    answeredCalls,
+  );
+  // Every call is recorded as a `toolCall` step; only the answered ones get a `toolResult`.
+  const steps = [
+    ...buildToolSteps(answeredCalls, answeredResults),
+    ...calls
+      .filter((c) => pending.has(c.id))
+      .map((c) => ({
+        type: "toolCall" as const,
+        message: { callId: c.id, name: c.name, args: c.input },
+      })),
+  ];
+  ctx.conversation.push({ type: "agentConversationTurn", turn: { steps } });
+  ctx.deferredToolCalls = deferred;
+  ctx.finalStatus = "deferred";
+  return "done";
 }
 
 /**

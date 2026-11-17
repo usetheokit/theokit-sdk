@@ -34,7 +34,8 @@ export interface PermissionGateContext {
  */
 export type PermissionGateDecision =
   | { readonly behavior: "allow" }
-  | { readonly behavior: "deny"; readonly message?: string };
+  | { readonly behavior: "deny"; readonly message?: string }
+  | { readonly behavior: "defer"; readonly reason?: string };
 
 /**
  * SE1 — the enriched `canUseTool` gate (the Anthropic-parity shape). Invoked ONLY
@@ -72,6 +73,21 @@ export interface PermissionPluginOptions {
   readonly onAsk?: (toolName: string) => PreToolCallDecision | undefined;
 }
 
+/** Map a gate decision to the veto contract: allow passes, defer defers, anything else blocks. */
+function gateDecisionToVeto(
+  decision: PermissionGateDecision | undefined,
+  name: string,
+): PreToolCallDecision | undefined {
+  if (decision?.behavior === "allow") return undefined;
+  if (decision?.behavior === "defer") {
+    return { defer: true, ...(decision.reason !== undefined ? { reason: decision.reason } : {}) };
+  }
+  return {
+    block: true,
+    message: (decision as { message?: string } | undefined)?.message ?? `denied: ${name}`,
+  };
+}
+
 /**
  * Resolve an `"ask"` verdict via the gate (fail-closed). Extracted from the
  * register handler to keep its cognitive complexity in budget. Prefers
@@ -94,9 +110,7 @@ async function resolveAsk(
     // Fail-CLOSED (allow-list): only an explicit `allow` passes. Any other value
     // — `deny`, a malformed/undefined return from a JS consumer, a wrong-cased
     // behavior — blocks, so the gate can never silently allow on a bad decision.
-    return decision?.behavior === "allow"
-      ? undefined
-      : { block: true, message: decision?.message ?? `denied: ${name}` };
+    return gateDecisionToVeto(decision, name);
   }
   // Deprecated back-compat: honor onAsk (undefined = allow). Fail-closed (block)
   // only when NEITHER a gate nor onAsk was supplied.

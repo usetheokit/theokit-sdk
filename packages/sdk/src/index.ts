@@ -100,6 +100,7 @@ export {
   RateLimitError,
   TaskNotFoundError,
   TheokitAgentError,
+  ToolDecisionMismatchError,
   UnknownAgentError,
   UnsupportedBudgetOperationError,
   UnsupportedRunOperationError,
@@ -457,7 +458,13 @@ export type {
 // the bundled .d.ts (the `export type *` star does not reliably propagate — same
 // reason as `CustomTool` above).
 // SE34 — per-send completion check (`isTaskComplete`) public types.
-export type { CompletionCheck, CompletionCheckResult, MessageOrigin } from "./types/run.js";
+export type {
+  CompletionCheck,
+  CompletionCheckResult,
+  DeferredToolCall,
+  MessageOrigin,
+  ToolCallDecision,
+} from "./types/run.js";
 export type {
   RunCompactBoundaryEvent,
   RunCompletionCheckEvent,

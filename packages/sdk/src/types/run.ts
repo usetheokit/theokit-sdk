@@ -43,11 +43,38 @@ export interface PruneToolResultsOptions {
 }
 
 /**
+ * A tool call a permission gate deferred. The run ended without dispatching it.
+ *
+ * @public
+ */
+export interface DeferredToolCall {
+  readonly schemaVersion: 1;
+  readonly toolUseId: string;
+  readonly toolName: string;
+  readonly input: Record<string, unknown>;
+  /** Epoch milliseconds. */
+  readonly deferredAt: number;
+  readonly reason?: string;
+}
+
+/**
+ * A host's answer for one deferred tool call, keyed by the call's `toolUseId`. Reserved for resuming
+ * a deferred run; no send option accepts it yet.
+ *
+ * @public
+ */
+export interface ToolCallDecision {
+  readonly toolUseId: string;
+  readonly behavior: "allow" | "deny";
+  readonly message?: string;
+}
+
+/**
  * Lifecycle status of a {@link Run}.
  *
  * @public
  */
-export type RunStatus = "running" | "finished" | "error" | "cancelled";
+export type RunStatus = "running" | "finished" | "error" | "cancelled" | "deferred";
 
 /**
  * Git metadata attached to cloud runs.
@@ -102,7 +129,9 @@ export type MessageOrigin =
  */
 export interface RunResult {
   id: string;
-  status: "finished" | "error" | "cancelled";
+  status: "finished" | "error" | "cancelled" | "deferred";
+  /** Set only when `status` is `"deferred"`: the tool calls a gate deferred. */
+  deferredToolCalls?: readonly DeferredToolCall[];
   result?: string;
   /**
    * SE24 — set when a guardrail processor called `abort()`. The run stops

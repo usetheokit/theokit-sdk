@@ -322,4 +322,6 @@ export interface AgentLoopOutput {
    * classifies it as a `no_progress` terminal (a controlled stop, not a truncation to re-send).
    */
   stoppedByDoomLoop?: boolean;
+  /** Tool calls a `pre_tool_call` handler deferred; set with `finalStatus: "deferred"`. */
+  deferredToolCalls?: readonly import("../../types/run.js").DeferredToolCall[];
 }

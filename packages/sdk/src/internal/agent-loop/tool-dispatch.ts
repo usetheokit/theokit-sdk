@@ -1,4 +1,5 @@
 import type { SDKMessage, SDKToolUseMessage } from "../../types/messages.js";
+import type { DeferredToolCall } from "../../types/run.js";
 import type { InteractionUpdate } from "../../types/updates.js";
 import { checkToolWhitelist } from "../concurrency/async-local-storage.js";
 import { mapWithConcurrency } from "../concurrency/map-with-concurrency.js";
@@ -41,6 +42,8 @@ export async function dispatchTools(
   events: SDKMessage[],
   // M3 #64 — the run's agent.send span, so each tool.call span nests under it.
   parentSpan?: ToolSpan,
+  // Collects calls a `pre_tool_call` handler deferred; their slot in the result holds a placeholder.
+  deferredSink?: DeferredToolCall[],
 ): Promise<LlmContentPart[]> {
   const maxConcurrent = inputs.maxConcurrentTools ?? 4;
   // A `sequential` MCP server's calls of one step form one unit that runs them in listed order;
@@ -72,6 +75,7 @@ export async function dispatchTools(
         toolCalls[index] as LlmToolCallPart,
         events,
         parentSpan,
+        deferredSink,
       );
     }
   });
@@ -99,6 +103,7 @@ interface DispatchContext {
   readonly callId: string;
   readonly events: SDKMessage[];
   readonly parentSpan?: ToolSpan | undefined;
+  readonly deferredSink?: DeferredToolCall[] | undefined;
 }
 
 /**
@@ -123,6 +128,7 @@ async function dispatchSingleCall(
   call: LlmToolCallPart,
   events: SDKMessage[],
   parentSpan?: ToolSpan,
+  deferredSink?: DeferredToolCall[],
 ): Promise<LlmContentPart> {
   const { call: workingCall, repairs } = applyRepairAndExtractCall(tools, call);
   const dc: DispatchContext = {
@@ -131,6 +137,7 @@ async function dispatchSingleCall(
     callId: generateCallId(),
     events,
     parentSpan,
+    deferredSink,
   };
 
   const forkVeto = vetoFromForkWhitelist(dc);
@@ -147,6 +154,9 @@ async function dispatchSingleCall(
     // skipped step 7's `toolSpan.end()` — leaked an open span.
     toolSpan?.setAttribute("tool.vetoed", true);
     toolSpan?.setAttribute("tool.veto_source", "plugin");
+    if (deferredSink?.some((d) => d.toolUseId === workingCall.id) === true) {
+      toolSpan?.setAttribute("tool.deferred", true);
+    }
     toolSpan?.end();
     return pluginVeto;
   }
@@ -271,10 +281,24 @@ async function vetoFromPluginPreHook(dc: DispatchContext): Promise<LlmContentPar
     args: call.input,
     agentId: inputs.agentId,
     runId: inputs.runId,
+    toolUseId: call.id,
     // SE1 — thread the run's permission mode so a PermissionPlugin gates per-run.
     ...(inputs.permissionMode !== undefined ? { permissionMode: inputs.permissionMode } : {}),
   });
   if (pluginVeto === undefined) return undefined;
+  if ("defer" in pluginVeto) {
+    // Not dispatched, no result: the run ends on this unanswered `tool_use`. The placeholder only
+    // holds the slot; the loop drops it because the id is in the sink.
+    dc.deferredSink?.push({
+      schemaVersion: 1,
+      toolUseId: call.id,
+      toolName: call.name,
+      input: call.input,
+      deferredAt: Date.now(),
+      ...(pluginVeto.reason !== undefined ? { reason: pluginVeto.reason } : {}),
+    });
+    return { type: "tool_result", toolUseId: call.id, content: "" };
+  }
   // SE2 — a plugin veto (e.g. the permission gate) is a runtime-observability
   // signal: emit a typed `permission_denied` event out-of-band.
   emitRunEvent(inputs.runEventSink, {

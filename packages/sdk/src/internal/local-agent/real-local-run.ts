@@ -402,6 +402,7 @@ class RealLocalRun extends FixtureRunBase {
     // B-495 — a run cancelled mid-turn is already final; its output arrives after wait() resolved.
     if (this.terminated) return;
     this.deliverUndeliveredEvents(output.events);
+    Object.assign(this.script, { deferredToolCalls: output.deferredToolCalls });
     this.script.conversation.push(...output.conversation);
     if (output.result.length > 0) this.script.result = output.result;
     if (output.usage !== undefined) this.script.usage = output.usage;
