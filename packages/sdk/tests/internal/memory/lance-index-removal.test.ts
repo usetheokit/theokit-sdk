@@ -66,6 +66,34 @@ describe.skipIf(!isLanceAvailable())("LanceIndex.removeFacts (real LanceDB)", ()
     expect(await ids(index)).toEqual(["f1#0"]);
   });
 
+  it("keeps a row named like the fact but linked to another fact", async () => {
+    const { index } = await open();
+    await index.addFacts([fact("f1", { fact_id: "other" }), fact("f1#0", { fact_id: "f1" })]);
+    await index.removeFacts(["f1"], SCOPE);
+    expect(await ids(index)).toEqual(["f1"]);
+  });
+
+  it("a failed add does not block later adds and removals", async () => {
+    let fail = true;
+    const flaky = {
+      dimension: 2,
+      embed: async (t: string[]) => {
+        if (fail) {
+          fail = false;
+          throw new Error("boom");
+        }
+        return t.map(() => [0.5, 0.5]);
+      },
+    } as never;
+    const d = mkdtempSync(join(tmpdir(), "lance-rm-"));
+    dirs.push(d);
+    const index = await LanceIndex.open({ cwd: d, storagePath: d, embedding: flaky });
+    await expect(index.addFacts([fact("x")])).rejects.toThrow("boom");
+    await index.addFacts([fact("f1#0", { fact_id: "f1" }), fact("keep")]);
+    await index.removeFacts(["f1"], SCOPE);
+    expect(await ids(index)).toEqual(["keep"]);
+  });
+
   it("treats wildcard, quote and backslash characters in ids literally", async () => {
     const { index } = await open();
     await index.addFacts([

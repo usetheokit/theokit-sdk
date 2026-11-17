@@ -289,8 +289,8 @@ export class LanceIndex {
   }
 
   /**
-   * Remove facts by id: the row with that id and every row whose `fact_id` is that id (the chunks
-   * of a split fact). Rows are linked by `fact_id`, never by id shape, so an unrelated row named
+   * Remove facts by id: every row whose `fact_id` is that id (a plain fact's `fact_id` is its own
+   * id; a split fact's chunks share it). Rows are linked by `fact_id`, never by id shape, so an unrelated row named
    * `<id>#0` is kept. `scope` is required: only rows of that namespace AND source are touched, so
    * a same-named row owned by another namespace or source (a note, a wiki page) survives. Runs
    * after any add already queued on this storage path, including adds from other `LanceIndex`
@@ -301,9 +301,7 @@ export class LanceIndex {
     scope: { namespace: string; source: "memory" | "sessions" | "wiki" },
   ): Promise<void> {
     if (ids.length === 0) return;
-    const idMatch = ids
-      .map((id) => `id = '${idLiteral(id)}' OR fact_id = '${idLiteral(id)}'`)
-      .join(" OR ");
+    const idMatch = ids.map((id) => `fact_id = '${idLiteral(id)}'`).join(" OR ");
     const where = [
       `(${idMatch})`,
       `namespace = '${escapeSqlValue(scope.namespace)}'`,
