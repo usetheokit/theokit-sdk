@@ -17,9 +17,24 @@ const linkFail = vi.hoisted(() => ({
   onGuard: undefined as (() => void | Promise<void>) | undefined,
   onAbsentRead: undefined as ((path: string) => void) | undefined,
   unlinkCode: undefined as string | undefined,
-  pauseAfterRead: undefined as Promise<void> | undefined,
-  onPaused: undefined as (() => void) | undefined,
+  /** Each lock read takes the next entry: it signals `reached`, then waits for `gate`. */
+  pauses: [] as { reached: () => void; gate: Promise<void> }[],
+  onGuardRead: undefined as (() => void) | undefined,
 }));
+
+/** A barrier: `reached` resolves when a lock read pauses; calling `resume` lets it go on. */
+function pausePoint(): { reached: Promise<void>; resume: () => void } {
+  let resume!: () => void;
+  let signal!: () => void;
+  const reached = new Promise<void>((r) => {
+    signal = r;
+  });
+  const gate = new Promise<void>((r) => {
+    resume = r;
+  });
+  linkFail.pauses.push({ reached: signal, gate });
+  return { reached, resume };
+}
 vi.mock("node:fs/promises", async (importOriginal) => {
   const real = await importOriginal<typeof import("node:fs/promises")>();
   return {
@@ -35,11 +50,13 @@ vi.mock("node:fs/promises", async (importOriginal) => {
     readFile: (async (...args: Parameters<typeof real.readFile>) => {
       try {
         const out = await real.readFile(...args);
-        const pause = linkFail.pauseAfterRead;
-        if (pause && String(args[0]).endsWith(".instance.lock")) {
-          linkFail.pauseAfterRead = undefined;
-          linkFail.onPaused?.();
-          await pause;
+        if (String(args[0]).includes(".takeover.")) linkFail.onGuardRead?.();
+        const pause = String(args[0]).endsWith(".instance.lock")
+          ? linkFail.pauses.shift()
+          : undefined;
+        if (pause) {
+          pause.reached();
+          await pause.gate;
         }
         return out;
       } catch (err) {
@@ -91,13 +108,14 @@ beforeEach(() => {
   linkFail.onGuard = undefined;
   linkFail.onAbsentRead = undefined;
   linkFail.unlinkCode = undefined;
-  linkFail.pauseAfterRead = undefined;
-  linkFail.onPaused = undefined;
+  linkFail.pauses = [];
+  linkFail.onGuardRead = undefined;
 });
 afterEach(() => {
   linkFail.code = undefined;
   linkFail.unlinkCode = undefined;
-  linkFail.pauseAfterRead = undefined;
+  linkFail.pauses = [];
+  linkFail.onGuardRead = undefined;
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -201,47 +219,34 @@ describe("acquireInstanceLock", () => {
     expect(existsSync(lockPath)).toBe(false);
   });
 
-  it("concurrent releases share one attempt and never unlink a new holder's lock", async () => {
+  it("concurrent releases never unlink a new holder's lock from a stale read", async () => {
     const lock = await acquireInstanceLock(dir);
-    let resume!: () => void;
-    let reached!: () => void;
-    const paused = new Promise<void>((r) => {
-      reached = r;
-    });
-    linkFail.onPaused = reached;
-    linkFail.pauseAfterRead = new Promise<void>((r) => {
-      resume = r;
-    });
-    const first = lock.release(); // read our nonce, then pauses before unlinking
-    await paused;
-    const second = lock.release(); // must join the first, not read and unlink on its own
-    resume();
-    await first;
-    // a new holder links in before the second call settles
+    const p1 = pausePoint();
+    const p2 = pausePoint();
+    const first = lock.release(); // reads our nonce, then pauses before unlinking
+    await p1.reached;
+    const second = lock.release();
+    // A second call that does its own read must have read our original nonce before we go on.
+    if (second !== first) await p2.reached;
+    p1.resume();
+    await first; // our lock is removed
     const other = JSON.stringify({ pid: process.pid, nonce: "new-holder" });
-    writeFileSync(lockPath, other);
+    writeFileSync(lockPath, other); // a new holder links in
+    p2.resume(); // a stale second read would now unlink the new holder's lock
     await second;
     expect(readFileSync(lockPath, "utf8")).toBe(other);
   });
 
   it("a paused release does not remove a later generation's guard; one contender takes over", async () => {
     const mine = await acquireInstanceLock(dir);
-    const nonce = JSON.parse(readFileSync(lockPath, "utf8")).nonce;
-    // our holder "crashed": same nonce, dead pid
-    writeFileSync(lockPath, JSON.stringify({ pid: deadPid(), nonce }));
-    const guard = `${lockPath}.takeover.${nonce}.0`;
+    // a stale lock of its own generation: dead pid, nonce that is not ours
+    const staleNonce = "stale-generation";
+    writeFileSync(lockPath, JSON.stringify({ pid: deadPid(), nonce: staleNonce }));
+    const guard = `${lockPath}.takeover.${staleNonce}.0`;
 
-    let resumeRelease!: () => void;
-    let releaseReached!: () => void;
-    const releasePaused = new Promise<void>((r) => {
-      releaseReached = r;
-    });
-    linkFail.onPaused = releaseReached;
-    linkFail.pauseAfterRead = new Promise<void>((r) => {
-      resumeRelease = r;
-    });
-    const releasing = mine.release(); // read the lock, paused before unlinking
-    await releasePaused;
+    const releasePause = pausePoint();
+    const releasing = mine.release(); // read the lock, paused before deciding
+    await releasePause.reached;
 
     // contender X publishes its guard and pauses holding it
     let openGate!: () => void;
@@ -260,9 +265,15 @@ describe("acquireInstanceLock", () => {
     await published;
     expect(existsSync(guard)).toBe(true);
 
-    // contender Y runs while X's guard is live, then the paused release resumes
+    // contender Y runs while X's guard is live, and has seen it before the release resumes
+    let yObserved!: () => void;
+    const observed = new Promise<void>((r) => {
+      yObserved = r;
+    });
+    linkFail.onGuardRead = yObserved;
     const y = acquireInstanceLock(dir);
-    resumeRelease();
+    await observed;
+    releasePause.resume();
     await releasing;
     expect(existsSync(guard)).toBe(true); // release never touches a live guard
     openGate();
