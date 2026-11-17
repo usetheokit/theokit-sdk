@@ -10,6 +10,35 @@ import { WorkflowMaxIterationsExceededError } from "../../workflow-errors.js";
 import { errToShape } from "./error-shape.js";
 import type { StepExecution } from "./step-execution.js";
 
+function stoppedResult(
+  step: DowhileStep,
+  r: StepResult,
+  attempts: number,
+  startedAt: number,
+): StepResult | undefined {
+  if (r.status === "failed") {
+    return {
+      stepId: step.id,
+      kind: "dowhile",
+      status: "failed",
+      attempts,
+      durationMs: Date.now() - startedAt,
+      error: r.error,
+    };
+  }
+  if (r.status === "cancelled") {
+    return {
+      stepId: step.id,
+      kind: "dowhile",
+      status: "cancelled",
+      attempts,
+      durationMs: Date.now() - startedAt,
+      ...(r.error !== undefined ? { error: r.error } : {}),
+    };
+  }
+  return undefined;
+}
+
 export async function runDowhileStep(
   step: DowhileStep,
   input: unknown,
@@ -32,26 +61,8 @@ export async function runDowhileStep(
       };
     }
     const r = await dispatch(step.step, acc, exec);
-    if (r.status === "failed") {
-      return {
-        stepId: step.id,
-        kind: "dowhile",
-        status: "failed",
-        attempts: i + 1,
-        durationMs: Date.now() - startedAt,
-        error: r.error,
-      };
-    }
-    if (r.status === "cancelled") {
-      return {
-        stepId: step.id,
-        kind: "dowhile",
-        status: "cancelled",
-        attempts: i + 1,
-        durationMs: Date.now() - startedAt,
-        ...(r.error !== undefined ? { error: r.error } : {}),
-      };
-    }
+    const stopped = stoppedResult(step, r, i + 1, startedAt);
+    if (stopped) return stopped;
     acc = r.output;
     i += 1;
     let shouldContinue = false;
