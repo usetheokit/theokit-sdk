@@ -11,8 +11,8 @@ vi.mock("node:fs/promises", async (orig) => {
   return { ...actual, link: vi.fn(actual.link), readFile: vi.fn(actual.readFile) };
 });
 
-import { withMockedCwd } from "./helpers/with-cwd.js";
 import { acquireInstanceLock, InstanceLockedError } from "../src/persistence.js";
+import { withMockedCwd } from "./helpers/with-cwd.js";
 
 const CHILD = fileURLToPath(new URL("./fixtures/instance-lock-child.mjs", import.meta.url));
 
