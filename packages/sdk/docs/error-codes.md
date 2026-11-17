@@ -103,7 +103,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_identifier` | domain | ConfigurationError | `packages/sdk/src/internal/security/path-guard.ts:434` +2 |
 | `invalid_input` | domain | MemoryAdapterError | `packages/memory-honcho/src/adapter.ts:98` +9 |
 | `invalid_max_iterations` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/real-local-run.ts:94` |
-| `invalid_mcp_tool_filter` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/tool-filter.ts:32` +1 |
+| `invalid_mcp_tool_filter` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/tool-filter.ts:59` +1 |
 | `invalid_memory_backend` | domain | ConfigurationError | `packages/sdk/src/internal/memory/index-manager-dispatch.ts:24` |
 | `invalid_memory_ceiling` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:23` +1 |
 | `invalid_memory_directory` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/memory-root.ts:161` |
@@ -131,15 +131,15 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `malformed_api_key` | domain | AuthenticationError | `packages/sdk/src/internal/agent/helpers.ts:235` +1 |
 | `max_delegation_depth` | domain | MaxDelegationDepthError | `packages/sdk/src/a2a/subagent.ts:239` +1 |
 | `mcp_auth_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:143` +1 |
-| `mcp_buffer_overflow` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:347` |
-| `mcp_closed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:322` |
+| `mcp_buffer_overflow` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:349` |
+| `mcp_closed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:324` |
 | `mcp_config_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-dispatch.ts:154` |
 | `mcp_config_unreadable` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-dispatch.ts:144` |
-| `mcp_crashed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:237` |
-| `mcp_disconnected` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:250` +2 |
-| `mcp_http_error` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:519` +3 |
-| `mcp_not_init` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/client.ts:280` +2 |
-| `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:76` |
+| `mcp_crashed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:239` |
+| `mcp_disconnected` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:252` +2 |
+| `mcp_http_error` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:521` +3 |
+| `mcp_not_init` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/client.ts:282` +2 |
+| `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:78` |
 | `memory_ceiling_reached` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:43` +1 |
 | `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:128` |
 | `memory_path_escapes_root` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:115` +1 |
