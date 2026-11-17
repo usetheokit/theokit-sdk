@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1395 export(s) across 56 entry point(s).
+1399 export(s) across 56 entry point(s).
 
 ## `@theokit/acp`
 
@@ -164,6 +164,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `DeclaredAction` | interface | What an action reaches, and whether it can be taken back. |
 | `DeclaredLayer` | interface | One named layer in a precedence chain.  |
 | `DeepPartial` | type | Recursive partial — `T` where every nested field becomes optional. |
+| `DeferredToolCall` | interface | A tool call a permission gate deferred.  |
 | `DefineProviderOptions` | interface | Options for {@link defineProvider } . |
 | `DefineToolSpec` | interface | Spec accepted by {@link Tool.create } .  |
 | `describeAction` | function | Read back the action a tool declared, if any.  |
@@ -307,7 +308,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `PostToolCallContext` | interface | #65 — context for the `post_tool_call` hook (fired after a tool runs). |
 | `preflightCheck` | function | Throws BudgetExceededError if `mode === "block"` and any limit would be exceeded.  |
 | `PreToolCallContext` | interface | What a `pre_tool_call` handler is given: the tool about to run, the arguments the model produced for it, and the identity of the run asking.  |
-| `PreToolCallDecision` | interface | The veto a `pre_tool_call` handler returns to stop a tool call.  |
+| `PreToolCallDecision` | type | What a `pre_tool_call` handler may return: a block (veto), a defer, or `undefined` to allow. |
 | `PreUserSendContext` | interface | Context passed to `pre_user_send` hook handlers (ADR D145). |
 | `PreUserSendResult` | interface | Optional result returned by `pre_user_send` handlers.  |
 | `Processor` | interface | A guardrail processor.  |
@@ -461,10 +462,12 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `Tool` | class | SE36 — the uniform `X.create()` namespace API.  |
 | `ToolCall` | interface | Single tool call event.  |
 | `ToolCallCompletedUpdate` | interface | Tool call completed. |
+| `ToolCallDecision` | interface | A host's answer for one deferred tool call, keyed by the call's `toolUseId`.  |
 | `ToolCallStartedUpdate` | interface | Tool call started — args committed. |
 | `ToolCallSummary` | interface | M82 — one tool call of the turn, as seen by `transform_tool_result`.  |
 | `ToolContext` | interface | #65 — a 2nd argument passed to a tool handler, carrying the run's cancellation signal (ties into #58) so a cooperative tool can stop when the run is cancelled.  |
 | `ToolContextMessage` | interface | SE12 — a read-only, text-only projection of one turn of the run's conversation, exposed to a tool handler via `ctx.messages`.  |
+| `ToolDecisionMismatchError` | class | Thrown when `toolDecisions` do not match the tool calls a session is waiting on: a decision for an id that is not pending, or a pending id with no decision.  |
 | `ToolError` | class | Thrown from a tool `handler` to surface a failure to the model.  |
 | `ToolResult` | interface | Result of a tool invocation.  |
 | `ToolResultContentBlock` | type | SE7 — structured content a tool result may carry: text and/or images.  |
@@ -1086,6 +1089,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `StructuredOutputErrorCode` | type | Why a structured-output call failed.  |
 | `TaskNotFoundError` | class | Thrown when `Task.subscribe(id)` is called for a task that has been evicted, never submitted, or evicted after retention (D373). |
 | `TheokitAgentError` | class | Base class for all errors thrown by `@theokit/sdk`.  |
+| `ToolDecisionMismatchError` | class | Thrown when `toolDecisions` do not match the tool calls a session is waiting on: a decision for an id that is not pending, or a pending id with no decision.  |
 | `UnknownAgentError` | class | Catch-all for unclassified server or runtime errors. |
 | `UnsupportedBudgetOperationError` | class | Thrown when a budget operation is requested on a `CloudAgent` (D388).  |
 | `UnsupportedRunOperationError` | class | Thrown when a {@link Run } or agent operation is not available on the current runtime.  |

@@ -126,6 +126,11 @@ export interface PreToolCallDefer {
   message?: undefined;
 }
 
+/**
+ * What a `pre_tool_call` handler may return: a block (veto), a defer, or `undefined` to allow.
+ *
+ * @public
+ */
 export type PreToolCallDecision = PreToolCallBlock | PreToolCallDefer;
 
 /**
