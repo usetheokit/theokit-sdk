@@ -222,11 +222,13 @@ async function runSquad(
     const pipeline = await buildPipeline(
       options.agents,
       options.name,
-      owned,
       options.ownsMembers === true,
-      timer.signal,
-      (agent, index) => {
-        void disposeMembers([{ agent, index }], options.onDisposeError);
+      {
+        owned,
+        signal: timer.signal,
+        onLate: (agent, index) => {
+          void disposeMembers([{ agent, index }], options.onDisposeError);
+        },
       },
     );
     const run = await pipeline.run(input, timer.signal ? { signal: timer.signal } : undefined);
@@ -255,13 +257,18 @@ async function runSquad(
 /** Raised by `buildPipeline` when the signal aborted before every member was built. */
 class SquadAborted extends Error {}
 
+interface BuildContext {
+  owned: Array<{ agent: SDKAgent; index: number }>;
+  signal: AbortSignal | undefined;
+  onLate: (agent: SDKAgent, index: number) => void;
+}
+
 async function resolveMember(
   member: SDKAgent | AgentDefinition,
   index: number,
-  owned: Array<{ agent: SDKAgent; index: number }>,
-  signal: AbortSignal | undefined,
-  onLate: (agent: SDKAgent, index: number) => void,
+  ctx: BuildContext,
 ): Promise<SDKAgent> {
+  const { owned, signal, onLate } = ctx;
   if (isBuiltAgent(member)) return member;
   const creation = materialize(member, index, signal);
   if (signal === undefined) {
@@ -310,12 +317,11 @@ function registerPassedIn(
 async function buildPipeline(
   agents: ReadonlyArray<SDKAgent | AgentDefinition>,
   name: string | undefined,
-  owned: Array<{ agent: SDKAgent; index: number }>,
   ownsMembers: boolean,
-  signal: AbortSignal | undefined,
-  onLate: (agent: SDKAgent, index: number) => void,
+  ctx: BuildContext,
 ): Promise<ReturnType<ReturnType<typeof Workflow.create>["commit"]>> {
-  if (ownsMembers) registerPassedIn(agents, owned);
+  if (ownsMembers) registerPassedIn(agents, ctx.owned);
+  const { signal } = ctx;
   // Compose Workflow + agentStep — identity threading: each agent's prompt is the previous agent's
   // output (the run input for the first agent).
   let builder = Workflow.create({ name: name ?? "squad" });
@@ -324,7 +330,7 @@ async function buildPipeline(
     if (member === undefined) continue;
     if (signal?.aborted) throw new SquadAborted("aborted before member was built");
     // M81 — materializes at RUN time, not at construction (`Squad.create` is synchronous).
-    const agent = await resolveMember(member, i, owned, signal, onLate);
+    const agent = await resolveMember(member, i, ctx);
     // SE3 — the first agent receives the human input (no peer origin); every subsequent agent
     // receives its predecessor's output, so its turn carries `{ kind: "peer", from: "agent-<i-1>" }`.
     const opts = i > 0 ? { origin: { kind: "peer" as const, from: `agent-${i - 1}` } } : undefined;

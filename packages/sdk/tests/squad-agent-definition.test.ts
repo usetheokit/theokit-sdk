@@ -173,10 +173,12 @@ describe("Squad interrupts a stalled Agent.create", () => {
     const { Agent } = await import("../src/agent.js");
     const disposed: number[] = [];
     let resolveCreate: ((a: unknown) => void) | undefined;
-    const spy = vi.spyOn(Agent, "create").mockImplementation((() =>
-      new Promise((res) => {
-        resolveCreate = res;
-      })) as never);
+    const spy = vi.spyOn(Agent, "create").mockImplementation(
+      (() =>
+        new Promise((res) => {
+          resolveCreate = res;
+        })) as never,
+    );
     const late = {
       agentId: "late",
       send: async () => ({ wait: async () => ({ id: "r", status: "finished", result: "ok" }) }),
