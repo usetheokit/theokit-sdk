@@ -510,17 +510,22 @@ async function endRunOnDeferredCalls(
     { agentId: inputs.agentId, runId: inputs.runId },
     answeredCalls,
   );
-  // Every call is recorded as a `toolCall` step; only the answered ones get a `toolResult`.
+  // Every call is recorded as a `toolCall` step; only the answered ones get a `toolResult`. A
+  // deferred call is recorded as the call that was DEFERRED (repaired name and input, as the gate
+  // saw them), so the transcript shows what the person is asked to approve. It stays pending while
+  // no `tool_result` carries its id.
   const steps = [
     ...buildToolSteps(answeredCalls, answeredResults),
-    ...calls
-      .filter((c) => pending.has(c.id))
-      .map((c) => ({
-        type: "toolCall" as const,
-        message: { callId: c.id, name: c.name, args: c.input },
-      })),
+    ...deferred.map((d) => ({
+      type: "toolCall" as const,
+      message: { callId: d.toolUseId, name: d.toolName, args: d.input },
+    })),
   ];
   ctx.conversation.push({ type: "agentConversationTurn", turn: { steps } });
+  if (inputs.onStep !== undefined) {
+    const cb = inputs.onStep;
+    for (const step of steps) await safeCall(() => cb({ step }), undefined, "SendOptions.onStep");
+  }
   ctx.deferredToolCalls = deferred;
   ctx.finalStatus = "deferred";
   return "done";

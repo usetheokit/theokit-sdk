@@ -223,16 +223,22 @@ export async function runPostRunLifecycle(inputs: PostRunLifecycleInputs): Promi
     {
       userText,
       conversation,
-      autoCompact: {
-        usageTotal: usageForTrigger,
-        // The EFFECTIVE window (after override, clamp and margin) — not the declared one. Swapping for
-        // `contextWindow` here would budget against a number the clamp already rejected.
-        contextWindow: effectiveWindow,
-        summarize: buildDefaultSummarizer({
-          agentModel: model,
-          ...(inputs.apiKey !== undefined ? { apiKey: inputs.apiKey } : {}),
-        }),
-      },
+      // A deferred run keeps its unanswered `tool_use` in the active history: compaction would start
+      // a new root and drop the structured blocks a later resume reads.
+      ...(result.status === "deferred"
+        ? {}
+        : {
+            autoCompact: {
+              usageTotal: usageForTrigger,
+              // The EFFECTIVE window (after override, clamp and margin) — not the declared one. Swapping for
+              // `contextWindow` here would budget against a number the clamp already rejected.
+              contextWindow: effectiveWindow,
+              summarize: buildDefaultSummarizer({
+                agentModel: model,
+                ...(inputs.apiKey !== undefined ? { apiKey: inputs.apiKey } : {}),
+              }),
+            },
+          }),
     },
     onRunEvent !== undefined
       ? () => emitRunEvent(onRunEvent, { type: "compact_boundary", trigger: "auto" })
