@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vit
 import {
   listMemoryFacts,
   MemoryFactAmbiguousError,
-  MemoryFactNotRemovableError,   removeMemoryFact,
+  MemoryFactNotRemovableError,
+  removeMemoryFact,
 } from "../../src/index.js";
 import {
   appendFactToMarkdown,
@@ -93,7 +94,9 @@ describe("listMemoryFacts / removeMemoryFact", () => {
   it("refuses an id found in two roots and removes nothing", async () => {
     const dir = claudeProjectMemoryDir(cwd);
     mkdirSync(dir, { recursive: true });
-    const own = (await listMemoryFacts(cwd)).find((f) => f.text === "alpha fact" && f.id.endsWith(".md"));
+    const own = (await listMemoryFacts(cwd)).find(
+      (f) => f.text === "alpha fact" && f.id.endsWith(".md"),
+    );
     const id = own?.id as string;
     const mine = join(cwd, ".theokit", "memory", id);
     writeFileSync(join(dir, id), readFileSync(mine, "utf8"));

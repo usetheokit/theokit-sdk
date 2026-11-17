@@ -525,10 +525,13 @@ export class MemoryFactAmbiguousError extends TheokitAgentError {
   readonly roots: readonly string[];
 
   constructor(factId: string, roots: readonly string[]) {
-    super(`Memory fact id "${factId}" is in more than one root (${roots.join(", ")}); nothing removed.`, {
-      isRetryable: false,
-      code: "memory_fact_ambiguous",
-    });
+    super(
+      `Memory fact id "${factId}" is in more than one root (${roots.join(", ")}); nothing removed.`,
+      {
+        isRetryable: false,
+        code: "memory_fact_ambiguous",
+      },
+    );
     this.factId = factId;
     this.roots = roots;
   }

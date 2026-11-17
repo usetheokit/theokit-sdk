@@ -65,8 +65,7 @@ export function removeFactEntry(
   return withCwdMutex(writeRoot, async () => {
     const matches = (await allFactEntries(cwd, config)).filter((e) => e.id === id);
     if (matches.length === 0) return [];
-    const roots = [...new Set(matches.map((e) => resolve(e.root)))];
-    if (roots.length > 1) throw new MemoryFactAmbiguousError(id, roots);
+    assertSingleRoot(id, matches);
     const target = matches.find((e) => resolve(e.root) === resolve(writeRoot));
     if (target === undefined)
       throw new MemoryFactNotRemovableError(id, (matches[0] as FactEntry).root);
@@ -78,6 +77,12 @@ export function removeFactEntry(
     await removeIndexLine(writeRoot, target.id);
     return [file, memoryMd];
   });
+}
+
+/** Refuse an id that names entries in more than one root. */
+function assertSingleRoot(id: string, matches: FactEntry[]): void {
+  const roots = [...new Set(matches.map((e) => resolve(e.root)))];
+  if (roots.length > 1) throw new MemoryFactAmbiguousError(id, roots);
 }
 
 /** Drop the `MEMORY.md` line that links to `file`, if the index has one. */
