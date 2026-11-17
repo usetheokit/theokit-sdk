@@ -141,7 +141,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:73` |
 | `memory_ceiling_reached` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:43` +1 |
 | `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:128` |
-| `memory_fact_not_removable` | domain | — | `packages/sdk/src/errors.ts:507` |
+| `memory_fact_ambiguous` | domain | — | `packages/sdk/src/errors.ts:530` |
+| `memory_fact_not_removable` | domain | — | `packages/sdk/src/errors.ts:509` |
 | `memory_path_escapes_root` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:115` +1 |
 | `memory_path_traversal` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:303` |
 | `memory_threat_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/markdown-store.ts:314` |

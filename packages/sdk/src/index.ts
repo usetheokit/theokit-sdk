@@ -96,6 +96,7 @@ export {
   isTransientError,
   MemoryAdapterError,
   type MemoryAdapterErrorCode,
+  MemoryFactAmbiguousError,
   MemoryFactNotRemovableError,
   NetworkError,
   RateLimitError,

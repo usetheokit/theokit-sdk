@@ -1,7 +1,7 @@
 import { readFile, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { MemoryFactNotRemovableError } from "../../../errors.js";
+import { MemoryFactAmbiguousError, MemoryFactNotRemovableError } from "../../../errors.js";
 import { replaceFileAtomic } from "../../persistence/atomic-write.js";
 import { withCwdMutex } from "../../persistence/cwd-mutex.js";
 import {
@@ -65,6 +65,8 @@ export function removeFactEntry(
   return withCwdMutex(writeRoot, async () => {
     const matches = (await allFactEntries(cwd, config)).filter((e) => e.id === id);
     if (matches.length === 0) return [];
+    const roots = [...new Set(matches.map((e) => resolve(e.root)))];
+    if (roots.length > 1) throw new MemoryFactAmbiguousError(id, roots);
     const target = matches.find((e) => resolve(e.root) === resolve(writeRoot));
     if (target === undefined)
       throw new MemoryFactNotRemovableError(id, (matches[0] as FactEntry).root);

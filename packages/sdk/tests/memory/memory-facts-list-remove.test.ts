@@ -2,7 +2,11 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
-import { listMemoryFacts, MemoryFactNotRemovableError, removeMemoryFact } from "../../src/index.js";
+import {
+  listMemoryFacts,
+  MemoryFactAmbiguousError,
+  MemoryFactNotRemovableError,   removeMemoryFact,
+} from "../../src/index.js";
 import {
   appendFactToMarkdown,
   readFactsFromMarkdown,
@@ -84,6 +88,22 @@ describe("listMemoryFacts / removeMemoryFact", () => {
     expect((err as MemoryFactNotRemovableError).factId).toBe("cli-note.md");
     expect((err as MemoryFactNotRemovableError).root).toBe(dir);
     expect(existsSync(join(dir, "cli-note.md"))).toBe(true);
+  });
+
+  it("refuses an id found in two roots and removes nothing", async () => {
+    const dir = claudeProjectMemoryDir(cwd);
+    mkdirSync(dir, { recursive: true });
+    const own = (await listMemoryFacts(cwd)).find((f) => f.text === "alpha fact" && f.id.endsWith(".md"));
+    const id = own?.id as string;
+    const mine = join(cwd, ".theokit", "memory", id);
+    writeFileSync(join(dir, id), readFileSync(mine, "utf8"));
+    const before = readFileSync(md(), "utf8");
+    const err = await removeMemoryFact(cwd, id).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(MemoryFactAmbiguousError);
+    expect((err as MemoryFactAmbiguousError).roots).toHaveLength(2);
+    expect(existsSync(mine)).toBe(true);
+    expect(existsSync(join(dir, id))).toBe(true);
+    expect(readFileSync(md(), "utf8")).toBe(before);
   });
 
   it("identical legacy bullets share an id; removal takes one", async () => {

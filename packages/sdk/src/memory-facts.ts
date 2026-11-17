@@ -1,7 +1,7 @@
-import { MemoryFactNotRemovableError } from "./errors.js";
+import { MemoryFactAmbiguousError, MemoryFactNotRemovableError } from "./errors.js";
 import type { MemorySettings } from "./types/agent.js";
 
-export { MemoryFactNotRemovableError };
+export { MemoryFactAmbiguousError, MemoryFactNotRemovableError };
 
 /**
  * One memory in the built-in markdown store.
@@ -38,7 +38,8 @@ export function listMemoryFacts(
  * Remove one memory by `id`: the per-memory file and its `MEMORY.md` index line, or one legacy
  * bullet inside `## Facts`. Serialized with the SDK's own writes and written atomically. Resolves
  * `true` when removed and `false` when no entry has that id. Rejects with
- * {@link MemoryFactNotRemovableError} for an entry outside the write root.
+ * {@link MemoryFactNotRemovableError} for an entry outside the write root, and with
+ * {@link MemoryFactAmbiguousError} (removing nothing) when the id is found in more than one root.
  *
  * Search index: the sqlite index's rows for the deleted file (or for `MEMORY.md`, when a legacy
  * bullet went) are deleted here, so the fact is not recalled before the next sync; that sync also
