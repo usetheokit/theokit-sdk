@@ -53,13 +53,14 @@ export async function listFactEntries(
 /**
  * Remove one stored memory from the write root: the per-memory file and its `MEMORY.md` index
  * line, or one legacy bullet inside `## Facts`. Serialized with {@link appendFactToMarkdown} on the
- * same mutex; both files are written atomically. Resolves the absolute paths it changed (the
+ * same mutex; `onRemoved` runs inside it, so index cleanup cannot interleave with a write; the index file is rewritten atomically before the entry file is deleted. Resolves the absolute paths it changed (the
  * deleted file and/or `MEMORY.md`), or `[]` when no entry has the id, and throws {@link MemoryFactNotRemovableError} when the entry exists only outside the write root.
  */
 export function removeFactEntry(
   cwd: string,
   id: string,
   config?: MemoryLocationConfig,
+  onRemoved?: (touched: string[]) => Promise<void>,
 ): Promise<string[]> {
   const writeRoot = resolveMemoryRoot(cwd, config);
   return withCwdMutex(writeRoot, async () => {
@@ -71,12 +72,30 @@ export function removeFactEntry(
       throw new MemoryFactNotRemovableError(id, (matches[0] as FactEntry).root);
     const memoryMd = join(writeRoot, "MEMORY.md");
     if (target.legacy)
-      return (await removeLegacyBullet(writeRoot, target.fact.text)) ? [memoryMd] : [];
+      return removedLegacy(
+        await removeLegacyBullet(writeRoot, target.fact.text),
+        memoryMd,
+        onRemoved,
+      );
     const file = join(writeRoot, target.id);
-    await unlink(file);
+    // Index line first: if the unlink then fails, the file is still listed and a retry by id
+    // finishes the job. The other order would lose the id with the index line still behind.
     await removeIndexLine(writeRoot, target.id);
-    return [file, memoryMd];
+    await unlink(file);
+    const touched = [file, memoryMd];
+    await onRemoved?.(touched);
+    return touched;
   });
+}
+
+async function removedLegacy(
+  removed: boolean,
+  memoryMd: string,
+  onRemoved?: (touched: string[]) => Promise<void>,
+): Promise<string[]> {
+  if (!removed) return [];
+  await onRemoved?.([memoryMd]);
+  return [memoryMd];
 }
 
 /** Refuse an id that names entries in more than one root. */

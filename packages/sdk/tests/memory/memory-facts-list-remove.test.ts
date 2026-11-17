@@ -59,14 +59,35 @@ describe("listMemoryFacts / removeMemoryFact", () => {
   });
 
   it("removes one legacy bullet only, not the same text elsewhere", async () => {
+    writeFileSync(md(), `${readFileSync(md(), "utf8")}\n## Other\n- alpha fact\n`);
     const legacy = (await listMemoryFacts(cwd)).filter((f) => f.id.startsWith("legacy-"));
+    expect(legacy.filter((f) => f.text === "alpha fact")).toHaveLength(1);
     const target = legacy.find((f) => f.text === "alpha fact");
     expect(await removeMemoryFact(cwd, target?.id as string)).toBe(true);
     const after = readFileSync(md(), "utf8");
     expect(after).toContain("- legacy one");
-    expect(after).not.toMatch(/^- alpha fact$/m);
+    const [facts = "", other = ""] = after.split("## Other");
+    expect(facts).not.toMatch(/^- alpha fact$/m);
+    expect(other).toMatch(/^- alpha fact$/m);
     expect(after).toContain("](alpha-fact.md)");
     expect((await listMemoryFacts(cwd)).filter((f) => f.text === "alpha fact")).toHaveLength(1);
+  });
+
+  it("finishes a removal whose index line is already gone (retry after a partial failure)", async () => {
+    const [first] = await listMemoryFacts(cwd);
+    const id = first?.id as string;
+    const file = join(cwd, ".theokit", "memory", id);
+    writeFileSync(
+      md(),
+      readFileSync(md(), "utf8")
+        .split("\n")
+        .filter((l) => !l.includes(`](${id})`))
+        .join("\n"),
+    );
+    expect(existsSync(file)).toBe(true);
+    expect(await removeMemoryFact(cwd, id)).toBe(true);
+    expect(existsSync(file)).toBe(false);
+    expect(await removeMemoryFact(cwd, id)).toBe(false);
   });
 
   it("resolves false for an unknown id and changes nothing", async () => {
