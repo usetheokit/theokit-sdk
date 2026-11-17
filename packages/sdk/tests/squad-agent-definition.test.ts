@@ -166,3 +166,55 @@ describe("Squad stops building once the signal aborts", () => {
     }
   });
 });
+
+describe("Squad interrupts a stalled Agent.create", () => {
+  async function stalled() {
+    const { vi } = await import("vitest");
+    const { Agent } = await import("../src/agent.js");
+    const disposed: number[] = [];
+    let resolveCreate: ((a: unknown) => void) | undefined;
+    const spy = vi.spyOn(Agent, "create").mockImplementation((() =>
+      new Promise((res) => {
+        resolveCreate = res;
+      })) as never);
+    const late = {
+      agentId: "late",
+      send: async () => ({ wait: async () => ({ id: "r", status: "finished", result: "ok" }) }),
+      dispose: async () => {
+        disposed.push(1);
+      },
+    };
+    return { spy, disposed, late, finish: () => resolveCreate?.(late) };
+  }
+
+  it("settles as cancelled and timedOut on timeout, then disposes the late agent", async () => {
+    const s = await stalled();
+    try {
+      const run = await Squad.create({ agents: [definition] }).run("go", { timeoutMs: 30 });
+      expect(run.status).toBe("cancelled");
+      expect(run.timedOut).toBe(true);
+      s.finish();
+      await new Promise((r) => setTimeout(r, 10));
+      expect(s.disposed).toEqual([1]);
+    } finally {
+      s.spy.mockRestore();
+    }
+  });
+
+  it("settles as cancelled on external abort, then disposes the late agent", async () => {
+    const s = await stalled();
+    try {
+      const ctrl = new AbortController();
+      const p = Squad.create({ agents: [definition] }).run("go", { signal: ctrl.signal });
+      await new Promise((r) => setTimeout(r, 20));
+      ctrl.abort();
+      const run = await p;
+      expect(run.status).toBe("cancelled");
+      s.finish();
+      await new Promise((r) => setTimeout(r, 10));
+      expect(s.disposed).toEqual([1]);
+    } finally {
+      s.spy.mockRestore();
+    }
+  });
+});

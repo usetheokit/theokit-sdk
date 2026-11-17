@@ -225,6 +225,9 @@ async function runSquad(
       owned,
       options.ownsMembers === true,
       timer.signal,
+      (agent, index) => {
+        void disposeMembers([{ agent, index }], options.onDisposeError);
+      },
     );
     const run = await pipeline.run(input, timer.signal ? { signal: timer.signal } : undefined);
     return {
@@ -256,12 +259,38 @@ async function resolveMember(
   member: SDKAgent | AgentDefinition,
   index: number,
   owned: Array<{ agent: SDKAgent; index: number }>,
-  signal?: AbortSignal,
+  signal: AbortSignal | undefined,
+  onLate: (agent: SDKAgent, index: number) => void,
 ): Promise<SDKAgent> {
   if (isBuiltAgent(member)) return member;
-  const agent = await materialize(member, index, signal);
-  owned.push({ agent, index });
-  return agent;
+  const creation = materialize(member, index, signal);
+  if (signal === undefined) {
+    const agent = await creation;
+    owned.push({ agent, index });
+    return agent;
+  }
+  // Race creation against the abort: a stalled `Agent.create` must not hold the run past its signal.
+  let onAbort: (() => void) | undefined;
+  const aborted = new Promise<"aborted">((resolve) => {
+    onAbort = () => resolve("aborted");
+    if (signal.aborted) onAbort();
+    else signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    const winner = await Promise.race([creation, aborted]);
+    if (winner === "aborted") {
+      // An agent that arrives after cancellation is disposed, never leaked.
+      creation.then(
+        (late) => onLate(late, index),
+        () => {},
+      );
+      throw new SquadAborted("aborted while member was being created");
+    }
+    owned.push({ agent: winner, index });
+    return winner;
+  } finally {
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  }
 }
 
 function registerPassedIn(
@@ -284,6 +313,7 @@ async function buildPipeline(
   owned: Array<{ agent: SDKAgent; index: number }>,
   ownsMembers: boolean,
   signal: AbortSignal | undefined,
+  onLate: (agent: SDKAgent, index: number) => void,
 ): Promise<ReturnType<ReturnType<typeof Workflow.create>["commit"]>> {
   if (ownsMembers) registerPassedIn(agents, owned);
   // Compose Workflow + agentStep — identity threading: each agent's prompt is the previous agent's
@@ -294,7 +324,7 @@ async function buildPipeline(
     if (member === undefined) continue;
     if (signal?.aborted) throw new SquadAborted("aborted before member was built");
     // M81 — materializes at RUN time, not at construction (`Squad.create` is synchronous).
-    const agent = await resolveMember(member, i, owned, signal);
+    const agent = await resolveMember(member, i, owned, signal, onLate);
     // SE3 — the first agent receives the human input (no peer origin); every subsequent agent
     // receives its predecessor's output, so its turn carries `{ kind: "peer", from: "agent-<i-1>" }`.
     const opts = i > 0 ? { origin: { kind: "peer" as const, from: `agent-${i - 1}` } } : undefined;
