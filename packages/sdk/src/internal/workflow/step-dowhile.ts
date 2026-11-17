@@ -42,6 +42,16 @@ export async function runDowhileStep(
         error: r.error,
       };
     }
+    if (r.status === "cancelled") {
+      return {
+        stepId: step.id,
+        kind: "dowhile",
+        status: "cancelled",
+        attempts: i + 1,
+        durationMs: Date.now() - startedAt,
+        ...(r.error !== undefined ? { error: r.error } : {}),
+      };
+    }
     acc = r.output;
     i += 1;
     let shouldContinue = false;
