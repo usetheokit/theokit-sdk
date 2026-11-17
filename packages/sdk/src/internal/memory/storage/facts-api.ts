@@ -8,8 +8,8 @@ import { type MemoryLocationConfig, memoryIndexRoot, resolveMemoryRoot } from ".
 export { type FactEntryInfo, listFactEntries };
 
 /**
- * Drop the sqlite search index's rows for the changed files. Called under the store's mutex, which
- * `IndexManager.sync` also takes, so a sync cannot re-insert a removed file's chunks afterwards.
+ * Drop the sqlite search index's rows for the changed files. Runs under the store's mutex before the
+ * entry is removed, so a failure leaves the entry in place and the removal can be retried.
  * No index file means nothing to drop.
  */
 async function forgetIndexedFiles(
@@ -28,7 +28,7 @@ async function forgetIndexedFiles(
   }
 }
 
-/** Remove one entry and, in the same critical section, its rows in the sqlite search index. */
+/** Drop an entry's sqlite index rows, then remove it, in one critical section. */
 export async function removeFactAndForget(
   cwd: string,
   id: string,

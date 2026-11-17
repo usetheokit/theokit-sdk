@@ -7,4 +7,4 @@ Add `listMemoryFacts`, `removeMemoryFact`, `StoredMemoryFact` and `MemoryFactNot
 
 `@theokit/sdk-memory` re-exports the two new internal store helpers (`listFactEntries`, `removeFactEntry`) to stay in step with the SDK store.
 
-Removal also deletes the entry's rows from the sqlite search index (and the corpus sync now prunes rows of files that left the disk), so recall does not return a removed fact. Removal runs under the store's lock, which `IndexManager.sync` also takes. The built-in store feeds only the sqlite index, so a Lance index is not touched. Two identical legacy bullets in one root share an id; removal takes the first.
+Removal also deletes the entry's rows from the sqlite search index (and the corpus sync now prunes rows of files that left the disk), so recall does not return a removed fact. A sync racing a removal in another process can briefly re-insert the rows; the next sync drops them. The built-in store feeds only the sqlite index, so a Lance index is not touched. Two identical legacy bullets in one root share an id; removal takes the first.

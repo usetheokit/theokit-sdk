@@ -42,9 +42,10 @@ export function listMemoryFacts(
  * {@link MemoryFactAmbiguousError} (removing nothing) when the id is found in more than one root.
  *
  * Search index: inside the same critical section as the removal, the sqlite index's rows for the
- * deleted file (or for `MEMORY.md`, when a legacy bullet went) are deleted. `IndexManager.sync`
- * takes the same lock, so a sync cannot restore them, and it also drops any indexed file that left
- * the disk and re-chunks the edited `MEMORY.md`. The built-in store feeds only the sqlite index;
+ * deleted file (or for `MEMORY.md`, when a legacy bullet went) are deleted first, so a failed
+ * cleanup removes nothing and the call can be retried. A sync running in another process while the
+ * fact goes can re-insert its chunks; the next `sync` drops them, because it prunes indexed files
+ * that left the disk and re-chunks the edited `MEMORY.md`. The built-in store feeds only the sqlite index;
  * a Lance index holds just what its owner added with `addFacts`, under ids this store does not
  * know, so removal does not touch it.
  *

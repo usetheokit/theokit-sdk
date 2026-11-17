@@ -53,14 +53,14 @@ export async function listFactEntries(
 /**
  * Remove one stored memory from the write root: the per-memory file and its `MEMORY.md` index
  * line, or one legacy bullet inside `## Facts`. Serialized with {@link appendFactToMarkdown} on the
- * same mutex; `onRemoved` runs inside it, so index cleanup cannot interleave with a write; the index file is rewritten atomically before the entry file is deleted. Resolves the absolute paths it changed (the
+ * same mutex; `beforeRemove` runs inside it, before anything is deleted; the index file is rewritten atomically before the entry file is deleted. Resolves the absolute paths it changed (the
  * deleted file and/or `MEMORY.md`), or `[]` when no entry has the id, and throws {@link MemoryFactNotRemovableError} when the entry exists only outside the write root.
  */
 export function removeFactEntry(
   cwd: string,
   id: string,
   config?: MemoryLocationConfig,
-  onRemoved?: (touched: string[]) => Promise<void>,
+  beforeRemove?: (touched: string[]) => Promise<void>,
 ): Promise<string[]> {
   const writeRoot = resolveMemoryRoot(cwd, config);
   return withCwdMutex(writeRoot, async () => {
@@ -71,31 +71,19 @@ export function removeFactEntry(
     if (target === undefined)
       throw new MemoryFactNotRemovableError(id, (matches[0] as FactEntry).root);
     const memoryMd = join(writeRoot, "MEMORY.md");
-    if (target.legacy)
-      return removedLegacy(
-        await removeLegacyBullet(writeRoot, target.fact.text),
-        memoryMd,
-        onRemoved,
-      );
     const file = join(writeRoot, target.id);
-    // Index line first: if the unlink then fails, the file is still listed and a retry by id
-    // finishes the job. The other order would lose the id with the index line still behind.
+    const touched = target.legacy ? [memoryMd] : [file, memoryMd];
+    // Index cleanup first: if it fails nothing is removed and the same call can be retried; if a
+    // later step fails the index merely lacks rows that the next sync re-adds.
+    await beforeRemove?.(touched);
+    if (target.legacy)
+      return (await removeLegacyBullet(writeRoot, target.fact.text)) ? touched : [];
+    // Index line before the unlink: if the unlink fails, the file is still listed and a retry by
+    // id finishes the job.
     await removeIndexLine(writeRoot, target.id);
     await unlink(file);
-    const touched = [file, memoryMd];
-    await onRemoved?.(touched);
     return touched;
   });
-}
-
-async function removedLegacy(
-  removed: boolean,
-  memoryMd: string,
-  onRemoved?: (touched: string[]) => Promise<void>,
-): Promise<string[]> {
-  if (!removed) return [];
-  await onRemoved?.([memoryMd]);
-  return [memoryMd];
 }
 
 /** Refuse an id that names entries in more than one root. */
