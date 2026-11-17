@@ -134,6 +134,42 @@ describe("MCP tool filter (#1035)", () => {
     expect(requests()).toContain("tools/call:a");
   });
 
+  it("does not case-repair a forced danger call onto an offered Danger tool", async () => {
+    writeFileSync(
+      join(dir, "server.cjs"),
+      SERVER.replace('["a", "b", "danger"]', '["a", "Danger", "danger"]'),
+    );
+    const client = await start({ exclude: ["danger"] });
+    await client.listTools();
+    const tool: ResolvedTool = {
+      name: "mcp_fx_Danger",
+      description: "Danger",
+      inputSchema: { type: "object" },
+      origin: "mcp",
+      mcpServerName: "fx",
+      mcpToolName: "Danger",
+    };
+    const inputs = {
+      agentId: "x",
+      runId: "r",
+      userMessage: "go",
+      model: { id: "m" },
+      mcp: new Map([["fx", client]]),
+      hooks: new HooksExecutor(process.cwd()),
+      shellCwd: process.cwd(),
+      shellSandbox: false,
+      maxIterations: 2,
+    } as unknown as AgentLoopInputs;
+    const parts = await dispatchTools(
+      inputs,
+      [tool],
+      [{ type: "tool_use", id: "1", name: "mcp_fx_danger", input: {} }],
+      [],
+    );
+    expect(JSON.stringify(parts)).toContain("danger");
+    expect(requests().filter((r) => r.startsWith("tools/call:"))).toEqual([]);
+  });
+
   it("refuses a raw tools/call for a filtered-out name and passes other methods", async () => {
     const client = await start({ exclude: ["danger"] });
     const refused = (await client.call?.("tools/call", { name: "danger", arguments: {} })) as {

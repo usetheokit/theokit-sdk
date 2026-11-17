@@ -35,6 +35,16 @@ export function modelFacingToolName(serverName: string, toolName: string): strin
  * unknown name. Map the model-facing name back to the server and tool it was, and return the
  * client's named refusal. `undefined` when the name is not a filtered-out tool.
  */
+export function isFilteredCall(
+  mcp: ReadonlyMap<string, FilterableClient> | undefined,
+  modelFacingName: string,
+): boolean {
+  for (const [serverName, client] of mcp ?? [])
+    for (const tool of client.filteredOutTools?.() ?? [])
+      if (modelFacingToolName(serverName, tool) === modelFacingName) return true;
+  return false;
+}
+
 export async function refuseFilteredCall(
   mcp: ReadonlyMap<string, FilterableClient> | undefined,
   modelFacingName: string,
