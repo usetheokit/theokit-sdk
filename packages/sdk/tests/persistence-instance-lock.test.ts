@@ -35,6 +35,14 @@ function pausePoint(): { reached: Promise<void>; resume: () => void } {
   linkFail.pauses.push({ reached: signal, gate });
   return { reached, resume };
 }
+async function pauseOnRead(path: string): Promise<void> {
+  if (path.includes(".takeover.")) linkFail.onGuardRead?.();
+  const pause = path.endsWith(".instance.lock") ? linkFail.pauses.shift() : undefined;
+  if (!pause) return;
+  pause.reached();
+  await pause.gate;
+}
+
 vi.mock("node:fs/promises", async (importOriginal) => {
   const real = await importOriginal<typeof import("node:fs/promises")>();
   return {
@@ -50,14 +58,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
     readFile: (async (...args: Parameters<typeof real.readFile>) => {
       try {
         const out = await real.readFile(...args);
-        if (String(args[0]).includes(".takeover.")) linkFail.onGuardRead?.();
-        const pause = String(args[0]).endsWith(".instance.lock")
-          ? linkFail.pauses.shift()
-          : undefined;
-        if (pause) {
-          pause.reached();
-          await pause.gate;
-        }
+        await pauseOnRead(String(args[0]));
         return out;
       } catch (err) {
         const hook = linkFail.onAbsentRead;
