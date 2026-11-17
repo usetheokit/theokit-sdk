@@ -125,8 +125,6 @@ export { ceilingReachedError, resolveMaxFacts } from "./fact-ceiling.js";
 export {
   appendFact,
   appendFactToMarkdown,
-  type FactIndexForget,
-  forgetFact,
   memoryMdPath,
   notesDir,
   readFacts,
