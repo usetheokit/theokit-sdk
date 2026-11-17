@@ -143,6 +143,14 @@ function requireLance(): LanceModule {
  * tag: naming that tag in this block would delete the declaration below it (#463).
  */
 export class LanceIndex {
+  /**
+   * Tail of the write queue. Adds and removals run one at a time, in call order, so an `addFacts`
+   * that was in flight when `removeFacts` was called finishes first and cannot re-add the rows
+   * after they were removed. This is per `LanceIndex` instance only: it does not coordinate
+   * separate instances or processes opened on the same storage path.
+   */
+  private writeTail: Promise<unknown> = Promise.resolve();
+
   private constructor(
     private readonly table: LanceTable,
     private readonly embedding: EmbeddingRuntime,
@@ -195,13 +203,21 @@ export class LanceIndex {
 
   async addFacts(facts: ReadonlyArray<Omit<LanceFactRecord, "embedding">>): Promise<void> {
     if (facts.length === 0) return;
-    const texts = facts.map((f) => f.text);
-    const embeddings = await this.embedding.embed(texts);
-    const rows: LanceFactRecord[] = facts.map((f, i) => ({
-      ...f,
-      embedding: embeddings[i] ?? new Array(this.embeddingDim).fill(0),
-    }));
-    await this.table.add(rows);
+    // Queued at call time (embedding included), so a later removeFacts waits for this write.
+    await this.serialized(async () => {
+      const embeddings = await this.embedding.embed(facts.map((f) => f.text));
+      const rows: LanceFactRecord[] = facts.map((f, i) => ({
+        ...f,
+        embedding: embeddings[i] ?? new Array(this.embeddingDim).fill(0),
+      }));
+      await this.table.add(rows);
+    });
+  }
+
+  private serialized<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.writeTail.then(task, task);
+    this.writeTail = run.catch(() => undefined);
+    return run;
   }
 
   /**
@@ -247,14 +263,33 @@ export class LanceIndex {
     return this.table.countRows();
   }
 
-  async removeFacts(ids: ReadonlyArray<string>): Promise<void> {
+  /**
+   * Remove rows by id, serialized after any write already started on this instance.
+   *
+   * `scope` narrows the delete: only rows whose `namespace` (and `source`, when given) match are
+   * removed, so an id shared with another namespace or source is left alone. Without `scope` the
+   * behaviour is unchanged (every row with that id), keeping the existing signature compatible.
+   *
+   * Limit: rows are matched by id only. Legacy rows migrated from SQLite carry chunk ids with no
+   * link to a parent fact, so they are never removed unless their ids are passed explicitly; this
+   * method does not match by text or clear a namespace. The memory adapters' `delete(MemoryId)`
+   * has no association with Lance row ids, so it is deliberately not wired to this method.
+   */
+  async removeFacts(
+    ids: ReadonlyArray<string>,
+    scope?: { namespace?: string; source?: "memory" | "sessions" | "wiki" },
+  ): Promise<void> {
     if (ids.length === 0) return;
-    // Build a parameterized-style delete predicate. Lance's delete still
-    // takes a string predicate, so we explicitly quote-escape each id —
-    // ids in our system are content-hashed (alphanumeric), so the risk
-    // is low, but we belt-and-suspenders.
-    const escaped = ids.map((id) => `'${id.replace(/'/g, "''")}'`).join(", ");
-    await this.table.delete(`id IN (${escaped})`);
+    const escaped = ids.map((id) => `'${escapeSqlValue(id)}'`).join(", ");
+    const predicates = [`id IN (${escaped})`];
+    if (scope?.namespace !== undefined) {
+      predicates.push(`namespace = '${escapeSqlValue(scope.namespace)}'`);
+    }
+    if (scope?.source !== undefined) {
+      predicates.push(`source = '${escapeSqlValue(scope.source)}'`);
+    }
+    const predicate = predicates.join(" AND ");
+    await this.serialized(() => this.table.delete(predicate));
   }
 
   async close(): Promise<void> {
