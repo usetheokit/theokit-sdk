@@ -81,7 +81,7 @@ function envValue(env: Record<string, string | undefined>, name: string): string
 }
 
 /** Profiles also list configuration (endpoint, account id); only secret-shaped names are keys. */
-const SECRET_NAME = /(_API_KEY|_KEY|_TOKEN|_SECRET)$/;
+const SECRET_NAME = /^AWS_BEARER_TOKEN_|(_API_KEY|_KEY|_TOKEN|_SECRET)$/;
 
 /** The candidate's variable first, then the profile's secret-shaped variables, without duplicates. */
 function varsFor(provider: string, candidates: readonly ProviderCandidate[]): string[] {

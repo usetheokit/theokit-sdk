@@ -133,6 +133,15 @@ describe("resolveProviderCredential", () => {
     }
   });
 
+  it("accepts the Bedrock bearer token the profile lists", async () => {
+    const r = await resolveProviderCredential({
+      env: { AWS_BEARER_TOKEN_BEDROCK: "bedrock-token" },
+      model: "bedrock/x",
+    });
+    expect(r.origin).toEqual({ kind: "env", envVar: "AWS_BEARER_TOKEN_BEDROCK" });
+    expect(r.baseUrl).toBe(getProviderProfile("bedrock")?.baseUrl);
+  });
+
   it("rejects a pinned credential whose provider has no profile", async () => {
     const e = await codeOf(
       resolveProviderCredential({
