@@ -220,3 +220,43 @@ describe("workflow .parallel nested cancellation", () => {
     expect(after).not.toHaveBeenCalled();
   });
 });
+
+describe("workflow .parallel abort listeners", () => {
+  // Counts abort listeners still attached to a long-lived signal after `runs` runs of a workflow.
+  async function liveListeners(
+    build: () => { run: (i: undefined, o: { signal: AbortSignal }) => Promise<unknown> },
+    runs: number,
+  ): Promise<number> {
+    const ctrl = new AbortController();
+    const live = new Set<unknown>();
+    const sig = ctrl.signal as unknown as {
+      addEventListener: (t: string, l: unknown, o?: unknown) => void;
+      removeEventListener: (t: string, l: unknown, o?: unknown) => void;
+    };
+    const add = sig.addEventListener.bind(sig);
+    const remove = sig.removeEventListener.bind(sig);
+    sig.addEventListener = (t, l, o) => {
+      live.add(l);
+      add(t, l, o);
+    };
+    sig.removeEventListener = (t, l, o) => {
+      live.delete(l);
+      remove(t, l, o);
+    };
+    for (let i = 0; i < runs; i++) await build().run(undefined, { signal: ctrl.signal });
+    return live.size;
+  }
+
+  it("a parallel step leaves no abort listener on the parent signal", async () => {
+    const plain = () =>
+      Workflow.create({ name: "plain" })
+        .then(fn("a", async () => 1))
+        .commit();
+    const par = () =>
+      Workflow.create({ name: "par-listeners" })
+        .parallel([[fn("a", async () => 1)], [fn("b", async () => 2)]], { id: "p" })
+        .commit();
+    const base = await liveListeners(plain, 25);
+    expect(await liveListeners(par, 25)).toBe(base);
+  });
+});
