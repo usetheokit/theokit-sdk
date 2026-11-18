@@ -297,7 +297,11 @@ describe("workflow .foreach over a parallel step, an item cancelling itself", ()
         ...(status === "cancelled" ? { error: { name: "AbortError", message: "cancelled" } } : {}),
       });
       const dispatch = vi.fn(
-        async (s: { id: string; kind: string }, item: unknown, e: { ctx: { signal: AbortSignal } }) => {
+        async (
+          s: { id: string; kind: string },
+          item: unknown,
+          e: { ctx: { signal: AbortSignal } },
+        ) => {
           if (s.kind === "parallel") {
             return runParallelStep(s as never, item, { ...e, dispatch } as never);
           }
@@ -328,7 +332,14 @@ describe("workflow .foreach over a parallel step, an item cancelling itself", ()
           ctx: { signal: new AbortController().signal } as never,
           options: {} as never,
           prevStepResults: [
-            { stepId: "src", kind: "fn", status: "completed", attempts: 1, durationMs: 0, output: ["hang", "self"] },
+            {
+              stepId: "src",
+              kind: "fn",
+              status: "completed",
+              attempts: 1,
+              durationMs: 0,
+              output: ["hang", "self"],
+            },
           ],
           dispatch: dispatch as never,
         },
