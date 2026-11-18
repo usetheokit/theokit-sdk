@@ -282,3 +282,62 @@ describe("workflow .foreach over a parallel step", () => {
     }
   });
 });
+
+describe("workflow .foreach over a parallel step, an item cancelling itself", () => {
+  it("a parallel step in a sibling item finishes under both policies", async () => {
+    const { runForeachStep } = await import("../../src/internal/workflow/step-foreach.js");
+    const { runParallelStep } = await import("../../src/internal/workflow/step-parallel.js");
+    for (const errorPolicy of ["fail-fast", "collect"] as const) {
+      const res = (status: "cancelled" | "completed") => ({
+        stepId: "x",
+        kind: "fn" as const,
+        status,
+        attempts: 1,
+        durationMs: 0,
+        ...(status === "cancelled" ? { error: { name: "AbortError", message: "cancelled" } } : {}),
+      });
+      const dispatch = vi.fn(
+        async (s: { id: string; kind: string }, item: unknown, e: { ctx: { signal: AbortSignal } }) => {
+          if (s.kind === "parallel") {
+            return runParallelStep(s as never, item, { ...e, dispatch } as never);
+          }
+          if (item === "self") return res("cancelled");
+          // Like a run that only learns of an abort that happens while it is waiting.
+          await new Promise<void>((resolve) =>
+            e.ctx.signal.addEventListener("abort", () => resolve(), { once: true }),
+          );
+          return res("completed");
+        },
+      );
+      const run = runForeachStep(
+        {
+          id: "fe",
+          kind: "foreach",
+          iterableFrom: "src",
+          concurrency: 2,
+          step: {
+            id: "par",
+            kind: "parallel",
+            errorPolicy,
+            concurrency: 1,
+            branches: [[{ id: "a", kind: "fn" }], [{ id: "b", kind: "fn" }]],
+          },
+        } as never,
+        undefined,
+        {
+          ctx: { signal: new AbortController().signal } as never,
+          options: {} as never,
+          prevStepResults: [
+            { stepId: "src", kind: "fn", status: "completed", attempts: 1, durationMs: 0, output: ["hang", "self"] },
+          ],
+          dispatch: dispatch as never,
+        },
+      );
+      const out = await Promise.race([
+        run,
+        new Promise<"timeout">((r) => setTimeout(() => r("timeout"), 1000)),
+      ]);
+      expect(out === "timeout" ? out : out.status).toBe("cancelled");
+    }
+  });
+});

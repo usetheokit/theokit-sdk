@@ -78,6 +78,10 @@ async function runBranches(
   const semBranchPromises = step.branches.map(async (branch, branchIdx) => {
     const release = await sem.acquire();
     try {
+      // A branch that was queued when the signal aborted never starts.
+      if (branchSignal.aborted) {
+        throw new Error(`parallel branch ${branchIdx} not started: cancelled`);
+      }
       // Each branch runs under a signal of its own (the run's, merged with this step's) and
       // starts from an empty result history — the branches are siblings, not a sequence.
       return await runBranch(
