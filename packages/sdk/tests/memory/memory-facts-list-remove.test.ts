@@ -159,4 +159,18 @@ describe("listMemoryFacts / removeMemoryFact", () => {
       (await again.search("alpha")).every((h) => !h.path?.endsWith(target?.id as string)),
     ).toBe(true);
   });
+
+  it("keeps an unrelated legacy fact recallable right after removing another", async () => {
+    writeFileSync(md(), `${readFileSync(md(), "utf8")}- gamma legacy zebra\n`);
+    const { IndexManager } = await import("../../src/internal/memory/index-manager.js");
+    const index = await IndexManager.open({ cwd });
+    await index.sync();
+    index.close();
+    const target = (await listMemoryFacts(cwd)).find((f) => f.text === "legacy one");
+    expect(await removeMemoryFact(cwd, target?.id as string)).toBe(true);
+    const again = await IndexManager.open({ cwd });
+    onTestFinished(() => again.close());
+    // No sync() here: the removal itself must have reindexed MEMORY.md.
+    expect((await again.search("zebra")).length).toBeGreaterThan(0);
+  });
 });
