@@ -148,13 +148,14 @@ export async function answerDeferredCalls(
  * the deferred calls unanswered, and end the run as `deferred`. The transcript then ends on the
  * assistant message holding the unanswered `tool_use`.
  */
-export async function endRunOnDeferredCalls(
-  inputs: AgentLoopInputs,
-  ctx: LoopContext,
-  calls: LlmToolCallPart[],
-  rawResults: LlmContentPart[],
-  deferred: readonly DeferredToolCall[],
-): Promise<"done"> {
+export async function endRunOnDeferredCalls(args: {
+  readonly inputs: AgentLoopInputs;
+  readonly ctx: LoopContext;
+  readonly calls: LlmToolCallPart[];
+  readonly rawResults: LlmContentPart[];
+  readonly deferred: readonly DeferredToolCall[];
+}): Promise<"done"> {
+  const { inputs, ctx, calls, rawResults, deferred } = args;
   const pending = new Set(deferred.map((d) => d.toolUseId));
   const answered = calls
     .map((call, i) => ({ call, result: rawResults[i] }))

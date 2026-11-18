@@ -391,7 +391,13 @@ export async function continueOrTerminate(
     deferredSink,
   );
   if (deferredSink.length > 0) {
-    return endRunOnDeferredCalls(inputs, ctx, llmOutput.toolCalls, rawResults, deferredSink);
+    return endRunOnDeferredCalls({
+      inputs,
+      ctx,
+      calls: llmOutput.toolCalls,
+      rawResults,
+      deferred: deferredSink,
+    });
   }
   const toolResults = await guardAndTransformToolResults(
     inputs,
