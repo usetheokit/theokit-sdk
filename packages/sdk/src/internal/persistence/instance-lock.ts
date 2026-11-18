@@ -62,10 +62,21 @@ export class InstanceLockedError extends TheokitAgentError {
 /** Test seam: runs after the stale lock was read, before the takeover is attempted. */
 export interface InstanceLockHooks {
   afterStaleRead?: () => Promise<void>;
-  /** Runs inside `release()`, after the lock is removed and before the guards are cleaned. */
   /** Runs after a takeover guard is published, before the lock is re-read. */
   afterGuardPublished?: () => Promise<void>;
+  /** Runs inside `release()`, after the lock is removed and before the guards are cleaned. */
   beforeGuardCleanup?: () => Promise<void>;
+}
+
+/** What one acquisition carries through the takeover steps. */
+interface Taker {
+  lockPath: string;
+  claimPath: string;
+  hooks: InstanceLockHooks;
+  /** Guards this acquisition published. */
+  guards: string[];
+  /** The `{ pid, nonce }` text of the claim, also written into each guard. */
+  content: string;
 }
 
 const TAKEOVER_ATTEMPTS = 3;
@@ -143,12 +154,13 @@ export async function acquireWithHooks(
   const content = JSON.stringify({ pid: process.pid, nonce });
   const claimPath = `${lockPath}.claim.${process.pid}.${nonce}`;
   const guards: string[] = [];
+  const taker: Taker = { lockPath, claimPath, hooks, guards, content };
 
   if (!(await createExclusive(claimPath, content, { mode: 0o600 }))) {
     throw new Error(`instance lock claim file already exists: ${claimPath}`);
   }
   try {
-    await takeLock(lockPath, claimPath, hooks, guards, content);
+    await takeLock(taker);
   } catch (e) {
     await unlinkQuiet(claimPath);
     throw e;
@@ -200,13 +212,8 @@ async function tryLink(lockPath: string, claimPath: string): Promise<boolean> {
   }
 }
 
-async function takeLock(
-  lockPath: string,
-  claimPath: string,
-  hooks: InstanceLockHooks,
-  guards: string[],
-  content: string,
-): Promise<void> {
+async function takeLock(t: Taker): Promise<void> {
+  const { lockPath, claimPath, hooks } = t;
   let takeovers = 0;
   while (!(await tryLink(lockPath, claimPath))) {
     const raw = await readLock(lockPath);
@@ -215,7 +222,7 @@ async function takeLock(
     if (pid !== undefined && isAlive(pid)) throw new InstanceLockedError(lockPath, pid);
     await hooks.afterStaleRead?.();
     if (takeovers++ >= TAKEOVER_ATTEMPTS) throw new InstanceLockedError(lockPath, pid);
-    if (await takeOver(lockPath, claimPath, raw, guards, content, hooks)) return;
+    if (await takeOver(t, raw)) return;
   }
 }
 
@@ -246,14 +253,8 @@ async function claimGuard(base: string, content: string, guards: string[]): Prom
 }
 
 /** Replaces the stale lock `raw` with our claim. False when someone else got there first. */
-async function takeOver(
-  lockPath: string,
-  claimPath: string,
-  raw: string,
-  guards: string[],
-  content: string,
-  hooks: InstanceLockHooks,
-): Promise<boolean> {
+async function takeOver(t: Taker, raw: string): Promise<boolean> {
+  const { lockPath, claimPath, hooks, guards, content } = t;
   // Derived from the stale content itself, so every contender names the same guard, even when the
   // content is malformed and carries no nonce.
   const generation = createHash("sha256").update(raw).digest("hex").slice(0, 32);
