@@ -78,6 +78,7 @@ import {
 } from "./local-agent-runtime-extensions.js";
 import { type DispatchRunArgs, executeSendLocked } from "./local-agent-send.js";
 import { registerRunAsTask } from "./local-agent-task-wrap.js";
+import { resolveToolResume, type ToolResume } from "./local-agent-tool-resume.js";
 import { reportUnknownLocalOptions } from "./local-option-keys.js";
 import {
   type ActiveTurn,
@@ -308,7 +309,15 @@ export class LocalAgent implements SDKAgent {
     return agentGenerate(this, this.model, apiKey, local, message, options);
   }
 
-  async send(message: string | SDKUserMessage, options: SendOptions = {}): Promise<Run> {
+  async send(
+    message: string | SDKUserMessage | undefined,
+    options: SendOptions = {},
+  ): Promise<Run> {
+    // `send(undefined, { toolDecisions })` answers deferred calls and carries no text of its own.
+    return this.sendMessage(message ?? "", options);
+  }
+
+  private async sendMessage(message: string | SDKUserMessage, options: SendOptions): Promise<Run> {
     // Per-call tools: run the same name/schema/dedupe checks as creation.
     // (Cloud agents reject per-call tools in CloudAgent.send.)
     if (options.tools !== undefined && options.tools.length > 0) {
@@ -338,7 +347,9 @@ export class LocalAgent implements SDKAgent {
     options: SendOptions,
     sendSpan: OTelSpan,
   ): Promise<Run> {
-    const mode = options.queueMode ?? "followup";
+    // Decisions answer the session's pending calls: never steered into a running turn or batched.
+    const mode =
+      options.toolDecisions !== undefined ? "followup" : (options.queueMode ?? "followup");
     const text = typeof message === "string" ? message : message.text;
     const active = this.activeTurn;
     // steer: only text can be injected, and only while the running turn still accepts it.
@@ -406,6 +417,7 @@ export class LocalAgent implements SDKAgent {
     );
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: send-cycle orchestrator; the resume step only adds one read before dispatch
   private async runLockedSendCycle(
     message: string | SDKUserMessage,
     options: SendOptions,
@@ -415,6 +427,7 @@ export class LocalAgent implements SDKAgent {
   ): Promise<void> {
     const userText = typeof message === "string" ? message : message.text;
     let run: Run;
+    let resume: ToolResume | undefined;
     const steer = new TurnSteerQueue();
     let res: (r: Run) => void = () => undefined;
     let rej: (e: unknown) => void = () => undefined;
@@ -425,7 +438,8 @@ export class LocalAgent implements SDKAgent {
     turnRun.catch(() => undefined); // only steering callers observe this
     this.activeTurn = { steer, run: turnRun };
     try {
-      run = await this.sendLocked(message, options);
+      resume = await resolveToolResume(this.sessionStore, this.agentId, options);
+      run = await this.sendLocked(message, options, resume);
     } catch (err) {
       sendSpan.recordException(err);
       sendSpan.setStatus({ code: 2, message: err instanceof Error ? err.message : String(err) });
@@ -444,6 +458,7 @@ export class LocalAgent implements SDKAgent {
       await runPostRunLifecycle({
         run,
         userText,
+        ...(resume !== undefined ? { resumedToolCalls: true } : {}),
         agentId: this.agentId,
         workspaceCwd: this.workspaceCwd,
         sessionStore: this.sessionStore,
@@ -468,7 +483,11 @@ export class LocalAgent implements SDKAgent {
     }
   }
 
-  private async sendLocked(message: string | SDKUserMessage, options: SendOptions): Promise<Run> {
+  private async sendLocked(
+    message: string | SDKUserMessage,
+    options: SendOptions,
+    resume: ToolResume | undefined,
+  ): Promise<Run> {
     return executeSendLocked(
       {
         agentId: this.agentId,
@@ -493,6 +512,7 @@ export class LocalAgent implements SDKAgent {
       },
       message,
       options,
+      resume,
     );
   }
 
@@ -565,6 +585,7 @@ export class LocalAgent implements SDKAgent {
     priorMessages,
     memoryTools,
     memoryProviderOverride,
+    resume,
   }: DispatchRunArgs): Promise<Run> {
     // SDK 2.0 Phase 1 physical Stage 2b — iter 23 KERNEL FLIP:
     // When `memoryProviderOverride` is supplied (env-flag path), inject
@@ -594,6 +615,7 @@ export class LocalAgent implements SDKAgent {
       memoryFacts,
       priorMessages,
       memoryTools,
+      ...(resume !== undefined ? { resume } : {}),
       activePreset: this.activePreset(),
       ...(this.activeTurn !== undefined ? { steerQueue: this.activeTurn.steer } : {}),
     });

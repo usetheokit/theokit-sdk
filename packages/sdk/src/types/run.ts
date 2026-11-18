@@ -58,8 +58,8 @@ export interface DeferredToolCall {
 }
 
 /**
- * A host's answer for one deferred tool call, keyed by the call's `toolUseId`. Reserved for resuming
- * a deferred run; no send option accepts it yet.
+ * A host's answer for one deferred tool call, keyed by the call's `toolUseId`. Pass the answers in
+ * {@link SendOptions.toolDecisions}.
  *
  * @public
  */
@@ -389,6 +389,16 @@ export interface SendOptions {
    *   (texts joined by a blank line). Every collecting caller resolves to that same batched `Run`.
    */
   queueMode?: QueueMode;
+  /**
+   * Answers for the tool calls a previous run deferred (`RunResult.status === "deferred"`), keyed by
+   * `toolUseId`. Works on the same agent and after `Agent.resume(agentId)` in a new process: the
+   * pending calls are read from the session transcript. Every pending call needs exactly one
+   * decision; a mismatch throws `ToolDecisionMismatchError`. An `allow` runs the call only after
+   * the permission floor and the permission rules pass again on the stored input. Pass no message
+   * text with decisions: the decisions answer the pending calls and the run continues from them.
+   * A plain send on a session that ends on deferred calls also throws `ToolDecisionMismatchError`.
+   */
+  toolDecisions?: readonly ToolCallDecision[];
   /**
    * Per-send model override. SE8 — accepts a bare-string id shorthand
    * (`"openai/gpt-4o-mini"`, normalized to `{ id }`) OR a {@link ModelSelection}

@@ -98,7 +98,11 @@ async function resolveAsk(
   name: string,
   args: Record<string, unknown>,
   mode: PermissionMode,
+  approved: boolean,
 ): Promise<PreToolCallDecision | undefined> {
+  // A call the host approved on resume was already asked. The floor and the deny rules ran again on
+  // the stored input before this point, and those are all an approval does not override.
+  if (approved) return undefined;
   if (opts.canUseTool !== undefined) {
     let decision: PermissionGateDecision;
     try {
@@ -132,10 +136,11 @@ function createPermissionPlugin(
     kind: "general",
     register(ctx) {
       ctx.on("pre_tool_call", async (rawCtx) => {
-        const { name, args, permissionMode } = rawCtx as {
+        const { name, args, permissionMode, approved } = rawCtx as {
           name: string;
           args: Record<string, unknown>;
           permissionMode?: PermissionMode;
+          approved?: boolean;
         };
         // SE1 — precedence: the RUN's mode (threaded from `SendOptions`/`AgentOptions`
         // via the pre_tool_call context) wins over the plugin's construction-time
@@ -160,7 +165,7 @@ function createPermissionPlugin(
         if (action === "deny") {
           return { block: true, message: `denied by permission engine: ${name}` };
         }
-        if (action === "ask") return resolveAsk(opts, name, args, mode);
+        if (action === "ask") return resolveAsk(opts, name, args, mode, approved === true);
         return undefined;
       });
     },

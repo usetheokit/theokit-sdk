@@ -36,6 +36,8 @@ import { readRunResolving } from "./throw-on-error-run.js";
 export interface PostRunLifecycleInputs {
   run: Run;
   userText: string;
+  /** This run answered deferred tool calls, so there is no user message to record. */
+  resumedToolCalls?: boolean;
   agentId: string;
   workspaceCwd: string;
   /** SE41 — the session record store (FS default, or an injected external store). */
@@ -175,6 +177,7 @@ export async function runPostRunLifecycle(inputs: PostRunLifecycleInputs): Promi
         persistTurnToTranscript(sessionStore, { cwd: workspaceCwd, agentId, model }, agentId, {
           userText,
           conversation: partial,
+          ...(inputs.resumedToolCalls === true ? { skipUserTurn: true } : {}),
         });
       }
     } catch (cause) {
@@ -223,6 +226,10 @@ export async function runPostRunLifecycle(inputs: PostRunLifecycleInputs): Promi
     {
       userText,
       conversation,
+      ...(inputs.resumedToolCalls === true ? { skipUserTurn: true } : {}),
+      ...(result.status === "deferred" && result.deferredToolCalls !== undefined
+        ? { deferredToolCalls: result.deferredToolCalls }
+        : {}),
       // A deferred run keeps its unanswered `tool_use` in the active history: compaction would start
       // a new root and drop the structured blocks a later resume reads.
       ...(result.status === "deferred"
