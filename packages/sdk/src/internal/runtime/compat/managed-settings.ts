@@ -150,6 +150,7 @@ export interface ManagedSettingsDocument {
   raw: Record<string, unknown>;
 }
 
+/** Options for `readManagedSettingsDocument`. */
 export interface ReadManagedSettingsDocumentOptions {
   /** Receives the message for an unreadable, invalid or non-object file. Default: diagFailure. */
   onWarn?: (message: string) => void;

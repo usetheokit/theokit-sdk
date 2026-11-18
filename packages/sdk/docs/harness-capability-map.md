@@ -328,7 +328,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
 | `readManagedSettings` | function | Read the deployed policy, or `{}` when none is.  |
 | `readManagedSettingsDocument` | function | Read the whole managed-settings file, for an app that defines its own keys (model, sandbox mode, approval policy) and lets an operator impose them through it.  |
-| `ReadManagedSettingsDocumentOptions` | interface |  |
+| `ReadManagedSettingsDocumentOptions` | interface | Options for `readManagedSettingsDocument`. |
 | `readSessionMessages` | function | Read the messages a session already contains, for a surface that needs to re-render it.  |
 | `ReadSessionMessagesOptions` | interface | Which session to read, in the terms a host already has. |
 | `ReapableArtifact` | interface | One artifact the caller is considering deleting, described well enough to decide about.  |
