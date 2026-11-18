@@ -3,6 +3,7 @@ import type { DeferredToolCall } from "../../types/run.js";
 import type { LlmContentPart, LlmMessage, LlmToolCallPart } from "../llm/types.js";
 import { safeCall } from "../runtime/system-prompt/safe-call.js";
 import type { LoopContext } from "./loop-context-init.js";
+import { dispatchTools } from "./tool-dispatch.js";
 import { applyToolResultGuard } from "./tool-result-guard.js";
 import type { AgentLoopInputs } from "./types.js";
 
@@ -80,6 +81,66 @@ export async function guardAndTransformToolResults(
         toolCalls: toolCalls.map((c) => ({ id: c.id, name: c.name, args: c.input })),
       })
     : guarded;
+}
+
+/**
+ * Resume of a deferred run: answers each stored call with the host's decision. A denied call gets
+ * its message as the `tool_result`; an allowed call is dispatched like any other, with `approved`
+ * set so the permission plugin skips only its `ask` (the floor and the deny rules still run on the
+ * stored input). The results join the trailing tool-result message so the provider sees one reply
+ * per assistant turn, and are recorded as `toolResult` steps (the calls are already on disk).
+ */
+export async function answerDeferredCalls(
+  inputs: AgentLoopInputs,
+  ctx: LoopContext,
+): Promise<void> {
+  const resume = inputs.toolResume;
+  if (resume === undefined) return;
+  const decisionFor = new Map(resume.decisions.map((d) => [d.toolUseId, d]));
+  const calls: LlmToolCallPart[] = resume.calls.map((c) => ({
+    type: "tool_use",
+    id: c.toolUseId,
+    name: c.toolName,
+    input: c.input,
+  }));
+  const allowed = calls.filter((c) => decisionFor.get(c.id)?.behavior === "allow");
+  const dispatchInputs = { ...inputs, approvedToolUseIds: new Set(allowed.map((c) => c.id)) };
+  const dispatched = await dispatchTools(
+    { ...dispatchInputs, messages: projectToolContextMessages(ctx.messages) },
+    ctx.tools,
+    allowed,
+    ctx.events,
+    ctx.sendSpan,
+  );
+  const raw: LlmContentPart[] = calls.map((call) => {
+    const at = allowed.indexOf(call);
+    if (at >= 0 && dispatched[at] !== undefined) return dispatched[at] as LlmContentPart;
+    const message = decisionFor.get(call.id)?.message;
+    return {
+      type: "tool_result",
+      toolUseId: call.id,
+      content: message ?? `The user denied this tool call: ${call.name}`,
+    };
+  });
+  const results = await guardAndTransformToolResults(
+    inputs,
+    raw,
+    { agentId: inputs.agentId, runId: inputs.runId },
+    calls,
+  );
+  const last = ctx.messages.at(-1);
+  const lastContent = last?.role === "user" && Array.isArray(last.content) ? last.content : [];
+  if (lastContent.length > 0 && lastContent.every((p) => p.type === "tool_result")) {
+    (lastContent as LlmContentPart[]).push(...results);
+  } else {
+    ctx.messages.push({ role: "user", content: results });
+  }
+  const steps = buildToolSteps(calls, results).filter((s) => s.type === "toolResult");
+  ctx.conversation.push({ type: "agentConversationTurn", turn: { steps } });
+  const cb = inputs.onStep;
+  if (cb !== undefined) {
+    for (const step of steps) await safeCall(() => cb({ step }), undefined, "SendOptions.onStep");
+  }
 }
 
 /**

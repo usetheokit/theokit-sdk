@@ -2,13 +2,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { ToolDecisionMismatchError } from "../src/index.js";
 import { runAgentLoop } from "../src/internal/agent-loop/loop.js";
 import type { AgentLoopInputs } from "../src/internal/agent-loop/types.js";
 import type { LlmClient, LlmEvent, LlmFinish, LlmToolCallPart } from "../src/internal/llm/types.js";
 import { FsSessionStore } from "../src/internal/persistence/fs-session-store.js";
 import { PluginManager } from "../src/internal/plugins/manager.js";
 import { HooksExecutor } from "../src/internal/runtime/hooks/hooks-executor.js";
-import { holdDeferredUntilPersisted } from "../src/internal/runtime/lifecycle/deferred-persistence.js";
 import { runPostRunLifecycle } from "../src/internal/runtime/lifecycle/post-run-lifecycle.js";
 import { readSessionMessages } from "../src/internal/session/agent-session-store.js";
 import { PermissionEngine } from "../src/permission-engine.js";
@@ -149,6 +149,12 @@ describe("deferring a tool call", () => {
     expect(out.finalStatus).toBe("finished");
     expect(ran).toEqual(["risky"]);
   });
+
+  it("exports ToolDecisionMismatchError with its code", () => {
+    const err = new ToolDecisionMismatchError("no pending call x");
+    expect(err.code).toBe("tool_decision_mismatch");
+    expect(err.name).toBe("ToolDecisionMismatchError");
+  });
 });
 
 describe("deferred runs: persistence and repair", () => {
@@ -241,62 +247,6 @@ describe("deferred runs: persistence and repair", () => {
       expect(useIds.filter((id) => !resultIds.includes(id))).toEqual(["c-1"]);
       const records = await store.readRecords("a");
       expect(JSON.stringify(records)).not.toContain("compact_boundary");
-    } finally {
-      await rm(dir, { recursive: true, force: true });
-    }
-  });
-
-  it("holds a deferred wait() until the transcript write lands, and rejects when it fails", async () => {
-    const mk = (status: string): Run =>
-      ({ id: "r", wait: async () => ({ id: "r", status }) }) as unknown as Run;
-    const ok = holdDeferredUntilPersisted(mk("deferred"));
-    let resolved = false;
-    const waiting = ok.run.wait().then((r) => {
-      resolved = true;
-      return r;
-    });
-    await new Promise((r) => setTimeout(r, 10));
-    expect(resolved).toBe(false);
-    ok.persisted();
-    expect((await waiting).status).toBe("deferred");
-
-    const bad = holdDeferredUntilPersisted(mk("deferred"));
-    bad.failed(new Error("disk full"));
-    await expect(bad.run.wait()).rejects.toThrow("disk full");
-
-    // A finished run is never held.
-    expect((await holdDeferredUntilPersisted(mk("finished")).run.wait()).status).toBe("finished");
-  });
-
-  it("reports a failed transcript write for a deferred run instead of swallowing it", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "theokit-defer-"));
-    try {
-      const store = new FsSessionStore({ baseDir: dir, cwd: dir });
-      store.appendRecords = async () => {
-        throw new Error("disk full");
-      };
-      const run = {
-        id: "r",
-        agentId: "a",
-        wait: async () => ({ id: "r", status: "deferred", deferredToolCalls: [] }),
-        conversation: async () => [],
-        stream: async function* () {},
-        cancel() {},
-      } as unknown as Run;
-      const hooks = new HooksExecutor(dir);
-      await hooks.initialize(false);
-      const failures: unknown[] = [];
-      await runPostRunLifecycle({
-        run,
-        userText: "go",
-        deferredPersistence: { persisted: () => undefined, failed: (e) => failures.push(e) },
-        agentId: "a",
-        workspaceCwd: dir,
-        sessionStore: store,
-        model: "stub-model",
-        hooksExecutor: hooks,
-      });
-      expect(String(failures[0])).toContain("disk full");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

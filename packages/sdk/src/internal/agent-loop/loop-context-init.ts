@@ -156,7 +156,7 @@ export async function initLoopContext(inputs: AgentLoopInputs): Promise<LoopCont
       inputs,
       tools.map((t) => t.name),
     ),
-    buildUserEvent(inputs),
+    ...(inputs.toolResume === undefined ? [buildUserEvent(inputs)] : []),
   ]);
   // theokit#140 - attach the run's subscriber, if it supplied one.
   // B-501 - the seed (system, user) is handed to the subscriber first. It used to arrive only through
@@ -204,10 +204,13 @@ export async function initLoopContext(inputs: AgentLoopInputs): Promise<LoopCont
   return {
     events,
     conversation: [],
-    messages: [
-      ...priorMessages,
-      { role: "user", content: buildUserContent(inputs.userMessage, inputs.userImages) },
-    ],
+    messages:
+      inputs.toolResume === undefined
+        ? [
+            ...priorMessages,
+            { role: "user", content: buildUserContent(inputs.userMessage, inputs.userImages) },
+          ]
+        : priorMessages,
     tools,
     finalText: "",
     finalStatus: "finished",

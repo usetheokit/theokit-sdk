@@ -19,6 +19,7 @@ import { shouldUseRealLocalRuntime } from "../runtime/fixtures/fixture-mode.js";
 import type { HooksExecutor } from "../runtime/hooks/hooks-executor.js";
 import type { MemoryFact } from "../runtime/memory-glue/memory-store.js";
 import { getSessionMessages } from "../session/index.js";
+import type { ToolResume } from "./local-agent-tool-resume.js";
 import { createLocalRun } from "./local-run.js";
 import { createRealLocalRun } from "./real-local-run.js";
 
@@ -43,6 +44,7 @@ export function buildRealRunOptions(args: {
   personalityToolWhitelist?: ReadonlyArray<string>;
   personalityName?: string;
   steerQueue?: SteerQueue;
+  resume?: ToolResume;
 }): Parameters<typeof createRealLocalRun>[0] {
   return {
     agentId: args.inputs.agentId,
@@ -66,6 +68,9 @@ export function buildRealRunOptions(args: {
       : {}),
     ...(args.personalityName !== undefined ? { personalityName: args.personalityName } : {}),
     ...(args.steerQueue !== undefined ? { steerQueue: args.steerQueue } : {}),
+    ...(args.resume !== undefined
+      ? { toolResume: { calls: args.resume.calls, decisions: args.resume.decisions } }
+      : {}),
   };
 }
 
@@ -106,6 +111,7 @@ export async function dispatchLocalRun(args: {
   memoryTools: ReadonlyArray<MemoryToolSpec> | undefined;
   activePreset: PersonalityPreset | undefined;
   steerQueue?: SteerQueue;
+  resume?: ToolResume;
 }): Promise<Run> {
   const apiKey = resolveApiKey(args.inputs.options.apiKey);
   if (shouldUseRealLocalRuntime(apiKey)) {
@@ -118,6 +124,7 @@ export async function dispatchLocalRun(args: {
         priorMessages: args.priorMessages,
         memoryTools: args.memoryTools,
         ...(args.steerQueue !== undefined ? { steerQueue: args.steerQueue } : {}),
+        ...(args.resume !== undefined ? { resume: args.resume } : {}),
         ...(args.activePreset?.tools !== undefined
           ? { personalityToolWhitelist: args.activePreset.tools }
           : {}),

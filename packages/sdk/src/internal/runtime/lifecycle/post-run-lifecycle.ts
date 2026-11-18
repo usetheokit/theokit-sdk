@@ -22,7 +22,6 @@ import {
 import type { HooksExecutor } from "../hooks/hooks-executor.js";
 import type { MemoryProvider } from "../memory-glue/memory-provider.js";
 import { buildContextBudgetEvent } from "./context-budget-event.js";
-import type { DeferredPersistence } from "./deferred-persistence.js";
 import { readRunResolving } from "./throw-on-error-run.js";
 
 /**
@@ -37,8 +36,8 @@ import { readRunResolving } from "./throw-on-error-run.js";
 export interface PostRunLifecycleInputs {
   run: Run;
   userText: string;
-  /** Told when a `deferred` run's transcript write finished or failed. */
-  deferredPersistence?: Pick<DeferredPersistence, "persisted" | "failed">;
+  /** This run answered deferred tool calls, so there is no user message to record. */
+  resumedToolCalls?: boolean;
   agentId: string;
   workspaceCwd: string;
   /** SE41 — the session record store (FS default, or an injected external store). */
@@ -178,6 +177,7 @@ export async function runPostRunLifecycle(inputs: PostRunLifecycleInputs): Promi
         persistTurnToTranscript(sessionStore, { cwd: workspaceCwd, agentId, model }, agentId, {
           userText,
           conversation: partial,
+          ...(inputs.resumedToolCalls === true ? { skipUserTurn: true } : {}),
         });
       }
     } catch (cause) {
@@ -219,18 +219,21 @@ export async function runPostRunLifecycle(inputs: PostRunLifecycleInputs): Promi
   // multi-round agentic turns. Prefer the last request's breakdown when available.
   const lastRequestUsage = result.usage?.requests?.at(-1)?.totalTokens;
   const usageForTrigger = lastRequestUsage ?? result.usage?.totalTokens;
-  const deferred = result.status === "deferred";
-  const written = persistTurnToTranscript(
+  persistTurnToTranscript(
     sessionStore,
     { cwd: workspaceCwd, agentId, model },
     agentId,
     {
       userText,
       conversation,
+      ...(inputs.resumedToolCalls === true ? { skipUserTurn: true } : {}),
+      ...(result.status === "deferred" && result.deferredToolCalls !== undefined
+        ? { deferredToolCalls: result.deferredToolCalls }
+        : {}),
       // A deferred run keeps its unanswered `tool_use` in the active history: compaction would start
-      // a new root and move it out of the trailing position.
-      ...(deferred
-        ? { strict: true }
+      // a new root and drop the structured blocks a later resume reads.
+      ...(result.status === "deferred"
+        ? {}
         : {
             autoCompact: {
               usageTotal: usageForTrigger,
@@ -248,9 +251,6 @@ export async function runPostRunLifecycle(inputs: PostRunLifecycleInputs): Promi
       ? () => emitRunEvent(onRunEvent, { type: "compact_boundary", trigger: "auto" })
       : undefined,
   );
-  if (deferred) {
-    await written.then(inputs.deferredPersistence?.persisted, inputs.deferredPersistence?.failed);
-  }
 
   // ADR D20 + EC-9: only finished runs feed the corpus="sessions" index.
   // usetheokit/theokit-sdk#382: and only when the agent has not disabled memory. The gate sits here

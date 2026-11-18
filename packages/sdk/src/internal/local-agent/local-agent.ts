@@ -30,7 +30,6 @@ import { reportUndeclaredSources } from "../runtime/compat/foreign-config-source
 import type { ProvidersManagerImpl } from "../runtime/config/providers-manager.js";
 import type { FileContextManager } from "../runtime/context/context-manager.js";
 import { HooksExecutor } from "../runtime/hooks/hooks-executor.js";
-import { holdDeferredUntilPersisted } from "../runtime/lifecycle/deferred-persistence.js";
 import { runPostRunLifecycle } from "../runtime/lifecycle/post-run-lifecycle.js";
 import { wrapRunWithThrowOnError } from "../runtime/lifecycle/throw-on-error-run.js";
 import type { MemoryFact } from "../runtime/memory-glue/memory-store.js";
@@ -309,7 +308,11 @@ export class LocalAgent implements SDKAgent {
     return agentGenerate(this, this.model, apiKey, local, message, options);
   }
 
-  async send(message: string | SDKUserMessage, options: SendOptions = {}): Promise<Run> {
+  // `send(undefined, { toolDecisions })` answers deferred calls and carries no text of its own.
+  async send(
+    message: string | SDKUserMessage | undefined = "",
+    options: SendOptions = {},
+  ): Promise<Run> {
     // Per-call tools: run the same name/schema/dedupe checks as creation.
     // (Cloud agents reject per-call tools in CloudAgent.send.)
     if (options.tools !== undefined && options.tools.length > 0) {
@@ -339,7 +342,9 @@ export class LocalAgent implements SDKAgent {
     options: SendOptions,
     sendSpan: OTelSpan,
   ): Promise<Run> {
-    const mode = options.queueMode ?? "followup";
+    // Decisions answer the session's pending calls: never steered into a running turn or batched.
+    const mode =
+      options.toolDecisions !== undefined ? "followup" : (options.queueMode ?? "followup");
     const text = typeof message === "string" ? message : message.text;
     const active = this.activeTurn;
     // steer: only text can be injected, and only while the running turn still accepts it.
@@ -438,15 +443,15 @@ export class LocalAgent implements SDKAgent {
     }
     // T3.2: opt-in Task wrapping (ADRs D363/D374).
     if (options.task !== undefined) registerRunAsTask(run, this.agentId, options.task, userText);
-    const held = holdDeferredUntilPersisted(callerView(run, this.options.throwOnError));
-    const view = held.run;
+    const view = callerView(run, this.options.throwOnError);
     res(view);
     resolve(view);
     try {
       await runPostRunLifecycle({
         run,
         userText,
-        deferredPersistence: held,
+        // Decisions were matched against the pending calls in `sendLocked`, or the send threw.
+        resumedToolCalls: options.toolDecisions !== undefined,
         agentId: this.agentId,
         workspaceCwd: this.workspaceCwd,
         sessionStore: this.sessionStore,
@@ -465,7 +470,6 @@ export class LocalAgent implements SDKAgent {
         memoryProvider: this.options.memoryProvider ?? this.defaultMemoryProviderForLoop,
       });
     } finally {
-      held.persisted(); // a no-op once settled; releases a deferred wait() if the lifecycle threw
       sendSpan.end();
       this.activeTurn = undefined;
       this.followUpUnsteered(steer.closeAndTake());
@@ -476,6 +480,7 @@ export class LocalAgent implements SDKAgent {
     return executeSendLocked(
       {
         agentId: this.agentId,
+        sessionStore: this.sessionStore,
         disposed: this.disposed || this.closed,
         invalidationPending: this.invalidationPending,
         clearInvalidation: () => {
@@ -569,6 +574,7 @@ export class LocalAgent implements SDKAgent {
     priorMessages,
     memoryTools,
     memoryProviderOverride,
+    resume,
   }: DispatchRunArgs): Promise<Run> {
     // SDK 2.0 Phase 1 physical Stage 2b — iter 23 KERNEL FLIP:
     // When `memoryProviderOverride` is supplied (env-flag path), inject
@@ -598,6 +604,7 @@ export class LocalAgent implements SDKAgent {
       memoryFacts,
       priorMessages,
       memoryTools,
+      ...(resume !== undefined ? { resume } : {}),
       activePreset: this.activePreset(),
       ...(this.activeTurn !== undefined ? { steerQueue: this.activeTurn.steer } : {}),
     });

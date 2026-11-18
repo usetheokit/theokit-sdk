@@ -65,6 +65,8 @@ export interface CreateRealLocalRunOptions {
   onDelta?: SendOptions["onDelta"];
   /** Prior conversation history (excluding the current user message). */
   priorMessages?: ReadonlyArray<SessionMessage>;
+  /** Answers for deferred tool calls; the loop answers them before its first model call. */
+  toolResume?: import("../agent-loop/types.js").AgentLoopInputs["toolResume"];
   /** Memory tools to register with the LLM (Phase 6 of memory-system-peer-project-parity). */
   memoryTools?: ReadonlyArray<MemoryToolSpec>;
   /**

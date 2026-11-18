@@ -171,7 +171,7 @@ export interface SDKAgent {
    * See {@link SDKAgentPlugins}.
    */
   readonly plugins?: SDKAgentPlugins;
-  send(message: string | SDKUserMessage, options?: SendOptions): Promise<Run>;
+  send(message: string | SDKUserMessage | undefined, options?: SendOptions): Promise<Run>;
   /**
    * SE9 — integrated structured output. Runs the normal tool loop (the tools run
    * first) then coerces the final answer into the `output` Zod schema, returning a

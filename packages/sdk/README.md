@@ -210,7 +210,18 @@ if (result.status === "deferred") {
 }
 ```
 
-The deferred call is not dispatched and the other calls of the step finish. The transcript is written before `wait()` resolves with `deferred`, and ends on the assistant message holding the unanswered `tool_use`; a failed write rejects that `wait()`. Answering a deferred call on a later `send` (`toolDecisions`) is not part of this release.
+The deferred call is not dispatched, the other calls of the step finish, and the transcript ends on the unanswered `tool_use` (plus a `deferred_tool_calls` record carrying each call with its `schemaVersion`).
+
+Resume it with one decision per pending call, on the same agent or after `Agent.resume(agentId)` in a new process:
+
+```ts
+const agent = await Agent.resume(agentId, { plugins: [permissionPlugin] });
+const run = await agent.send(undefined, {
+  toolDecisions: [{ toolUseId, behavior: "allow" }], // or { behavior: "deny", message }
+});
+```
+
+An `allow` runs the call only after the permission floor and the permission rules pass again on the stored input, so a deny rule added while the call waited still wins. A denied call gets `message` as its `tool_result`. A decision for an id that is not pending, a pending id with no decision, or a plain `send` on a session that ends on deferred calls throws `ToolDecisionMismatchError` (code `tool_decision_mismatch`). A stored record with an unknown `schemaVersion` throws `ConfigurationError` (code `deferred_schema_unsupported`).
 
 ## `@theokit/sdk/context`
 

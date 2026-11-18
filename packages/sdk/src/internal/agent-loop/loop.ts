@@ -12,6 +12,7 @@ import { finalizeLoopOutput } from "./loop-finalize.js";
 import { type LlmTurnOutput, streamLlmTurn } from "./loop-llm-stream.js";
 import { recordThinkingOnSilentToolRound, thinkingStep } from "./loop-thinking-steps.js";
 import {
+  answerDeferredCalls,
   buildToolSteps,
   endRunOnDeferredCalls,
   guardAndTransformToolResults,
@@ -55,6 +56,7 @@ export async function runAgentLoop(inputs: AgentLoopInputs): Promise<AgentLoopOu
     ctxRef = ctx;
     // M3 #64 — expose the run span so child spans nest under it.
     ctx.sendSpan = sendSpan;
+    if (inputs.toolResume !== undefined) await answerDeferredCalls(inputs, ctx);
     // #65 — on_session_start hook (previously dead) fires once per run.
     await inputs.pluginManager?.runOnSessionStartHooks({
       agentId: inputs.agentId,

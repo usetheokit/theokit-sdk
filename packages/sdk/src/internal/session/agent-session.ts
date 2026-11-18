@@ -148,7 +148,7 @@ export function persistTurnToTranscript(
   sessionId: string,
   turn: PersistTurnInput,
   onCompact?: () => void,
-): Promise<void> {
+): void {
   const key = transcriptKey(loc.cwd, loc.agentId);
   // PRE-EXISTING debt, exposed when M75 fixed the Biome config that used to abort before
   // sweeping these files (a nested root under refactor/). It is not new code and was not touched
@@ -179,7 +179,6 @@ export function persistTurnToTranscript(
     } catch (cause) {
       const msg = cause instanceof Error ? cause.message : String(cause);
       diag(`[theokit-sdk] session transcript write failed (${loc.agentId}): ${msg}\n`);
-      if (turn.strict === true) throw cause;
     }
   });
   pendingWrites.set(
@@ -189,9 +188,6 @@ export function persistTurnToTranscript(
       () => undefined,
     ),
   );
-  // Only a `strict` turn can reject; for every other turn this resolves, so a caller that drops it
-  // (the fire-and-forget default) cannot raise an unhandled rejection.
-  return chained;
 }
 
 /**
