@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { Agent } from "../src/agent.js";
 import { ConfigurationError } from "../src/errors.js";
 import { fingerprintHookGate, hookFingerprint, listProjectHooks } from "../src/hooks-approval.js";
 import { HooksExecutor } from "../src/internal/runtime/hooks/hooks-executor.js";
@@ -11,10 +12,10 @@ let cwd: string;
 let markerA: string;
 let markerB: string;
 
-function hooksFile(command: string, timeout?: number) {
+function hooksFile(command: string, timeout?: number, event = "PreToolUse") {
   return JSON.stringify({
     hooks: {
-      PreToolUse: [
+      [event]: [
         { hooks: [{ type: "command", command, ...(timeout === undefined ? {} : { timeout }) }] },
       ],
     },
@@ -59,6 +60,48 @@ describe("hook allowlists", () => {
     await executor.run({ event: "preToolUse", tool: "shell" });
     expect(existsSync(markerA)).toBe(true);
     expect(existsSync(markerB)).toBe(false);
+  });
+
+  it("Agent.create passes the gate through local.hooks: only the approved hook runs", async () => {
+    writeFileSync(
+      join(cwd, ".theokit", "hooks.json"),
+      hooksFile(`touch ${markerA}`, undefined, "UserPromptSubmit"),
+    );
+    writeFileSync(
+      join(cwd, ".theokit", "settings.json"),
+      hooksFile(`touch ${markerB}`, 5, "UserPromptSubmit"),
+    );
+    const [first] = await listProjectHooks(cwd);
+    const agent = await Agent.create({
+      apiKey: "theo_test_hook_gate",
+      model: { id: "openai/gpt-4o-mini" },
+      local: {
+        cwd,
+        settingSources: ["project"],
+        hooks: fingerprintHookGate([first?.fingerprint ?? ""]),
+      },
+    });
+    const run = await agent.send("hi");
+    for await (const _ of run.stream()) {
+      // drain
+    }
+    await agent.dispose();
+    expect(existsSync(markerA)).toBe(true);
+    expect(existsSync(markerB)).toBe(false);
+  });
+
+  it("listProjectHooks defaults compatSources from .theokit/config.json; an explicit option overrides it", async () => {
+    mkdirSync(join(cwd, ".claude"), { recursive: true });
+    writeFileSync(join(cwd, ".claude", "settings.json"), hooksFile("echo from-claude"));
+    expect(await listProjectHooks(cwd)).toHaveLength(2);
+    writeFileSync(
+      join(cwd, ".theokit", "config.json"),
+      JSON.stringify({ compat: { adapters: ["claude-code"] } }),
+    );
+    const viaFile = await listProjectHooks(cwd);
+    expect(viaFile.map((h) => h.command)).toContain("echo from-claude");
+    const overridden = await listProjectHooks(cwd, { compatSources: [] });
+    expect(overridden.map((h) => h.command)).not.toContain("echo from-claude");
   });
 
   it("rejects an invalid fingerprint naming its position, not its value", () => {

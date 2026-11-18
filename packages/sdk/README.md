@@ -157,7 +157,7 @@ Two runtimes: **local** (in-process scheduler — fires while the host process i
 
 ## Hook allowlists
 
-Command hooks run shell commands, so an owner may want to approve each one. `listProjectHooks` returns every hook the agent would load for a directory (the same files, precedence and 30 s timeout default as the runtime), `hookFingerprint` is the stable hex sha256 of `sourceEvent\ncommand\ntimeoutMs`, and `fingerprintHookGate` approves only listed fingerprints (an empty list refuses every hook; a malformed item throws `hook_fingerprint_invalid`).
+Command hooks run shell commands, so an owner may want to approve each one. `listProjectHooks` returns every hook the agent would load for a directory (the same files, grouped by event, and 30 s timeout default as the runtime), `hookFingerprint` is the stable hex sha256 of `sourceEvent\ncommand\ntimeoutMs`, and `fingerprintHookGate` approves only listed fingerprints (an empty list refuses every hook; a malformed item throws `hook_fingerprint_invalid`).
 
 ```ts
 import { fingerprintHookGate, listProjectHooks } from "@theokit/sdk/hooks-approval";

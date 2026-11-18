@@ -5,6 +5,7 @@
  */
 import { createHash } from "node:crypto";
 import { ConfigurationError } from "./errors.js";
+import { resolveCompatSources } from "./internal/runtime/compat/compat-config-file.js";
 import type { HookConfig } from "./internal/runtime/hooks/hooks-source.js";
 import { hookApprovalRequest, loadHookConfig } from "./internal/runtime/hooks/hooks-source.js";
 import type { CompatSource } from "./types/agent.js";
@@ -60,9 +61,11 @@ export interface ProjectHook extends HookApprovalRequest {
 }
 
 /**
- * Every command hook the agent would load for `cwd`, in the order the runtime loads them (files in
- * precedence order, events in config order, commands in declaration order). Uses the runtime's own
- * loader, so the file set, precedence and timeout default are the runtime's.
+ * Every command hook the agent would load for `cwd`, grouped by event (events in the
+ * merged config's order, and within an event the commands in the order the runtime merges the files).
+ * This is not a strict file-precedence order across events. Uses the runtime's own loader, so the
+ * file set and timeout default are the runtime's. `compatSources` defaults to the project's
+ * `.theokit/config.json` `compat.adapters`, exactly as for an agent; an explicit option overrides it.
  *
  * @public
  */
@@ -73,7 +76,12 @@ export async function listProjectHooks(
   // The runtime's loader accepts the same declarations `AgentOptions.local.compatSources` does.
   const config: HookConfig = await loadHookConfig(
     cwd,
-    (options.compatSources ?? []) as Parameters<typeof loadHookConfig>[1],
+    resolveCompatSources(
+      {
+        local: options.compatSources === undefined ? {} : { compatSources: options.compatSources },
+      },
+      cwd,
+    ) as Parameters<typeof loadHookConfig>[1],
   );
   const hooks: ProjectHook[] = [];
   for (const [event, commands] of Object.entries(config.hooks ?? {})) {
