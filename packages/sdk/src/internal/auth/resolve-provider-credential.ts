@@ -15,7 +15,7 @@
  */
 
 import { ConfigurationError } from "../../errors.js";
-import { getProviderProfile } from "../../providers.js";
+import { getProviderProfile, listProviders } from "../../providers.js";
 import { parseModelId } from "../llm/model-identifier.js";
 import { providerFromApiKeyPrefix } from "./api-key-prefix.js";
 import { resolveCredential } from "./resolve-credential.js";
@@ -83,12 +83,23 @@ function envValue(env: Record<string, string | undefined>, name: string): string
 /** Profiles also list configuration (endpoint, account id); only secret-shaped names are keys. */
 const SECRET_NAME = /^AWS_BEARER_TOKEN_|(_API_KEY|_KEY|_TOKEN|_SECRET)$/;
 
-/** The candidate's variable first, then the profile's secret-shaped variables, without duplicates. */
+/**
+ * The candidate's variable first, then the profile's secret-shaped variables, without duplicates.
+ * A variable that is another provider's primary key (openrouter lists `OPENAI_API_KEY` as a compat
+ * fallback) is not attributable to this provider, so it is skipped.
+ */
 function varsFor(provider: string, candidates: readonly ProviderCandidate[]): string[] {
+  const foreign = new Set(
+    listProviders()
+      .filter((p) => p.name !== getProviderProfile(provider)?.name)
+      .map((p) => p.envVars[0]),
+  );
   const own = candidates.find((x) => x.name === provider)?.envVar;
   const all = [
     ...(own === undefined ? [] : [own]),
-    ...(getProviderProfile(provider)?.envVars ?? []).filter((v) => SECRET_NAME.test(v)),
+    ...(getProviderProfile(provider)?.envVars ?? []).filter(
+      (v) => SECRET_NAME.test(v) && !foreign.has(v),
+    ),
   ];
   return [...new Set(all)];
 }

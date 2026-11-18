@@ -121,6 +121,16 @@ describe("resolveProviderCredential", () => {
     expect(r.baseUrl).toBe(getProviderProfile("google")?.baseUrl);
   });
 
+  it("does not use another provider's primary variable for a named provider", async () => {
+    for (const key of [OAI, "plain-key"]) {
+      const e = await codeOf(
+        resolveProviderCredential({ env: { OPENAI_API_KEY: key }, model: "openrouter/x" }),
+      );
+      expect(e.code).toBe("model_provider_without_credential");
+      expect(e.message).toContain("OPENROUTER_API_KEY");
+    }
+  });
+
   it("never returns a profile configuration variable as the key", async () => {
     for (const [model, v] of [
       ["azure-openai/x", "AZURE_OPENAI_ENDPOINT"],
