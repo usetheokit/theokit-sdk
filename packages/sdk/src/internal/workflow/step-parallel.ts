@@ -17,6 +17,7 @@
 import type { ParallelStep, Step, StepResult } from "../../types/workflow.js";
 import { WorkflowParallelError } from "../../workflow-errors.js";
 import { createSemaphore } from "../concurrency/async-semaphore.js";
+import { mergeSignals } from "./ctx.js";
 import { errToShape } from "./error-shape.js";
 import type { StepExecution } from "./step-execution.js";
 
@@ -194,24 +195,4 @@ async function runBranch(
     acc = r.output;
   }
   return acc;
-}
-
-function mergeSignals(
-  a: AbortSignal,
-  b: AbortSignal,
-): { signal: AbortSignal; dispose: () => void } {
-  if (a.aborted) return { signal: a, dispose: () => {} };
-  if (b.aborted) return { signal: b, dispose: () => {} };
-  const ctrl = new AbortController();
-  const onAbortA = (): void => ctrl.abort(a.reason);
-  const onAbortB = (): void => ctrl.abort(b.reason);
-  a.addEventListener("abort", onAbortA, { once: true });
-  b.addEventListener("abort", onAbortB, { once: true });
-  return {
-    signal: ctrl.signal,
-    dispose: () => {
-      a.removeEventListener("abort", onAbortA);
-      b.removeEventListener("abort", onAbortB);
-    },
-  };
 }

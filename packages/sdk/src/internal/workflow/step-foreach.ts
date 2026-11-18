@@ -10,6 +10,7 @@
 
 import type { ForeachStep, StepResult } from "../../types/workflow.js";
 import { createSemaphore } from "../concurrency/async-semaphore.js";
+import { mergeSignals } from "./ctx.js";
 import { errToShape } from "./error-shape.js";
 import type { StepExecution } from "./step-execution.js";
 
@@ -140,25 +141,5 @@ export async function runForeachStep(
     attempts: 1,
     durationMs: Date.now() - startedAt,
     output: outputs,
-  };
-}
-
-function mergeSignals(
-  a: AbortSignal,
-  b: AbortSignal,
-): { signal: AbortSignal; dispose: () => void } {
-  if (a.aborted) return { signal: a, dispose: () => {} };
-  if (b.aborted) return { signal: b, dispose: () => {} };
-  const ctrl = new AbortController();
-  const onA = (): void => ctrl.abort(a.reason);
-  const onB = (): void => ctrl.abort(b.reason);
-  a.addEventListener("abort", onA, { once: true });
-  b.addEventListener("abort", onB, { once: true });
-  return {
-    signal: ctrl.signal,
-    dispose: () => {
-      a.removeEventListener("abort", onA);
-      b.removeEventListener("abort", onB);
-    },
   };
 }
