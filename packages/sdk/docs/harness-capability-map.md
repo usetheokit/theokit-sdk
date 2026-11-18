@@ -1144,7 +1144,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `fingerprintHookGate` | function | A gate that approves only hooks whose fingerprint is listed.  |
 | `hookFingerprint` | function | The hex sha256 of `sourceEvent`, `command` and `timeoutMs`, one per line (`${sourceEvent}\n${command}\n${timeoutMs}`).  |
-| `listProjectHooks` | function | Every command hook the agent would load for `cwd`, in the order the runtime loads them (files in precedence order, events in config order, commands in declaration order).  |
+| `listProjectHooks` | function | Every command hook the agent would load for `cwd`, grouped by event (events in the merged config's order, and within an event the commands in the order the runtime merges the files).  |
 | `ProjectHook` | interface | A command hook a project declares, with the fingerprint an owner approves. |
 
 ## `@theokit/sdk/interactive`
