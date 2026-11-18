@@ -228,3 +228,22 @@ const report = loadProjectEnv(process.env, undefined, { extraSovereignKeys: ["AP
 `extraSovereignKeys` protects your own variables in addition to the built-in list. A variable
 already set in the shell is never listed in `set`. If there is no `.env` (or the load throws), `env`
 is left unchanged and the report is `{ set: [], refused: [] }`.
+
+## MCP servers: filtering tools
+
+Many MCP servers list a risky tool next to the useful ones. Set `tools` on a server to choose what the model is offered. Names are the server's own. `include` keeps only the listed names, and `exclude` drops names after that.
+
+```ts
+const agent = await Agent.create({
+  model: { id: "claude-sonnet-5-5" },
+  mcpServers: {
+    playwright: {
+      command: "npx",
+      args: ["@playwright/mcp@latest"],
+      tools: { exclude: ["browser_run_code_unsafe"] },
+    },
+  },
+});
+```
+
+A call to a filtered-out tool is refused in the client with a tool error naming the tool and the server; nothing is sent to the server. An `include` name the server does not list produces one diagnostics warning. A malformed filter makes `Agent.create` throw a `ConfigurationError` with code `invalid_mcp_tool_filter`.
