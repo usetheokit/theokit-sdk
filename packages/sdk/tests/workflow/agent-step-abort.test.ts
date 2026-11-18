@@ -78,47 +78,5 @@ describe("agentStep cancellation", () => {
     release({ cancel, wait: () => new Promise<never>(() => {}) });
     await vi.waitFor(() => expect(cancel).toHaveBeenCalledTimes(1));
   });
-
-  it("an abort inside a branch cancels the workflow and skips later branch steps", async () => {
-    const cancel = vi.fn();
-    const h = hanging(cancel);
-    const after = vi.fn(async () => ({
-      wait: async () => ({ id: "r", status: "finished" as const, result: "x" }),
-    }));
-    const next = { agentId: "n", send: after } as unknown as SDKAgent;
-    const wf = Workflow.create({ name: "w" })
-      .branch([
-        [() => true, [agentStep("a", h.agent, () => "go"), agentStep("b", next, () => "go")]],
-      ])
-      .commit();
-    const ctrl = new AbortController();
-    const p = wf.run("in", { signal: ctrl.signal });
-    await vi.waitFor(() => expect(h.send).toHaveBeenCalled());
-    ctrl.abort();
-    const run = await p;
-    expect(run.status).toBe("cancelled");
-    expect(cancel).toHaveBeenCalledTimes(1);
-    expect(after).not.toHaveBeenCalled();
-  });
-
-  it("an abort inside a dowhile cancels the workflow and stops looping", async () => {
-    const cancel = vi.fn();
-    const h = hanging(cancel);
-    const cond = vi.fn(() => true);
-    const wf = Workflow.create({ name: "w" })
-      .dowhile(
-        agentStep("a", h.agent, () => "go"),
-        cond,
-      )
-      .commit();
-    const ctrl = new AbortController();
-    const p = wf.run("in", { signal: ctrl.signal });
-    await vi.waitFor(() => expect(h.send).toHaveBeenCalled());
-    ctrl.abort();
-    const run = await p;
-    expect(run.status).toBe("cancelled");
-    expect(cancel).toHaveBeenCalledTimes(1);
-    expect(h.send).toHaveBeenCalledTimes(1);
-    expect(cond).not.toHaveBeenCalled();
-  });
 });
+

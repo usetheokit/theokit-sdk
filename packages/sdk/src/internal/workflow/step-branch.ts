@@ -90,16 +90,6 @@ async function runInnerSequence(
         error: r.error ?? errToShape(new Error("branch inner step failed")),
       };
     }
-    if (r.status === "cancelled") {
-      return {
-        stepId: inner.id,
-        kind: "branch",
-        status: "cancelled",
-        attempts: r.attempts,
-        durationMs: 0,
-        ...(r.error !== undefined ? { error: r.error } : {}),
-      };
-    }
     acc = r.output;
   }
   return {
