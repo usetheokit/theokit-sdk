@@ -162,6 +162,7 @@ async function resolvePinned(
   const provider =
     parseModelId(input.model).provider ??
     candidates.find((c) => c.envVar === pinned)?.name ??
+    listProviders().find((p) => p.envVars.includes(pinned))?.name ??
     providerFromApiKeyPrefix(apiKey);
   if (provider === undefined) {
     throw new ProviderCredentialError(

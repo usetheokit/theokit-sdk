@@ -66,6 +66,16 @@ describe("resolveProviderCredential", () => {
     expect(r.origin).toEqual({ kind: "pinned", envVar: "OPENAI_API_KEY" });
   });
 
+  it("resolves a pinned variable that is a known profile variable outside the candidates", async () => {
+    const r = await resolveProviderCredential({
+      env: { ANTHROPIC_API_KEY: "plain-key" },
+      pinnedEnvVar: "ANTHROPIC_API_KEY",
+      providers: [{ name: "openai", envVar: "OPENAI_API_KEY", priority: 1 }],
+    });
+    expect(r.provider).toBe("anthropic");
+    expect(r.origin).toEqual({ kind: "pinned", envVar: "ANTHROPIC_API_KEY" });
+  });
+
   it("rejects an empty pinned variable", async () => {
     const e = await codeOf(resolveProviderCredential({ env: { X: "" }, pinnedEnvVar: "X" }));
     expect(e.code).toBe("pinned_credential_missing");
