@@ -89,12 +89,15 @@ const SECRET_NAME = /^AWS_BEARER_TOKEN_|(_API_KEY|_KEY|_TOKEN|_SECRET)$/;
  * fallback) is not attributable to this provider, so it is skipped.
  */
 function varsFor(provider: string, candidates: readonly ProviderCandidate[]): string[] {
+  const ownPrimary = getProviderProfile(provider)?.envVars[0];
   const foreign = new Set(
     listProviders()
       .filter((p) => p.name !== getProviderProfile(provider)?.name)
-      .map((p) => p.envVars[0]),
+      .map((p) => p.envVars[0])
+      .filter((v) => v !== ownPrimary),
   );
-  const own = candidates.find((x) => x.name === provider)?.envVar;
+  const candidateVar = candidates.find((x) => x.name === provider)?.envVar;
+  const own = candidateVar !== undefined && !foreign.has(candidateVar) ? candidateVar : undefined;
   const all = [
     ...(own === undefined ? [] : [own]),
     ...(getProviderProfile(provider)?.envVars ?? []).filter(
@@ -159,11 +162,18 @@ async function resolvePinned(
       { code: "pinned_credential_missing" },
     );
   }
-  const provider =
-    parseModelId(input.model).provider ??
+  const named = parseModelId(input.model).provider;
+  const known =
     candidates.find((c) => c.envVar === pinned)?.name ??
-    listProviders().find((p) => p.envVars.includes(pinned))?.name ??
-    providerFromApiKeyPrefix(apiKey);
+    listProviders().find((p) => p.envVars[0] === pinned)?.name ??
+    listProviders().find((p) => p.envVars.includes(pinned))?.name;
+  if (known !== undefined && named !== undefined && getProviderProfile(named)?.name !== known) {
+    throw new ProviderCredentialError(
+      `The pinned credential variable ${pinned} belongs to provider "${known}" but the model names provider "${named}"; refusing to send it to the wrong vendor.`,
+      { code: "credential_provider_mismatch" },
+    );
+  }
+  const provider = known ?? named ?? providerFromApiKeyPrefix(apiKey);
   if (provider === undefined) {
     throw new ProviderCredentialError(
       `The provider for the pinned credential variable ${pinned} cannot be determined; name it in the model id.`,
