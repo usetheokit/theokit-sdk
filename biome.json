@@ -21,7 +21,8 @@
       "!**/.theokit",
       "!.claude/knowledge-base/reference",
       "!.claude/knowledge-base/references",
-      "!refactor"
+      "!refactor",
+      "!vendor"
     ]
   },
   "formatter": {
