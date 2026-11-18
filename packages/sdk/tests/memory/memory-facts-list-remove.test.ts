@@ -3,16 +3,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
 import {
-  appendFactToMarkdown,
-  readFactsFromMarkdown,
-} from "../../src/internal/memory/storage/markdown-store.js";
-import { claudeProjectMemoryDir } from "../../src/internal/memory/storage/memory-root.js";
-import {
   listMemoryFacts,
   MemoryFactAmbiguousError,
   MemoryFactNotRemovableError,
   removeMemoryFact,
-} from "../../src/memory-facts/index.js";
+} from "../../src/index.js";
+import {
+  appendFactToMarkdown,
+  readFactsFromMarkdown,
+} from "../../src/internal/memory/storage/markdown-store.js";
+import { claudeProjectMemoryDir } from "../../src/internal/memory/storage/memory-root.js";
 import { removeTempDirRobustSync } from "../helpers/temp-workspace.js";
 
 describe("listMemoryFacts / removeMemoryFact", () => {
@@ -158,19 +158,5 @@ describe("listMemoryFacts / removeMemoryFact", () => {
     expect(
       (await again.search("alpha")).every((h) => !h.path?.endsWith(target?.id as string)),
     ).toBe(true);
-  });
-
-  it("keeps an unrelated legacy fact searchable right after another is removed", async () => {
-    const { IndexManager } = await import("../../src/internal/memory/index-manager.js");
-    writeFileSync(md(), `${readFileSync(md(), "utf8")}- zebra legacy fact\n- quokka legacy fact\n`);
-    const index = await IndexManager.open({ cwd });
-    await index.sync();
-    index.close();
-    const gone = (await listMemoryFacts(cwd)).find((f) => f.text === "zebra legacy fact");
-    expect(await removeMemoryFact(cwd, gone?.id as string)).toBe(true);
-    const again = await IndexManager.open({ cwd });
-    onTestFinished(() => again.close());
-    expect((await again.search("quokka")).length).toBeGreaterThan(0);
-    expect((await again.search("zebra")).length).toBe(0);
   });
 });

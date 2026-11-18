@@ -44,7 +44,6 @@ export default defineConfig({
     // M42 — auth subsystem sub-entry (DTS via tsc; rollup-dts cannot bundle it into `.`).
     "auth/index": "src/auth/index.ts",
     "a2a/index": "src/a2a/index.ts",
-    "memory-facts/index": "src/memory-facts/index.ts",
     "client/index": "src/client/index.ts",
     "sandbox/index": "src/sandbox/index.ts",
     "filesystem/index": "src/filesystem/index.ts",

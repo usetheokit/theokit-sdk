@@ -50,7 +50,6 @@
     "src/auth/**/*",
     "src/internal/auth/**/*",
     "src/a2a/**/*",
-    "src/memory-facts/**/*",
     "src/client/**/*",
     "src/sandbox/**/*",
     "src/filesystem/**/*",

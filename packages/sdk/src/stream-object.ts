@@ -119,18 +119,8 @@ interface StreamObjectDeps {
  *     streamObjectImport ??= import("./stream-object.js");
  *     const { streamObjectImpl } = await streamObjectImport;
  *
- * `knip` resolves imports statically and does not follow a destructure off a
- * dynamic-import promise, so it reports this export as unused on every run. It
- * is not: removing it breaks `Agent.streamObject`. The `@knipignore` tag below
- * silences that one false positive — a tool limitation, not a suppression of a
- * real finding, and the difference is the whole reason this comment exists.
+ * `knip` follows this dynamic import, so no `@knipignore` tag is needed.
  *
- * The tag replaced a whole-file entry in `knip.json`'s ignore list, which also
- * excluded the four other exports in this file from dead-code analysis. The tag
- * is scoped to the symbol knip actually cannot resolve, so the rest of the file
- * is examined again.
- *
- * @knipignore reached only via `await import()` in agent.ts; knip cannot follow it
  * @internal
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: streaming loop interleaves text-delta accumulation, partial-parse attempts, retries, and final dispose — splitting harms locality of the iterator contract.

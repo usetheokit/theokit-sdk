@@ -77,7 +77,6 @@ const targets = [
   // Sub-path exports that need CTS mirrors.
   join(DIST, "rag"),
   join(DIST, "a2a"),
-  join(DIST, "memory-facts"),
   join(DIST, "client"),
   join(DIST, "sandbox"),
   // SE31: filesystem provider seam sub-path.

@@ -99,7 +99,7 @@ const bob = await Agent.create({ memory: { enabled: true, userId: "bob" } });
 ### List and remove memory facts
 
 ```ts
-import { listMemoryFacts, removeMemoryFact } from "@theokit/sdk/memory-facts";
+import { listMemoryFacts, removeMemoryFact } from "@theokit/sdk";
 
 const facts = await listMemoryFacts(process.cwd());
 // [{ id, text, modified?, root, removable }, ...]
