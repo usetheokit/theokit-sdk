@@ -1,7 +1,7 @@
 /**
  * Hook allowlists (#1053): fingerprint a hook, gate by fingerprint, list what a project would run.
  *
- * Exposed as `@theokit/sdk/hooks-approval`, not the root barrel, to keep the root bundle small.
+ * Exported from `@theokit/sdk` (also available as `@theokit/sdk/hooks-approval`).
  */
 import { createHash } from "node:crypto";
 import { ConfigurationError } from "./errors.js";

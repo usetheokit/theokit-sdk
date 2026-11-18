@@ -120,6 +120,8 @@ export {
   type GenerateObjectResult,
 } from "./generate-object.js";
 export { GOAL_CONTINUATION_MARKER, type GoalLoopAgent, runGoalLoop } from "./goal-loop.js";
+export type { ProjectHook } from "./hooks-approval.js";
+export { fingerprintHookGate, hookFingerprint, listProjectHooks } from "./hooks-approval.js";
 // B-564 — aged tool-result pruning options (SendOptions.pruneToolResults).
 export type { PruneToolResultsOptions } from "./internal/agent-loop/prune-tool-results.js";
 // #57 — tool-result content guard options (SendOptions.toolResultGuard).
