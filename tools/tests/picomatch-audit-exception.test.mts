@@ -9,11 +9,11 @@ import { readRootFile } from "./lockfile-versions.mts";
 
 const ADVISORY = "GHSA-fc5q-39xc-vjpf";
 
+// Every `- GHSA-...` list item in the workspace file. Comment lines start with `#`, so a GHSA id
+// mentioned in a comment is not collected. The file's only list of GHSA ids is `ignoreGhsas`.
 function ignoredAdvisories(): string[] {
   const workspace = readRootFile("pnpm-workspace.yaml");
-  const block = /^ignoreGhsas:\n((?: {2,}.*\n?)*)/m.exec(workspace.replace(/^auditConfig:\n/m, ""));
-  const items = block?.[1] ?? "";
-  return [...items.matchAll(/^\s+-\s+(GHSA-[\w-]+)/gm)].map((m) => m[1] as string);
+  return [...workspace.matchAll(/^\s+-\s+(GHSA-[\w-]+)\s*$/gm)].map((m) => m[1] as string);
 }
 
 it("ignores the picomatch advisory and no unreviewed advisory beyond the known ones", () => {
