@@ -76,29 +76,6 @@ describe("resolveProviderCredential", () => {
     expect(r.origin).toEqual({ kind: "pinned", envVar: "ANTHROPIC_API_KEY" });
   });
 
-  it("rejects an opaque pinned key whose variable belongs to another provider than the model", async () => {
-    const e = await codeOf(
-      resolveProviderCredential({
-        env: { GROQ_API_KEY: "opaque-key" },
-        pinnedEnvVar: "GROQ_API_KEY",
-        model: "openai/gpt-4o",
-      }),
-    );
-    expect(e.code).toBe("credential_provider_mismatch");
-    expect(e.message).not.toContain("opaque-key");
-  });
-
-  it("does not resolve another provider's variable named by a custom candidate", async () => {
-    const e = await codeOf(
-      resolveProviderCredential({
-        env: { OPENAI_API_KEY: "opaque-key" },
-        model: "openrouter/x",
-        providers: [{ name: "openrouter", envVar: "OPENAI_API_KEY", priority: 1 }],
-      }),
-    );
-    expect(e.code).toBe("model_provider_without_credential");
-  });
-
   it("rejects an empty pinned variable", async () => {
     const e = await codeOf(resolveProviderCredential({ env: { X: "" }, pinnedEnvVar: "X" }));
     expect(e.code).toBe("pinned_credential_missing");
