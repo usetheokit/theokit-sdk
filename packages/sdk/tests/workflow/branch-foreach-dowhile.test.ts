@@ -352,3 +352,46 @@ describe("workflow .foreach over a parallel step, an item cancelling itself", ()
     }
   });
 });
+
+describe("workflow .parallel signal listeners", () => {
+  it("removes its listener from the parent signal once it settles", async () => {
+    const { runParallelStep } = await import("../../src/internal/workflow/step-parallel.js");
+    for (const errorPolicy of ["fail-fast", "collect"] as const) {
+      const parent = new AbortController();
+      let live = 0;
+      const add = parent.signal.addEventListener.bind(parent.signal);
+      const remove = parent.signal.removeEventListener.bind(parent.signal);
+      parent.signal.addEventListener = ((...a: Parameters<typeof add>) => {
+        live++;
+        add(...a);
+      }) as typeof add;
+      parent.signal.removeEventListener = ((...a: Parameters<typeof remove>) => {
+        live--;
+        remove(...a);
+      }) as typeof remove;
+      const dispatch = vi.fn(async (s: { id: string }) => ({
+        stepId: s.id,
+        kind: "fn" as const,
+        status: s.id === "bad" ? ("failed" as const) : ("completed" as const),
+        attempts: 1,
+        durationMs: 0,
+      }));
+      await runParallelStep(
+        {
+          id: "p",
+          kind: "parallel",
+          errorPolicy,
+          branches: [[{ id: "ok", kind: "fn" }], [{ id: "bad", kind: "fn" }]],
+        } as never,
+        undefined,
+        {
+          ctx: { signal: parent.signal } as never,
+          options: {} as never,
+          prevStepResults: [],
+          dispatch: dispatch as never,
+        },
+      );
+      expect(live).toBe(0);
+    }
+  });
+});
