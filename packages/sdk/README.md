@@ -176,6 +176,24 @@ if (r.truncated.stdout) console.error("stdout was cut at maxOutputBytes");
 
 `runBounded` spawns the child in its own process group (POSIX) and sends `SIGKILL` to the whole group on timeout or when `signal` aborts, so pipelines and background jobs die with it. Each of stdout and stderr is capped at `maxOutputBytes` (default 5 MiB) and `truncated` says which was cut. `timeoutMs <= 0` throws `ConfigurationError`. On Windows process groups do not apply: only the child itself is killed. The `shell` tool and command hooks use this runner; a truncated stream gets a trailing `[output truncated]` note.
 
+## `@theokit/sdk/persistence`: single instance lock
+
+`acquireInstanceLock(dir, { path? })` takes `<dir>.instance.lock` for the life of the process, so two processes never run against the same state directory. A second holder rejects with `InstanceLockedError` (`lockPath`, `holderPid`); the message names the lock and the pid, and says to stop that process or remove the lock if the pid is not running. A lock left by a pid that is no longer running is taken over, and only one of several contenders wins a given stale lock. `release()` removes the lock only while this holder still owns it, and is idempotent.
+
+```ts
+import { acquireInstanceLock } from "@theokit/sdk/persistence";
+
+const lock = await acquireInstanceLock(stateDir);
+
+// on application shutdown, await the release before the process exits
+process.once("SIGTERM", async () => {
+  await lock.release();
+  process.exit(0);
+});
+```
+
+Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must share one pid namespace (not containers or hosts sharing a volume). The lock needs a filesystem with hard links; without one the call rejects with `InstanceLockedError`.
+
 ## `@theokit/sdk/context`
 
 `runDiscovery` finds context files (`AGENTS.md`, `CLAUDE.md`, ...) and inlines their `@path` imports.
