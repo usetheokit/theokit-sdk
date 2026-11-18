@@ -1,7 +1,6 @@
 import { existsSync } from "node:fs";
-
-import { defaultIndexPath, openMemoryDb } from "../index-db.js";
 import { syncCorpus } from "../corpus-sync.js";
+import { defaultIndexPath, openMemoryDb } from "../index-db.js";
 import { MemoryIndexRepository } from "../index-repository.js";
 import { type FactEntryInfo, listFactEntries, removeFactEntry } from "./memory-fact-entries.js";
 import { type MemoryLocationConfig, memoryIndexRoot, resolveMemoryRoot } from "./memory-root.js";
