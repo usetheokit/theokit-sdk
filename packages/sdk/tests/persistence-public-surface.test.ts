@@ -17,6 +17,8 @@ const REQUIRED_PRIMITIVES = [
   "PersistenceSchema",
   "atomicWriteText",
   "atomicWriteJson",
+  "acquireInstanceLock",
+  "InstanceLockedError",
 ] as const;
 
 describe("SE43 DoD#2 — public ./persistence exposes the shared kernel", () => {
