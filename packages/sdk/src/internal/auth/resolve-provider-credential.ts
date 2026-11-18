@@ -70,9 +70,6 @@ export interface ResolveProviderCredentialInput {
   pinnedEnvVar?: string;
 }
 
-/** Vendors whose key prefix is known; only these can be contradicted by a prefix. */
-const PREFIXED = new Set(["openrouter", "anthropic", "openai"]);
-
 interface Found {
   apiKey: string;
   origin: CredentialOrigin;
@@ -83,17 +80,22 @@ function envValue(env: Record<string, string | undefined>, name: string): string
   return typeof v === "string" && v.trim().length > 0 ? v : undefined;
 }
 
-function varFor(provider: string, candidates: readonly ProviderCandidate[]): string | undefined {
-  const c = candidates.find((x) => x.name === provider);
-  return c?.envVar ?? getProviderProfile(provider)?.envVars[0];
+/** The candidate's variable first, then the profile's credential variables, without duplicates. */
+function varsFor(provider: string, candidates: readonly ProviderCandidate[]): string[] {
+  const own = candidates.find((x) => x.name === provider)?.envVar;
+  const all = [
+    ...(own === undefined ? [] : [own]),
+    ...(getProviderProfile(provider)?.envVars ?? []),
+  ];
+  return [...new Set(all)];
 }
 
 async function find(
   provider: string,
-  envVar: string | undefined,
+  envVars: readonly string[],
   input: ResolveProviderCredentialInput,
 ): Promise<Found | undefined> {
-  if (envVar !== undefined) {
+  for (const envVar of envVars) {
     const apiKey = envValue(input.env, envVar);
     if (apiKey !== undefined) return { apiKey, origin: { kind: "env", envVar } };
   }
@@ -103,9 +105,20 @@ async function find(
   return { apiKey: stored.apiKey, origin: { kind: "store", path: stored.source } };
 }
 
-function finish(provider: string, found: Found): ResolvedProviderCredential {
+function finish(
+  provider: string,
+  found: Found,
+  noProfileCode: "model_provider_without_credential" | "pinned_credential_missing",
+): ResolvedProviderCredential {
+  const profile = getProviderProfile(provider);
+  if (profile === undefined) {
+    throw new ProviderCredentialError(
+      `Provider "${provider}" has no provider profile, so its base URL is unknown.`,
+      { code: noProfileCode },
+    );
+  }
   const issuer = providerFromApiKeyPrefix(found.apiKey);
-  if (issuer !== undefined && issuer !== provider && PREFIXED.has(provider)) {
+  if (issuer !== undefined && issuer !== profile.name) {
     const where = found.origin.kind === "store" ? "the credential store" : found.origin.envVar;
     throw new ProviderCredentialError(
       `The credential in ${where} looks like a ${issuer} key but was found for provider "${provider}"; refusing to send it to the wrong vendor.`,
@@ -116,7 +129,7 @@ function finish(provider: string, found: Found): ResolvedProviderCredential {
     provider,
     apiKey: found.apiKey,
     origin: found.origin,
-    baseUrl: getProviderProfile(provider)?.baseUrl ?? "",
+    baseUrl: profile.baseUrl,
   };
 }
 
@@ -142,7 +155,11 @@ async function resolvePinned(
       { code: "pinned_credential_missing" },
     );
   }
-  return finish(provider, { apiKey, origin: { kind: "pinned", envVar: pinned } });
+  return finish(
+    provider,
+    { apiKey, origin: { kind: "pinned", envVar: pinned } },
+    "pinned_credential_missing",
+  );
 }
 
 async function resolveNamed(
@@ -150,16 +167,16 @@ async function resolveNamed(
   input: ResolveProviderCredentialInput,
   candidates: readonly ProviderCandidate[],
 ): Promise<ResolvedProviderCredential> {
-  const envVar = varFor(provider, candidates);
-  const found = await find(provider, envVar, input);
+  const envVars = varsFor(provider, candidates);
+  const found = await find(provider, envVars, input);
   if (found === undefined) {
-    const which = envVar === undefined ? "no known credential variable" : envVar;
+    const which = envVars.length === 0 ? "no known credential variable" : envVars.join(", ");
     throw new ProviderCredentialError(
       `Model provider "${provider}" has no credential (checked ${which}); not falling back to another provider.`,
       { code: "model_provider_without_credential" },
     );
   }
-  return finish(provider, found);
+  return finish(provider, found, "model_provider_without_credential");
 }
 
 async function resolveByPriority(
@@ -168,8 +185,8 @@ async function resolveByPriority(
 ): Promise<ResolvedProviderCredential> {
   const ordered = [...candidates].sort((a, b) => a.priority - b.priority);
   for (const c of ordered) {
-    const found = await find(c.name, c.envVar, input);
-    if (found !== undefined) return finish(c.name, found);
+    const found = await find(c.name, [c.envVar], input);
+    if (found !== undefined) return finish(c.name, found, "model_provider_without_credential");
   }
   const vars = ordered.map((c) => c.envVar).join(", ");
   throw new ProviderCredentialError(`No provider credential found (checked ${vars}).`, {

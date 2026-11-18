@@ -104,6 +104,44 @@ describe("resolveProviderCredential", () => {
     expect(e.code).toBe("no_provider_credential");
     for (const c of DEFAULT_PROVIDER_CANDIDATES) expect(e.message).toContain(c.envVar);
   });
+
+  it("rejects a foreign-prefixed key for a provider outside the prefix table", async () => {
+    const e = await codeOf(
+      resolveProviderCredential({ env: { GROQ_API_KEY: ANT }, model: "groq/x" }),
+    );
+    expect(e.code).toBe("credential_provider_mismatch");
+  });
+
+  it("accepts any variable the provider profile lists", async () => {
+    const r = await resolveProviderCredential({
+      env: { GEMINI_API_KEY: "plain-key" },
+      model: "google/gemini-2.5-pro",
+    });
+    expect(r.origin).toEqual({ kind: "env", envVar: "GEMINI_API_KEY" });
+    expect(r.baseUrl).toBe(getProviderProfile("google")?.baseUrl);
+  });
+
+  it("rejects a pinned credential whose provider has no profile", async () => {
+    const e = await codeOf(
+      resolveProviderCredential({
+        env: { MY_KEY: "plain" },
+        pinnedEnvVar: "MY_KEY",
+        model: "nosuchvendor/x",
+      }),
+    );
+    expect(e.code).toBe("pinned_credential_missing");
+  });
+
+  it("rejects an unknown named provider even with a key in its candidate variable", async () => {
+    const e = await codeOf(
+      resolveProviderCredential({
+        env: { NOPE_KEY: "plain" },
+        model: "nosuchvendor/x",
+        providers: [{ name: "nosuchvendor", envVar: "NOPE_KEY", priority: 1 }],
+      }),
+    );
+    expect(e.code).toBe("model_provider_without_credential");
+  });
 });
 
 function mkHome(body: unknown): string {
