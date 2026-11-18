@@ -154,7 +154,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `missing_credential` | domain | AuthenticationError | `packages/sdk/src/internal/providers/builtin/openai-chatgpt.ts:72` |
 | `missing_frontmatter` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:93` |
 | `missing_model` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:39` |
-| `model_provider_without_credential` | domain | ProviderCredentialError | `packages/sdk/src/internal/auth/resolve-provider-credential.ts:188` |
+| `model_provider_without_credential` | domain | ProviderCredentialError | `packages/sdk/src/internal/auth/resolve-provider-credential.ts:189` |
 | `model_unavailable` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:75` +2 |
 | `muse_not_installed` | domain | ConfigurationError | `packages/sdk/src/internal/llm/muse.ts:60` |
 | `muse_not_signed_in` | domain | AuthenticationError | `packages/sdk/src/internal/llm/muse.ts:67` |
@@ -163,7 +163,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `no_api_key` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-brave.ts:50` +1 |
 | `no_base_url` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-searxng.ts:35` |
 | `no_memory_adapter` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:141` +2 |
-| `no_provider_credential` | domain | ProviderCredentialError | `packages/sdk/src/internal/auth/resolve-provider-credential.ts:206` |
+| `no_provider_credential` | domain | ProviderCredentialError | `packages/sdk/src/internal/auth/resolve-provider-credential.ts:207` |
 | `no_such_session` | domain | NoSuchSessionError | `packages/sdk/src/interactive/types.ts:41` +1 |
 | `no_text_answer` | domain | — | `packages/sdk/src/errors.ts:656` |
 | `no_tool_call` | domain | — | `packages/sdk/src/errors.ts:656` |
