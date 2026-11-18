@@ -39,12 +39,19 @@ export interface HookRule {
 export interface McpHttpRedacted {
   type: "http";
   url: string;
+  tools?: McpToolFilterRedacted;
 }
 
 export interface McpStdioRedacted {
   type: "stdio";
   command: string;
   args?: ReadonlyArray<string>;
+  tools?: McpToolFilterRedacted;
+}
+
+export interface McpToolFilterRedacted {
+  include?: string[];
+  exclude?: string[];
 }
 
 export interface SubagentRef {

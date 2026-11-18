@@ -6,6 +6,7 @@ auditConfig:
     # braces <=3.0.3 (stack exhaustion), reached only through the jscpd dev tool
     # (jscpd > @jscpd/finder > fast-glob > micromatch > braces). No patched release exists.
     - GHSA-vfj7-8cjw-p6xm
-    # picomatch <=4.0.7 (ReDoS via repeated extglobs), reached only through the codemod
-    # package (jscodeshift > picomatch), a one-shot migration tool. No patched release exists.
+    # picomatch <=4.0.7 (GHSA-fc5q-39xc-vjpf, high). No patched release exists (the advisory lists
+    # none, and 4.0.7 is the latest). Reached through jscodeshift in the codemod package and the
+    # changesets, dependency-cruiser and jscpd dev tools. Drop this entry once a fix ships.
     - GHSA-fc5q-39xc-vjpf

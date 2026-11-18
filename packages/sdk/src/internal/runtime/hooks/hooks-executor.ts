@@ -2,7 +2,12 @@ import type { CompatSourceDeclaration } from "../compat/foreign-config-sources.j
 import { adapterForConfigPath, undefinedVariablesIn } from "../compat/foreign-config-sources.js";
 import { readManagedSettings } from "../compat/managed-settings.js";
 import { spawnAndCollect } from "../lifecycle/spawn-collect.js";
-import { loadHookConfig, warnFailureOnce } from "./hooks-source.js";
+import {
+  DEFAULT_HOOK_TIMEOUT_MS,
+  hookApprovalRequest,
+  loadHookConfig,
+  warnFailureOnce,
+} from "./hooks-source.js";
 
 /**
  * Real file-based hook executor. Reads `.theokit/hooks.json` from the
@@ -171,16 +176,10 @@ export class HooksExecutor {
     timeoutMs: number,
   ): Promise<boolean> {
     if (this.gate?.approve === undefined) return false;
+    // #637 — the EFFECTIVE timeout is the one `spawnAndCollect` enforces, passed in so the two agree.
     const request: HookApprovalRequest = {
-      command: command.command,
-      event: payload.event,
-      // #637 — the EFFECTIVE timeout, passed in rather than recomputed here, so the number the
-      // consumer is shown and the number `spawnAndCollect` enforces are the same expression.
-      // Recomputing would be one line and would be the place they later diverge.
+      ...hookApprovalRequest(command, payload.event),
       timeoutMs,
-      sourceEvent: command.sourceEvent,
-      ...(command.sourcePath === undefined ? {} : { sourcePath: command.sourcePath }),
-      ...(command.matcher === undefined ? {} : { matcher: command.matcher }),
     };
     return !(await this.gate.approve(request));
   }
@@ -188,7 +187,7 @@ export class HooksExecutor {
   private async executeOne(command: HookCommand, payload: HookPayload): Promise<HookDecision> {
     // Resolved BEFORE the gate, because #637 shows the consumer the timeout that will actually be
     // applied, and `spawnAndCollect` below is handed this same binding.
-    const timeoutMs = command.timeoutMs ?? 30_000;
+    const timeoutMs = command.timeoutMs ?? DEFAULT_HOOK_TIMEOUT_MS;
     // A refused hook resolves to `allow`, NOT to `deny`. `preRun` and `preToolUse` decisions can
     // block the operation they attach to, so treating "not approved" as a denial would make an
     // unapproved hook worse than an absent one — the consumer asked for the COMMAND not to run, not

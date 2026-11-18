@@ -230,7 +230,7 @@ export interface StepContext {
 export interface StepResult {
   readonly stepId: string;
   readonly kind: Step["kind"];
-  readonly status: "completed" | "failed" | "skipped" | "suspended";
+  readonly status: "completed" | "failed" | "skipped" | "suspended" | "cancelled";
   readonly attempts: number;
   readonly durationMs: number;
   readonly output?: unknown;

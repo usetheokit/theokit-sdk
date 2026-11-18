@@ -138,7 +138,7 @@ function serializeMcpEntry(raw: unknown): McpHttpRedacted | McpStdioRedacted | u
   if (config.type === "http" && typeof config.url === "string") {
     // EC-2: only `url` + `type` cross to PaaS. Drop headers (Authorization),
     // any other caller-side fields.
-    return { type: "http", url: config.url };
+    return { type: "http", url: config.url, ...serializeToolFilter(raw) };
   }
   if (
     (config.type === "stdio" || config.type === undefined) &&
@@ -147,9 +147,20 @@ function serializeMcpEntry(raw: unknown): McpHttpRedacted | McpStdioRedacted | u
     // EC-2: drop env entirely (TOKEN, SECRET, etc.). Drop cwd (caller FS).
     const entry: McpStdioRedacted = { type: "stdio", command: config.command };
     if (Array.isArray(config.args)) entry.args = config.args.map((a) => String(a));
+    Object.assign(entry, serializeToolFilter(raw));
     return entry;
   }
   return undefined;
+}
+
+/** Only `include` / `exclude` cross to the cloud; any other property of `tools` is dropped. */
+function serializeToolFilter(raw: unknown): { tools?: { include?: string[]; exclude?: string[] } } {
+  const tools = (raw as { tools?: { include?: unknown; exclude?: unknown } }).tools;
+  if (typeof tools !== "object" || tools === null) return {};
+  const out: { include?: string[]; exclude?: string[] } = {};
+  if (Array.isArray(tools.include)) out.include = tools.include.map(String);
+  if (Array.isArray(tools.exclude)) out.exclude = tools.exclude.map(String);
+  return { tools: out };
 }
 
 function serializeAgents(agents: AgentOptions["agents"]): CloudAgentPayload["agents"] | undefined {
