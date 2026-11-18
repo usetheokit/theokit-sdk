@@ -34,7 +34,7 @@ import { resolveToolResume, type ToolResume } from "./local-agent-tool-resume.js
 export interface SendLockedInputs {
   agentId: string;
   /** Read for deferred tool calls this send must answer. */
-  sessionStore: SessionStore;
+  sessionStore?: SessionStore;
   disposed: boolean;
   invalidationPending: { reason: string; at: number } | undefined;
   clearInvalidation: () => void;
@@ -200,7 +200,10 @@ export async function executeSendLocked(
   options: SendOptions,
 ): Promise<Run> {
   if (inputs.disposed) throw new AgentDisposedError(inputs.agentId);
-  const resume = await resolveToolResume(inputs.sessionStore, inputs.agentId, options);
+  const resume =
+    inputs.sessionStore === undefined
+      ? undefined
+      : await resolveToolResume(inputs.sessionStore, inputs.agentId, options);
   await consumePending(
     inputs.agentId,
     inputs.invalidationPending,
