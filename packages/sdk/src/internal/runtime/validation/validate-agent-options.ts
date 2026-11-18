@@ -8,6 +8,7 @@ import type {
   CustomTool,
 } from "../../../types/agent.js";
 import type { McpServerConfig } from "../../../types/mcp.js";
+import { validateMcpToolFilter } from "../../mcp/tool-filter.js";
 import { resolveMaxFacts } from "../../memory/storage/fact-ceiling.js";
 
 /**
@@ -127,6 +128,7 @@ function validateMcpServers(options: AgentOptions): void {
       );
     }
     rejectUnhonourableAuth(name, config, options.cloud !== undefined);
+    validateMcpToolFilter(name, config);
   }
 }
 

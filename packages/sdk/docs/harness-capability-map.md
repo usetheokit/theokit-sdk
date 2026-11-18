@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1395 export(s) across 56 entry point(s).
+1407 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -186,6 +186,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `EventBus` | class | A typed publish/subscribe bus, parameterised by a map of event name to payload type.  |
 | `EvictReason` | type | Live-agent cache for production deploys (Production-Readiness #2, ADRs D307-D310).  |
 | `extractRawId` | function | Extract the raw provider id from a `MemoryId`, enforcing that the prefix matches `expectedAdapterId`.  |
+| `fingerprintHookGate` | function | A gate that approves only hooks whose fingerprint is listed.  |
 | `fn` | function | Build a `FnStep`.  |
 | `foldLayers` | function | Combine `entries` into one record.  |
 | `ForkOptions` | interface | Caller-supplied fork configuration.  |
@@ -209,6 +210,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `guardSessionDestruction` | function | Throw unless `sessionId` is safe to destroy. |
 | `HookApprovalGate` | interface | #631 — a consumer's decision point before this package spawns a hook.  |
 | `HookApprovalRequest` | interface | #631 — what the consumer is shown when asked to approve a hook.  |
+| `hookFingerprint` | function | The hex sha256 of `sourceEvent`, `command` and `timeoutMs`, one per line (`${sourceEvent}\n${command}\n${timeoutMs}`).  |
 | `HookName` | type | The fixed set of points a `"general"` plugin may attach to through `PluginContext.on`.  |
 | `ImageBlock` | interface | SE7 — a base64-encoded image block a tool can hand back as (part of) its result or its `ToolError`.  |
 | `inferApiMode` | function | Guess which usage shape a provider reports, from its name alone.  |
@@ -231,6 +233,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `LayerOrderError` | class | Raised when a declared layer chain is not strictly ascending. |
 | `LayerValues` | interface | A declared layer together with the values it supplies.  |
 | `ListAgentsOptions` | type | Options for `Agent.list()`.  |
+| `listProjectHooks` | function | Every command hook the agent would load for `cwd`, grouped by event (events in the merged config's order, and within an event the commands in the order the runtime merges the files).  |
 | `ListResult` | interface | Paginated list shape. |
 | `ListRunsOptions` | interface | Options for `Agent.listRuns()`.  |
 | `listWorkspacePlugins` | function | List the plugins an agent opened on `cwd` would load, without importing or running any plugin code.  |
@@ -242,6 +245,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `LoadProjectEnvOptions` | interface | Options for {@link loadProjectEnv } . |
 | `LocalOptions` | interface | Local agent configuration.  |
 | `ManagedSettings` | interface | What an operator may impose.  |
+| `ManagedSettingsDocument` | interface | The managed-settings file as read: where it was, and every top-level key as written. |
 | `managedSettingsPathFor` | function | Where the platform keeps its managed settings.  |
 | `McpAuthConfig` | interface | OAuth-style auth bundle for HTTP/SSE MCP servers. |
 | `McpHttpServerConfig` | type | HTTP or SSE MCP server. |
@@ -315,6 +319,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ProcessorTripwire` | interface | The tripwire detail attached to {@link RunResult.tripwire } when a processor aborts, and carried by the `tripwire` run-event. |
 | `ProcessorViolation` | interface | A policy violation surfaced to a processor's {@link Processor.onViolation } callback — on `abort()` (blocking) AND on `warn()` (non-blocking). |
 | `ProjectEnvReport` | interface | What {@link loadProjectEnv } changed. |
+| `ProjectHook` | interface | A command hook a project declares, with the fingerprint an owner approves. |
 | `Provider` | class | SE36 — uniform namespace API.  |
 | `ProviderCapability` | type | Owner: `src/` (4 of 9 importers).  |
 | `ProviderProfile` | interface | A data-only declaration of an LLM provider: its name, HTTP dialect, auth style, base URL and fallback models.  |
@@ -326,6 +331,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `QueueMode` | type | How a message sent during a running turn is queued.  |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
 | `readManagedSettings` | function | Read the deployed policy, or `{}` when none is.  |
+| `readManagedSettingsDocument` | function | Read the whole managed-settings file, for an app that defines its own keys (model, sandbox mode, approval policy) and lets an operator impose them through it.  |
+| `ReadManagedSettingsDocumentOptions` | interface | Options for `readManagedSettingsDocument`. |
 | `readSessionMessages` | function | Read the messages a session already contains, for a surface that needs to re-render it.  |
 | `ReadSessionMessagesOptions` | interface | Which session to read, in the terms a host already has. |
 | `ReapableArtifact` | interface | One artifact the caller is considering deleting, described well enough to decide about.  |
@@ -417,6 +424,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `Squad` | class | A sequential agent team produced by {@link createSquad } .  |
 | `SquadOptions` | interface | Options for {@link createSquad } . |
 | `SquadRun` | interface | Result of a {@link Squad.run } .  |
+| `SquadRunOptions` | interface | Options for {@link Squad.run } . |
 | `StepCompletedUpdate` | interface | Conversation step completed. |
 | `StepStartedUpdate` | interface | Conversation step started. |
 | `StreamObjectError` | class | Error thrown by {@link Agent.streamObject } when the model refuses to call the synthetic `output` tool or when all retries fail to produce a schema-valid object.  |
@@ -1137,6 +1145,15 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `resolveFilesystem` | function | Resolve a {@link FilesystemProvider } to a concrete backend for `ctx`. |
 | `StaleFileError` | class | SE32 — a write's `expectedMtime` did not match the file's current mtime: the file changed since it was last read, so the write would silently clobber. |
 | `WriteFileOptions` | interface | Options a write may carry.  |
+
+## `@theokit/sdk/hooks-approval`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `fingerprintHookGate` | function | A gate that approves only hooks whose fingerprint is listed.  |
+| `hookFingerprint` | function | The hex sha256 of `sourceEvent`, `command` and `timeoutMs`, one per line (`${sourceEvent}\n${command}\n${timeoutMs}`).  |
+| `listProjectHooks` | function | Every command hook the agent would load for `cwd`, grouped by event (events in the merged config's order, and within an event the commands in the order the runtime merges the files).  |
+| `ProjectHook` | interface | A command hook a project declares, with the fingerprint an owner approves. |
 
 ## `@theokit/sdk/interactive`
 

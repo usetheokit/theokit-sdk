@@ -88,3 +88,135 @@ describe("M81 T2.2 — Squad.create accepts AgentDefinition", () => {
     }
   });
 });
+
+describe("Squad disposes the agents it materialized", () => {
+  it("disposes both materialized definitions after run", async () => {
+    const { vi } = await import("vitest");
+    const { Agent } = await import("../src/agent.js");
+    const disposed: string[] = [];
+    const spy = vi.spyOn(Agent, "create").mockImplementation((async (o: { agentId?: string }) => ({
+      agentId: o.agentId,
+      send: async () => ({ wait: async () => ({ id: "r", status: "finished", result: "ok" }) }),
+      dispose: async () => {
+        disposed.push(String(o.agentId));
+      },
+    })) as never);
+    try {
+      const run = await Squad.create({ agents: [definition, definition] }).run("go");
+      expect(run.status).toBe("completed");
+      expect(disposed.sort()).toEqual(["squad-member-0", "squad-member-1"]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe("Squad stops building once the signal aborts", () => {
+  async function spyCreate(onCreate?: () => void) {
+    const { vi } = await import("vitest");
+    const { Agent } = await import("../src/agent.js");
+    return vi.spyOn(Agent, "create").mockImplementation((async () => {
+      onCreate?.();
+      return {
+        agentId: "m",
+        send: async () => ({ wait: async () => ({ id: "r", status: "finished", result: "ok" }) }),
+        dispose: async () => {},
+      };
+    }) as never);
+  }
+
+  it("never calls Agent.create when the signal is already aborted", async () => {
+    const spy = await spyCreate();
+    try {
+      const ctrl = new AbortController();
+      ctrl.abort();
+      const run = await Squad.create({ agents: [definition] }).run("go", { signal: ctrl.signal });
+      expect(run.status).toBe("cancelled");
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("does not create the next member when the signal aborts between members", async () => {
+    const ctrl = new AbortController();
+    const spy = await spyCreate(() => ctrl.abort());
+    try {
+      const run = await Squad.create({ agents: [definition, definition] }).run("go", {
+        signal: ctrl.signal,
+      });
+      expect(run.status).toBe("cancelled");
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("does not create a member when the signal aborts during asynchronous preparation", async () => {
+    const spy = await spyCreate();
+    try {
+      const ctrl = new AbortController();
+      const p = Squad.create({ agents: [definition] }).run("go", { signal: ctrl.signal });
+      ctrl.abort(); // run() is suspended on the lazy import of the agent module
+      const run = await p;
+      expect(run.status).toBe("cancelled");
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe("Squad interrupts a stalled Agent.create", () => {
+  async function stalled() {
+    const { vi } = await import("vitest");
+    const { Agent } = await import("../src/agent.js");
+    const disposed: number[] = [];
+    let resolveCreate: ((a: unknown) => void) | undefined;
+    const spy = vi.spyOn(Agent, "create").mockImplementation(
+      (() =>
+        new Promise((res) => {
+          resolveCreate = res;
+        })) as never,
+    );
+    const late = {
+      agentId: "late",
+      send: async () => ({ wait: async () => ({ id: "r", status: "finished", result: "ok" }) }),
+      dispose: async () => {
+        disposed.push(1);
+      },
+    };
+    return { spy, disposed, late, finish: () => resolveCreate?.(late) };
+  }
+
+  it("settles as cancelled and timedOut on timeout, then disposes the late agent", async () => {
+    const s = await stalled();
+    try {
+      const run = await Squad.create({ agents: [definition] }).run("go", { timeoutMs: 30 });
+      expect(run.status).toBe("cancelled");
+      expect(run.timedOut).toBe(true);
+      s.finish();
+      await new Promise((r) => setTimeout(r, 10));
+      expect(s.disposed).toEqual([1]);
+    } finally {
+      s.spy.mockRestore();
+    }
+  });
+
+  it("settles as cancelled on external abort, then disposes the late agent", async () => {
+    const s = await stalled();
+    try {
+      const ctrl = new AbortController();
+      const p = Squad.create({ agents: [definition] }).run("go", { signal: ctrl.signal });
+      await new Promise((r) => setTimeout(r, 20));
+      ctrl.abort();
+      const run = await p;
+      expect(run.status).toBe("cancelled");
+      s.finish();
+      await new Promise((r) => setTimeout(r, 10));
+      expect(s.disposed).toEqual([1]);
+    } finally {
+      s.spy.mockRestore();
+    }
+  });
+});

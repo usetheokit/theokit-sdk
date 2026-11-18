@@ -68,6 +68,16 @@
         "default": "./dist/context/index.cjs"
       }
     },
+    "./hooks-approval": {
+      "import": {
+        "types": "./dist/hooks-approval.d.ts",
+        "default": "./dist/hooks-approval.js"
+      },
+      "require": {
+        "types": "./dist/hooks-approval.d.cts",
+        "default": "./dist/hooks-approval.cjs"
+      }
+    },
     "./messages": {
       "import": {
         "types": "./dist/messages.d.ts",
