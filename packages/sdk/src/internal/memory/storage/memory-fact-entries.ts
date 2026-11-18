@@ -64,12 +64,8 @@ export function removeFactEntry(
 ): Promise<string[]> {
   const writeRoot = resolveMemoryRoot(cwd, config);
   return withCwdMutex(writeRoot, async () => {
-    const matches = (await allFactEntries(cwd, config)).filter((e) => e.id === id);
-    if (matches.length === 0) return [];
-    assertSingleRoot(id, matches);
-    const target = matches.find((e) => resolve(e.root) === resolve(writeRoot));
-    if (target === undefined)
-      throw new MemoryFactNotRemovableError(id, (matches[0] as FactEntry).root);
+    const target = await findRemovable(cwd, id, config, writeRoot);
+    if (target === undefined) return [];
     const memoryMd = join(writeRoot, "MEMORY.md");
     const file = join(writeRoot, target.id);
     const touched = target.legacy ? [memoryMd] : [file, memoryMd];
@@ -84,6 +80,22 @@ export function removeFactEntry(
     await unlink(file);
     return touched;
   });
+}
+
+/** The write-root entry with `id`; undefined when none; throws when it exists only elsewhere. */
+async function findRemovable(
+  cwd: string,
+  id: string,
+  config: MemoryLocationConfig | undefined,
+  writeRoot: string,
+): Promise<FactEntry | undefined> {
+  const matches = (await allFactEntries(cwd, config)).filter((e) => e.id === id);
+  if (matches.length === 0) return undefined;
+  assertSingleRoot(id, matches);
+  const target = matches.find((e) => resolve(e.root) === resolve(writeRoot));
+  if (target === undefined)
+    throw new MemoryFactNotRemovableError(id, (matches[0] as FactEntry).root);
+  return target;
 }
 
 /** Refuse an id that names entries in more than one root. */
