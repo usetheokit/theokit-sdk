@@ -58,7 +58,6 @@ function importedFrom(files: readonly string[]): Set<string> {
  */
 const KNOWN_TEST_ONLY = new Set([
   "internal/judge/types.ts",
-  "internal/memory/storage/forget-fact.ts", // no forget call site exists yet; pending wiring (#1199)
   "internal/judge/verify-side-effect.ts",
   "internal/llm/credential-pool-store.ts",
   "internal/persistence/pagination.ts",

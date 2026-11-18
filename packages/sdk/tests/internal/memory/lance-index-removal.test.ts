@@ -66,17 +66,16 @@ describe.skipIf(!isLanceAvailable())("LanceIndex.removeFacts (real LanceDB)", ()
     expect(await ids(index)).toEqual(["f1#0"]);
   });
 
-  it("without a scope removes the fact in every namespace and source", async () => {
+  it("without a scope removes only the exact id, as before, leaving linked chunks", async () => {
     const { index } = await open();
     await index.addFacts([
       fact("f1"),
+      fact("f1#0", { fact_id: "f1" }),
       fact("f1", { source: "wiki" }),
-      fact("f1", { namespace: "other" }),
       fact("keep"),
     ]);
     await index.removeFacts(["f1"]);
-    expect(await ids(index)).toEqual(["keep"]);
-    expect(await index.search("x", { namespace: "other" })).toEqual([]);
+    expect(await ids(index)).toEqual(["f1#0", "keep"]);
   });
 
   it("keeps a row named like the fact but linked to another fact", async () => {
@@ -154,7 +153,7 @@ describe.skipIf(!isLanceAvailable())("LanceIndex.removeFacts (real LanceDB)", ()
     expect(await ids(b.index)).toEqual(["keep"]);
   });
 
-  it("a table written before `fact_id` existed gains it and still removes exact ids", async () => {
+  it("a table written before `fact_id` existed is not back-filled and removes exact ids", async () => {
     const first = await open();
     const { dir } = first;
     await first.index.addFacts([fact("old"), fact("old#0")]);
@@ -163,10 +162,8 @@ describe.skipIf(!isLanceAvailable())("LanceIndex.removeFacts (real LanceDB)", ()
     ).table;
     await table.dropColumns(["fact_id"]);
     const { index } = await open(dir);
-    await index.removeFacts(["old"], SCOPE);
-    expect(await ids(index)).toEqual(["old#0"]);
-    await index.addFacts([fact("n#0", { fact_id: "n" })]);
-    await index.removeFacts(["n"], SCOPE);
+    await index.addFacts([fact("n", { fact_id: "n" })]);
+    await index.removeFacts(["old", "n"], SCOPE);
     expect(await ids(index)).toEqual(["old#0"]);
   });
 });

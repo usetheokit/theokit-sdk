@@ -38,7 +38,6 @@ interface LanceTable {
   search: (vector: ReadonlyArray<number>) => LanceQuery;
   delete: (predicate: string) => Promise<void>;
   checkoutLatest: () => Promise<void>;
-  addColumns: (transforms: ReadonlyArray<{ name: string; valueSql: string }>) => Promise<unknown>;
   countRows: () => Promise<number>;
   // EC-8: schema introspection for dimension check.
   schema: () => Promise<{
@@ -77,8 +76,9 @@ export interface LanceFactRecord {
   timestamp: number;
   /**
    * The fact this row is a chunk of. Rows of one split fact share it, so `removeFacts(<fact>)`
-   * finds them without guessing from the id. Defaults to `id` on write; rows written before this
-   * column existed were back-filled with their own `id`, so they only match an exact removal.
+   * finds them without guessing from the id. Defaults to `id` on write; tables created before this
+   * column existed are left as they are: they have no parent link, are written without it, and are
+   * removed by exact id only.
    */
   fact_id?: string;
 }
@@ -160,6 +160,8 @@ export class LanceIndex {
     private readonly embeddingDim: number,
     /** Identity of the storage the table lives in; instances sharing it share one write queue. */
     private readonly queueKey: string = `anonymous:${nextAnonymousKey++}`,
+    /** False for a table created before `fact_id` existed; nothing is back-filled into it. */
+    private readonly hasFactId: boolean = true,
   ) {}
 
   /**
@@ -187,6 +189,7 @@ export class LanceIndex {
     const tableName = "facts";
     const existing = await conn.tableNames();
     let table: LanceTable;
+    let hasFactId = true;
     if (existing.includes(tableName)) {
       table = await conn.openTable(tableName);
       // EC-8: validate embedding dimension matches what's in storage.
@@ -194,9 +197,7 @@ export class LanceIndex {
       // in `type.listSize` (older API used `fixedSize`; we read both for
       // forward/backward safety).
       const schema = await table.schema();
-      if (!schema.fields.some((f) => f.name === "fact_id")) {
-        await table.addColumns([{ name: "fact_id", valueSql: "id" }]);
-      }
+      hasFactId = schema.fields.some((f) => f.name === "fact_id");
       const embField = schema.fields.find((f) => f.name === "embedding");
       const existingDim = embField?.type?.listSize ?? embField?.type?.fixedSize;
       if (typeof existingDim === "number" && existingDim !== dim) {
@@ -222,7 +223,7 @@ export class LanceIndex {
       table = await conn.createTable(tableName, [bootstrap]);
       await table.delete("namespace = '__bootstrap__'");
     }
-    return new LanceIndex(table, opts.embedding, dim, resolve(storagePath));
+    return new LanceIndex(table, opts.embedding, dim, resolve(storagePath), hasFactId);
   }
 
   async addFacts(facts: ReadonlyArray<Omit<LanceFactRecord, "embedding">>): Promise<void> {
@@ -237,9 +238,9 @@ export class LanceIndex {
   ): Promise<void> {
     const texts = facts.map((f) => f.text);
     const embeddings = await this.embedding.embed(texts);
-    const rows: LanceFactRecord[] = facts.map((f, i) => ({
+    const rows: LanceFactRecord[] = facts.map(({ fact_id, ...f }, i) => ({
       ...f,
-      fact_id: f.fact_id ?? f.id,
+      ...(this.hasFactId ? { fact_id: fact_id ?? f.id } : {}),
       embedding: embeddings[i] ?? new Array(this.embeddingDim).fill(0),
     }));
     await this.table.add(rows);
@@ -289,21 +290,21 @@ export class LanceIndex {
   }
 
   /**
-   * Remove facts by id: every row whose `fact_id` is that id (a plain fact's `fact_id` is its own
-   * id; a split fact's chunks share it). Rows are linked by `fact_id`, never by id shape, so an unrelated row named
-   * `<id>#0` is kept. Pass `scope` to touch only rows of that namespace AND source, so
-   * a same-named row owned by another namespace or source (a note, a wiki page) survives. Runs
-   * after any add already queued on this storage path, including adds from other `LanceIndex`
-   * objects opened on it.
+   * Remove facts by id. Without `scope` this is the exact-id deletion it always was. With `scope`
+   * it removes every row of that namespace AND source whose `fact_id` is the id (a split fact's
+   * chunks share it), linked by `fact_id` and never by id shape, so a same-named row owned by
+   * another namespace or source (a note, a wiki page) survives. On a table that predates `fact_id`
+   * only exact ids match. Runs after any add already queued on this storage path, including adds
+   * from other `LanceIndex` objects opened on it.
    */
   async removeFacts(
     ids: ReadonlyArray<string>,
     scope?: { namespace: string; source: "memory" | "sessions" | "wiki" },
   ): Promise<void> {
     if (ids.length === 0) return;
-    const idMatch = ids.map((id) => `fact_id = '${idLiteral(id)}'`).join(" OR ");
+    const column = scope !== undefined && this.hasFactId ? "fact_id" : "id";
     const where = [
-      `(${idMatch})`,
+      `(${ids.map((id) => `${column} = '${idLiteral(id)}'`).join(" OR ")})`,
       ...(scope
         ? [
             `namespace = '${escapeSqlValue(scope.namespace)}'`,
