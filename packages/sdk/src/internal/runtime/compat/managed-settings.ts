@@ -217,9 +217,7 @@ function readPolicyDocument(
   }
 
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    warn(
-      `[theokit-sdk] ${path} is not a JSON object — NO operator policy is being applied.\n`,
-    );
+    warn(`[theokit-sdk] ${path} is not a JSON object — NO operator policy is being applied.\n`);
     return undefined;
   }
   return parsed as Record<string, unknown>;
