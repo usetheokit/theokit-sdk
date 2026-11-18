@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as fsp from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -8,9 +9,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("node:fs/promises", async (orig) => {
   const actual = await orig<typeof import("node:fs/promises")>();
-  return { ...actual, link: vi.fn(actual.link), readFile: vi.fn(actual.readFile) };
+  return {
+    ...actual,
+    link: vi.fn(actual.link),
+    unlink: vi.fn(actual.unlink),
+    readFile: vi.fn(actual.readFile),
+  };
 });
 
+import { acquireWithHooks } from "../src/internal/persistence/instance-lock.js";
 import { acquireInstanceLock, InstanceLockedError } from "../src/persistence.js";
 import { withMockedCwd } from "./helpers/with-cwd.js";
 
@@ -159,4 +166,99 @@ describe("acquireInstanceLock", () => {
     },
     30000,
   );
+
+  describe("takeover guards and release (#1191)", () => {
+    const staleRaw = () => JSON.stringify({ pid: deadPid(), nonce: "stale" });
+    const guardsOf = () => readdirSync(root).filter((f) => f.includes(".instance.lock.takeover."));
+    const generation = (raw: string) => createHash("sha256").update(raw).digest("hex").slice(0, 32);
+
+    it("takes over after 17 crashed contenders left guards on one generation", async () => {
+      const raw = staleRaw();
+      writeFileSync(lockPath, raw);
+      const dead = JSON.stringify({ pid: deadPid(), nonce: "crashed" });
+      for (let k = 0; k < 17; k++) {
+        writeFileSync(`${lockPath}.takeover.${generation(raw)}.${k}`, dead);
+      }
+      const l = await acquireInstanceLock(dir);
+      expect(readHolder().pid).toBe(process.pid);
+      await l.release();
+    });
+
+    it("a guard left by a crashed contender does not block a later takeover", async () => {
+      const raw = staleRaw();
+      writeFileSync(lockPath, raw);
+      writeFileSync(
+        `${lockPath}.takeover.${generation(raw)}.0`,
+        JSON.stringify({ pid: deadPid(), nonce: "crashed" }),
+      );
+      const l = await acquireInstanceLock(dir);
+      expect(readHolder().pid).toBe(process.pid);
+      await l.release();
+    });
+
+    it("a live guard is never skipped", async () => {
+      const raw = staleRaw();
+      writeFileSync(lockPath, raw);
+      writeFileSync(
+        `${lockPath}.takeover.${generation(raw)}.0`,
+        JSON.stringify({ pid: process.pid, nonce: "live" }),
+      );
+      await expect(acquireInstanceLock(dir)).rejects.toBeInstanceOf(InstanceLockedError);
+      expect(readFileSync(lockPath, "utf8")).toBe(raw);
+    });
+
+    it("a paused release() does not remove a guard a later generation published", async () => {
+      const raw = staleRaw();
+      writeFileSync(lockPath, raw);
+      const guard0 = `${lockPath}.takeover.${generation(raw)}.0`;
+      let resume!: () => void;
+      let paused!: () => void;
+      const pausedP = new Promise<void>((r) => (paused = r));
+      const gate = new Promise<void>((r) => (resume = r));
+      const a = await acquireWithHooks(dir, undefined, {
+        beforeGuardCleanup: async () => {
+          paused();
+          await gate;
+        },
+      });
+      expect(existsSync(guard0)).toBe(true);
+      const releasing = a.release();
+      await pausedP; // A's lock is gone; A still holds its guard list
+      // A later generation (same stale content) publishes its guard at the same path.
+      rmSync(guard0);
+      writeFileSync(lockPath, raw);
+      let guardSeen!: () => void;
+      let proceed!: () => void;
+      const seen = new Promise<void>((r) => (guardSeen = r));
+      const go = new Promise<void>((r) => (proceed = r));
+      const b = acquireWithHooks(dir, undefined, {
+        afterGuardPublished: async () => {
+          guardSeen();
+          await go;
+        },
+      });
+      await seen;
+      const bGuard = readFileSync(guard0, "utf8");
+      resume();
+      await releasing;
+      expect(readFileSync(guard0, "utf8")).toBe(bGuard);
+      proceed();
+      const lockB = await b;
+      expect(readHolder().pid).toBe(process.pid);
+      expect(guardsOf().length).toBeGreaterThan(0);
+      await lockB.release();
+      expect(existsSync(lockPath)).toBe(false);
+    });
+
+    it("release() rejects when the unlink fails, and a later release() removes the lock", async () => {
+      const l = await acquireInstanceLock(dir);
+      vi.mocked(fsp.unlink).mockRejectedValueOnce(
+        Object.assign(new Error("busy"), { code: "EIO" }),
+      );
+      await expect(l.release()).rejects.toThrow("busy");
+      expect(existsSync(lockPath)).toBe(true);
+      await l.release();
+      expect(existsSync(lockPath)).toBe(false);
+    });
+  });
 });
