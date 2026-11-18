@@ -66,20 +66,27 @@ export function removeFactEntry(
   return withCwdMutex(writeRoot, async () => {
     const target = await findRemovable(cwd, id, config, writeRoot);
     if (target === undefined) return [];
-    const memoryMd = join(writeRoot, "MEMORY.md");
-    const file = join(writeRoot, target.id);
-    const touched = target.legacy ? [memoryMd] : [file, memoryMd];
-    // Index cleanup first: if it fails nothing is removed and the same call can be retried; if a
-    // later step fails the index merely lacks rows that the next sync re-adds.
-    await beforeRemove?.(touched);
-    if (target.legacy)
-      return (await removeLegacyBullet(writeRoot, target.fact.text)) ? touched : [];
-    // Index line before the unlink: if the unlink fails, the file is still listed and a retry by
-    // id finishes the job.
-    await removeIndexLine(writeRoot, target.id);
-    await unlink(file);
-    return touched;
+    return removeTarget(writeRoot, target, beforeRemove);
   });
+}
+
+async function removeTarget(
+  writeRoot: string,
+  target: FactEntry,
+  beforeRemove?: (touched: string[]) => Promise<void>,
+): Promise<string[]> {
+  const memoryMd = join(writeRoot, "MEMORY.md");
+  const file = join(writeRoot, target.id);
+  const touched = target.legacy ? [memoryMd] : [file, memoryMd];
+  // Index cleanup first: if it fails nothing is removed and the same call can be retried; if a
+  // later step fails the index merely lacks rows that the next sync re-adds.
+  await beforeRemove?.(touched);
+  if (target.legacy) return (await removeLegacyBullet(writeRoot, target.fact.text)) ? touched : [];
+  // Index line before the unlink: if the unlink fails, the file is still listed and a retry by
+  // id finishes the job.
+  await removeIndexLine(writeRoot, target.id);
+  await unlink(file);
+  return touched;
 }
 
 /** The write-root entry with `id`; undefined when none; throws when it exists only elsewhere. */
