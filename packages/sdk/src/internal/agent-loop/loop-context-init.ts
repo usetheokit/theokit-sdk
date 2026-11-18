@@ -300,7 +300,8 @@ function shellToolDescriptor(withheld: ReadonlySet<string>): ResolvedTool[] {
   ];
 }
 
-async function collectTools(
+/** @internal exported for tests */
+export async function collectTools(
   mcp: Map<string, McpClient>,
   withheld: ReadonlySet<string>,
   sink?: RunEventSink,
@@ -310,7 +311,7 @@ async function collectTools(
     const mcpTools = await safeListTools(client, serverName, sink);
     for (const tool of mcpTools) {
       tools.push({
-        name: `mcp_${sanitize(serverName)}_${sanitize(tool.name)}`,
+        name: mcpModelToolName(serverName, tool.name),
         description: tool.description,
         inputSchema: tool.inputSchema,
         origin: "mcp",
@@ -321,6 +322,19 @@ async function collectTools(
     }
   }
   return tools;
+}
+
+/**
+ * The name the MODEL sees for an MCP tool: `mcp_<server>_<tool>`, each part reduced to characters
+ * providers accept as a tool name. This is the ONLY place the transformation happens; execution
+ * keeps the server's own names (`mcpServerName` / `mcpToolName` on the resolved tool), so the
+ * sanitized form is never sent to a server. The catalog built from `listTools` (already narrowed by
+ * any MCP tool filter) is the sole dispatch authority: a name that is not in it is refused.
+ *
+ * @internal
+ */
+export function mcpModelToolName(serverName: string, toolName: string): string {
+  return `mcp_${sanitize(serverName)}_${sanitize(toolName)}`;
 }
 
 function sanitize(name: string): string {

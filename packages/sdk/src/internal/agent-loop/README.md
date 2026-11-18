@@ -27,3 +27,9 @@ Plan `arch-review-fixes-2026-06-06` T11.2 records this trade-off. Audit DB row `
 - D88 — NO fuzzy tool-name matching
 - D89 — tool errors return as `tool_result isError: true`, never throw
 - D375-D388 — Budget USD-grade accounting wired through `usage-and-cost.ts`
+
+## MCP names and forced calls
+
+The model sees MCP tools as `mcp_<server>_<tool>` (`mcpModelToolName` in `loop-context-init.ts`, the single place names are sanitized). Execution uses the server's original names carried on the resolved tool, so the sanitized name is never sent to a server.
+
+The catalog built from each client's `listTools` — already narrowed by any MCP tool filter — is the only dispatch authority. A call (including a forced one) whose name is not in the catalog is refused with an `Unknown tool` error and never reaches `callTool`. Because sanitizing can produce names differing only in case, `tool-dispatch.ts` never case-repairs `mcp_` names or ambiguous matches, so a filtered-out tool cannot be silently redirected to a different offered one.
