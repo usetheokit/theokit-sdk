@@ -238,3 +238,18 @@ const agent = await Agent.create({
 ```
 
 A call to a filtered-out tool is refused in the client with a tool error naming the tool and the server; nothing is sent to the server. An `include` name the server does not list produces one diagnostics warning. A malformed filter makes `Agent.create` throw a `ConfigurationError` with code `invalid_mcp_tool_filter`.
+
+## Reading the managed settings document
+
+`readManagedSettings()` returns only the four keys the SDK enforces. An app with its own keys (model, sandbox mode, approval policy) that an operator imposes through `managed-settings.json` can read the whole file with `readManagedSettingsDocument()`:
+
+```ts
+import { readManagedSettingsDocument } from "@theokit/sdk";
+
+const doc = readManagedSettingsDocument(undefined, { onWarn: (m) => console.warn(m) });
+// null when there is no file; otherwise { path, raw } with every top-level key as written
+```
+
+- An absent file returns `null` and warns nothing. An unreadable, invalid or non-object file returns `null` and warns through `onWarn` (default: the SDK failure diagnostic).
+- Nothing is validated: the caller owns the schema for its keys.
+- `managedSettingsPathFor(root?)` is the one path resolver. It picks a single path by `process.platform`; it does not consult all three platform paths.
