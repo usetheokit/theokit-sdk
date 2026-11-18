@@ -1,5 +1,5 @@
-import { MemoryFactAmbiguousError, MemoryFactNotRemovableError } from "./errors.js";
-import type { MemorySettings } from "./types/agent.js";
+import { MemoryFactAmbiguousError, MemoryFactNotRemovableError } from "../errors.js";
+import type { MemorySettings } from "../types/agent.js";
 
 export { MemoryFactAmbiguousError, MemoryFactNotRemovableError };
 
@@ -63,4 +63,4 @@ export function removeMemoryFact(
 }
 
 // Loaded on demand so the store and index code stay out of the entry bundle.
-const load = () => import("./internal/memory/storage/facts-api.js");
+const load = () => import("../internal/memory/storage/facts-api.js");

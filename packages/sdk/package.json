@@ -318,6 +318,16 @@
         "default": "./dist/internal/memory/storage/index.cjs"
       }
     },
+    "./memory-facts": {
+      "import": {
+        "types": "./dist/memory-facts/index.d.ts",
+        "default": "./dist/memory-facts/index.js"
+      },
+      "require": {
+        "types": "./dist/memory-facts/index.d.cts",
+        "default": "./dist/memory-facts/index.cjs"
+      }
+    },
     "./a2a": {
       "import": {
         "types": "./dist/a2a/index.d.ts",

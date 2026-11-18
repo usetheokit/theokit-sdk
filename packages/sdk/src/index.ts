@@ -96,8 +96,6 @@ export {
   isTransientError,
   MemoryAdapterError,
   type MemoryAdapterErrorCode,
-  MemoryFactAmbiguousError,
-  MemoryFactNotRemovableError,
   NetworkError,
   RateLimitError,
   TaskNotFoundError,
@@ -293,7 +291,6 @@ export {
 } from "./memory.js";
 // Memory adapter helpers (ADR D141)
 export { extractRawId, mkMemoryId } from "./memory-adapter-helpers.js";
-export { listMemoryFacts, removeMemoryFact, type StoredMemoryFact } from "./memory-facts.js";
 // Migration helper (ADR D44) — re-exported for use by the bin CLI.
 export {
   type MigrateOptions,
