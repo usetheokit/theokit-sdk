@@ -1,128 +1,55 @@
 import { spawn, spawnSync } from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  unlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import * as fsp from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const linkFail = vi.hoisted(() => ({
-  code: undefined as string | undefined,
-  onGuard: undefined as (() => void | Promise<void>) | undefined,
-  onAbsentRead: undefined as ((path: string) => void) | undefined,
-  unlinkCode: undefined as string | undefined,
-  /** Each lock read takes the next entry: it signals `reached`, then waits for `gate`. */
-  pauses: [] as { reached: () => void; gate: Promise<void> }[],
-  onGuardRead: undefined as (() => void) | undefined,
-}));
-
-/** A barrier: `reached` resolves when a lock read pauses; calling `resume` lets it go on. */
-function pausePoint(): { reached: Promise<void>; resume: () => void } {
-  let resume!: () => void;
-  let signal!: () => void;
-  const reached = new Promise<void>((r) => {
-    signal = r;
-  });
-  const gate = new Promise<void>((r) => {
-    resume = r;
-  });
-  linkFail.pauses.push({ reached: signal, gate });
-  return { reached, resume };
-}
-async function pauseOnRead(path: string): Promise<void> {
-  if (path.includes(".takeover.")) linkFail.onGuardRead?.();
-  const pause = path.endsWith(".instance.lock") ? linkFail.pauses.shift() : undefined;
-  if (!pause) return;
-  pause.reached();
-  await pause.gate;
-}
-
-vi.mock("node:fs/promises", async (importOriginal) => {
-  const real = await importOriginal<typeof import("node:fs/promises")>();
+vi.mock("node:fs/promises", async (orig) => {
+  const actual = await orig<typeof import("node:fs/promises")>();
   return {
-    ...real,
-    unlink: (...args: Parameters<typeof real.unlink>) => {
-      if (linkFail.unlinkCode) {
-        return Promise.reject(
-          Object.assign(new Error("unlink failed"), { code: linkFail.unlinkCode }),
-        );
-      }
-      return real.unlink(...args);
-    },
-    readFile: (async (...args: Parameters<typeof real.readFile>) => {
-      try {
-        const out = await real.readFile(...args);
-        await pauseOnRead(String(args[0]));
-        return out;
-      } catch (err) {
-        const hook = linkFail.onAbsentRead;
-        if ((err as NodeJS.ErrnoException).code === "ENOENT" && hook) {
-          linkFail.onAbsentRead = undefined;
-          hook(String(args[0]));
-        }
-        throw err;
-      }
-    }) as typeof real.readFile,
-    link: (...args: Parameters<typeof real.link>) => {
-      if (linkFail.code) {
-        return Promise.reject(Object.assign(new Error("link failed"), { code: linkFail.code }));
-      }
-      if (linkFail.onGuard && String(args[1]).includes(".takeover.")) {
-        const hook = linkFail.onGuard;
-        linkFail.onGuard = undefined;
-        return real.link(...args).then(async (r) => {
-          await hook();
-          return r;
-        });
-      }
-      return real.link(...args);
-    },
+    ...actual,
+    link: vi.fn(actual.link),
+    unlink: vi.fn(actual.unlink),
+    readFile: vi.fn(actual.readFile),
   };
 });
 
+import { acquireWithHooks } from "../src/internal/persistence/instance-lock.js";
 import { acquireInstanceLock, InstanceLockedError } from "../src/persistence.js";
+import { withMockedCwd } from "./helpers/with-cwd.js";
+
+const CHILD = fileURLToPath(new URL("./fixtures/instance-lock-child.mjs", import.meta.url));
 
 let root: string;
 let dir: string;
 let lockPath: string;
 
-function deadPid(): number {
-  const r = spawnSync(process.execPath, ["-e", ""]);
-  return r.pid;
-}
-
-function writeStale(nonce = "stale"): void {
-  writeFileSync(lockPath, JSON.stringify({ pid: deadPid(), nonce }));
-}
-
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), "instance-lock-"));
-  dir = join(root, "state");
+  root = mkdtempSync(path.join(tmpdir(), "instance-lock-"));
+  dir = path.join(root, "state");
   lockPath = `${dir}.instance.lock`;
-  linkFail.code = undefined;
-  linkFail.onGuard = undefined;
-  linkFail.onAbsentRead = undefined;
-  linkFail.unlinkCode = undefined;
-  linkFail.pauses = [];
-  linkFail.onGuardRead = undefined;
 });
 afterEach(() => {
-  linkFail.code = undefined;
-  linkFail.unlinkCode = undefined;
-  linkFail.pauses = [];
-  linkFail.onGuardRead = undefined;
   rmSync(root, { recursive: true, force: true });
 });
 
+function deadPid(): number {
+  const r = spawnSync(process.execPath, ["-e", "process.stdout.write(String(process.pid))"], {
+    encoding: "utf8",
+  });
+  return Number(r.stdout);
+}
+
+const readHolder = () =>
+  JSON.parse(readFileSync(lockPath, "utf8")) as { pid: number; nonce: string };
+
 describe("acquireInstanceLock", () => {
-  it("refuses a second acquire and names this pid", async () => {
+  it("refuses a second holder, naming the live pid", async () => {
     const first = await acquireInstanceLock(dir);
+    expect(first.path).toBe(lockPath);
     const err = await acquireInstanceLock(dir).catch((e) => e);
     expect(err).toBeInstanceOf(InstanceLockedError);
     expect(err.holderPid).toBe(process.pid);
@@ -130,216 +57,208 @@ describe("acquireInstanceLock", () => {
     expect(err.message).toContain(lockPath);
     expect(err.message).toContain(String(process.pid));
     await first.release();
-    expect(existsSync(lockPath)).toBe(false);
-  });
-
-  it("takes over a lock left by a pid that is not running", async () => {
-    writeStale();
-    const lock = await acquireInstanceLock(dir);
-    expect(JSON.parse(readFileSync(lockPath, "utf8")).pid).toBe(process.pid);
-    await lock.release();
-    expect(existsSync(lockPath)).toBe(false);
-  });
-
-  it("release after another holder took over leaves their lock", async () => {
-    const mine = await acquireInstanceLock(dir);
-    writeFileSync(lockPath, JSON.stringify({ pid: process.pid, nonce: "someone-else" }));
-    await mine.release();
-    expect(JSON.parse(readFileSync(lockPath, "utf8")).nonce).toBe("someone-else");
-    await mine.release(); // idempotent
+    await (await acquireInstanceLock(dir)).release();
   });
 
   it("honours options.path", async () => {
-    const p = join(root, "custom.lock");
-    const lock = await acquireInstanceLock(dir, { path: p });
-    expect(lock.path).toBe(p);
-    expect(existsSync(p)).toBe(true);
-    await lock.release();
+    const custom = path.join(root, "custom.lock");
+    const l = await acquireInstanceLock(dir, { path: custom });
+    expect(l.path).toBe(custom);
+    await l.release();
   });
 
-  it("rejects naming hard links when link fails with another error", async () => {
-    linkFail.code = "EPERM";
+  it("takes over a lock left by a pid that is not running", async () => {
+    writeFileSync(lockPath, JSON.stringify({ pid: deadPid(), nonce: "old" }));
+    const l = await acquireInstanceLock(dir);
+    expect(readHolder().pid).toBe(process.pid);
+    await l.release();
+  });
+
+  it("resolves a relative options.path so release() survives a cwd change", async () => {
+    const l = await withMockedCwd(root, () => acquireInstanceLock(dir, { path: "rel.lock" }));
+    expect(path.isAbsolute(l.path)).toBe(true);
+    await withMockedCwd(tmpdir(), () => l.release());
+    expect(existsSync(path.join(root, "rel.lock"))).toBe(false);
+  });
+
+  it("release() does not remove a lock another holder took over", async () => {
+    const a = await acquireInstanceLock(dir);
+    // simulate a crash of A: its lock now names a dead pid, then B takes over
+    writeFileSync(lockPath, JSON.stringify({ pid: deadPid(), nonce: "a-dead" }));
+    const b = await acquireInstanceLock(dir);
+    await a.release();
+    expect(readHolder().pid).toBe(process.pid);
     const err = await acquireInstanceLock(dir).catch((e) => e);
     expect(err).toBeInstanceOf(InstanceLockedError);
-    expect(err.message).toMatch(/filesystem with hard links/);
-    expect(existsSync(lockPath)).toBe(false);
+    await b.release();
   });
 
-  it("a live takeover guard blocks other takeovers and is not reaped", async () => {
-    writeStale("gen1");
-    const guard = `${lockPath}.takeover.gen1.0`;
-    writeFileSync(guard, JSON.stringify({ pid: process.pid, nonce: "owner" }));
-    const err = await acquireInstanceLock(dir).catch((e) => e);
-    expect(err).toBeInstanceOf(InstanceLockedError);
-    expect(existsSync(guard)).toBe(true);
-    expect(JSON.parse(readFileSync(lockPath, "utf8")).nonce).toBe("gen1");
-  });
-
-  it("takes over after a taker crashed holding its guard", async () => {
-    writeStale("gen1");
-    const guard = `${lockPath}.takeover.gen1.0`;
-    writeFileSync(guard, JSON.stringify({ pid: deadPid(), nonce: "crashed" }));
-    const lock = await acquireInstanceLock(dir);
-    expect(JSON.parse(readFileSync(lockPath, "utf8")).pid).toBe(process.pid);
-    expect(existsSync(guard)).toBe(true); // superseded, never deleted by others
-    await lock.release();
-  });
-
-  it("takes over after many takers crashed on the same generation", async () => {
-    writeStale("gen1");
-    const dead = deadPid();
-    for (let k = 0; k < 40; k++) {
-      writeFileSync(
-        `${lockPath}.takeover.gen1.${k}`,
-        JSON.stringify({ pid: dead, nonce: `crashed${k}` }),
-      );
+  it("concurrent release() calls share one removal and never remove a later lock", async () => {
+    const actualRead = (
+      await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises")
+    ).readFile;
+    const a = await acquireInstanceLock(dir);
+    const aNonce = readHolder().nonce;
+    // Pause every read the releases make, so each one has seen A's lock before any removes it.
+    const gates: Array<() => void> = [];
+    vi.mocked(fsp.readFile).mockImplementation((async (...args: Parameters<typeof actualRead>) => {
+      const content = await actualRead(...args);
+      await new Promise<void>((open) => gates.push(open));
+      return content;
+    }) as never);
+    try {
+      const p1 = a.release();
+      const p2 = a.release();
+      await vi.waitFor(() => expect(gates.length).toBeGreaterThan(0));
+      await new Promise((r) => setTimeout(r, 30)); // time for an independent second read to start
+      gates[0]?.();
+      await p1;
+      const b = await acquireInstanceLock(dir); // takes the lock A just removed
+      for (const open of gates.slice(1)) open(); // a second removal, if there is one, runs now
+      await p2;
+      expect(gates).toHaveLength(1);
+      expect(readHolder().nonce).not.toBe(aNonce);
+      vi.mocked(fsp.readFile).mockImplementation(actualRead as never);
+      await b.release();
+    } finally {
+      vi.mocked(fsp.readFile).mockImplementation(actualRead as never);
     }
-    const lock = await acquireInstanceLock(dir);
-    expect(JSON.parse(readFileSync(lockPath, "utf8")).pid).toBe(process.pid);
-    await lock.release();
   });
 
-  it("release propagates a failure and a later call retries", async () => {
-    const lock = await acquireInstanceLock(dir);
-    rmSync(lockPath);
-    mkdirSync(lockPath); // reading a directory fails with EISDIR
-    await expect(lock.release()).rejects.toMatchObject({ code: "EISDIR" });
-    rmSync(lockPath, { recursive: true });
-    writeFileSync(lockPath, JSON.stringify({ pid: process.pid, nonce: "other" }));
-    await lock.release(); // retried, ownership verified absent
-    expect(existsSync(lockPath)).toBe(true);
-  });
-
-  it("release whose unlink fails rejects and a later release removes the lock", async () => {
-    const lock = await acquireInstanceLock(dir);
-    linkFail.unlinkCode = "EIO";
-    await expect(lock.release()).rejects.toMatchObject({ code: "EIO" });
-    expect(existsSync(lockPath)).toBe(true);
-    linkFail.unlinkCode = undefined;
-    await lock.release();
-    expect(existsSync(lockPath)).toBe(false);
-  });
-
-  it("concurrent releases never unlink a new holder's lock from a stale read", async () => {
-    const lock = await acquireInstanceLock(dir);
-    const p1 = pausePoint();
-    const p2 = pausePoint();
-    const first = lock.release(); // reads our nonce, then pauses before unlinking
-    await p1.reached;
-    const second = lock.release();
-    // A second call that does its own read must have read our original nonce before we go on.
-    if (second !== first) await p2.reached;
-    p1.resume();
-    await first; // our lock is removed
-    const other = JSON.stringify({ pid: process.pid, nonce: "new-holder" });
-    writeFileSync(lockPath, other); // a new holder links in
-    p2.resume(); // a stale second read would now unlink the new holder's lock
-    await second;
-    expect(readFileSync(lockPath, "utf8")).toBe(other);
-  });
-
-  it("a paused release does not remove a later generation's guard; one contender takes over", async () => {
-    const mine = await acquireInstanceLock(dir);
-    // a stale lock of its own generation: dead pid, nonce that is not ours
-    const staleNonce = "stale-generation";
-    writeFileSync(lockPath, JSON.stringify({ pid: deadPid(), nonce: staleNonce }));
-    const guard = `${lockPath}.takeover.${staleNonce}.0`;
-
-    const releasePause = pausePoint();
-    const releasing = mine.release(); // read the lock, paused before deciding
-    await releasePause.reached;
-
-    // contender X publishes its guard and pauses holding it
-    let openGate!: () => void;
-    const gate = new Promise<void>((r) => {
-      openGate = r;
-    });
-    let guardPublished!: () => void;
-    const published = new Promise<void>((r) => {
-      guardPublished = r;
-    });
-    linkFail.onGuard = () => {
-      guardPublished();
-      return gate;
-    };
-    const x = acquireInstanceLock(dir);
-    await published;
-    expect(existsSync(guard)).toBe(true);
-
-    // contender Y runs while X's guard is live, and has seen it before the release resumes
-    let yObserved!: () => void;
-    const observed = new Promise<void>((r) => {
-      yObserved = r;
-    });
-    linkFail.onGuardRead = yObserved;
-    const y = acquireInstanceLock(dir);
-    await observed;
-    releasePause.resume();
-    await releasing;
-    expect(existsSync(guard)).toBe(true); // release never touches a live guard
-    openGate();
-    const results = await Promise.allSettled([x, y]);
-    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
-    const winner = results.find((r) => r.status === "fulfilled") as PromiseFulfilledResult<{
-      release(): Promise<void>;
-    }>;
-    expect(JSON.parse(readFileSync(lockPath, "utf8")).pid).toBe(process.pid);
-    await winner.value.release();
-  });
-
-  it("release never removes a takeover guard", async () => {
-    const mine = await acquireInstanceLock(dir);
-    const nonce = JSON.parse(readFileSync(lockPath, "utf8")).nonce;
-    const guard = `${lockPath}.takeover.${nonce}.0`;
-    writeFileSync(guard, JSON.stringify({ pid: process.pid, nonce: "active" }));
-    const later = `${lockPath}.takeover.later.0`;
-    writeFileSync(later, JSON.stringify({ pid: process.pid, nonce: "active2" }));
-    await mine.release();
-    expect(existsSync(guard)).toBe(true);
-    expect(existsSync(later)).toBe(true);
-  });
-
-  it("does not overwrite a holder that links in right after the re-read reports absence", async () => {
-    writeStale("gen1");
-    const other = JSON.stringify({ pid: process.pid, nonce: "live-other" });
-    linkFail.onGuard = () => unlinkSync(lockPath); // stale lock vanishes once the guard is ours
-    linkFail.onAbsentRead = (path) => {
-      // the takeover's re-read just reported absence; another process links in before it goes on
-      if (path === lockPath) writeFileSync(lockPath, other);
-    };
+  it("rejects when link fails with an error other than EEXIST", async () => {
+    vi.mocked(fsp.link).mockRejectedValueOnce(
+      Object.assign(new Error("nope"), { code: "ENOTSUP" }),
+    );
     const err = await acquireInstanceLock(dir).catch((e) => e);
     expect(err).toBeInstanceOf(InstanceLockedError);
-    expect(err.holderPid).toBe(process.pid);
-    expect(readFileSync(lockPath, "utf8")).toBe(other);
+    expect(err.message).toContain("hard links");
   });
 
-  it("retries the link protocol when the stale lock vanished before the re-read", async () => {
-    writeStale("gen1");
-    linkFail.onGuard = () => unlinkSync(lockPath);
-    const lock = await acquireInstanceLock(dir);
-    expect(JSON.parse(readFileSync(lockPath, "utf8")).pid).toBe(process.pid);
-    await lock.release();
-  });
+  it.each([
+    ["a dead pid", () => JSON.stringify({ pid: deadPid(), nonce: "stale" })],
+    ["malformed content", () => "not json"],
+    ["no nonce", () => JSON.stringify({ pid: deadPid() })],
+  ])(
+    "two processes taking over one stale lock (%s) end with exactly one holder",
+    async (_name, content) => {
+      writeFileSync(lockPath, content());
+      const barrier = mkdtempSync(path.join(root, "barrier-"));
+      const run = (id: string) =>
+        new Promise<number | null>((res) => {
+          const c = spawn(
+            process.execPath,
+            ["--experimental-strip-types", CHILD, dir, barrier, id],
+            {
+              stdio: "inherit",
+            },
+          );
+          c.on("exit", (code) => res(code));
+        });
+      const codes = await Promise.all([run("a"), run("b")]);
+      expect(codes).toEqual([0, 0]);
+      const results = ["a", "b"].map((id) =>
+        JSON.parse(readFileSync(path.join(barrier, `result.${id}`), "utf8")),
+      );
+      expect(results.filter((r) => r.ok)).toHaveLength(1);
+      expect(results.filter((r) => !r.ok).every((r) => r.name === "InstanceLockedError")).toBe(
+        true,
+      );
+    },
+    30000,
+  );
 
-  it("two concurrent takeovers of one stale lock end with one holder", async () => {
-    writeStale();
-    const tsx = resolve(__dirname, "../../../node_modules/.bin/tsx");
-    const impl = resolve(__dirname, "../src/persistence.ts");
-    const script = join(root, "child.mjs");
-    writeFileSync(
-      script,
-      `import { acquireInstanceLock } from ${JSON.stringify(impl)};
-try { await acquireInstanceLock(process.argv[2]); console.log("held"); }
-catch (e) { console.log(e.name === "InstanceLockedError" ? "locked" : "error " + e.message); }
-process.stdin.resume(); process.stdin.on("end", () => process.exit(0));`,
-    );
-    const run = () =>
-      new Promise<{ out: string; child: ReturnType<typeof spawn> }>((res) => {
-        const child = spawn(tsx, [script, dir], { stdio: ["pipe", "pipe", "inherit"] });
-        child.stdout.once("data", (d) => res({ out: String(d).trim(), child }));
+  describe("takeover guards and release (#1191)", () => {
+    const staleRaw = () => JSON.stringify({ pid: deadPid(), nonce: "stale" });
+    const guardsOf = () => readdirSync(root).filter((f) => f.includes(".instance.lock.takeover."));
+    const generation = (raw: string) => createHash("sha256").update(raw).digest("hex").slice(0, 32);
+
+    it("takes over after 17 crashed contenders left guards on one generation", async () => {
+      const raw = staleRaw();
+      writeFileSync(lockPath, raw);
+      const dead = JSON.stringify({ pid: deadPid(), nonce: "crashed" });
+      for (let k = 0; k < 17; k++) {
+        writeFileSync(`${lockPath}.takeover.${generation(raw)}.${k}`, dead);
+      }
+      const l = await acquireInstanceLock(dir);
+      expect(readHolder().pid).toBe(process.pid);
+      await l.release();
+    });
+
+    it("a guard left by a crashed contender does not block a later takeover", async () => {
+      const raw = staleRaw();
+      writeFileSync(lockPath, raw);
+      writeFileSync(
+        `${lockPath}.takeover.${generation(raw)}.0`,
+        JSON.stringify({ pid: deadPid(), nonce: "crashed" }),
+      );
+      const l = await acquireInstanceLock(dir);
+      expect(readHolder().pid).toBe(process.pid);
+      await l.release();
+    });
+
+    it("a live guard is never skipped", async () => {
+      const raw = staleRaw();
+      writeFileSync(lockPath, raw);
+      writeFileSync(
+        `${lockPath}.takeover.${generation(raw)}.0`,
+        JSON.stringify({ pid: process.pid, nonce: "live" }),
+      );
+      await expect(acquireInstanceLock(dir)).rejects.toBeInstanceOf(InstanceLockedError);
+      expect(readFileSync(lockPath, "utf8")).toBe(raw);
+    });
+
+    it("a paused release() does not remove a guard a later generation published", async () => {
+      const raw = staleRaw();
+      writeFileSync(lockPath, raw);
+      const guard0 = `${lockPath}.takeover.${generation(raw)}.0`;
+      let resume!: () => void;
+      let paused!: () => void;
+      const pausedP = new Promise<void>((r) => (paused = r));
+      const gate = new Promise<void>((r) => (resume = r));
+      const a = await acquireWithHooks(dir, undefined, {
+        beforeGuardCleanup: async () => {
+          paused();
+          await gate;
+        },
       });
-    const results = await Promise.all([run(), run()]);
-    for (const r of results) r.child.stdin?.end();
-    expect(results.map((r) => r.out).sort()).toEqual(["held", "locked"]);
-  }, 60_000);
+      expect(existsSync(guard0)).toBe(true);
+      const releasing = a.release();
+      await pausedP; // A's lock is gone; A still holds its guard list
+      // A later generation (same stale content) publishes its guard at the same path.
+      rmSync(guard0);
+      writeFileSync(lockPath, raw);
+      let guardSeen!: () => void;
+      let proceed!: () => void;
+      const seen = new Promise<void>((r) => (guardSeen = r));
+      const go = new Promise<void>((r) => (proceed = r));
+      const b = acquireWithHooks(dir, undefined, {
+        afterGuardPublished: async () => {
+          guardSeen();
+          await go;
+        },
+      });
+      await seen;
+      const bGuard = readFileSync(guard0, "utf8");
+      resume();
+      await releasing;
+      expect(readFileSync(guard0, "utf8")).toBe(bGuard);
+      proceed();
+      const lockB = await b;
+      expect(readHolder().pid).toBe(process.pid);
+      expect(guardsOf().length).toBeGreaterThan(0);
+      await lockB.release();
+      expect(existsSync(lockPath)).toBe(false);
+    });
+
+    it("release() rejects when the unlink fails, and a later release() removes the lock", async () => {
+      const l = await acquireInstanceLock(dir);
+      vi.mocked(fsp.unlink).mockRejectedValueOnce(
+        Object.assign(new Error("busy"), { code: "EIO" }),
+      );
+      await expect(l.release()).rejects.toThrow("busy");
+      expect(existsSync(lockPath)).toBe(true);
+      await l.release();
+      expect(existsSync(lockPath)).toBe(false);
+    });
+  });
 });

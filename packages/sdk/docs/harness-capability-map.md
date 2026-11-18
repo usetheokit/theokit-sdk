@@ -1398,7 +1398,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
-| `acquireInstanceLock` | function | Takes `<dir>.instance.lock` (or `options.path`) so only one process works on a state directory.  |
+| `acquireInstanceLock` | function | Takes `<dir>.instance.lock` (or `options.path`) for the life of the process.  |
 | `acquireSessionWriter` | function | Take the exclusive writer lease for `sessionPath`, or reject with {@link SessionBusyError } .  |
 | `appendJsonl` | function | Append one record as a whole `\n`-terminated JSON line.  |
 | `applyWalWithFallback` | function | Apply WAL mode with DELETE fallback.  |
@@ -1411,8 +1411,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `FileLockOptions` | interface | Retry and staleness tuning for `withFileLock`.  |
 | `forkTranscript` | function | Copy `src` into `dst`, keeping the first `beforeRecordIndex` records.  |
 | `ForkTranscriptOptions` | interface | Options for {@link forkTranscript } . |
-| `InstanceLock` | interface | A lock held by this process. |
-| `InstanceLockedError` | class | Another live process holds the instance lock, or the filesystem cannot take it. |
+| `InstanceLock` | interface | A held instance lock. |
+| `InstanceLockedError` | class | Another live process holds the instance lock, or the filesystem cannot hold one. |
 | `isCorruptionError` | function | True when an open error indicates an unreadable / corrupt database file. |
 | `JsonlParseError` | class | Raised when a JSONL line is not valid JSON or is not a JSON object.  |
 | `legacyTranscriptPath` | function | The path this session used BEFORE #400 made transcript filenames UUIDs.  |
