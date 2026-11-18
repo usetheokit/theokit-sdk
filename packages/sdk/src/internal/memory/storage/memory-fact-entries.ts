@@ -53,8 +53,11 @@ export async function listFactEntries(
 /**
  * Remove one stored memory from the write root: the per-memory file and its `MEMORY.md` index
  * line, or one legacy bullet inside `## Facts`. Serialized with {@link appendFactToMarkdown} on the
- * same mutex; `beforeRemove` runs inside it, before anything is deleted; the index file is rewritten atomically before the entry file is deleted. Resolves the absolute paths it changed (the
- * deleted file and/or `MEMORY.md`), or `[]` when no entry has the id, and throws {@link MemoryFactNotRemovableError} when the entry exists only outside the write root.
+ * same mutex; `beforeRemove` runs inside it, before anything is deleted. For a per-memory file the
+ * index line is rewritten atomically first and the file unlinked second, so an interruption between
+ * the two leaves a still-listed file that a retry with the same id removes. Resolves the absolute
+ * paths it changed, or `[]` when no entry has the id, and throws {@link MemoryFactNotRemovableError}
+ * when the entry exists only outside the write root.
  */
 export function removeFactEntry(
   cwd: string,
@@ -119,14 +122,30 @@ function assertSingleRoot(id: string, matches: FactEntry[]): void {
   if (roots.length > 1) throw new MemoryFactAmbiguousError(id, roots);
 }
 
-/** Drop the `MEMORY.md` line that links to `file`, if the index has one. */
+/**
+ * Drop the one `MEMORY.md` index entry (`- [title](file) — hook`) that points at `file`. Only a
+ * bullet that is exactly an index entry counts, and the `## Facts` section is skipped, so a prose
+ * bullet that merely links to the file, or a copy under another heading, is left alone.
+ */
 async function removeIndexLine(dir: string, file: string): Promise<void> {
   const raw = await unlessMissing(readFile(join(dir, "MEMORY.md"), "utf8"));
   if (raw === undefined) return;
+  const facts = factsBlockRange(raw);
   const lines = raw.split("\n");
-  const kept = lines.filter((l) => !l.startsWith("- [") || !l.includes(`](${file})`));
-  if (kept.length !== lines.length)
-    await replaceFileAtomic(join(dir, "MEMORY.md"), kept.join("\n"));
+  let offset = 0;
+  const at = lines.findIndex((line) => {
+    const start = offset;
+    offset += line.length + 1;
+    if (facts !== undefined && start >= facts.start && start < facts.end) return false;
+    return line.startsWith("- ") && isIndexEntryFor(line.slice(2), file);
+  });
+  if (at === -1) return;
+  lines.splice(at, 1);
+  await replaceFileAtomic(join(dir, "MEMORY.md"), lines.join("\n"));
+}
+
+function isIndexEntryFor(body: string, file: string): boolean {
+  return INDEX_ENTRY.test(body) && body.includes(`](${file})`);
 }
 
 /** Remove the first bullet inside `## Facts` whose text is `text`; lines elsewhere are untouched. */

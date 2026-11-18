@@ -173,4 +173,20 @@ describe("listMemoryFacts / removeMemoryFact", () => {
     // No sync() here: the removal itself must have reindexed MEMORY.md.
     expect((await again.search("zebra")).length).toBeGreaterThan(0);
   });
+
+  it("removes only the generated index line, not a duplicate link elsewhere", async () => {
+    const [first] = await listMemoryFacts(cwd);
+    const id = first?.id as string;
+    const link = `- [${first?.text}](${id})`;
+    writeFileSync(
+      md(),
+      `${readFileSync(md(), "utf8")}\n## Notes\n${link}\n- see [it](${id}) for details\n`,
+    );
+    expect(await removeMemoryFact(cwd, id)).toBe(true);
+    const after = readFileSync(md(), "utf8");
+    const [head = "", notes = ""] = after.split("## Notes");
+    expect(head).not.toContain(`](${id})`);
+    expect(notes).toContain(link);
+    expect(notes).toContain(`- see [it](${id}) for details`);
+  });
 });
