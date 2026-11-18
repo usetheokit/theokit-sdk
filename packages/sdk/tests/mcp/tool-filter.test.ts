@@ -4,11 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Agent, ConfigurationError } from "../../src/index.js";
+import { runAgentLoop } from "../../src/internal/agent-loop/loop.js";
 import { safeListTools } from "../../src/internal/agent-loop/loop-context-init.js";
-import { dispatchTools } from "../../src/internal/agent-loop/tool-dispatch.js";
-import type { AgentLoopInputs, ResolvedTool } from "../../src/internal/agent-loop/types.js";
 import { serializeCloudAgentConfig } from "../../src/internal/cloud-agent/cloud-config-serializer.js";
 import { setDiagnosticsSink } from "../../src/internal/diagnostics.js";
+import type { LlmClient, LlmEvent, LlmFinish, LlmRequest } from "../../src/internal/llm/types.js";
 import { createMcpClient, type McpClient } from "../../src/internal/mcp/client.js";
 import { HooksExecutor } from "../../src/internal/runtime/hooks/hooks-executor.js";
 import type { McpStdioServerConfig } from "../../src/types/mcp.js";
@@ -65,6 +65,15 @@ async function start(tools?: McpStdioServerConfig["tools"]): Promise<McpClient> 
   return client;
 }
 
+function toolResultsOf(request: LlmRequest): string[] {
+  const out: string[] = [];
+  for (const m of request.messages) {
+    if (typeof m.content === "string") continue;
+    for (const p of m.content) if (p.type === "tool_result") out.push(JSON.stringify(p));
+  }
+  return out;
+}
+
 const requests = (): string[] => readFileSync(logFile, "utf8").split("\n").filter(Boolean);
 
 describe("MCP tool filter (#1035)", () => {
@@ -84,41 +93,55 @@ describe("MCP tool filter (#1035)", () => {
     expect((await client.listTools()).map((t) => t.name)).toEqual(["a"]);
   });
 
-  it("refuses a forced dispatch of danger without a request to the server", async () => {
+  it("agent loop: model is offered a and b only; a forced danger call is a tool error and never reaches the server", async () => {
     const client = await start({ exclude: ["danger"] });
-    const tool: ResolvedTool = {
-      name: "mcp_fx_danger",
-      description: "danger",
-      inputSchema: { type: "object" },
-      origin: "mcp",
-      mcpServerName: "fx",
-      mcpToolName: "danger",
+    const offered: string[][] = [];
+    const toolResults: string[] = [];
+    let round = 0;
+    const llm: LlmClient = {
+      name: "stub",
+      async *stream(request: LlmRequest): AsyncGenerator<LlmEvent, LlmFinish, void> {
+        offered.push((request.tools ?? []).map((t) => t.name));
+        round += 1;
+        if (round === 1) {
+          return {
+            stopReason: "tool_use",
+            text: "",
+            toolCalls: [{ type: "tool_use", id: "c1", name: "mcp_fx_danger", input: {} }],
+          };
+        }
+        toolResults.push(...toolResultsOf(request));
+        return { stopReason: "end_turn", text: "done", toolCalls: [] };
+      },
     };
-    const inputs = {
+    const hooks = new HooksExecutor(dir);
+    await hooks.initialize(false);
+    await runAgentLoop({
       agentId: "x",
       runId: "r",
+      model: { id: "openai/gpt-4o-mini" },
       userMessage: "go",
-      model: { id: "m" },
+      llm,
       mcp: new Map([["fx", client]]),
-      hooks: new HooksExecutor(process.cwd()),
-      shellCwd: process.cwd(),
+      hooks,
+      shellCwd: dir,
       shellSandbox: false,
-      maxIterations: 2,
-    } as unknown as AgentLoopInputs;
-    const parts = await dispatchTools(
-      inputs,
-      [tool],
-      [{ type: "tool_use", id: "1", name: "mcp_fx_danger", input: {} }],
-      [],
-    );
-    const text = JSON.stringify(parts);
-    expect(text).toContain("danger");
-    expect(text).toContain('"fx"'.replace(/"/g, '\\"'));
+    } as never);
+    const mcpOffered = offered[0]?.filter((n) => n.startsWith("mcp_"));
+    expect(mcpOffered?.sort()).toEqual(["mcp_fx_a", "mcp_fx_b"]);
+    expect(toolResults.length).toBeGreaterThan(0);
+    const result = JSON.parse(toolResults[0] as string) as { isError: boolean; content: string };
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain("mcp_fx_danger");
     expect(requests().filter((r) => r.startsWith("tools/call:"))).toEqual([]);
+  });
+
+  it("include offers only a to the model", async () => {
+    const client = await start({ include: ["a"] });
+    expect((await client.listTools()).map((t) => t.name)).toEqual(["a"]);
     const direct = await client.callTool("danger", {});
     expect(direct.isError).toBe(true);
     expect(direct.content[0]?.text).toMatch(/danger.*fx|fx.*danger/);
-    expect(requests().some((r) => r === "tools/call:danger")).toBe(false);
     await client.callTool("a", {});
     expect(requests()).toContain("tools/call:a");
   });
