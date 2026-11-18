@@ -79,4 +79,3 @@ describe("agentStep cancellation", () => {
     await vi.waitFor(() => expect(cancel).toHaveBeenCalledTimes(1));
   });
 });
-
