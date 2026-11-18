@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -63,4 +63,21 @@ describe("readManagedSettingsDocument", () => {
     expect(readManagedSettingsDocument(rootWith("[]"), { onWarn })).toBeNull();
     expect(onWarn).toHaveBeenCalledTimes(1);
   });
+
+  it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+    "warns for a file whose parent directory cannot be traversed",
+    () => {
+      const onWarn = vi.fn();
+      const root = rootWith("{}");
+      const dir = join(root, "claude-code");
+      chmodSync(dir, 0o000);
+      try {
+        expect(readManagedSettingsDocument(root, { onWarn })).toBeNull();
+      } finally {
+        chmodSync(dir, 0o755);
+      }
+      expect(onWarn).toHaveBeenCalledTimes(1);
+      expect(onWarn.mock.calls[0]?.[0]).toContain("could not be read");
+    },
+  );
 });

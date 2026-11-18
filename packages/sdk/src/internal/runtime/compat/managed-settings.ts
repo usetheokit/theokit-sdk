@@ -26,7 +26,7 @@
  *
  * @internal
  */
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { platform } from "node:process";
 
@@ -193,12 +193,14 @@ function readPolicyDocument(
   path: string,
   warn: (message: string) => void,
 ): Record<string, unknown> | undefined {
-  if (!existsSync(path)) return undefined;
-
   let raw: string;
   try {
     raw = readFileSync(path, "utf8");
   } catch (cause) {
+    // Read directly rather than probing with existsSync: that answers false for a file whose parent
+    // directory cannot be traversed, which would hide an unreadable policy as an absent one.
+    const code = (cause as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return undefined;
     warn(
       `[theokit-sdk] ${path} exists and could not be read (${(cause as Error).message}) — ` +
         `NO operator policy is being applied. Fix the permissions or remove the file.\n`,
