@@ -18,7 +18,6 @@ import { mkdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-import type { DeferredToolCall } from "../../types/run.js";
 import type { SessionRecord, TranscriptBlock } from "../../types/session-record.js";
 import { diag } from "../diagnostics.js";
 import type { LlmContentPart, LlmMessage, LlmToolResultPart } from "../llm/types.js";
@@ -179,17 +178,6 @@ export class SessionTranscript {
       is_error: r.isError === true,
     }));
     return this.#push({ type: "user", message: { role: "user", content } });
-  }
-
-  /** Marks tool calls a gate deferred; they stay pending until a `tool_result` carries their ids. */
-  appendDeferredToolCalls(calls: readonly DeferredToolCall[]): SessionRecord {
-    // The input is redacted exactly as the `tool_use` block of the same call is, so a secret in the
-    // arguments is not written to disk a second time.
-    return this.#push({
-      type: "system",
-      subtype: "deferred_tool_calls",
-      deferredToolCalls: calls.map((c) => ({ ...c, input: redactValue(c.input) })),
-    });
   }
 
   /** Append-only compaction: a `compact_boundary` system record becomes a NEW ROOT (parentUuid null). */

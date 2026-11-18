@@ -282,17 +282,16 @@ async function vetoFromPluginPreHook(dc: DispatchContext): Promise<LlmContentPar
     agentId: inputs.agentId,
     runId: inputs.runId,
     toolUseId: call.id,
-    ...(inputs.approvedToolUseIds?.has(call.id) === true ? { approved: true } : {}),
     // SE1 — thread the run's permission mode so a PermissionPlugin gates per-run.
     ...(inputs.permissionMode !== undefined ? { permissionMode: inputs.permissionMode } : {}),
   });
   if (pluginVeto === undefined) return undefined;
   if ("defer" in pluginVeto && dc.deferredSink === undefined) {
-    // A resumed call cannot be deferred again: it is answered here, as a block.
+    // No sink to record the call in: answer it as a block rather than lose it.
     return {
       type: "tool_result",
       toolUseId: call.id,
-      content: `Plugin blocked this tool call: deferred again on resume${pluginVeto.reason !== undefined ? ` (${pluginVeto.reason})` : ""}`,
+      content: `Plugin blocked this tool call: deferred where deferral is not supported${pluginVeto.reason !== undefined ? ` (${pluginVeto.reason})` : ""}`,
     };
   }
   if ("defer" in pluginVeto) {

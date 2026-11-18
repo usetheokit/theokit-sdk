@@ -1,7 +1,6 @@
 import { AgentDisposedError, ConfigurationError } from "../../errors.js";
 import type { AgentOptions, ModelSelection } from "../../types/agent.js";
 import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
-import type { SessionStore } from "../../types/session-store.js";
 import type { MemoryToolSpec } from "../agent-loop/types.js";
 import { anySignal } from "../concurrency/abort-utils.js";
 import { diagFailure } from "../diagnostics.js";
@@ -25,7 +24,6 @@ import type { TelemetryHandle } from "../telemetry/tracer.js";
 import { consumePending } from "./local-agent-invalidate.js";
 import { applyPreUserSendHook, wrapRunWithPostReplyHook } from "./local-agent-memory-hooks.js";
 import { persistMemoryFactIfWritePrompt } from "./local-agent-runtime-extensions.js";
-import { resolveToolResume, type ToolResume } from "./local-agent-tool-resume.js";
 
 /**
  * Inputs for the `executeSendLocked` helper extracted from LocalAgent.sendLocked.
@@ -33,8 +31,6 @@ import { resolveToolResume, type ToolResume } from "./local-agent-tool-resume.js
  */
 export interface SendLockedInputs {
   agentId: string;
-  /** Read for deferred tool calls this send must answer. */
-  sessionStore?: SessionStore;
   disposed: boolean;
   invalidationPending: { reason: string; at: number } | undefined;
   clearInvalidation: () => void;
@@ -95,8 +91,6 @@ export interface DispatchRunArgs {
   readonly priorMessages: ReadonlyArray<{ role: "user" | "assistant"; text: string }>;
   readonly memoryTools: ReadonlyArray<MemoryToolSpec> | undefined;
   readonly memoryProviderOverride?: MemoryProvider | undefined;
-  /** Set when this send answers deferred tool calls. */
-  readonly resume?: ToolResume | undefined;
 }
 
 /**
@@ -135,47 +129,6 @@ async function applyInputProcessors(
   return { userText: res.value, effectiveMessage };
 }
 
-/** Input guardrails run on user text; answering deferred calls has none to guard. */
-async function gateUserText(args: {
-  inputs: SendLockedInputs;
-  message: string | SDKUserMessage;
-  rawUserText: string;
-  options: SendOptions;
-  sendModel: ModelSelection | undefined;
-  resume: ToolResume | undefined;
-}): Promise<Awaited<ReturnType<typeof applyInputProcessors>>> {
-  const { inputs, message, rawUserText, options, sendModel, resume } = args;
-  if (resume !== undefined) return { userText: rawUserText, effectiveMessage: message };
-  return applyInputProcessors(inputs, message, rawUserText, options, sendModel);
-}
-
-function adaptUserMessage(
-  inputs: SendLockedInputs,
-  original: string | SDKUserMessage,
-  userText: string,
-  sendOptions: SendOptions,
-) {
-  return applyPreUserSendHook({
-    pluginManager: inputs.pluginManagerCode,
-    agentId: inputs.agentId,
-    options: inputs.options,
-    original,
-    userText,
-    sendOptions,
-  });
-}
-
-/**
- * The history for this send. On resume the transcript is the history (it holds the tool blocks the
- * cache does not) and the pending calls take the place of the user message.
- */
-function recordUserTurn(agentId: string, userText: string, resume: ToolResume | undefined) {
-  if (resume !== undefined) return resume.priorMessages;
-  const prior = [...getSessionMessages(agentId)];
-  appendSessionMessage(agentId, { role: "user", text: userText });
-  return prior;
-}
-
 const lastSendAt = new Map<string, number>();
 
 /** Clears the agent's conversation when it has been idle longer than `minutes`. */
@@ -200,10 +153,6 @@ export async function executeSendLocked(
   options: SendOptions,
 ): Promise<Run> {
   if (inputs.disposed) throw new AgentDisposedError(inputs.agentId);
-  const resume =
-    inputs.sessionStore === undefined
-      ? undefined
-      : await resolveToolResume(inputs.sessionStore, inputs.agentId, options);
   await consumePending(
     inputs.agentId,
     inputs.invalidationPending,
@@ -217,7 +166,7 @@ export async function executeSendLocked(
 
   // SE24 — input guardrail processors run FIRST, before any side effect; a
   // `block` short-circuits to a tripwire run, a `rewrite` flows downstream.
-  const gated = await gateUserText({ inputs, message, rawUserText, options, sendModel, resume });
+  const gated = await applyInputProcessors(inputs, message, rawUserText, options, sendModel);
   if ("tripwireRun" in gated) return gated.tripwireRun;
   const { userText, effectiveMessage } = gated;
 
@@ -231,11 +180,17 @@ export async function executeSendLocked(
   }
   await inputs.runPreHook(userText);
 
-  const adaptedMessage =
-    resume !== undefined
-      ? effectiveMessage
-      : await adaptUserMessage(inputs, effectiveMessage, userText, options);
-  const priorMessages = recordUserTurn(inputs.agentId, userText, resume);
+  const adaptedMessage = await applyPreUserSendHook({
+    pluginManager: inputs.pluginManagerCode,
+    agentId: inputs.agentId,
+    options: inputs.options,
+    original: effectiveMessage,
+    userText,
+    sendOptions: options,
+  });
+
+  const priorMessages = [...getSessionMessages(inputs.agentId)];
+  appendSessionMessage(inputs.agentId, { role: "user", text: userText });
 
   // Where memory lives is `memory.directory`'s answer and nobody else's. It used to be
   // `local.sessionDir`'s — the option that names the TRANSCRIPT home — so one option answered two
@@ -273,7 +228,6 @@ export async function executeSendLocked(
     priorMessages,
     memoryTools,
     memoryProviderOverride: effectiveMemoryProvider,
-    resume,
   });
   // SE24 — output processors wrap INNER (they redact/block the model text) so the
   // post_assistant_reply memory hook observes the FINAL (processed) reply.

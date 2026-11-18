@@ -100,7 +100,6 @@ export {
   RateLimitError,
   TaskNotFoundError,
   TheokitAgentError,
-  ToolDecisionMismatchError,
   UnknownAgentError,
   UnsupportedBudgetOperationError,
   UnsupportedRunOperationError,
@@ -463,7 +462,6 @@ export type {
   CompletionCheckResult,
   DeferredToolCall,
   MessageOrigin,
-  ToolCallDecision,
 } from "./types/run.js";
 export type {
   RunCompactBoundaryEvent,

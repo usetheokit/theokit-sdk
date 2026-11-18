@@ -16,10 +16,7 @@ import { expectScopeCovered } from "./_scope-sentinel.js";
 
 const SRC_ROOT = join(__dirname, "..", "..", "src");
 
-const ALLOWLIST = new Set<string>([
-  "internal/agent-loop/loop.ts",
-  "internal/agent-loop/loop-tool-steps.ts",
-]);
+const ALLOWLIST = new Set<string>(["internal/agent-loop/loop.ts"]);
 
 const BAD_PATTERN = /\b(ctx|loopCtx|context)\.messages\.push\b/;
 
