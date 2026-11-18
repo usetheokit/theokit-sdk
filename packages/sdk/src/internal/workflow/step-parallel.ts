@@ -33,9 +33,7 @@ export async function runParallelStep(
   if (seen.cancelled !== undefined) {
     return {
       ...cancelledParallel(step, startedAt, exec.ctx.signal),
-      ...(seen.cancelled.error !== undefined
-        ? { error: seen.cancelled.error }
-        : {}),
+      ...(seen.cancelled.error !== undefined ? { error: seen.cancelled.error } : {}),
     };
   }
   if (exec.ctx.signal.aborted && result.status !== "suspended") {
@@ -90,9 +88,7 @@ async function runBranches(
       try {
         // A branch that was queued when the signal aborted never starts.
         if (branchSignal.aborted) {
-          throw new Error(
-            `parallel branch ${branchIdx} not started: cancelled`,
-          );
+          throw new Error(`parallel branch ${branchIdx} not started: cancelled`);
         }
         // Each branch runs under a signal of its own (the run's, merged with this step's) and
         // starts from an empty result history — the branches are siblings, not a sequence.
@@ -130,9 +126,7 @@ async function runBranches(
         const settled = await Promise.allSettled(semBranchPromises);
         const errors = settled
           .filter((s): s is PromiseRejectedResult => s.status === "rejected")
-          .map((s) =>
-            s.reason instanceof Error ? s.reason : new Error(String(s.reason)),
-          );
+          .map((s) => (s.reason instanceof Error ? s.reason : new Error(String(s.reason))));
         return {
           stepId: step.id,
           kind: "parallel",
@@ -163,11 +157,7 @@ async function runBranches(
   }
 }
 
-function cancelledParallel(
-  step: ParallelStep,
-  startedAt: number,
-  signal: AbortSignal,
-): StepResult {
+function cancelledParallel(step: ParallelStep, startedAt: number, signal: AbortSignal): StepResult {
   return {
     stepId: step.id,
     kind: "parallel",
@@ -194,9 +184,7 @@ async function runBranch(
       // Stop this branch; fail-fast aborts the siblings through the thrown error.
       seen.cancelled ??= r;
       siblings.abort(r.error?.message ?? "parallel branch cancelled");
-      throw new Error(
-        `parallel branch ${branchIdx} step "${inner.id}" cancelled`,
-      );
+      throw new Error(`parallel branch ${branchIdx} step "${inner.id}" cancelled`);
     }
     if (r.status === "failed") {
       throw new Error(
