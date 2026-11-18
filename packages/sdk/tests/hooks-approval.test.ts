@@ -4,11 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ConfigurationError } from "../src/errors.js";
-import {
-  fingerprintHookGate,
-  hookFingerprint,
-  listProjectHooks,
-} from "../src/hooks-approval.js";
+import { fingerprintHookGate, hookFingerprint, listProjectHooks } from "../src/hooks-approval.js";
 import { HooksExecutor } from "../src/internal/runtime/hooks/hooks-executor.js";
 
 let cwd: string;
