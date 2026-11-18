@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ConfigurationError } from "../src/errors.js";
 import { fingerprintHookGate, hookFingerprint, listProjectHooks } from "../src/hooks-approval.js";
+import { Agent } from "../src/index.js";
 import { HooksExecutor } from "../src/internal/runtime/hooks/hooks-executor.js";
 
 let cwd: string;
@@ -79,5 +80,43 @@ describe("hook allowlists", () => {
     await executor.run({ event: "preToolUse", tool: "shell" });
     expect(existsSync(markerA)).toBe(false);
     expect(existsSync(markerB)).toBe(false);
+  });
+
+  it("an agent given fingerprintHookGate runs only the approved hook", async () => {
+    rmSync(join(cwd, ".theokit", "hooks.json"));
+    rmSync(join(cwd, ".theokit", "settings.json"));
+    const prompt = (command: string) =>
+      JSON.stringify({ hooks: { UserPromptSubmit: [{ hooks: [{ type: "command", command }] }] } });
+    writeFileSync(join(cwd, ".theokit", "hooks.json"), prompt(`touch ${markerA}`));
+    writeFileSync(join(cwd, ".theokit", "settings.json"), prompt(`touch ${markerB}`));
+    const [first] = await listProjectHooks(cwd);
+    const agent = await Agent.create({
+      apiKey: "theo_test_hooks",
+      model: { id: "google/gemini-2.0-flash-001" },
+      local: {
+        cwd,
+        settingSources: ["project"],
+        hooks: fingerprintHookGate([first?.fingerprint ?? ""]),
+      },
+    });
+    const run = await agent.send("go");
+    await run.wait().catch(() => undefined);
+    await agent.dispose();
+    expect(existsSync(markerA)).toBe(true);
+    expect(existsSync(markerB)).toBe(false);
+  });
+
+  it("listProjectHooks defaults compatSources from .theokit/config.json, and an explicit option wins", async () => {
+    mkdirSync(join(cwd, ".claude"), { recursive: true });
+    writeFileSync(join(cwd, ".claude", "settings.json"), hooksFile("echo claude"));
+    expect((await listProjectHooks(cwd)).map((h) => h.command)).not.toContain("echo claude");
+    writeFileSync(
+      join(cwd, ".theokit", "config.json"),
+      JSON.stringify({ compat: { adapters: [{ kind: "claude-code", import: ["hooks"] }] } }),
+    );
+    expect((await listProjectHooks(cwd)).map((h) => h.command)).toContain("echo claude");
+    expect(
+      (await listProjectHooks(cwd, { compatSources: [] })).map((h) => h.command),
+    ).not.toContain("echo claude");
   });
 });
