@@ -78,7 +78,6 @@ import {
 } from "./local-agent-runtime-extensions.js";
 import { type DispatchRunArgs, executeSendLocked } from "./local-agent-send.js";
 import { registerRunAsTask } from "./local-agent-task-wrap.js";
-import { resolveToolResume, type ToolResume } from "./local-agent-tool-resume.js";
 import { reportUnknownLocalOptions } from "./local-option-keys.js";
 import {
   type ActiveTurn,
@@ -309,15 +308,11 @@ export class LocalAgent implements SDKAgent {
     return agentGenerate(this, this.model, apiKey, local, message, options);
   }
 
+  // `send(undefined, { toolDecisions })` answers deferred calls and carries no text of its own.
   async send(
-    message: string | SDKUserMessage | undefined,
+    message: string | SDKUserMessage | undefined = "",
     options: SendOptions = {},
   ): Promise<Run> {
-    // `send(undefined, { toolDecisions })` answers deferred calls and carries no text of its own.
-    return this.sendMessage(message ?? "", options);
-  }
-
-  private async sendMessage(message: string | SDKUserMessage, options: SendOptions): Promise<Run> {
     // Per-call tools: run the same name/schema/dedupe checks as creation.
     // (Cloud agents reject per-call tools in CloudAgent.send.)
     if (options.tools !== undefined && options.tools.length > 0) {
@@ -417,7 +412,6 @@ export class LocalAgent implements SDKAgent {
     );
   }
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: send-cycle orchestrator; the resume step only adds one read before dispatch
   private async runLockedSendCycle(
     message: string | SDKUserMessage,
     options: SendOptions,
@@ -427,7 +421,6 @@ export class LocalAgent implements SDKAgent {
   ): Promise<void> {
     const userText = typeof message === "string" ? message : message.text;
     let run: Run;
-    let resume: ToolResume | undefined;
     const steer = new TurnSteerQueue();
     let res: (r: Run) => void = () => undefined;
     let rej: (e: unknown) => void = () => undefined;
@@ -438,8 +431,7 @@ export class LocalAgent implements SDKAgent {
     turnRun.catch(() => undefined); // only steering callers observe this
     this.activeTurn = { steer, run: turnRun };
     try {
-      resume = await resolveToolResume(this.sessionStore, this.agentId, options);
-      run = await this.sendLocked(message, options, resume);
+      run = await this.sendLocked(message, options);
     } catch (err) {
       sendSpan.recordException(err);
       sendSpan.setStatus({ code: 2, message: err instanceof Error ? err.message : String(err) });
@@ -458,7 +450,8 @@ export class LocalAgent implements SDKAgent {
       await runPostRunLifecycle({
         run,
         userText,
-        ...(resume !== undefined ? { resumedToolCalls: true } : {}),
+        // Decisions were matched against the pending calls in `sendLocked`, or the send threw.
+        resumedToolCalls: options.toolDecisions !== undefined,
         agentId: this.agentId,
         workspaceCwd: this.workspaceCwd,
         sessionStore: this.sessionStore,
@@ -483,14 +476,11 @@ export class LocalAgent implements SDKAgent {
     }
   }
 
-  private async sendLocked(
-    message: string | SDKUserMessage,
-    options: SendOptions,
-    resume: ToolResume | undefined,
-  ): Promise<Run> {
+  private async sendLocked(message: string | SDKUserMessage, options: SendOptions): Promise<Run> {
     return executeSendLocked(
       {
         agentId: this.agentId,
+        sessionStore: this.sessionStore,
         disposed: this.disposed || this.closed,
         invalidationPending: this.invalidationPending,
         clearInvalidation: () => {
@@ -512,7 +502,6 @@ export class LocalAgent implements SDKAgent {
       },
       message,
       options,
-      resume,
     );
   }
 

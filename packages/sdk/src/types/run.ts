@@ -354,7 +354,7 @@ export interface SDKUserMessage {
  *
  * ## Which options do I need?
  *
- * Twenty-two optional fields with genuinely different audiences, so most callers read all of them to
+ * Twenty-three optional fields with genuinely different audiences, so most callers read all of them to
  * find their two. This table is the fix that was chosen; the alternative — nesting the groups under
  * `observe?` and `toolPolicy?` and carrying the flat keys as deprecated aliases for one major — would
  * have added surface to remove surface, and the harm here is the READING cost, not a representable
@@ -364,7 +364,7 @@ export interface SDKUserMessage {
  * | If you are… | you want |
  * |---|---|
  * | rendering a live UI | `onDelta`, `onStep`, `onRunEvent` |
- * | applying a policy | `permissionMode`, `activeTools`, `toolChoice`, `toolResultGuard`, `pruneToolResults`, `perToolTimeoutMs` |
+ * | applying a policy | `permissionMode`, `activeTools`, `toolChoice`, `toolResultGuard`, `pruneToolResults`, `perToolTimeoutMs`, `toolDecisions` |
  * | running an eval or a harness | `maxIterations`, `completionCheck`, `doomLoop`, `signal` |
  * | orchestrating agents | `origin`, `task`, `context`, `queueMode` |
  * | overriding this one send | `model`, `systemPrompt`, `tools`, `mcpServers`, `contextPaths`, `local` |
