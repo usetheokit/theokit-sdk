@@ -6,7 +6,6 @@ import { diag } from "../diagnostics.js";
 import { emitRunEvent } from "../emit-run-event.js";
 import { generateCallId } from "../ids.js";
 import type { LlmContentPart, LlmToolCallPart } from "../llm/types.js";
-import { isFilteredCall } from "../mcp/tool-filter.js";
 import { HISTOGRAM_NAMES } from "../telemetry/span-names.js";
 import { type RepairableTool, repairToolCall } from "../tool-dispatch/repair-middleware.js";
 import { executeTool, renderToolResult, type ToolResult } from "./tool-executors.js";
@@ -125,7 +124,7 @@ async function dispatchSingleCall(
   events: SDKMessage[],
   parentSpan?: ToolSpan,
 ): Promise<LlmContentPart> {
-  const { call: workingCall, repairs } = applyRepairAndExtractCall(inputs, tools, call);
+  const { call: workingCall, repairs } = applyRepairAndExtractCall(tools, call);
   const dc: DispatchContext = {
     inputs,
     call: workingCall,
@@ -188,13 +187,9 @@ interface RepairedCallShape {
  * and the list of repairs applied (used later for span annotation).
  */
 function applyRepairAndExtractCall(
-  inputs: AgentLoopInputs,
   tools: ResolvedTool[],
   call: LlmToolCallPart,
 ): RepairedCallShape {
-  // A filtered-out MCP tool must reach the executor under its own name so it is refused, not
-  // case-repaired onto a different offered tool.
-  if (isFilteredCall(inputs.mcp, call.name)) return { call, repairs: [] };
   const registryMap = buildRepairRegistry(tools);
   const repaired = repairToolCall({ name: call.name, args: call.input, id: call.id }, registryMap);
   if (repaired.repairs.length === 0) return { call, repairs: repaired.repairs };

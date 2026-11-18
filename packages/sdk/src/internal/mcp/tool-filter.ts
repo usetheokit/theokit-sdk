@@ -20,51 +20,18 @@ interface FilterableClient {
   callTool(name: string, args: Record<string, unknown>): Promise<unknown>;
   close(): Promise<void>;
   call?(method: string, params: Record<string, unknown>): Promise<unknown>;
-  filteredOutTools?(): string[];
-}
-
-/** The name the model sees for a server's tool: `mcp_<server>_<tool>`, each part sanitized. */
-export function modelFacingToolName(serverName: string, toolName: string): string {
-  const clean = (n: string): string =>
-    n.replace(/[^a-zA-Z0-9-]+/g, "_").replace(/^[_-]+|[_-]+$/g, "");
-  return `mcp_${clean(serverName)}_${clean(toolName)}`;
-}
-
-/**
- * A filtered-out tool is not in the dispatch registry, so a model-forced call to it arrives as an
- * unknown name. Map the model-facing name back to the server and tool it was, and return the
- * client's named refusal. `undefined` when the name is not a filtered-out tool.
- */
-export function isFilteredCall(
-  mcp: ReadonlyMap<string, FilterableClient> | undefined,
-  modelFacingName: string,
-): boolean {
-  for (const [serverName, client] of mcp ?? [])
-    for (const tool of client.filteredOutTools?.() ?? [])
-      if (modelFacingToolName(serverName, tool) === modelFacingName) return true;
-  return false;
-}
-
-export async function refuseFilteredCall(
-  mcp: ReadonlyMap<string, FilterableClient> | undefined,
-  modelFacingName: string,
-): Promise<string | undefined> {
-  for (const [serverName, client] of mcp ?? []) {
-    for (const tool of client.filteredOutTools?.() ?? []) {
-      if (modelFacingToolName(serverName, tool) !== modelFacingName) continue;
-      const refused = (await client.callTool(tool, {})) as { content: Array<{ text: string }> };
-      return refused.content[0]?.text;
-    }
-  }
-  return undefined;
 }
 
 export type McpToolFilter = NonNullable<McpServerConfig["tools"]>;
 
 function checkList(serverName: string, field: string, list: unknown): void {
+  // `every` skips holes, so a sparse array is checked index by index.
   const ok =
     list === undefined ||
-    (Array.isArray(list) && list.every((n) => typeof n === "string" && n.length > 0));
+    (Array.isArray(list) &&
+      Array.from({ length: list.length }, (_, i) => list[i]).every(
+        (n) => typeof n === "string" && n.length > 0,
+      ));
   if (ok) return;
   throw new ConfigurationError(
     `MCP server "${serverName}": tools.${field} must be an array of non-empty strings`,
@@ -119,7 +86,6 @@ export function withToolFilter<C extends FilterableClient>(
     ],
     isError: true,
   });
-  const filteredOut = new Set<string>();
   let warned = false;
   const filtered = {
     get name() {
@@ -128,7 +94,6 @@ export function withToolFilter<C extends FilterableClient>(
     get sequential() {
       return client.sequential;
     },
-    filteredOutTools: () => [...filteredOut],
     initialize: () => client.initialize(),
     close: () => client.close(),
     ...(client.call === undefined
@@ -147,7 +112,6 @@ export function withToolFilter<C extends FilterableClient>(
         warned = true;
         warnUnlisted(serverName, include, listed);
       }
-      for (const t of listed) if (!allowed(t.name)) filteredOut.add(t.name);
       return listed.filter((t) => allowed(t.name));
     },
     async callTool(name: string, args: Record<string, unknown>) {

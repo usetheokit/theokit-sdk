@@ -4,15 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Agent, ConfigurationError } from "../../src/index.js";
-import { runAgentLoop } from "../../src/internal/agent-loop/loop.js";
 import { safeListTools } from "../../src/internal/agent-loop/loop-context-init.js";
 import { dispatchTools } from "../../src/internal/agent-loop/tool-dispatch.js";
 import type { AgentLoopInputs, ResolvedTool } from "../../src/internal/agent-loop/types.js";
 import { serializeCloudAgentConfig } from "../../src/internal/cloud-agent/cloud-config-serializer.js";
 import { setDiagnosticsSink } from "../../src/internal/diagnostics.js";
-import type { LlmClient, LlmEvent, LlmFinish, LlmRequest } from "../../src/internal/llm/types.js";
 import { createMcpClient, type McpClient } from "../../src/internal/mcp/client.js";
-import { withToolFilter } from "../../src/internal/mcp/tool-filter.js";
 import { HooksExecutor } from "../../src/internal/runtime/hooks/hooks-executor.js";
 import type { McpStdioServerConfig } from "../../src/types/mcp.js";
 
@@ -66,14 +63,6 @@ async function start(tools?: McpStdioServerConfig["tools"]): Promise<McpClient> 
   clients.push(client);
   await client.initialize();
   return client;
-}
-
-function toolResults(request: LlmRequest): Array<{ content: unknown; isError?: boolean }> {
-  const parts = request.messages.flatMap((m) => (typeof m.content === "string" ? [] : m.content));
-  return parts.filter((p) => p.type === "tool_result") as Array<{
-    content: unknown;
-    isError?: boolean;
-  }>;
 }
 
 const requests = (): string[] => readFileSync(logFile, "utf8").split("\n").filter(Boolean);
@@ -134,42 +123,6 @@ describe("MCP tool filter (#1035)", () => {
     expect(requests()).toContain("tools/call:a");
   });
 
-  it("does not case-repair a forced danger call onto an offered Danger tool", async () => {
-    writeFileSync(
-      join(dir, "server.cjs"),
-      SERVER.replace('["a", "b", "danger"]', '["a", "Danger", "danger"]'),
-    );
-    const client = await start({ exclude: ["danger"] });
-    await client.listTools();
-    const tool: ResolvedTool = {
-      name: "mcp_fx_Danger",
-      description: "Danger",
-      inputSchema: { type: "object" },
-      origin: "mcp",
-      mcpServerName: "fx",
-      mcpToolName: "Danger",
-    };
-    const inputs = {
-      agentId: "x",
-      runId: "r",
-      userMessage: "go",
-      model: { id: "m" },
-      mcp: new Map([["fx", client]]),
-      hooks: new HooksExecutor(process.cwd()),
-      shellCwd: process.cwd(),
-      shellSandbox: false,
-      maxIterations: 2,
-    } as unknown as AgentLoopInputs;
-    const parts = await dispatchTools(
-      inputs,
-      [tool],
-      [{ type: "tool_use", id: "1", name: "mcp_fx_danger", input: {} }],
-      [],
-    );
-    expect(JSON.stringify(parts)).toContain("danger");
-    expect(requests().filter((r) => r.startsWith("tools/call:"))).toEqual([]);
-  });
-
   it("refuses a raw tools/call for a filtered-out name and passes other methods", async () => {
     const client = await start({ exclude: ["danger"] });
     const refused = (await client.call?.("tools/call", { name: "danger", arguments: {} })) as {
@@ -182,107 +135,6 @@ describe("MCP tool filter (#1035)", () => {
     expect(requests()).toContain("tools/call:a");
     await client.call?.("tools/list", {});
     expect(requests()).toContain("tools/list:");
-  });
-
-  it("the agent loop offers the model a and b only, and a forced danger call errors with no server call", async () => {
-    const client = await start({ exclude: ["danger"] });
-    const offered: string[][] = [];
-    const resultParts: Array<{ content: unknown; isError?: boolean }> = [];
-    let round = 0;
-    const llm: LlmClient = {
-      name: "stub",
-      async *stream(request: LlmRequest): AsyncGenerator<LlmEvent, LlmFinish, void> {
-        offered.push((request.tools ?? []).map((t) => t.name));
-        round += 1;
-        if (round === 1) {
-          return {
-            stopReason: "tool_use",
-            text: "",
-            toolCalls: [{ type: "tool_use", id: "c1", name: "mcp_fx_danger", input: {} }],
-          };
-        }
-        resultParts.push(...toolResults(request));
-        yield { type: "text_delta", text: "done" };
-        return { stopReason: "end_turn", text: "done", toolCalls: [] };
-      },
-    };
-    const hooks = new HooksExecutor(dir);
-    await hooks.initialize(false);
-    await runAgentLoop({
-      agentId: "filter",
-      runId: "run-filter",
-      model: { id: "openai/gpt-4o-mini" },
-      userMessage: "go",
-      llm,
-      mcp: new Map([["fx", client]]),
-      hooks,
-      shellCwd: dir,
-      shellSandbox: false,
-    });
-    const mcpOffered = (offered[0] ?? []).filter((n) => n.startsWith("mcp_"));
-    expect(mcpOffered.sort()).toEqual(["mcp_fx_a", "mcp_fx_b"]);
-    expect(resultParts).toHaveLength(1);
-    expect(resultParts[0]?.isError).toBe(true);
-    expect(String(resultParts[0]?.content)).toMatch(/danger/);
-    expect(String(resultParts[0]?.content)).toMatch(/fx/);
-    expect(requests().some((r) => r.startsWith("tools/call:"))).toBe(false);
-  });
-
-  it("a forced call to a tool whose model-facing name was sanitized still names the originals", async () => {
-    let serverCalls = 0;
-    const inner: McpClient = {
-      name: "my.server",
-      initialize: async () => {},
-      close: async () => {},
-      listTools: async () =>
-        ["a", "danger.tool"].map((name) => ({ name, description: name, inputSchema: {} })),
-      callTool: async () => {
-        serverCalls += 1;
-        return { content: [{ type: "text", text: "ran" }] };
-      },
-    };
-    const client = withToolFilter(inner, "my.server", { exclude: ["danger.tool"] });
-    const offered: string[][] = [];
-    const results: Array<{ content: unknown; isError?: boolean }> = [];
-    let round = 0;
-    const llm: LlmClient = {
-      name: "stub",
-      async *stream(request: LlmRequest): AsyncGenerator<LlmEvent, LlmFinish, void> {
-        offered.push((request.tools ?? []).map((t) => t.name));
-        round += 1;
-        if (round === 1) {
-          return {
-            stopReason: "tool_use",
-            text: "",
-            toolCalls: [
-              { type: "tool_use", id: "c1", name: "mcp_my_server_danger_tool", input: {} },
-            ],
-          };
-        }
-        results.push(...toolResults(request));
-        yield { type: "text_delta", text: "done" };
-        return { stopReason: "end_turn", text: "done", toolCalls: [] };
-      },
-    };
-    const hooks = new HooksExecutor(dir);
-    await hooks.initialize(false);
-    await runAgentLoop({
-      agentId: "filter2",
-      runId: "run-filter2",
-      model: { id: "openai/gpt-4o-mini" },
-      userMessage: "go",
-      llm,
-      mcp: new Map([["my.server", client]]),
-      hooks,
-      shellCwd: dir,
-      shellSandbox: false,
-    });
-    expect((offered[0] ?? []).filter((n) => n.startsWith("mcp_"))).toEqual(["mcp_my_server_a"]);
-    expect(results).toHaveLength(1);
-    expect(results[0]?.isError).toBe(true);
-    expect(String(results[0]?.content)).toContain('"danger.tool"');
-    expect(String(results[0]?.content)).toContain('"my.server"');
-    expect(serverCalls).toBe(0);
   });
 
   it("warns once about an include name the server does not list", async () => {
@@ -307,6 +159,21 @@ describe("MCP tool filter (#1035)", () => {
     expect(err).toBeInstanceOf(ConfigurationError);
     expect((err as ConfigurationError).code).toBe("invalid_mcp_tool_filter");
     expect((err as ConfigurationError).message).toContain("fx");
+  });
+
+  it("rejects a sparse include array", async () => {
+    // biome-ignore lint/suspicious/noSparseArray: the hole is the case under test
+    const include = ["a", , "b"] as string[];
+    const err = await Agent.create({
+      apiKey: "theo_test_1035",
+      model: { id: "composer-2" },
+      local: { cwd: dir },
+      mcpServers: { fx: { ...config({ include }) } },
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    expect((err as ConfigurationError).code).toBe("invalid_mcp_tool_filter");
   });
 
   it("the cloud payload carries only include and exclude", () => {

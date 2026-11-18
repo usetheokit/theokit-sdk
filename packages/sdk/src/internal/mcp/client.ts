@@ -36,8 +36,6 @@ export interface McpClient {
   readonly name: string;
   /** `true` when the server's config sets `sequential`: the loop runs its calls one at a time. */
   readonly sequential?: boolean;
-  /** Tool names a `tools` filter dropped from the last listing (server's own names). */
-  filteredOutTools?(): string[];
   initialize(): Promise<void>;
   listTools(): Promise<McpTool[]>;
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult>;
