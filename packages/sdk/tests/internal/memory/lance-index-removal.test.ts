@@ -153,17 +153,17 @@ describe.skipIf(!isLanceAvailable())("LanceIndex.removeFacts (real LanceDB)", ()
     expect(await ids(b.index)).toEqual(["keep"]);
   });
 
-  it("a table written before `fact_id` existed is not back-filled and removes exact ids", async () => {
+  it("an older table keeps its rows unlinked but links newly written chunks", async () => {
     const first = await open();
     const { dir } = first;
-    await first.index.addFacts([fact("old"), fact("old#0")]);
+    await first.index.addFacts([fact("old"), fact("old#0"), fact("keep")]);
     const table = (
       first.index as unknown as { table: { dropColumns(c: string[]): Promise<unknown> } }
     ).table;
     await table.dropColumns(["fact_id"]);
     const { index } = await open(dir);
-    await index.addFacts([fact("n", { fact_id: "n" })]);
+    await index.addFacts([fact("n#0", { fact_id: "n" }), fact("n#1", { fact_id: "n" })]);
     await index.removeFacts(["old", "n"], SCOPE);
-    expect(await ids(index)).toEqual(["old#0"]);
+    expect(await ids(index)).toEqual(["keep", "old#0"]);
   });
 });
