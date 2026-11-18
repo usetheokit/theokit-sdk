@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.26.0
+
+### Minor Changes
+
+- [#1223](https://github.com/usetheokit/theokit-sdk/pull/1223) [`880a0db`](https://github.com/usetheokit/theokit-sdk/commit/880a0db198d460f296816736b5d569d5a70048f5) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `hookFingerprint`, `fingerprintHookGate` and `listProjectHooks` (with the `ProjectHook` type) from `@theokit/sdk` (also the `@theokit/sdk/hooks-approval` sub-entry), so a consumer can list the command hooks a project declares, fingerprint them, and gate them by an allowlist without re-implementing the SDK's file set or timeout default. A malformed fingerprint is rejected with `hook_fingerprint_invalid`.
+
 ## 5.25.0
 
 ### Minor Changes
