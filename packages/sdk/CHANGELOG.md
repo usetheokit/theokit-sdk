@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.25.0
+
+### Minor Changes
+
+- [#1222](https://github.com/usetheokit/theokit-sdk/pull/1222) [`a3b71ed`](https://github.com/usetheokit/theokit-sdk/commit/a3b71ed46da202110d1ad0ad6287e1f57d208743) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `readManagedSettingsDocument(root?, { onWarn? })` to the root entry. It returns the whole parsed `managed-settings.json` (`{ path, raw }`) so an app can read its own operator-imposed keys. An unreadable, invalid or non-object file returns `null` and warns through `onWarn` (default `diagFailure`).
+
 ## 5.24.0
 
 ### Minor Changes
