@@ -73,6 +73,13 @@ describe("forced calls", () => {
     expect(callTool).not.toHaveBeenCalled();
   });
 
+  it("does not case-repair a differently cased mcp_ prefix onto an offered tool", async () => {
+    const { c, callTool } = client(["foo"]);
+    const out = await dispatch(c, "MCP_my_server_Foo");
+    expect(out).toContain("Unknown tool");
+    expect(callTool).not.toHaveBeenCalled();
+  });
+
   it("does not case-repair an omitted name onto a different offered tool", async () => {
     const { c, callTool } = client(["foo"]);
     const out = await dispatch(c, "mcp_my_server_Foo");

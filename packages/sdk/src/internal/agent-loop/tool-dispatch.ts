@@ -216,8 +216,8 @@ function applyRepairAndExtractCall(
 
 function isSafeNameRepair(tools: ResolvedTool[], name: string): boolean {
   const lower = name.toLowerCase();
-  const matches = tools.filter((t) => t.name.toLowerCase() === lower).length;
-  return matches === 1 && !name.startsWith("mcp_");
+  const matches = tools.filter((t) => t.name.toLowerCase() === lower);
+  return matches.length === 1 && matches[0]?.origin !== "mcp" && !lower.startsWith("mcp_");
 }
 
 /**
