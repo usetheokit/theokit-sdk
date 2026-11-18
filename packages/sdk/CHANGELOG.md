@@ -1,5 +1,21 @@
 # Changelog
 
+## 5.24.0
+
+### Minor Changes
+
+- [#1207](https://github.com/usetheokit/theokit-sdk/pull/1207) [`be1bc38`](https://github.com/usetheokit/theokit-sdk/commit/be1bc3841d01d50cf3ba04b550ab0f7fdb8db2eb) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `tools: { include, exclude }` to `McpStdioServerConfig` and `McpHttpServerConfig` to filter the tools an MCP server offers. A call to a filtered-out tool is refused before it reaches the server. A malformed filter is rejected at `Agent.create` with `invalid_mcp_tool_filter`.
+
+- [#1203](https://github.com/usetheokit/theokit-sdk/pull/1203) [`0f46eed`](https://github.com/usetheokit/theokit-sdk/commit/0f46eed5c5d7ba5a1d00eae7e1575177603eb908) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/persistence` exports `acquireInstanceLock`, `InstanceLock` and `InstanceLockedError`: a lock on `<dir>.instance.lock` held for the life of the process, so one process runs per state directory. A lock left by a crashed process is taken over, and only one of several racing processes wins. Liveness is `kill(pid, 0)`, so contenders must share a pid namespace.
+
+- [#1201](https://github.com/usetheokit/theokit-sdk/pull/1201) [`20eaa89`](https://github.com/usetheokit/theokit-sdk/commit/20eaa89392ad4437a5d6dcbc1e4868270adaefd1) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `Squad.run(input, { signal, timeoutMs })` cancels the member run in flight and resolves with `status: "cancelled"` (`timedOut: true` on timeout). `agentStep` now cancels its in-flight agent run when the workflow signal aborts, and reports a `cancelled` step result. Members built from an `AgentDefinition` are disposed after each run; `ownsMembers: true` disposes passed-in members too, and disposal failures go to `onDisposeError` without failing the run.
+
+### Patch Changes
+
+- [#1200](https://github.com/usetheokit/theokit-sdk/pull/1200) [`148e9d1`](https://github.com/usetheokit/theokit-sdk/commit/148e9d1f05485a08c3c4f3e71071b1a7e66ee0de) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `acquireInstanceLock` takes over a stale lock after crashed takers left guards behind (no 16-guard limit, no stuck takeover marker), cleans up only guards it still owns, and `release()` rejects when the unlink fails so a later call retries ([#1191](https://github.com/usetheokit/theokit-sdk/issues/1191)).
+
+- [#1202](https://github.com/usetheokit/theokit-sdk/pull/1202) [`4acc1dd`](https://github.com/usetheokit/theokit-sdk/commit/4acc1dddfe16e27bfc39d8954f5e1dc15e2ec9c7) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Workflow containers report cancellation correctly: a `foreach` item that cancels itself aborts its siblings and the step resolves `cancelled`, and a `parallel` whose signal aborts while its last branch function runs resolves `cancelled` under both error policies instead of `completed`.
+
 ## 5.23.0
 
 ### Minor Changes
