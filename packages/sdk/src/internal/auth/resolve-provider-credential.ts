@@ -80,12 +80,15 @@ function envValue(env: Record<string, string | undefined>, name: string): string
   return typeof v === "string" && v.trim().length > 0 ? v : undefined;
 }
 
-/** The candidate's variable first, then the profile's credential variables, without duplicates. */
+/** Profiles also list configuration (endpoint, account id); only secret-shaped names are keys. */
+const SECRET_NAME = /(_API_KEY|_KEY|_TOKEN|_SECRET)$/;
+
+/** The candidate's variable first, then the profile's secret-shaped variables, without duplicates. */
 function varsFor(provider: string, candidates: readonly ProviderCandidate[]): string[] {
   const own = candidates.find((x) => x.name === provider)?.envVar;
   const all = [
     ...(own === undefined ? [] : [own]),
-    ...(getProviderProfile(provider)?.envVars ?? []),
+    ...(getProviderProfile(provider)?.envVars ?? []).filter((v) => SECRET_NAME.test(v)),
   ];
   return [...new Set(all)];
 }

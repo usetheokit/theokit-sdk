@@ -121,6 +121,18 @@ describe("resolveProviderCredential", () => {
     expect(r.baseUrl).toBe(getProviderProfile("google")?.baseUrl);
   });
 
+  it("never returns a profile configuration variable as the key", async () => {
+    for (const [model, v] of [
+      ["azure-openai/x", "AZURE_OPENAI_ENDPOINT"],
+      ["cloudflare/x", "CLOUDFLARE_ACCOUNT_ID"],
+    ] as const) {
+      const e = await codeOf(
+        resolveProviderCredential({ env: { [v]: "https://example.test/cfg" }, model }),
+      );
+      expect(e.code).toBe("model_provider_without_credential");
+    }
+  });
+
   it("rejects a pinned credential whose provider has no profile", async () => {
     const e = await codeOf(
       resolveProviderCredential({
