@@ -17,13 +17,43 @@
 import type { ParallelStep, Step, StepResult } from "../../types/workflow.js";
 import { WorkflowParallelError } from "../../workflow-errors.js";
 import { createSemaphore } from "../concurrency/async-semaphore.js";
+import { mergeSignals } from "./ctx.js";
 import { errToShape } from "./error-shape.js";
 import type { StepExecution } from "./step-execution.js";
+
+interface ParallelSeen {
+  cancelled?: StepResult;
+  /** Set once fail-fast aborted the siblings over a failure: their cancellations are a consequence. */
+  failFastFailure?: boolean;
+}
 
 export async function runParallelStep(
   step: ParallelStep,
   input: unknown,
   exec: StepExecution,
+): Promise<StepResult> {
+  const startedAt = Date.now();
+  const seen: ParallelSeen = {};
+  const result = await runBranches(step, input, exec, seen);
+  // A cancelled inner step cancels the container; so does an abort that settled after a plain fn
+  // (which ignores the signal) returned normally.
+  if (seen.cancelled !== undefined) {
+    return {
+      ...cancelledParallel(step, startedAt, exec.ctx.signal),
+      ...(seen.cancelled.error !== undefined ? { error: seen.cancelled.error } : {}),
+    };
+  }
+  if (exec.ctx.signal.aborted && result.status !== "suspended") {
+    return cancelledParallel(step, startedAt, exec.ctx.signal);
+  }
+  return result;
+}
+
+async function runBranches(
+  step: ParallelStep,
+  input: unknown,
+  exec: StepExecution,
+  seen: ParallelSeen,
 ): Promise<StepResult> {
   const { ctx } = exec;
   const startedAt = Date.now();
@@ -46,72 +76,104 @@ export async function runParallelStep(
   const sem = createSemaphore(Math.max(1, Math.min(concurrency, branchCount)));
 
   // Derived signal for fail-fast: aborts on first branch failure.
-  const failFastCtrl = policy === "fail-fast" ? new AbortController() : undefined;
-  const branchSignal =
-    policy === "fail-fast" ? mergeSignals(ctx.signal, failFastCtrl!.signal) : ctx.signal;
-
-  // Gate each branch through the semaphore — acquire BEFORE running so the
-  // permit cap is honored. (Eager-start would defeat concurrency limits.)
-  const semBranchPromises = step.branches.map(async (branch, branchIdx) => {
-    const release = await sem.acquire();
-    try {
-      // Each branch runs under a signal of its own (the run's, merged with this step's) and
-      // starts from an empty result history — the branches are siblings, not a sequence.
-      return await runBranch(
-        branch,
-        input,
-        { ...exec, ctx: { ...ctx, signal: branchSignal }, prevStepResults: [] },
-        branchIdx,
-      );
-    } finally {
-      release();
-    }
-  });
-
-  if (policy === "fail-fast") {
-    try {
-      const outputs = await Promise.all(semBranchPromises);
-      return {
-        stepId: step.id,
-        kind: "parallel",
-        status: "completed",
-        attempts: 1,
-        durationMs: Date.now() - startedAt,
-        output: outputs,
-      };
-    } catch (err) {
-      failFastCtrl?.abort(err);
-      // Collect any settled rejections so the aggregate has all errors.
-      const settled = await Promise.allSettled(semBranchPromises);
-      const errors = settled
-        .filter((s): s is PromiseRejectedResult => s.status === "rejected")
-        .map((s) => (s.reason instanceof Error ? s.reason : new Error(String(s.reason))));
-      return {
-        stepId: step.id,
-        kind: "parallel",
-        status: "failed",
-        attempts: 1,
-        durationMs: Date.now() - startedAt,
-        error: errToShape(new WorkflowParallelError(errors, step.id)),
-        output: undefined,
-      };
-    }
+  // Also aborted, under both policies, when an inner step cancels, so siblings stop at once.
+  const failFastCtrl = new AbortController();
+  const merged = mergeSignals(ctx.signal, failFastCtrl.signal);
+  const branchSignal = merged.signal;
+  try {
+    return await runMerged();
+  } finally {
+    // Never leave a listener on the (long-lived) parent signal once the step settles.
+    merged.dispose();
   }
 
-  // collect mode
-  const settled = await Promise.allSettled(semBranchPromises);
-  const outputs = settled.map((s) =>
-    s.status === "fulfilled"
-      ? { ok: true as const, value: s.value }
-      : { ok: false as const, error: errToShape(s.reason) },
-  );
+  async function runMerged(): Promise<StepResult> {
+    // Gate each branch through the semaphore — acquire BEFORE running so the
+    // permit cap is honored. (Eager-start would defeat concurrency limits.)
+    const semBranchPromises = step.branches.map(async (branch, branchIdx) => {
+      const release = await sem.acquire();
+      try {
+        // A branch that was queued when the signal aborted never starts.
+        if (branchSignal.aborted) {
+          throw new Error(`parallel branch ${branchIdx} not started: cancelled`);
+        }
+        // Each branch runs under a signal of its own (the run's, merged with this step's) and
+        // starts from an empty result history — the branches are siblings, not a sequence.
+        return await runBranch(
+          branch,
+          input,
+          {
+            ...exec,
+            ctx: { ...ctx, signal: branchSignal },
+            prevStepResults: [],
+          },
+          branchIdx,
+          seen,
+          failFastCtrl,
+        );
+      } finally {
+        release();
+      }
+    });
+
+    if (policy === "fail-fast") {
+      try {
+        const outputs = await Promise.all(semBranchPromises);
+        return {
+          stepId: step.id,
+          kind: "parallel",
+          status: "completed",
+          attempts: 1,
+          durationMs: Date.now() - startedAt,
+          output: outputs,
+        };
+      } catch (err) {
+        // A cancellation already seen is independent; any later one is caused by this abort.
+        if (seen.cancelled === undefined) seen.failFastFailure = true;
+        failFastCtrl.abort(err);
+        // Collect any settled rejections so the aggregate has all errors.
+        const settled = await Promise.allSettled(semBranchPromises);
+        const errors = settled
+          .filter((s): s is PromiseRejectedResult => s.status === "rejected")
+          .map((s) => (s.reason instanceof Error ? s.reason : new Error(String(s.reason))));
+        return {
+          stepId: step.id,
+          kind: "parallel",
+          status: "failed",
+          attempts: 1,
+          durationMs: Date.now() - startedAt,
+          error: errToShape(new WorkflowParallelError(errors, step.id)),
+          output: undefined,
+        };
+      }
+    }
+
+    // collect mode
+    const settled = await Promise.allSettled(semBranchPromises);
+    const outputs = settled.map((s) =>
+      s.status === "fulfilled"
+        ? { ok: true as const, value: s.value }
+        : { ok: false as const, error: errToShape(s.reason) },
+    );
+    return {
+      stepId: step.id,
+      kind: "parallel",
+      status: "completed",
+      attempts: 1,
+      durationMs: Date.now() - startedAt,
+      output: outputs,
+    };
+  }
+}
+
+function cancelledParallel(step: ParallelStep, startedAt: number, signal: AbortSignal): StepResult {
   return {
     stepId: step.id,
     kind: "parallel",
-    status: "completed",
+    status: "cancelled",
     attempts: 1,
     durationMs: Date.now() - startedAt,
-    output: outputs,
+    error: { name: "AbortError", message: String(signal.reason ?? "Aborted") },
   };
 }
 
@@ -120,11 +182,19 @@ async function runBranch(
   input: unknown,
   exec: StepExecution,
   branchIdx: number,
+  seen: ParallelSeen,
+  siblings: AbortController,
 ): Promise<unknown> {
   const { dispatch } = exec;
   let acc: unknown = input;
   for (const inner of branch) {
     const r = await dispatch(inner, acc, exec);
+    if (r.status === "cancelled") {
+      // Stop this branch; fail-fast aborts the siblings through the thrown error.
+      if (!seen.failFastFailure) seen.cancelled ??= r;
+      siblings.abort(r.error?.message ?? "parallel branch cancelled");
+      throw new Error(`parallel branch ${branchIdx} step "${inner.id}" cancelled`);
+    }
     if (r.status === "failed") {
       throw new Error(
         `parallel branch ${branchIdx} step "${inner.id}" failed: ${r.error?.message ?? "unknown"}`,
@@ -133,15 +203,4 @@ async function runBranch(
     acc = r.output;
   }
   return acc;
-}
-
-function mergeSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
-  if (a.aborted) return a;
-  if (b.aborted) return b;
-  const ctrl = new AbortController();
-  const onAbortA = (): void => ctrl.abort(a.reason);
-  const onAbortB = (): void => ctrl.abort(b.reason);
-  a.addEventListener("abort", onAbortA, { once: true });
-  b.addEventListener("abort", onAbortB, { once: true });
-  return ctrl.signal;
 }

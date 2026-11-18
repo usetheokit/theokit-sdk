@@ -94,3 +94,24 @@ export function combineSignals(...signals: ReadonlyArray<AbortSignal | undefined
   }
   return ctrl.signal;
 }
+
+/** Merge two signals; `dispose` detaches the listeners from the inputs (call when the step settles). */
+export function mergeSignals(
+  a: AbortSignal,
+  b: AbortSignal,
+): { signal: AbortSignal; dispose: () => void } {
+  if (a.aborted) return { signal: a, dispose: () => {} };
+  if (b.aborted) return { signal: b, dispose: () => {} };
+  const ctrl = new AbortController();
+  const onAbortA = (): void => ctrl.abort(a.reason);
+  const onAbortB = (): void => ctrl.abort(b.reason);
+  a.addEventListener("abort", onAbortA, { once: true });
+  b.addEventListener("abort", onAbortB, { once: true });
+  return {
+    signal: ctrl.signal,
+    dispose: () => {
+      a.removeEventListener("abort", onAbortA);
+      b.removeEventListener("abort", onAbortB);
+    },
+  };
+}
