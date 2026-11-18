@@ -32,6 +32,8 @@ overrides:
   follow-redirects@<1.16.2: ^1.16.2
   '@azure/msal-node@>=5.0.0-beta.0 <7.1.0': ^7.1.0
   mongoose@>=9.0.0 <9.11.4: ^9.11.4
+  picomatch@>=4.0.0 <=4.0.7: file:./vendor/picomatch
+  picomatch@>=2.0.0 <=2.3.2: file:./vendor/picomatch-2
 
 importers:
 
@@ -3290,6 +3292,7 @@ packages:
 
   fdir@6.5.0:
     resolution: {integrity: sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==}
+    version: 6.5.0
     engines: {node: '>=12.0.0'}
     peerDependencies:
       picomatch: ^3 || ^4
@@ -4517,17 +4520,13 @@ packages:
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
 
-  picomatch@2.3.2:
-    resolution: {integrity: sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==}
+  picomatch@file:vendor/picomatch:
+    resolution: {directory: vendor/picomatch, type: directory}
+    engines: {node: '>=12'}
+
+  picomatch@file:vendor/picomatch-2:
+    resolution: {directory: vendor/picomatch-2, type: directory}
     engines: {node: '>=8.6'}
-
-  picomatch@4.0.4:
-    resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
-    engines: {node: '>=12'}
-
-  picomatch@4.0.7:
-    resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
-    engines: {node: '>=12'}
 
   pidtree@1.0.0:
     resolution: {integrity: sha512-avfAvjB9Dd0wdj3rjJX//yS+G79OO0KrS5pJHFJENjYGX6N4SMgEDBBI/yFy0lloOYSaC6XQxzpOAMPfSYFV/Q==}
@@ -6535,7 +6534,7 @@ snapshots:
       '@changesets/should-skip-package': 1.0.0
       '@changesets/types': 7.0.0
       '@manypkg/get-packages': 3.1.0
-      picomatch: 4.0.7
+      picomatch: file:vendor/picomatch
 
   '@changesets/errors@1.0.0': {}
 
@@ -6558,7 +6557,7 @@ snapshots:
       '@changesets/errors': 1.0.0
       '@changesets/types': 7.0.0
       '@manypkg/get-packages': 3.1.0
-      picomatch: 4.0.7
+      picomatch: file:vendor/picomatch
       tinyexec: 1.3.1
 
   '@changesets/parse@1.0.0':
@@ -8341,7 +8340,7 @@ snapshots:
       json5: 2.2.3
       memoize: 10.2.0
       picocolors: 1.1.1
-      picomatch: 4.0.4
+      picomatch: file:vendor/picomatch
       prompts: 2.4.2
       rechoir: 0.8.0
       safe-regex: 2.1.1
@@ -8641,13 +8640,9 @@ snapshots:
     dependencies:
       walk-up-path: 4.0.0
 
-  fdir@6.5.0(picomatch@4.0.4):
+  fdir@6.5.0(picomatch@file:vendor/picomatch):
     optionalDependencies:
-      picomatch: 4.0.4
-
-  fdir@6.5.0(picomatch@4.0.7):
-    optionalDependencies:
-      picomatch: 4.0.7
+      picomatch: file:vendor/picomatch
 
   fetch-blob@3.2.0:
     dependencies:
@@ -9074,7 +9069,7 @@ snapshots:
       chalk: 4.1.2
       ci-info: 3.9.0
       graceful-fs: 4.2.11
-      picomatch: 2.3.2
+      picomatch: file:vendor/picomatch-2
 
   jiti@2.7.0: {}
 
@@ -9111,7 +9106,7 @@ snapshots:
       graceful-fs: 4.2.11
       neo-async: 2.6.2
       picocolors: 1.1.1
-      picomatch: 4.0.7
+      picomatch: file:vendor/picomatch
       recast: 0.23.21
       tmp: 0.2.7
       write-file-atomic: 5.0.1
@@ -9218,7 +9213,7 @@ snapshots:
       minimist: 1.2.8
       oxc-resolver: 11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
       picocolors: 1.1.1
-      picomatch: 4.0.4
+      picomatch: file:vendor/picomatch
       smol-toml: 1.8.0
       strip-json-comments: 5.0.3
       typescript: 5.9.3
@@ -9448,7 +9443,7 @@ snapshots:
   micromatch@4.0.8:
     dependencies:
       braces: 3.0.3
-      picomatch: 2.3.2
+      picomatch: file:vendor/picomatch-2
 
   mime-db@1.52.0: {}
 
@@ -9637,7 +9632,7 @@ snapshots:
       ansi-styles: 7.0.0
       cross-spawn: 7.0.6
       memorystream: 0.3.1
-      picomatch: 4.0.7
+      picomatch: file:vendor/picomatch
       pidtree: 1.0.0
       read-package-json-fast: 6.0.0
       shell-quote: 1.12.0
@@ -9873,11 +9868,9 @@ snapshots:
 
   picocolors@1.1.1: {}
 
-  picomatch@2.3.2: {}
+  picomatch@file:vendor/picomatch: {}
 
-  picomatch@4.0.4: {}
-
-  picomatch@4.0.7: {}
+  picomatch@file:vendor/picomatch-2: {}
 
   pidtree@1.0.0: {}
 
@@ -10576,13 +10569,13 @@ snapshots:
 
   tinyglobby@0.2.16:
     dependencies:
-      fdir: 6.5.0(picomatch@4.0.4)
-      picomatch: 4.0.4
+      fdir: 6.5.0(picomatch@file:vendor/picomatch)
+      picomatch: file:vendor/picomatch
 
   tinyglobby@0.2.17:
     dependencies:
-      fdir: 6.5.0(picomatch@4.0.7)
-      picomatch: 4.0.7
+      fdir: 6.5.0(picomatch@file:vendor/picomatch)
+      picomatch: file:vendor/picomatch
 
   tinyrainbow@3.1.0: {}
 
@@ -10747,8 +10740,8 @@ snapshots:
   vite@7.3.7(@types/node@22.19.19)(jiti@2.7.0)(tsx@4.22.0)(yaml@2.9.1):
     dependencies:
       esbuild: 0.28.1
-      fdir: 6.5.0(picomatch@4.0.7)
-      picomatch: 4.0.7
+      fdir: 6.5.0(picomatch@file:vendor/picomatch)
+      picomatch: file:vendor/picomatch
       postcss: 8.5.25
       rollup: 4.62.4
       tinyglobby: 0.2.17
@@ -10762,8 +10755,8 @@ snapshots:
   vite@7.3.7(@types/node@26.5.1)(jiti@2.7.0)(tsx@4.22.0)(yaml@2.9.1):
     dependencies:
       esbuild: 0.28.1
-      fdir: 6.5.0(picomatch@4.0.7)
-      picomatch: 4.0.7
+      fdir: 6.5.0(picomatch@file:vendor/picomatch)
+      picomatch: file:vendor/picomatch
       postcss: 8.5.25
       rollup: 4.62.4
       tinyglobby: 0.2.17
@@ -10788,7 +10781,7 @@ snapshots:
       magic-string: 0.30.21
       obug: 2.1.1
       pathe: 2.0.3
-      picomatch: 4.0.4
+      picomatch: file:vendor/picomatch
       std-env: 4.1.0
       tinybench: 2.9.0
       tinyexec: 1.2.4
@@ -10817,7 +10810,7 @@ snapshots:
       magic-string: 0.30.21
       obug: 2.1.1
       pathe: 2.0.3
-      picomatch: 4.0.4
+      picomatch: file:vendor/picomatch
       std-env: 4.1.0
       tinybench: 2.9.0
       tinyexec: 1.2.4
