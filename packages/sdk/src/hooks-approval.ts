@@ -5,7 +5,6 @@
  */
 import { createHash } from "node:crypto";
 import { ConfigurationError } from "./errors.js";
-import { resolveCompatSources } from "./internal/runtime/compat/compat-config-file.js";
 import type { HookConfig } from "./internal/runtime/hooks/hooks-source.js";
 import { hookApprovalRequest, loadHookConfig } from "./internal/runtime/hooks/hooks-source.js";
 import type { CompatSource } from "./types/agent.js";
@@ -61,10 +60,8 @@ export interface ProjectHook extends HookApprovalRequest {
 }
 
 /**
- * Every command hook the agent would load for `cwd`, in the order the runtime loads them. The
- * loader merges files in precedence order and groups commands BY EVENT, so the list is grouped by
- * event (events in first-seen order); within an event, commands follow file precedence, then
- * declaration order. Uses the runtime's own
+ * Every command hook the agent would load for `cwd`, in the order the runtime loads them (files in
+ * precedence order, events in config order, commands in declaration order). Uses the runtime's own
  * loader, so the file set, precedence and timeout default are the runtime's.
  *
  * @public
@@ -73,13 +70,11 @@ export async function listProjectHooks(
   cwd: string,
   options: { compatSources?: readonly CompatSource[] } = {},
 ): Promise<ProjectHook[]> {
-  // Same resolution as the agent: explicit `compatSources` win, else `.theokit/config.json`
-  // `compat.adapters`, so the list shows the hooks the agent would actually load.
-  const compatSources = resolveCompatSources(
-    { local: options.compatSources === undefined ? {} : { compatSources: options.compatSources } },
+  // The runtime's loader accepts the same declarations `AgentOptions.local.compatSources` does.
+  const config: HookConfig = await loadHookConfig(
     cwd,
+    (options.compatSources ?? []) as Parameters<typeof loadHookConfig>[1],
   );
-  const config: HookConfig = await loadHookConfig(cwd, compatSources);
   const hooks: ProjectHook[] = [];
   for (const [event, commands] of Object.entries(config.hooks ?? {})) {
     for (const command of commands ?? []) {
