@@ -138,16 +138,6 @@
         "default": "./dist/subagents.cjs"
       }
     },
-    "./managed-settings": {
-      "import": {
-        "types": "./dist/managed-settings.d.ts",
-        "default": "./dist/managed-settings.js"
-      },
-      "require": {
-        "types": "./dist/managed-settings.d.cts",
-        "default": "./dist/managed-settings.cjs"
-      }
-    },
     "./path-safety": {
       "import": {
         "types": "./dist/path-safety.d.ts",

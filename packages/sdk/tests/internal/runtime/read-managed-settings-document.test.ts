@@ -6,7 +6,7 @@ import {
   managedSettingsPathFor,
   readManagedSettings,
   readManagedSettingsDocument,
-} from "../../../src/managed-settings.js";
+} from "../../../src/internal/runtime/compat/managed-settings.js";
 
 const roots: string[] = [];
 function rootWith(content?: string): string {
