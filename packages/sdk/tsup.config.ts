@@ -25,6 +25,8 @@ export default defineConfig({
     subagents: "src/subagents.ts",
     // tools — EXTRACTED to @theokit/sdk-tools (SDK 2.0 split, Phase 5).
     "path-safety": "src/path-safety.ts",
+    // Operator managed-settings document reader; DTS via tsc (tsconfig.tools-dts.json).
+    "managed-settings": "src/managed-settings.ts",
     // M0-2: concurrency reaches into internal/runtime, so its DTS is generated
     // via tsc (tsconfig.tools-dts.json), NOT rollup-plugin-dts (cycle).
     concurrency: "src/concurrency.ts",

@@ -241,10 +241,10 @@ A call to a filtered-out tool is refused in the client with a tool error naming 
 
 ## Reading the managed settings document
 
-`readManagedSettings()` returns only the four keys the SDK enforces. An app with its own keys (model, sandbox mode, approval policy) that an operator imposes through `managed-settings.json` can read the whole file with `readManagedSettingsDocument()`:
+`readManagedSettings()` returns only the four keys the SDK enforces. An app with its own keys (model, sandbox mode, approval policy) that an operator imposes through `managed-settings.json` can read the whole file with `readManagedSettingsDocument()` from the `@theokit/sdk/managed-settings` sub-entry:
 
 ```ts
-import { readManagedSettingsDocument } from "@theokit/sdk";
+import { readManagedSettingsDocument } from "@theokit/sdk/managed-settings";
 
 const doc = readManagedSettingsDocument(undefined, { onWarn: (m) => console.warn(m) });
 // null when there is no file; otherwise { path, raw } with every top-level key as written

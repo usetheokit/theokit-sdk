@@ -218,11 +218,8 @@ export type {
  */
 export {
   type ManagedSettings,
-  type ManagedSettingsDocument,
   managedSettingsPathFor,
-  type ReadManagedSettingsDocumentOptions,
   readManagedSettings,
-  readManagedSettingsDocument,
 } from "./internal/runtime/compat/managed-settings.js";
 // M42 — auth subsystem (credential store + OAuth engine) is exposed at the dedicated `@theokit/sdk/auth`
 // sub-entry (DTS built via tsc), NOT on this barrel: rollup-plugin-dts cannot bundle those modules into the

@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1398 export(s) across 56 entry point(s).
+1401 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -242,7 +242,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `LoadProjectEnvOptions` | interface | Options for {@link loadProjectEnv } . |
 | `LocalOptions` | interface | Local agent configuration.  |
 | `ManagedSettings` | interface | What an operator may impose.  |
-| `ManagedSettingsDocument` | interface | The managed-settings file as read: where it was, and every top-level key as written. |
 | `managedSettingsPathFor` | function | Where the platform keeps its managed settings.  |
 | `McpAuthConfig` | interface | OAuth-style auth bundle for HTTP/SSE MCP servers. |
 | `McpHttpServerConfig` | type | HTTP or SSE MCP server. |
@@ -327,8 +326,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `QueueMode` | type | How a message sent during a running turn is queued.  |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
 | `readManagedSettings` | function | Read the deployed policy, or `{}` when none is.  |
-| `readManagedSettingsDocument` | function | Read the whole managed-settings file, for an app that defines its own keys (model, sandbox mode, approval policy) and lets an operator impose them through it.  |
-| `ReadManagedSettingsDocumentOptions` | interface | Options for `readManagedSettingsDocument`. |
 | `readSessionMessages` | function | Read the messages a session already contains, for a surface that needs to re-render it.  |
 | `ReadSessionMessagesOptions` | interface | Which session to read, in the terms a host already has. |
 | `ReapableArtifact` | interface | One artifact the caller is considering deleting, described well enough to decide about.  |
@@ -1332,6 +1329,17 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `safePathJoin` | function | Join `base` with `...parts` and ensure the resolved absolute path stays under `base`.  |
 | `sanitizeIdentifier` | function | Validate that `input` is a safe path component (skill name, agent ID, namespace, etc.) and return its lowercase form.  |
 | `validateArtifactPath` | function | T1.4 — validate a relative artifact path string BEFORE it is used to look up a fixture or to fetch from PaaS.  |
+
+## `@theokit/sdk/managed-settings`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `ManagedSettings` | interface | What an operator may impose.  |
+| `ManagedSettingsDocument` | interface | The managed-settings file as read: where it was, and every top-level key as written. |
+| `managedSettingsPathFor` | function | Where the platform keeps its managed settings.  |
+| `readManagedSettings` | function | Read the deployed policy, or `{}` when none is.  |
+| `readManagedSettingsDocument` | function | Read the whole managed-settings file, for an app that defines its own keys (model, sandbox mode, approval policy) and lets an operator impose them through it.  |
+| `ReadManagedSettingsDocumentOptions` | interface | Options for `readManagedSettingsDocument`. |
 
 ## `@theokit/sdk/mcp-auth`
 

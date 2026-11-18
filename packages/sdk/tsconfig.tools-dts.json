@@ -12,6 +12,7 @@
   "include": [
     "src/messages.ts",
     "src/path-safety.ts",
+    "src/managed-settings.ts",
     "src/compaction.ts",
     "src/models.ts",
     "src/providers.ts",

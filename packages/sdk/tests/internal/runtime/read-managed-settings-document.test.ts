@@ -6,7 +6,7 @@ import {
   managedSettingsPathFor,
   readManagedSettings,
   readManagedSettingsDocument,
-} from "../../../src/index.js";
+} from "../../../src/managed-settings.js";
 
 const roots: string[] = [];
 function rootWith(content?: string): string {
@@ -44,6 +44,18 @@ describe("readManagedSettingsDocument", () => {
     const msg = onWarn.mock.calls[0]?.[0] as string;
     expect(msg).toContain(managedSettingsPathFor(root));
     expect(msg).toContain("NO operator policy is being applied");
+  });
+
+  it("reports a malformed file through the default diagnostic when no onWarn is given", () => {
+    const err = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      const root = rootWith("{not json");
+      expect(readManagedSettingsDocument(root)).toBeNull();
+      const out = err.mock.calls.map((c) => String(c[0])).join("");
+      expect(out).toContain(managedSettingsPathFor(root));
+    } finally {
+      err.mockRestore();
+    }
   });
 
   it("warns once for a non-object file", () => {
