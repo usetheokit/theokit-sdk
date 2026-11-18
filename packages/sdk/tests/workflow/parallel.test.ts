@@ -2,7 +2,7 @@
  * Tests for ParallelStep: concurrency, fail-fast, collect, EC-6 empty branches.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { fn, Workflow } from "../../src/workflow.js";
 
@@ -142,5 +142,160 @@ describe("workflow .parallel", () => {
     const run = await wf.run(undefined);
     expect(run.status).toBe("completed");
     expect(peak).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("workflow .parallel cancellation", () => {
+  for (const errorPolicy of ["fail-fast", "collect"] as const) {
+    it(`${errorPolicy}: abort during the last branch fn that returns normally is cancelled`, async () => {
+      const ctrl = new AbortController();
+      const build = () =>
+        Workflow.create({ name: "par-abort" })
+          .parallel(
+            [
+              [
+                fn("last", async () => {
+                  ctrl.abort("stop");
+                  return 1;
+                }),
+              ],
+            ],
+            { id: "p", errorPolicy },
+          )
+          .commit();
+      const run = await build().run(undefined, { signal: ctrl.signal });
+      expect(run.status).toBe("cancelled");
+      expect(run.stepResults.at(-1)?.status).toBe("cancelled");
+    });
+  }
+});
+
+describe("workflow .parallel nested cancellation", () => {
+  it("a cancelled inner step cancels the parallel and stops its branch", async () => {
+    const { runParallelStep } = await import("../../src/internal/workflow/step-parallel.js");
+    const after = vi.fn();
+    const dispatch = vi.fn(async (inner: { id: string }) => {
+      if (inner.id === "first") {
+        return {
+          stepId: "first",
+          kind: "agent" as const,
+          status: "cancelled" as const,
+          attempts: 1,
+          durationMs: 0,
+          error: { name: "AbortError", message: "cancelled" },
+        };
+      }
+      after();
+      return {
+        stepId: inner.id,
+        kind: "fn" as const,
+        status: "completed" as const,
+        attempts: 1,
+        durationMs: 0,
+      };
+    });
+    for (const errorPolicy of ["fail-fast", "collect"] as const) {
+      const result = await runParallelStep(
+        {
+          id: "p",
+          kind: "parallel",
+          errorPolicy,
+          branches: [
+            [
+              { id: "first", kind: "fn" },
+              { id: "second", kind: "fn" },
+            ],
+          ],
+        } as never,
+        undefined,
+        {
+          ctx: { signal: new AbortController().signal } as never,
+          options: {} as never,
+          prevStepResults: [],
+          dispatch: dispatch as never,
+        },
+      );
+      expect(result.status).toBe("cancelled");
+    }
+    expect(after).not.toHaveBeenCalled();
+  });
+});
+
+describe("workflow .parallel abort listeners", () => {
+  // Counts abort listeners still attached to a long-lived signal after `runs` runs of a workflow.
+  async function liveListeners(
+    build: () => { run: (i: undefined, o: { signal: AbortSignal }) => Promise<unknown> },
+    runs: number,
+  ): Promise<number> {
+    const ctrl = new AbortController();
+    const live = new Set<unknown>();
+    const sig = ctrl.signal as unknown as {
+      addEventListener: (t: string, l: unknown, o?: unknown) => void;
+      removeEventListener: (t: string, l: unknown, o?: unknown) => void;
+    };
+    const add = sig.addEventListener.bind(sig);
+    const remove = sig.removeEventListener.bind(sig);
+    sig.addEventListener = (t, l, o) => {
+      live.add(l);
+      add(t, l, o);
+    };
+    sig.removeEventListener = (t, l, o) => {
+      live.delete(l);
+      remove(t, l, o);
+    };
+    for (let i = 0; i < runs; i++) await build().run(undefined, { signal: ctrl.signal });
+    return live.size;
+  }
+
+  it("a parallel step leaves no abort listener on the parent signal", async () => {
+    const plain = () =>
+      Workflow.create({ name: "plain" })
+        .then(fn("a", async () => 1))
+        .commit();
+    const par = () =>
+      Workflow.create({ name: "par-listeners" })
+        .parallel([[fn("a", async () => 1)], [fn("b", async () => 2)]], { id: "p" })
+        .commit();
+    const base = await liveListeners(plain, 25);
+    expect(await liveListeners(par, 25)).toBe(base);
+  });
+});
+
+describe("workflow .parallel fail-fast with cancelling siblings", () => {
+  it("keeps the original failure when a sibling answers the abort with a cancelled result", async () => {
+    const { runParallelStep } = await import("../../src/internal/workflow/step-parallel.js");
+    const mk = (id: string, status: string, error?: object) => ({
+      stepId: id,
+      kind: "fn" as const,
+      status,
+      attempts: 1,
+      durationMs: 0,
+      ...(error ? { error } : {}),
+    });
+    const dispatch = vi.fn(
+      async (inner: { id: string }, _i: unknown, e: { ctx: { signal: AbortSignal } }) => {
+        if (inner.id === "bad") return mk("bad", "failed", { name: "Error", message: "boom" });
+        await new Promise<void>((resolve) => {
+          e.ctx.signal.addEventListener("abort", () => resolve(), { once: true });
+        });
+        return mk("slow", "cancelled", { name: "AbortError", message: "aborted" });
+      },
+    );
+    const result = await runParallelStep(
+      {
+        id: "p",
+        kind: "parallel",
+        errorPolicy: "fail-fast",
+        branches: [[{ id: "bad", kind: "fn" }], [{ id: "slow", kind: "fn" }]],
+      } as never,
+      undefined,
+      {
+        ctx: { signal: new AbortController().signal } as never,
+        options: {} as never,
+        prevStepResults: [],
+        dispatch: dispatch as never,
+      },
+    );
+    expect(result.status).toBe("failed");
   });
 });
