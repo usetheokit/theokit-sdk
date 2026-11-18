@@ -30,6 +30,6 @@ Plan `arch-review-fixes-2026-06-06` T11.2 records this trade-off. Audit DB row `
 
 ## MCP names and forced calls
 
-The model sees MCP tools as `mcp_<server>_<tool>` (`mcpModelToolName` in `loop-context-init.ts`, the single place names are sanitized). Execution uses the server's original names carried on the resolved tool, so the sanitized name is never sent to a server.
+The model sees MCP tools as `mcp_<server>_<tool>` (`mcpModelToolName` in `loop-context-init.ts`, the single place names are sanitized; a part that sanitizing changes gets a short hash of its original appended, so look-alike names such as `do/thing` and `do thing` stay distinct and a filtered-out tool cannot resolve to an offered look-alike). Execution uses the server's original names carried on the resolved tool, so the sanitized name is never sent to a server.
 
 The catalog built from each client's `listTools` — already narrowed by any MCP tool filter — is the only dispatch authority. A call (including a forced one) whose name is not in the catalog is refused with an `Unknown tool` error and never reaches `callTool`. Because sanitizing can produce names differing only in case, `tool-dispatch.ts` never case-repairs `mcp_` names or ambiguous matches, so a filtered-out tool cannot be silently redirected to a different offered one.

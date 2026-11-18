@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { CustomTool } from "../../types/agent.js";
 import type { MemoryProviderAgentRef } from "../../types/memory-provider.js";
 import type { SDKUserMessage } from "../../types/run.js";
@@ -334,9 +335,18 @@ export async function collectTools(
  * @internal
  */
 export function mcpModelToolName(serverName: string, toolName: string): string {
-  return `mcp_${sanitize(serverName)}_${sanitize(toolName)}`;
+  return `mcp_${sanitizePart(serverName)}_${sanitizePart(toolName)}`;
 }
 
-function sanitize(name: string): string {
-  return name.replace(/[^a-zA-Z0-9-]+/g, "_").replace(/^[_-]+|[_-]+$/g, "");
+/**
+ * Sanitizing is lossy (`do/thing` and `do thing` both reduce to `do_thing`). A lossy result gets a
+ * short hash of the ORIGINAL appended, so two distinct server names never share a model-facing
+ * name: a forced call carrying a filtered-out tool's name cannot resolve to an offered tool that
+ * merely sanitizes alike. Names that need no change stay unchanged.
+ */
+function sanitizePart(name: string): string {
+  const clean = name.replace(/[^a-zA-Z0-9-]+/g, "_").replace(/^[_-]+|[_-]+$/g, "");
+  if (clean === name) return clean;
+  const tag = createHash("sha256").update(name).digest("hex").slice(0, 6);
+  return clean === "" ? tag : `${clean}_${tag}`;
 }

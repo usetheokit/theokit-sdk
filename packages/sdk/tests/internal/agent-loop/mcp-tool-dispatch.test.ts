@@ -49,18 +49,33 @@ async function dispatch(c: McpClient, toolName: string) {
 
 describe("name sanitization", () => {
   it("builds the model-facing name in one place", () => {
-    expect(mcpModelToolName("my.server", "do/thing")).toBe("mcp_my_server_do_thing");
+    expect(mcpModelToolName("my.server", "do/thing")).toMatch(
+      /^mcp_my_server_[0-9a-f]{6}_do_thing_[0-9a-f]{6}$/,
+    );
+    expect(mcpModelToolName("srv", "plain-name")).toBe("mcp_srv_plain-name");
+  });
+
+  it("gives names that sanitize alike distinct model-facing names", () => {
+    expect(mcpModelToolName("srv", "do/thing")).not.toBe(mcpModelToolName("srv", "do thing"));
+    expect(mcpModelToolName("srv", "do/thing")).not.toBe(mcpModelToolName("srv", "do_thing"));
+  });
+
+  it("refuses a forced call using a filtered-out tool's name when a look-alike is offered", async () => {
+    const { c, callTool } = client(["do thing"]);
+    const out = await dispatch(c, mcpModelToolName("my.server", "do/thing"));
+    expect(out).toContain("Unknown tool");
+    expect(callTool).not.toHaveBeenCalled();
   });
 
   it("offers the sanitized name but executes with the original names", async () => {
     const { c, callTool } = client(["do/thing"]);
     const tools = await collectTools(new Map([["my.server", c]]), new Set());
     expect(tools.find((t) => t.origin === "mcp")).toMatchObject({
-      name: "mcp_my_server_do_thing",
+      name: mcpModelToolName("my.server", "do/thing"),
       mcpServerName: "my.server",
       mcpToolName: "do/thing",
     });
-    await dispatch(c, "mcp_my_server_do_thing");
+    await dispatch(c, mcpModelToolName("my.server", "do/thing"));
     expect(callTool).toHaveBeenCalledWith("do/thing", {});
   });
 });
