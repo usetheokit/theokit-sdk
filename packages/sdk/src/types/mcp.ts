@@ -38,6 +38,17 @@ export type McpStdioServerConfig = {
    * Calls to other servers or non-MCP tools in the same step are not held behind it. Default `false`.
    */
   sequential?: boolean;
+  /**
+   * Filter the tools this server offers, by the server's own tool names. `include` keeps only the
+   * listed names; `exclude` drops names and is applied after `include`. A call to a filtered-out
+   * name is refused before any request reaches the server.
+   */
+  tools?: {
+    /** Only these tool names (as the server lists them) are offered. */
+    include?: string[];
+    /** These names are never offered. Applied after include. */
+    exclude?: string[];
+  };
 };
 
 /**
@@ -99,6 +110,17 @@ export type McpHttpServerConfig = {
    * Calls to other servers or non-MCP tools in the same step are not held behind it. Default `false`.
    */
   sequential?: boolean;
+  /**
+   * Filter the tools this server offers, by the server's own tool names. `include` keeps only the
+   * listed names; `exclude` drops names and is applied after `include`. A call to a filtered-out
+   * name is refused before any request reaches the server.
+   */
+  tools?: {
+    /** Only these tool names (as the server lists them) are offered. */
+    include?: string[];
+    /** These names are never offered. Applied after include. */
+    exclude?: string[];
+  };
 };
 
 /**
