@@ -21,13 +21,19 @@ import { mergeSignals } from "./ctx.js";
 import { errToShape } from "./error-shape.js";
 import type { StepExecution } from "./step-execution.js";
 
+interface ParallelSeen {
+  cancelled?: StepResult;
+  /** Set once fail-fast aborted the siblings over a failure: their cancellations are a consequence. */
+  failFastFailure?: boolean;
+}
+
 export async function runParallelStep(
   step: ParallelStep,
   input: unknown,
   exec: StepExecution,
 ): Promise<StepResult> {
   const startedAt = Date.now();
-  const seen: { cancelled?: StepResult } = {};
+  const seen: ParallelSeen = {};
   const result = await runBranches(step, input, exec, seen);
   // A cancelled inner step cancels the container; so does an abort that settled after a plain fn
   // (which ignores the signal) returned normally.
@@ -47,7 +53,7 @@ async function runBranches(
   step: ParallelStep,
   input: unknown,
   exec: StepExecution,
-  seen: { cancelled?: StepResult },
+  seen: ParallelSeen,
 ): Promise<StepResult> {
   const { ctx } = exec;
   const startedAt = Date.now();
@@ -122,6 +128,8 @@ async function runBranches(
           output: outputs,
         };
       } catch (err) {
+        // A cancellation already seen is independent; any later one is caused by this abort.
+        if (seen.cancelled === undefined) seen.failFastFailure = true;
         failFastCtrl.abort(err);
         // Collect any settled rejections so the aggregate has all errors.
         const settled = await Promise.allSettled(semBranchPromises);
@@ -174,7 +182,7 @@ async function runBranch(
   input: unknown,
   exec: StepExecution,
   branchIdx: number,
-  seen: { cancelled?: StepResult },
+  seen: ParallelSeen,
   siblings: AbortController,
 ): Promise<unknown> {
   const { dispatch } = exec;
@@ -183,7 +191,7 @@ async function runBranch(
     const r = await dispatch(inner, acc, exec);
     if (r.status === "cancelled") {
       // Stop this branch; fail-fast aborts the siblings through the thrown error.
-      seen.cancelled ??= r;
+      if (!seen.failFastFailure) seen.cancelled ??= r;
       siblings.abort(r.error?.message ?? "parallel branch cancelled");
       throw new Error(`parallel branch ${branchIdx} step "${inner.id}" cancelled`);
     }

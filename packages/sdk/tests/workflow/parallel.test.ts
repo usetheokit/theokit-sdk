@@ -260,3 +260,42 @@ describe("workflow .parallel abort listeners", () => {
     expect(await liveListeners(par, 25)).toBe(base);
   });
 });
+
+describe("workflow .parallel fail-fast with cancelling siblings", () => {
+  it("keeps the original failure when a sibling answers the abort with a cancelled result", async () => {
+    const { runParallelStep } = await import("../../src/internal/workflow/step-parallel.js");
+    const mk = (id: string, status: string, error?: object) => ({
+      stepId: id,
+      kind: "fn" as const,
+      status,
+      attempts: 1,
+      durationMs: 0,
+      ...(error ? { error } : {}),
+    });
+    const dispatch = vi.fn(
+      async (inner: { id: string }, _i: unknown, e: { ctx: { signal: AbortSignal } }) => {
+        if (inner.id === "bad") return mk("bad", "failed", { name: "Error", message: "boom" });
+        await new Promise<void>((resolve) => {
+          e.ctx.signal.addEventListener("abort", () => resolve(), { once: true });
+        });
+        return mk("slow", "cancelled", { name: "AbortError", message: "aborted" });
+      },
+    );
+    const result = await runParallelStep(
+      {
+        id: "p",
+        kind: "parallel",
+        errorPolicy: "fail-fast",
+        branches: [[{ id: "bad", kind: "fn" }], [{ id: "slow", kind: "fn" }]],
+      } as never,
+      undefined,
+      {
+        ctx: { signal: new AbortController().signal } as never,
+        options: {} as never,
+        prevStepResults: [],
+        dispatch: dispatch as never,
+      },
+    );
+    expect(result.status).toBe("failed");
+  });
+});
