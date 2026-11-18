@@ -70,12 +70,17 @@ async function createAvailableAdapters(
  * memory adapters. Returns `null` when no `kind: "memory"` plugin
  * is registered — callers branch on `adapter() === null`.
  *
+ * `forgetFromIndex`, when given, runs after the owning adapter deleted the fact and removes the
+ * fact's chunks from the Lance index (`LanceMemoryAdapter.forgetFact`). Its failure propagates:
+ * the fact is gone from the adapter but may still be searchable, and the caller must know.
+ *
  * @internal
  */
 export function buildAgentMemory(
   pluginManager: PluginManager,
   workspaceCwd: string,
   defaultContext: MemoryContext | undefined,
+  forgetFromIndex?: (id: MemoryId) => Promise<void>,
 ): AgentMemory {
   let resolved: ResolvedAdapters | undefined;
 
@@ -198,6 +203,7 @@ export function buildAgentMemory(
         );
       }
       await target.delete(id);
+      if (forgetFromIndex !== undefined) await forgetFromIndex(id);
     },
 
     adapter(): MemoryAdapter | null {

@@ -96,6 +96,14 @@ export class LanceMemoryAdapter implements MemoryIndex {
       .map((h) => translateLanceHit(h, query, resolveWeights(options)));
   }
 
+  /**
+   * Forget a fact: remove all its chunks from the default namespace (the one `search()` reads).
+   * Called by `agent.memory.delete` after the owning adapter has deleted the fact.
+   */
+  async forgetFact(factId: string): Promise<void> {
+    await this.inner.removeFactChunks(factId, { namespace: DEFAULT_NAMESPACE });
+  }
+
   status(): IndexStatus {
     // The Lance API is async and `status()` is not, so no count can be taken here. The zeros are
     // placeholders and `countsExact: false` says so — previously they were indistinguishable from a
