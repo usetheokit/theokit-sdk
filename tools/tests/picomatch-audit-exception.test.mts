@@ -9,14 +9,31 @@ import { readRootFile } from "./lockfile-versions.mts";
 
 const ADVISORY = "GHSA-fc5q-39xc-vjpf";
 
-// Every `- GHSA-...` list item in the workspace file. Comment lines start with `#`, so a GHSA id
-// mentioned in a comment is not collected. The file's only list of GHSA ids is `ignoreGhsas`.
+// Reads `auditConfig.ignoreGhsas` from the workspace file. No YAML parser is a root dependency, so
+// this walks the lines by indentation: `auditConfig:` at column 0, `ignoreGhsas:` one level under
+// it, then the `- id` items under that key (inline comments dropped). It throws when either key is
+// missing, so a rename fails loudly instead of yielding an empty list.
 function ignoredAdvisories(): string[] {
-  const workspace = readRootFile("pnpm-workspace.yaml");
-  return [...workspace.matchAll(/^\s+-\s+(GHSA-[\w-]+)\s*$/gm)].map((m) => m[1] as string);
+  const lines = readRootFile("pnpm-workspace.yaml")
+    .split("\n")
+    .filter((line) => line.trim() !== "" && !line.trimStart().startsWith("#"));
+  const indent = (line: string): number => line.length - line.trimStart().length;
+  const parent = lines.findIndex((line) => /^auditConfig:\s*(#.*)?$/.test(line));
+  if (parent < 0) throw new Error("auditConfig is missing from pnpm-workspace.yaml");
+  const key = lines.findIndex(
+    (line, i) => i > parent && indent(line) > 0 && /^\s+ignoreGhsas:\s*(#.*)?$/.test(line),
+  );
+  if (key < 0) throw new Error("auditConfig.ignoreGhsas is missing from pnpm-workspace.yaml");
+  const ids: string[] = [];
+  for (const line of lines.slice(key + 1)) {
+    const item = /^\s+-\s+(\S+)\s*(#.*)?$/.exec(line);
+    if (!item || indent(line) < indent(lines[key] as string)) break;
+    ids.push(item[1] as string);
+  }
+  return ids;
 }
 
-it("ignores the picomatch advisory and no unreviewed advisory beyond the known ones", () => {
+it("ignores the picomatch advisory and nothing beyond the known two", () => {
   const ignored = ignoredAdvisories();
 
   expect(ignored).toContain(ADVISORY);
