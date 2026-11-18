@@ -1,5 +1,5 @@
 ---
-"@theokit/sdk": minor
+"@theokit/sdk": patch
 ---
 
-Add `acquireInstanceLock`, `InstanceLock` and `InstanceLockedError` to `@theokit/sdk/persistence`: a lock held for the life of the process so only one process runs per state directory, with takeover of a lock left by a crashed holder (#1045).
+`acquireInstanceLock` takes over a stale lock after crashed takers left guards behind (no 16-guard limit, no stuck takeover marker), cleans up only guards it still owns, and `release()` rejects when the unlink fails so a later call retries (#1191).

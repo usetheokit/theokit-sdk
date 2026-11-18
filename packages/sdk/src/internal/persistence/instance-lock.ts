@@ -10,10 +10,14 @@
  * 1. Write a claim file (`wx`, mode 0600) holding `{ pid, nonce }`, then hard-link it to the lock
  *    path. The lock appears with its full content or not at all, never half-written.
  * 2. `EEXIST`: read the holder. A live pid is refused with {@link InstanceLockedError}.
- * 3. A dead pid is taken over. The taker claims a per-generation guard file with `wx`, so only one
- *    process takes over a given stale lock, re-reads the lock, and replaces it only if it is
+ * 3. A dead pid is taken over. The taker claims a per-generation guard file `<lock>.takeover.<gen>.<k>`
+ *    with `wx` (content `{ pid, nonce }`), so only one live process takes over a given stale lock. A
+ *    guard whose recorded pid is dead (a crashed taker) is skipped for slot `k+1`, never deleted, so a
+ *    live guard cannot be removed. The taker re-reads the lock and replaces it only if it is
  *    unchanged and its holder is still dead. Up to 3 attempts.
- * 4. `release()` unlinks the lock only if the nonce is still this holder's own.
+ * 4. `release()` unlinks the lock only if the nonce is still this holder's own, then removes its
+ *    own guards (only those whose content still carries its nonce). A failed unlink rejects, and a
+ *    later `release()` retries.
  *
  * ## Limit
  *
@@ -58,6 +62,21 @@ export class InstanceLockedError extends TheokitAgentError {
 /** Test seam: runs after the stale lock was read, before the takeover is attempted. */
 export interface InstanceLockHooks {
   afterStaleRead?: () => Promise<void>;
+  /** Runs after a takeover guard is published, before the lock is re-read. */
+  afterGuardPublished?: () => Promise<void>;
+  /** Runs inside `release()`, after the lock is removed and before the guards are cleaned. */
+  beforeGuardCleanup?: () => Promise<void>;
+}
+
+/** What one acquisition carries through the takeover steps. */
+interface Taker {
+  lockPath: string;
+  claimPath: string;
+  hooks: InstanceLockHooks;
+  /** Guards this acquisition published. */
+  guards: string[];
+  /** The `{ pid, nonce }` text of the claim, also written into each guard. */
+  content: string;
 }
 
 const TAKEOVER_ATTEMPTS = 3;
@@ -89,6 +108,15 @@ async function readLock(path: string): Promise<string | undefined> {
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw e;
+  }
+}
+
+/** Unlinks `path`, tolerating only a file that is already gone. */
+async function unlinkStrict(path: string): Promise<void> {
+  try {
+    await unlink(path);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
   }
 }
 
@@ -126,12 +154,13 @@ export async function acquireWithHooks(
   const content = JSON.stringify({ pid: process.pid, nonce });
   const claimPath = `${lockPath}.claim.${process.pid}.${nonce}`;
   const guards: string[] = [];
+  const taker: Taker = { lockPath, claimPath, hooks, guards, content };
 
   if (!(await createExclusive(claimPath, content, { mode: 0o600 }))) {
     throw new Error(`instance lock claim file already exists: ${claimPath}`);
   }
   try {
-    await takeLock(lockPath, claimPath, hooks, guards);
+    await takeLock(taker);
   } catch (e) {
     await unlinkQuiet(claimPath);
     throw e;
@@ -139,15 +168,28 @@ export async function acquireWithHooks(
   await unlinkQuiet(claimPath);
 
   let releasing: Promise<void> | undefined;
+  let released = false;
   const doRelease = async (): Promise<void> => {
     const raw = await readLock(lockPath);
-    if (raw !== undefined && parseHolder(raw).nonce === nonce) await unlinkQuiet(lockPath);
-    for (const g of guards) await unlinkQuiet(g);
+    if (raw !== undefined && parseHolder(raw).nonce === nonce) await unlinkStrict(lockPath);
+    await hooks.beforeGuardCleanup?.();
+    // Only a guard that still carries our nonce is ours; a path can be re-published by a later
+    // generation's taker.
+    for (const g of guards) {
+      const body = await readLock(g).catch(() => undefined);
+      if (body !== undefined && parseHolder(body).nonce === nonce) await unlinkQuiet(g);
+    }
+    released = true;
   };
   return {
     path: lockPath,
+    // Concurrent calls share one attempt; a failed attempt is dropped so the next call retries.
     release: () => {
-      releasing ??= doRelease();
+      if (released) return Promise.resolve();
+      releasing ??= doRelease().catch((e) => {
+        releasing = undefined;
+        throw e;
+      });
       return releasing;
     },
   };
@@ -170,12 +212,8 @@ async function tryLink(lockPath: string, claimPath: string): Promise<boolean> {
   }
 }
 
-async function takeLock(
-  lockPath: string,
-  claimPath: string,
-  hooks: InstanceLockHooks,
-  guards: string[],
-): Promise<void> {
+async function takeLock(t: Taker): Promise<void> {
+  const { lockPath, claimPath, hooks } = t;
   let takeovers = 0;
   while (!(await tryLink(lockPath, claimPath))) {
     const raw = await readLock(lockPath);
@@ -184,26 +222,47 @@ async function takeLock(
     if (pid !== undefined && isAlive(pid)) throw new InstanceLockedError(lockPath, pid);
     await hooks.afterStaleRead?.();
     if (takeovers++ >= TAKEOVER_ATTEMPTS) throw new InstanceLockedError(lockPath, pid);
-    if (await takeOver(lockPath, claimPath, raw, guards)) return;
+    if (await takeOver(t, raw)) return;
+  }
+}
+
+/** Whether the taker that published `guard` is dead, alive, or the guard vanished. */
+async function guardOwner(guard: string): Promise<"dead" | "live" | "gone"> {
+  for (let i = 0; i < 3; i++) {
+    const body = await readLock(guard);
+    if (body === undefined) return "gone";
+    const { pid } = parseHolder(body);
+    if (pid !== undefined) return isAlive(pid) ? "live" : "dead";
+    await new Promise((r) => setTimeout(r, 10)); // its owner may still be writing it
+  }
+  return "live"; // unreadable owner: never treat it as dead
+}
+
+/** Claims the first free guard slot of a generation, skipping guards left by dead takers. */
+async function claimGuard(base: string, content: string, guards: string[]): Promise<boolean> {
+  for (let k = 0; ; ) {
+    const guard = `${base}.${k}`;
+    if (await createExclusive(guard, content, { mode: 0o600 })) {
+      guards.push(guard);
+      return true;
+    }
+    const owner = await guardOwner(guard);
+    if (owner === "live") return false;
+    if (owner === "dead") k++;
   }
 }
 
 /** Replaces the stale lock `raw` with our claim. False when someone else got there first. */
-async function takeOver(
-  lockPath: string,
-  claimPath: string,
-  raw: string,
-  guards: string[],
-): Promise<boolean> {
+async function takeOver(t: Taker, raw: string): Promise<boolean> {
+  const { lockPath, claimPath, hooks, guards, content } = t;
   // Derived from the stale content itself, so every contender names the same guard, even when the
   // content is malformed and carries no nonce.
   const generation = createHash("sha256").update(raw).digest("hex").slice(0, 32);
-  const guard = `${lockPath}.takeover.${generation}`;
-  if (!(await createExclusive(guard, String(process.pid), { mode: 0o600 }))) {
+  if (!(await claimGuard(`${lockPath}.takeover.${generation}`, content, guards))) {
     await new Promise((r) => setTimeout(r, 25));
-    return false; // another process owns this generation; the caller re-reads the lock
+    return false; // a live process owns this generation; the caller re-reads the lock
   }
-  guards.push(guard);
+  await hooks.afterGuardPublished?.();
   const again = await readLock(lockPath);
   if (again !== raw) return false;
   const pid = parseHolder(again).pid;

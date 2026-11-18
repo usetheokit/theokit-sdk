@@ -10,6 +10,7 @@ import { resolveChildEnv } from "../runtime/lifecycle/env-policy.js";
 import { safePathJoin } from "../security/path-guard.js";
 import { DEFAULT_MCP_TIMEOUT_MS, handshakeAwareTimeout } from "./handshake-timeout.js";
 import { resolveBearer } from "./oauth-bearer.js";
+import { withToolFilter } from "./tool-filter.js";
 
 /**
  * Real MCP client implementing the subset of the 2024-11-05 spec used by the
@@ -48,8 +49,10 @@ export function createMcpClient(
   config: McpServerConfig,
   fetchImpl: typeof fetch = fetch,
 ): McpClient {
-  if (isStdio(config)) return new StdioMcpClient(name, config);
-  return new HttpMcpClient(name, config as McpHttpServerConfig, fetchImpl);
+  const client: McpClient = isStdio(config)
+    ? new StdioMcpClient(name, config)
+    : new HttpMcpClient(name, config as McpHttpServerConfig, fetchImpl);
+  return withToolFilter(client, name, config.tools);
 }
 
 /** Max buffered stdout bytes before a flooding stdio server is torn down (SEC-M0-04). */

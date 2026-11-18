@@ -10,6 +10,7 @@
 
 import type { ForeachStep, StepResult } from "../../types/workflow.js";
 import { createSemaphore } from "../concurrency/async-semaphore.js";
+import { mergeSignals } from "./ctx.js";
 import { errToShape } from "./error-shape.js";
 import type { StepExecution } from "./step-execution.js";
 
@@ -72,21 +73,53 @@ export async function runForeachStep(
   const failures: Error[] = [];
   const outputs: unknown[] = new Array(items.length);
 
-  await Promise.all(
-    items.map(async (item, idx) => {
-      const release = await sem.acquire();
-      try {
-        const r = await dispatch(step.step, item, exec);
-        if (r.status === "failed") {
-          failures.push(new Error(`foreach item ${idx} failed: ${r.error?.message ?? "unknown"}`));
-        } else {
-          outputs[idx] = r.output;
+  // Siblings run under a signal of their own: an item that cancels itself aborts it.
+  const siblingCtrl = new AbortController();
+  const merged = mergeSignals(exec.ctx.signal, siblingCtrl.signal);
+  const itemSignal = merged.signal;
+  const itemExec: StepExecution = { ...exec, ctx: { ...exec.ctx, signal: itemSignal } };
+  let cancelledResult: StepResult | undefined;
+
+  try {
+    await Promise.all(
+      items.map(async (item, idx) => {
+        const release = await sem.acquire();
+        try {
+          if (itemSignal.aborted) return;
+          const r = await dispatch(step.step, item, itemExec);
+          if (r.status === "cancelled") {
+            cancelledResult ??= r;
+            siblingCtrl.abort(r.error?.message ?? "foreach item cancelled");
+          } else if (r.status === "failed") {
+            failures.push(
+              new Error(`foreach item ${idx} failed: ${r.error?.message ?? "unknown"}`),
+            );
+          } else {
+            outputs[idx] = r.output;
+          }
+        } finally {
+          release();
         }
-      } finally {
-        release();
-      }
-    }),
-  );
+      }),
+    );
+  } finally {
+    merged.dispose();
+  }
+
+  if (cancelledResult !== undefined || exec.ctx.signal.aborted) {
+    const reason = exec.ctx.signal.reason;
+    return {
+      stepId: step.id,
+      kind: "foreach",
+      status: "cancelled",
+      attempts: 1,
+      durationMs: Date.now() - startedAt,
+      error: (cancelledResult as StepResult | undefined)?.error ?? {
+        name: "AbortError",
+        message: String(reason ?? "Aborted"),
+      },
+    };
+  }
 
   if (failures.length > 0) {
     return {
