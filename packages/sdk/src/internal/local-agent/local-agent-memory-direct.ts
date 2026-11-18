@@ -71,7 +71,7 @@ async function createAvailableAdapters(
  * is registered — callers branch on `adapter() === null`.
  *
  * `forgetFromIndex`, when given, runs after the owning adapter deleted the fact and removes the
- * fact's chunks from the Lance index (`LanceMemoryAdapter.forgetFact`). Its failure propagates:
+ * fact's chunks from the Lance index (`LanceIndex.removeFactChunks`). Its failure propagates:
  * the fact is gone from the adapter but may still be searchable, and the caller must know.
  *
  * @internal

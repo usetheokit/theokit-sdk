@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 
 import { buildAgentMemory } from "../../../src/internal/local-agent/local-agent-memory-direct.js";
 import { type LanceFactRecord, LanceIndex } from "../../../src/internal/memory/lance-index.js";
-import { LanceMemoryAdapter } from "../../../src/internal/memory/lance-memory-adapter.js";
 import { PluginManager } from "../../../src/internal/plugins/manager.js";
 import { Plugin } from "../../../src/internal/plugins/types.js";
 import { mkMemoryId } from "../../../src/memory-adapter-helpers.js";
@@ -67,8 +66,9 @@ async function memoryFor(index: LanceIndex, deleted: MemoryId[] = []) {
   await manager.initialize([
     Plugin.create({ name: "m", version: "1.0.0", kind: "memory", createProvider: () => adapter }),
   ]);
-  const lance = new LanceMemoryAdapter(index);
-  return buildAgentMemory(manager, "/x", { userId: "u" }, (id) => lance.forgetFact(id));
+  return buildAgentMemory(manager, "/x", { userId: "u" }, (id) =>
+    index.removeFactChunks(id, { namespace: "default" }),
+  );
 }
 
 describe("agent.memory.delete → Lance cleanup", () => {
