@@ -71,82 +71,77 @@ async function runBranches(
   // Derived signal for fail-fast: aborts on first branch failure.
   // Also aborted, under both policies, when an inner step cancels, so siblings stop at once.
   const failFastCtrl = new AbortController();
-  const merged = mergeSignals(ctx.signal, failFastCtrl.signal);
-  const branchSignal = merged.signal;
+  const branchSignal = mergeSignals(ctx.signal, failFastCtrl.signal);
 
-  try {
-    // Gate each branch through the semaphore — acquire BEFORE running so the
-    // permit cap is honored. (Eager-start would defeat concurrency limits.)
-    const semBranchPromises = step.branches.map(async (branch, branchIdx) => {
-      const release = await sem.acquire();
-      try {
-        // A branch that was queued when the signal aborted never starts.
-        if (branchSignal.aborted) {
-          throw new Error(`parallel branch ${branchIdx} not started: cancelled`);
-        }
-        // Each branch runs under a signal of its own (the run's, merged with this step's) and
-        // starts from an empty result history — the branches are siblings, not a sequence.
-        return await runBranch(
-          branch,
-          input,
-          { ...exec, ctx: { ...ctx, signal: branchSignal }, prevStepResults: [] },
-          branchIdx,
-          seen,
-          failFastCtrl,
-        );
-      } finally {
-        release();
+  // Gate each branch through the semaphore — acquire BEFORE running so the
+  // permit cap is honored. (Eager-start would defeat concurrency limits.)
+  const semBranchPromises = step.branches.map(async (branch, branchIdx) => {
+    const release = await sem.acquire();
+    try {
+      // A branch that was queued when the signal aborted never starts.
+      if (branchSignal.aborted) {
+        throw new Error(`parallel branch ${branchIdx} not started: cancelled`);
       }
-    });
-
-    if (policy === "fail-fast") {
-      try {
-        const outputs = await Promise.all(semBranchPromises);
-        return {
-          stepId: step.id,
-          kind: "parallel",
-          status: "completed",
-          attempts: 1,
-          durationMs: Date.now() - startedAt,
-          output: outputs,
-        };
-      } catch (err) {
-        failFastCtrl.abort(err);
-        // Collect any settled rejections so the aggregate has all errors.
-        const settled = await Promise.allSettled(semBranchPromises);
-        const errors = settled
-          .filter((s): s is PromiseRejectedResult => s.status === "rejected")
-          .map((s) => (s.reason instanceof Error ? s.reason : new Error(String(s.reason))));
-        return {
-          stepId: step.id,
-          kind: "parallel",
-          status: "failed",
-          attempts: 1,
-          durationMs: Date.now() - startedAt,
-          error: errToShape(new WorkflowParallelError(errors, step.id)),
-          output: undefined,
-        };
-      }
+      // Each branch runs under a signal of its own (the run's, merged with this step's) and
+      // starts from an empty result history — the branches are siblings, not a sequence.
+      return await runBranch(
+        branch,
+        input,
+        { ...exec, ctx: { ...ctx, signal: branchSignal }, prevStepResults: [] },
+        branchIdx,
+        seen,
+        failFastCtrl,
+      );
+    } finally {
+      release();
     }
+  });
 
-    // collect mode
-    const settled = await Promise.allSettled(semBranchPromises);
-    const outputs = settled.map((s) =>
-      s.status === "fulfilled"
-        ? { ok: true as const, value: s.value }
-        : { ok: false as const, error: errToShape(s.reason) },
-    );
-    return {
-      stepId: step.id,
-      kind: "parallel",
-      status: "completed",
-      attempts: 1,
-      durationMs: Date.now() - startedAt,
-      output: outputs,
-    };
-  } finally {
-    merged.dispose();
+  if (policy === "fail-fast") {
+    try {
+      const outputs = await Promise.all(semBranchPromises);
+      return {
+        stepId: step.id,
+        kind: "parallel",
+        status: "completed",
+        attempts: 1,
+        durationMs: Date.now() - startedAt,
+        output: outputs,
+      };
+    } catch (err) {
+      failFastCtrl.abort(err);
+      // Collect any settled rejections so the aggregate has all errors.
+      const settled = await Promise.allSettled(semBranchPromises);
+      const errors = settled
+        .filter((s): s is PromiseRejectedResult => s.status === "rejected")
+        .map((s) => (s.reason instanceof Error ? s.reason : new Error(String(s.reason))));
+      return {
+        stepId: step.id,
+        kind: "parallel",
+        status: "failed",
+        attempts: 1,
+        durationMs: Date.now() - startedAt,
+        error: errToShape(new WorkflowParallelError(errors, step.id)),
+        output: undefined,
+      };
+    }
   }
+
+  // collect mode
+  const settled = await Promise.allSettled(semBranchPromises);
+  const outputs = settled.map((s) =>
+    s.status === "fulfilled"
+      ? { ok: true as const, value: s.value }
+      : { ok: false as const, error: errToShape(s.reason) },
+  );
+  return {
+    stepId: step.id,
+    kind: "parallel",
+    status: "completed",
+    attempts: 1,
+    durationMs: Date.now() - startedAt,
+    output: outputs,
+  };
 }
 
 function cancelledParallel(step: ParallelStep, startedAt: number, signal: AbortSignal): StepResult {
@@ -188,22 +183,13 @@ async function runBranch(
   return acc;
 }
 
-function mergeSignals(
-  a: AbortSignal,
-  b: AbortSignal,
-): { signal: AbortSignal; dispose: () => void } {
-  if (a.aborted) return { signal: a, dispose: () => {} };
-  if (b.aborted) return { signal: b, dispose: () => {} };
+function mergeSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
+  if (a.aborted) return a;
+  if (b.aborted) return b;
   const ctrl = new AbortController();
   const onAbortA = (): void => ctrl.abort(a.reason);
   const onAbortB = (): void => ctrl.abort(b.reason);
   a.addEventListener("abort", onAbortA, { once: true });
   b.addEventListener("abort", onAbortB, { once: true });
-  return {
-    signal: ctrl.signal,
-    dispose: () => {
-      a.removeEventListener("abort", onAbortA);
-      b.removeEventListener("abort", onAbortB);
-    },
-  };
+  return ctrl.signal;
 }
