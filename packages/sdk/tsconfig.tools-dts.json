@@ -13,6 +13,7 @@
     "src/messages.ts",
     "src/path-safety.ts",
     "src/compaction.ts",
+    "src/hooks-approval.ts",
     "src/models.ts",
     "src/providers.ts",
     "src/process.ts",

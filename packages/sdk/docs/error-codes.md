@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-267 distinct code(s).
+268 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -83,11 +83,12 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `handoff_target_required` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:111` |
 | `hitl_timeout` | domain | HitlTimeoutError | `packages/sdk/src/internal/runtime/tools/hitl-middleware.ts:42` +1 |
 | `hook_denied` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent.ts:553` |
-| `hooks_invalid_command` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:415` |
-| `hooks_json_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:252` +2 |
-| `hooks_read_error` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:243` |
-| `hooks_unsupported_field` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:393` |
-| `hooks_unsupported_type` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:409` |
+| `hook_fingerprint_invalid` | domain | ConfigurationError | `packages/sdk/src/hooks-approval.ts:47` |
+| `hooks_invalid_command` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:436` |
+| `hooks_json_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:273` +2 |
+| `hooks_read_error` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:264` |
+| `hooks_unsupported_field` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:414` |
+| `hooks_unsupported_type` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:430` |
 | `instance_locked` | domain | — | `packages/sdk/src/internal/persistence/instance-lock.ts:51` +1 |
 | `interactive_unavailable` | domain | InteractiveUnavailableError | `packages/sdk/src/interactive/types.ts:28` +1 |
 | `INTERNAL_SERVER_ERROR` | domain | — | `packages/sdk/src/server/errors-envelope.ts:100` |

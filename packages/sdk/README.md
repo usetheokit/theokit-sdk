@@ -155,6 +155,20 @@ await Cron.start();   // required for local jobs to fire
 
 Two runtimes: **local** (in-process scheduler — fires while the host process is alive) and **cloud** (Theo PaaS schedules server-side). See the exported `Cron` types for the full contract.
 
+## Hook allowlists
+
+Command hooks run shell commands, so an owner may want to approve each one. `listProjectHooks` returns every hook the agent would load for a directory (the same files, precedence and 30 s timeout default as the runtime), `hookFingerprint` is the stable hex sha256 of `sourceEvent\ncommand\ntimeoutMs`, and `fingerprintHookGate` approves only listed fingerprints (an empty list refuses every hook; a malformed item throws `hook_fingerprint_invalid`).
+
+```ts
+import { fingerprintHookGate, listProjectHooks } from "@theokit/sdk/hooks-approval";
+
+const hooks = await listProjectHooks(cwd, { compatSources });
+for (const h of hooks) console.log(h.event, h.sourcePath, h.fingerprint);
+
+const gate = fingerprintHookGate(hooks.filter(isApprovedByOwner).map((h) => h.fingerprint));
+// pass `gate` as the agent's hook approval gate
+```
+
 ## Bounded subprocesses
 
 ```ts

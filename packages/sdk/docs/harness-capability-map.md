@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1395 export(s) across 56 entry point(s).
+1399 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1137,6 +1137,15 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `resolveFilesystem` | function | Resolve a {@link FilesystemProvider } to a concrete backend for `ctx`. |
 | `StaleFileError` | class | SE32 — a write's `expectedMtime` did not match the file's current mtime: the file changed since it was last read, so the write would silently clobber. |
 | `WriteFileOptions` | interface | Options a write may carry.  |
+
+## `@theokit/sdk/hooks-approval`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `fingerprintHookGate` | function | A gate that approves only hooks whose fingerprint is listed.  |
+| `hookFingerprint` | function | The hex sha256 of `sourceEvent`, `command` and `timeoutMs`, one per line (`${sourceEvent}\n${command}\n${timeoutMs}`).  |
+| `listProjectHooks` | function | Every command hook the agent would load for `cwd`, in the order the runtime loads them (files in precedence order, events in config order, commands in declaration order).  |
+| `ProjectHook` | interface | A command hook a project declares, with the fingerprint an owner approves. |
 
 ## `@theokit/sdk/interactive`
 
