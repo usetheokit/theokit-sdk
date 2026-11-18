@@ -24,6 +24,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ConfigurationError } from "../../../errors.js";
+import type { HookApprovalRequest } from "../../../types/hooks.js";
 import { diag, diagFailure } from "../../diagnostics.js";
 import { projectConfigRoots, theokitConfigRoot } from "../../persistence/paths.js";
 import type { CompatSourceDeclaration } from "../compat/foreign-config-sources.js";
@@ -90,6 +91,26 @@ export interface HookCommand {
    * construction.
    */
   sourcePath?: string;
+}
+
+/** The timeout a command runs under when its config omits `timeout`. @internal */
+export const DEFAULT_HOOK_TIMEOUT_MS = 30_000;
+
+/**
+ * The request a consumer's gate is shown for one loaded command. Shared by the executor and
+ * `listProjectHooks` so the listed hook and the gated hook are the same value.
+ *
+ * @internal
+ */
+export function hookApprovalRequest(command: HookCommand, event: HookEvent): HookApprovalRequest {
+  return {
+    command: command.command,
+    event,
+    timeoutMs: command.timeoutMs ?? DEFAULT_HOOK_TIMEOUT_MS,
+    sourceEvent: command.sourceEvent,
+    ...(command.sourcePath === undefined ? {} : { sourcePath: command.sourcePath }),
+    ...(command.matcher === undefined ? {} : { matcher: command.matcher }),
+  };
 }
 
 export interface HookConfig {

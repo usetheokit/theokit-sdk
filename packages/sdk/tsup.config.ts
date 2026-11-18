@@ -10,6 +10,8 @@ export default defineConfig({
     messages: "src/messages.ts",
     // M2-1: compaction helpers reach internal/runtime/compression → DTS via tsc (like retry/concurrency).
     compaction: "src/compaction.ts",
+    // Hook allowlists (#1053): fingerprint, gate, lister — a sub-entry to keep the root barrel small.
+    "hooks-approval": "src/hooks-approval.ts",
     // M2-4: model-capabilities catalog — leaf module; DTS via tsc (tsconfig.tools-dts.json).
     models: "src/models.ts",
     // The provider registry as public API — a sub-entry so the barrel's module graph is untouched
