@@ -131,9 +131,9 @@ export async function serveAcp(options: AcpServerOptions): Promise<void> {
       },
 
       newSession: async (params) => {
-        const result = await handleNewSession(params, { factory, store, log });
+        const result = await handleNewSession(params, { factory, store, log, permissionMode });
         if ("error" in result) {
-          throw new acp.RequestError(result.error.code, result.error.message);
+          throw new acp.RequestError(result.error.code, result.error.message, result.error.data);
         }
         return result.response;
       },
@@ -185,7 +185,7 @@ export async function serveAcp(options: AcpServerOptions): Promise<void> {
   await Promise.allSettled(
     sessions.map(async (session) => {
       try {
-        await session.agent.dispose();
+        await session.agent.dispose?.();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         log(`[acp] dispose of ${session.sessionId} threw: ${msg}`);
