@@ -163,3 +163,58 @@ describe("#574 — the budget covers the lag that was actually measured", () => 
     ).toBeGreaterThan(OBSERVED_LAG_MS);
   });
 });
+
+describe("#1241 — a version that shows up after the old window is still reported published", () => {
+  it("the default ladder keeps waiting past the old 6.3 minute window", () => {
+    const src = readFileSync(script, "utf8");
+    const match = /THEOKIT_RELEASE_VERIFY_DELAYS_MS \?\? "([\d,]+)"/.exec(src);
+    const ladder = match![1]!.split(",").map(Number);
+    const scale = Math.min(4, 13_018_300 / 5_000_000);
+    const budget = ladder.reduce((sum, d) => sum + Math.round(d * scale), 0);
+    // Run 44432134014: six rungs (~6.3 min) were not enough for 5.26.0.
+    expect(budget).toBeGreaterThan(2 * 380_000 - 60_000);
+  });
+
+  it("reports published when the registry shows the version only on the seventh re-read", () => {
+    const fx = mkdtempSync(join(tmpdir(), "theokit-1241-ws-"));
+    const bin = mkdtempSync(join(tmpdir(), "theokit-1241-bin-"));
+    try {
+      mkdirSync(join(fx, "packages", "sdk"), { recursive: true });
+      writeFileSync(
+        join(fx, "packages", "sdk", "package.json"),
+        JSON.stringify({ name: "@theokit/sdk", version: "5.26.0" }),
+        "utf8",
+      );
+      const counter = join(fx, "count");
+      writeFileSync(counter, "0", "utf8");
+      const shim = `#!/usr/bin/env node
+const fs = require("fs");
+const args = process.argv.slice(2);
+const spec = args[1] ?? "";
+if (spec.lastIndexOf("@") > 0) {
+  const n = Number(fs.readFileSync(${JSON.stringify(counter)}, "utf8")) + 1;
+  fs.writeFileSync(${JSON.stringify(counter)}, String(n));
+  if (n > 7) { process.stdout.write("5.26.0\\n"); process.exit(0); }
+}
+process.stderr.write("npm error code E404\\n");
+process.exit(1);
+`;
+      writeFileSync(join(bin, "npm"), shim, "utf8");
+      chmodSync(join(bin, "npm"), 0o755);
+      const r = spawnSync(process.execPath, [script], {
+        cwd: fx,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${bin}:${process.env.PATH ?? ""}`,
+          THEOKIT_RELEASE_VERIFY_DELAYS_MS: "1,1,1,1,1,1,1",
+        },
+      });
+      expect(r.stdout + r.stderr).toContain("is on the registry (after a retry)");
+      expect(r.status).toBe(0);
+    } finally {
+      rmSync(fx, { recursive: true, force: true });
+      rmSync(bin, { recursive: true, force: true });
+    }
+  });
+});
