@@ -4,7 +4,7 @@
 // Locked names: see CLAUDE.md.
 
 // Agent façade
-export { Agent, type AgentPromptResult } from "./agent.js";
+export { Agent, type AgentLease, type AgentPromptResult } from "./agent.js";
 // Types a consumer already meets through a public signature. Each was marked `@public` and reachable
 // from no entry — the promise the docblock makes was not kept by the export map. `AgentBuilderDeps`
 // states the reasoning in its own words: `new AgentBuilder(deps)` is callable by anyone, so this
@@ -179,6 +179,7 @@ export {
 // added to barrel so extracted packages (sdk-cache, sdk-handoff) can type their
 // .asPlugin() factories without reaching into ./internal/plugins sub-path.
 export {
+  type ConversationRef,
   type HookName,
   // #335 — named here because the PUBLIC `Plugin` union references it in the
   // `createProvider` position. The DTS rollup emits an exported type's body but

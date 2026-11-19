@@ -73,4 +73,15 @@ describe("promotion: no re-consumed changesets", () => {
     expect(r.out).toContain("✓");
     expect(r.code).toBe(0);
   });
+
+  it("accepts a develop that deleted the consumed files itself and keeps its new changeset", () => {
+    const pre = git("rev-parse", "HEAD^1");
+    git("checkout", "-q", "-b", "cleanup", pre);
+    git("rm", "-q", ...OFFENDERS);
+    commitAll("drop consumed changesets");
+    const r = guard("main", "cleanup");
+    expect(r.out).toContain("✓");
+    expect(r.code).toBe(0);
+    expect(git("ls-tree", "--name-only", "cleanup", ".changeset/")).toContain("brand-new.md");
+  });
 });
