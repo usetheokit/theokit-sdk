@@ -5,8 +5,8 @@ import type { MemoryToolSpec } from "../agent-loop/types.js";
 import { anySignal } from "../concurrency/abort-utils.js";
 import { diagFailure } from "../diagnostics.js";
 import { emitRunEvent } from "../emit-run-event.js";
-import type { TurnReviewQueue } from "../memory/turn-review.js";
 import type { MemoryMirror } from "../memory/mirror.js";
+import type { TurnReviewQueue } from "../memory/turn-review.js";
 import type { PluginManager } from "../plugins/manager.js";
 import {
   type CompletionCheckDeps,

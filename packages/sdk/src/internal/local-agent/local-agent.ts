@@ -17,7 +17,6 @@ import type { SessionStore } from "../../types/session-store.js";
 import { diagFailure } from "../diagnostics.js";
 import { generateLocalAgentId } from "../ids.js";
 import { createTurnReviewQueue, reviewQueueOf } from "../memory/turn-review.js";
-import type { MemoryMirror } from "../memory/mirror.js";
 import { withCwdMutex } from "../persistence/cwd-mutex.js";
 import { FsSessionStore } from "../persistence/fs-session-store.js";
 import { resolveSessionDir } from "../persistence/session-dir.js";
@@ -171,7 +170,7 @@ export class LocalAgent implements SDKAgent {
   /** T4.1 — PluginManager for code plugins (kind: general/model-provider/memory). @internal */
   private readonly pluginManagerCode: PluginManager = new PluginManager();
   /** `memory.mirror` wiring; undefined when mirroring is not configured. @internal */
-  private readonly memoryMirror: MemoryMirror | undefined;
+  private readonly memoryMirror: ReturnType<typeof wireAgentMemory>[1];
   /** Personality presets — lazy-loaded on first `usePersonality` call (ADRs D160-D164). @internal */
   // Not private: `local-agent-personality-extensions.ts` reads both through
   // `LocalAgentPersonalityTarget`, the same way `local-agent-lifecycle.ts` reads `sessionStore` and

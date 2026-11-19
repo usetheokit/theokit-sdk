@@ -21,8 +21,8 @@ import type {
   MemoryTurnMessage,
 } from "../../types/memory-adapter.js";
 import { diag } from "../diagnostics.js";
-import { registerReviewQueue, type TurnReviewQueue } from "../memory/turn-review.js";
 import { createMemoryMirror, type MemoryMirror } from "../memory/mirror.js";
+import { registerReviewQueue, type TurnReviewQueue } from "../memory/turn-review.js";
 import type { PluginManager } from "../plugins/manager.js";
 
 export interface ResolvedAdapters {
@@ -126,9 +126,10 @@ export function buildAgentMemory(
   pluginManager: PluginManager,
   workspaceCwd: string,
   defaultContext: MemoryContext | undefined,
-  resolver: AdapterResolver = createAdapterResolver(pluginManager, workspaceCwd),
-  reviewQueue?: TurnReviewQueue,
+  wiring: { resolver?: AdapterResolver; reviewQueue?: TurnReviewQueue } = {},
 ): AgentMemory {
+  const resolver = wiring.resolver ?? createAdapterResolver(pluginManager, workspaceCwd);
+  const reviewQueue = wiring.reviewQueue;
   async function ensure(): Promise<ResolvedAdapters> {
     return resolver.ensure();
   }
@@ -268,7 +269,10 @@ export function wireAgentMemory(
   reviewQueue?: TurnReviewQueue,
 ): [AgentMemory, MemoryMirror | undefined] {
   const resolver = createAdapterResolver(pluginManager, workspaceCwd);
-  const memory = buildAgentMemory(pluginManager, workspaceCwd, options.memoryContext, resolver, reviewQueue);
+  const memory = buildAgentMemory(pluginManager, workspaceCwd, options.memoryContext, {
+    resolver,
+    ...(reviewQueue !== undefined ? { reviewQueue } : {}),
+  });
   const settings = options.memory;
   if (settings?.enabled !== true || settings.mirror === undefined) return [memory, undefined];
   const mirror = createMemoryMirror({

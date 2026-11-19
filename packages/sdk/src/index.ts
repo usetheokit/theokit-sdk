@@ -434,8 +434,8 @@ export type {
   AgentSubagentDescription,
   AgentToolDescription,
   CustomTool,
-  MemoryReviewOptions,
   MemoryMirrorOptions,
+  MemoryReviewOptions,
   MemorySettings,
   SDKAgent,
 } from "./types/agent.js";

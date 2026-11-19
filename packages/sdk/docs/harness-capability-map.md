@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1426 export(s) across 57 entry point(s).
+1434 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -273,6 +273,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryProviderFactory` | type | Memory provider factory shape (ADR D141).  |
 | `MemoryProviderHandle` | interface | Opaque handle returned by `init()`.  |
 | `MemoryProviderInitOptions` | interface | Options for `MemoryProvider.init(...)`. |
+| `MemoryReviewOptions` | interface | Turn review for {@link MemorySettings.review } : after each finished turn a small internal reviewer agent reads the turn and saves durable facts about the user. |
 | `MemoryRevision` | interface | Versioned snapshot of a memory's history.  |
 | `MemorySettings` | interface | Memory configuration accepted by `Agent.create()` via {@link AgentOptions.memory } .  |
 | `MemoryToolSchema` | interface | OpenAI-format function-calling schema exposed to the LLM. |
