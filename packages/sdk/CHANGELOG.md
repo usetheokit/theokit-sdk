@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.30.0
+
+### Minor Changes
+
+- [#1257](https://github.com/usetheokit/theokit-sdk/pull/1257) [`180e0b1`](https://github.com/usetheokit/theokit-sdk/commit/180e0b14dd195acada484796077cbf7c3edb0e9a) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Export narrow `AgentLike` and `RunLike` types that `SDKAgent` and `Run` satisfy, for wrappers, fakes and decorators ([#1018](https://github.com/usetheokit/theokit-sdk/issues/1018)).
+
+### Patch Changes
+
+- [#1256](https://github.com/usetheokit/theokit-sdk/pull/1256) [`42ce590`](https://github.com/usetheokit/theokit-sdk/commit/42ce59006344bca2506452661be593ca370f3893) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Regenerate the harness capability map for the new `@theokit/sdk-tools` XWD exports.
+
 ## 5.29.0
 
 ### Minor Changes

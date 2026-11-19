@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1424 export(s) across 58 entry point(s).
+1436 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -194,6 +194,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `foldLayers` | function | Combine `entries` into one record.  |
 | `ForkOptions` | interface | Caller-supplied fork configuration.  |
 | `ForkResult` | interface | Outcome of a fork run. |
+| `GeneralPlugin` | type | The `"general"` member of {@link Plugin } . |
 | `GeneratedImage` | interface | Result of {@link generateImage } . |
 | `generateImage` | function | Generate one image.  |
 | `GenerateImageOptions` | interface | Options for {@link generateImage } . |
@@ -213,8 +214,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `guardSessionDestruction` | function | Throw unless `sessionId` is safe to destroy. |
 | `HookApprovalGate` | interface | #631 — a consumer's decision point before this package spawns a hook.  |
 | `HookApprovalRequest` | interface | #631 — what the consumer is shown when asked to approve a hook.  |
+| `HookContextMap` | interface | The context each hook's handler receives, keyed by {@link HookName } .  |
 | `hookFingerprint` | function | The hex sha256 of `sourceEvent`, `command` and `timeoutMs`, one per line (`${sourceEvent}\n${command}\n${timeoutMs}`).  |
+| `HookHandler` | type | The untyped hook handler shape, `(ctx: unknown) => unknown`.  |
 | `HookName` | type | The fixed set of points a `"general"` plugin may attach to through `PluginContext.on`.  |
+| `HookResultMap` | interface | What each hook's handler may return.  |
 | `ImageBlock` | interface | SE7 — a base64-encoded image block a tool can hand back as (part of) its result or its `ToolError`.  |
 | `inferApiMode` | function | Guess which usage shape a provider reports, from its name alone.  |
 | `InlineSkill` | interface | A code-defined skill (from {@link createSkill } ) — a {@link Skill } plus its inline body. |
@@ -491,6 +495,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `TrustPostureInput` | interface | What the decision is made from: the capability vocabulary, a way to read the operator's record, and an optional blanket override.  |
 | `TrustSource` | type | Where the decision came from. |
 | `TurnEndedUpdate` | interface | Turn ended with usage summary. |
+| `TypedHookHandler` | type | A handler for hook `H`, with the context and return value checked.  |
 | `UngatedCapabilityError` | class | Raised when a recorded capability has no entry in the gate. |
 | `UnicodeNormalizer` | class | SE36 — `UnicodeNormalizer.create` replaces `createUnicodeNormalizer` (ADR 0015). |
 | `UnicodeNormalizerOptions` | interface | Options for {@link createUnicodeNormalizer } . |
@@ -1102,6 +1107,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryAdapterError` | class | Error raised by `@theokit-memory-*` adapters.  |
 | `MemoryAdapterErrorCode` | type | Finite error codes specific to memory adapter operations (ADR D141). |
 | `NetworkError` | class | Service unavailable, timeout, transport-level failure. |
+| `ProfileConflictError` | class | Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a variable the profile owns.  |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
 | `StructuredOutputError` | class | The failure contract shared by `generateObject` and `streamObject`.  |
 | `StructuredOutputErrorCode` | type | Why a structured-output call failed.  |
@@ -1431,6 +1437,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `acquireInstanceLock` | function | Takes `<dir>.instance.lock` (or `options.path`) for the life of the process.  |
 | `acquireSessionWriter` | function | Take the exclusive writer lease for `sessionPath`, or reject with {@link SessionBusyError } .  |
 | `appendJsonl` | function | Append one record as a whole `\n`-terminated JSON line.  |
+| `applyProfile` | function | Create the profile directories at 0700 (tightening existing ones, never reading or removing their contents), then write the overrides into `env`.  |
 | `applyWalWithFallback` | function | Apply WAL mode with DELETE fallback.  |
 | `atomicWriteJson` | function | Typed JSON atomic write helper.  |
 | `AtomicWriteJsonOptions` | interface | Options for `atomicWriteJson`. |
@@ -1441,6 +1448,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `FileLockOptions` | interface | Retry and staleness tuning for `withFileLock`.  |
 | `forkTranscript` | function | Copy `src` into `dst`, keeping the first `beforeRecordIndex` records.  |
 | `ForkTranscriptOptions` | interface | Options for {@link forkTranscript } . |
+| `getProfilesRoot` | function | The directory holding every profile: always `~/.theokit/profiles`, from `os.homedir()`.  |
 | `InstanceLock` | interface | A held instance lock. |
 | `InstanceLockedError` | class | Another live process holds the instance lock, or the filesystem cannot hold one. |
 | `isCorruptionError` | function | True when an open error indicates an unreadable / corrupt database file. |
@@ -1454,11 +1462,15 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `openSqliteResilient` | function | Open a SQLite file with WAL (+ DELETE fallback) and corruption recovery. |
 | `OpenSqliteResilientOptions` | interface | Input to {@link openSqliteResilient } .  |
 | `PersistenceSchema` | const | `persistence?` opt-in JSON disk backend with `dir` required when chosen.  |
+| `ProfileConflictError` | class | Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a variable the profile owns.  |
 | `readJsonlIds` | function | Read the set of keys from an existing JSONL file for which `keyFn(parsed)` returns a non-empty string.  |
 | `readJsonlTail` | function | Read the LAST records of a JSONL file without loading the whole thing.  |
 | `ReadJsonlTailOptions` | interface | Options for {@link readJsonlTail } . |
 | `replaceFileAtomic` | function | Atomic file replacement: write content to a per-call unique tmp path, fsync, then rename over the target.  |
 | `ResilientSqliteDb` | interface | Minimal SQLite handle surface every driver (`better-sqlite3`) exposes. |
+| `ResolvedProfile` | interface | A profile name turned into directories and environment overrides. |
+| `resolveProfile` | function | Turn a profile name into its directories and environment overrides.  |
+| `ResolveProfileOptions` | interface | Options for {@link resolveProfile } . |
 | `sanitizeFts5Query` | function | Six-step FTS5 query sanitizer.  |
 | `SessionArtifact` | type | The kinds of file this SDK leaves in a project's transcript directory.  |
 | `SessionBusyError` | class | M81 — another process already holds the writer lease for this session.  |
