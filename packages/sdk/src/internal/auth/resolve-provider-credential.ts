@@ -94,6 +94,10 @@ function varsFor(provider: string, candidates: readonly ProviderCandidate[]): st
       .filter((p) => p.name !== getProviderProfile(provider)?.name)
       .map((p) => p.envVars[0]),
   );
+  // A variable that is this provider's own primary is never foreign (gemini also lists
+  // OPENROUTER_API_KEY first).
+  const ownPrimary = getProviderProfile(provider)?.envVars[0];
+  if (ownPrimary !== undefined) foreign.delete(ownPrimary);
   const own = candidates.find((x) => x.name === provider && !foreign.has(x.envVar))?.envVar;
   const all = [
     ...(own === undefined ? [] : [own]),
