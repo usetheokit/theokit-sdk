@@ -67,6 +67,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AgentDescription` | interface | theokit#123 — the read-only introspection of a registered agent, returned by `Agent.describe()`.  |
 | `AgentDisposedError` | class | T1.6 — Thrown when a consumer calls `agent.send()` or any method on an agent that has already been `dispose()`d.  |
 | `AgentFactory` | class | Handle returned by {@link createAgentFactory } .  |
+| `AgentLease` | interface | A hold on a live agent returned by {@link Agent.lease } . |
 | `AgentMemory` | interface | Direct memory API exposed on `SDKAgent.memory`.  |
 | `AgentOperation` | type | An operation a consumer may ask an {@link SDKAgent } about via `supports()`.  |
 | `AgentOperationOptions` | interface | Options for archive/unarchive/delete. |

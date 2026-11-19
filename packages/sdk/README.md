@@ -231,6 +231,21 @@ Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must
 - **`wrapImport(name, content)`.** Wraps each inlined `@import` at every depth, e.g. `(n, c) => \`--- import: ${n} ---\n${c}\n--- end import ---\``. Refusal and not-found placeholders are never wrapped. Default: content unchanged.
 - **Already loaded.** A file discovery emits is not inlined again by an import; the import line becomes `[@import already loaded: <path>]`.
 
+## Live-agent registry: `Agent.lease`
+
+`Agent.getOrCreate` caches agents in `Agent.registry`, which disposes them on LRU, idle or explicit eviction, even mid-turn. Use `Agent.lease` for work in flight: the registry never disposes a held agent.
+
+```ts
+const lease = await Agent.lease(conversationId, options);
+try {
+  await lease.agent.send("hello");
+} finally {
+  lease.release(); // idempotent
+}
+```
+
+LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
+
 ## Status
 
 The full contract is defined by the exported TypeScript types; see [`CHANGELOG.md`](./CHANGELOG.md) for the release history.
