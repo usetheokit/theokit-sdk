@@ -18,7 +18,6 @@ import {
   hydrateRegistryFromDisk,
   updateRegisteredAgent,
 } from "../../internal/runtime/registry/agent-registry.js";
-import { validatePruneToolResults } from "../agent-loop/prune-tool-results.js";
 import { validateAgentOptions } from "../../internal/runtime/validation/validate-agent-options.js";
 import type { OTelSpan } from "../../internal/telemetry/tracer.js";
 import { getProviderProfile } from "../../providers.js";
@@ -29,6 +28,7 @@ import type {
   SDKAgent,
   SDKAgentInfo,
 } from "../../types/agent.js";
+import { validatePruneToolResults } from "../agent-loop/prune-tool-results.js";
 import { presentProviderCredentialEnvVars } from "../auth/credential-availability.js";
 import { getConfiguredBaseUrl } from "../base-url.js";
 
