@@ -18,6 +18,7 @@ import * as chunker from "../../src/internal/memory/storage/chunk-markdown.js";
 import * as ceiling from "../../src/internal/memory/storage/fact-ceiling.js";
 import * as barrel from "../../src/internal/memory/storage/index.js";
 import * as store from "../../src/internal/memory/storage/markdown-store.js";
+import * as factEntries from "../../src/internal/memory/storage/memory-fact-entries.js";
 import * as root from "../../src/internal/memory/storage/memory-root.js";
 import * as reader from "../../src/internal/memory/storage/reader.js";
 import * as sessionLoader from "../../src/internal/memory/storage/session-loader.js";
@@ -70,6 +71,7 @@ describe("the internal/memory-store sub-path", () => {
   it("test_each_re_export_is_the_source_function_itself", () => {
     const sources = {
       ...store,
+      ...factEntries,
       ...ceiling,
       ...root,
       ...sessionWriter,
