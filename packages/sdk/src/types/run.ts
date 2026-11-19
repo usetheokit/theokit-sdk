@@ -43,6 +43,16 @@ export interface PruneToolResultsOptions {
 }
 
 /**
+ * A person's answer to one deferred tool call, keyed by `toolUseId`.
+ * Resuming a deferred call with it is not wired into `send` yet.
+ */
+export interface ToolCallDecision {
+  readonly toolUseId: string;
+  readonly behavior: "allow" | "deny";
+  readonly message?: string;
+}
+
+/**
  * A tool call a permission gate deferred. The run ended without dispatching it.
  *
  * @public

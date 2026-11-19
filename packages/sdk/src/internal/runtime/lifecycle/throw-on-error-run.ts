@@ -93,8 +93,11 @@ export function withDeferredDurability(run: Run): Run {
     return result;
   };
   const view = new Proxy(run, {
-    get(target, prop, receiver) {
-      return prop === "wait" ? wait : Reflect.get(target, prop, receiver);
+    get(target, prop) {
+      if (prop === "wait") return wait;
+      // Read with `target` as receiver and bind methods, so private fields and getters see the real run.
+      const value: unknown = Reflect.get(target, prop, target);
+      return typeof value === "function" ? value.bind(target) : value;
     },
   });
   gates.set(view, durability);
