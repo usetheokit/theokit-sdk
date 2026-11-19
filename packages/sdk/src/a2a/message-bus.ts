@@ -9,7 +9,29 @@
 
 import { TheokitAgentError } from "../errors.js";
 import { diag } from "../internal/diagnostics.js";
+import type { A2ATransport } from "./transport.js";
 import type { A2AMessage, MessageHandler } from "./types.js";
+
+/**
+ * Thrown by {@link MessageBus.request} when `to` has no local handler and the bus has a transport.
+ * `request` is local-only; a transport carries fire-and-forget messages, not replies.
+ *
+ * @public
+ */
+export class A2ARemoteRequestUnsupportedError extends TheokitAgentError {
+  override readonly name = "A2ARemoteRequestUnsupportedError";
+  override readonly code = "a2a_remote_request_unsupported" as const;
+
+  constructor(
+    /** The address with no local handler. */
+    public readonly to: string,
+  ) {
+    super(`Agent "${to}" is not local: request is local-only, use send for remote peers`, {
+      code: "a2a_remote_request_unsupported",
+      isRetryable: false,
+    });
+  }
+}
 
 /**
  * Thrown by {@link MessageBus.send} and {@link MessageBus.request} when `to` has no registered
@@ -119,6 +141,11 @@ export interface RequestOptions {
  */
 export class MessageBus {
   private readonly _handlers = new Map<string, MessageHandler>();
+  private readonly _transport: A2ATransport | undefined;
+
+  constructor(options?: { transport?: A2ATransport }) {
+    this._transport = options?.transport;
+  }
 
   register(agentId: string, handler: MessageHandler): void {
     this._handlers.set(agentId, handler);
@@ -130,7 +157,7 @@ export class MessageBus {
 
   async send(from: string, to: string, partial: { type: string; payload: unknown }): Promise<void> {
     const handler = this._handlers.get(to);
-    if (!handler) {
+    if (!handler && !this._transport) {
       throw new A2APeerNotRegisteredError(to);
     }
     const message: A2AMessage = {
@@ -141,6 +168,11 @@ export class MessageBus {
       // SE3 — provenance projection of the sender address (thin view over `from`).
       origin: { kind: "peer", from },
     };
+    if (!handler) {
+      // Non-null: the guard above throws when there is neither a handler nor a transport.
+      await (this._transport as A2ATransport).send(message);
+      return;
+    }
     // Fire-and-forget: the SENDER does not wait for the result, which is the whole point of
     // `send`. It does not mean nobody is told when delivery fails — that is the difference
     // between asynchronous and silent (#365).
@@ -164,7 +196,9 @@ export class MessageBus {
   ): Promise<unknown> {
     const handler = this._handlers.get(to);
     if (!handler) {
-      throw new A2APeerNotRegisteredError(to);
+      throw this._transport
+        ? new A2ARemoteRequestUnsupportedError(to)
+        : new A2APeerNotRegisteredError(to);
     }
     const timeoutMs = opts?.timeoutMs ?? 30_000;
     const message: A2AMessage = {
@@ -188,6 +222,40 @@ export class MessageBus {
       ]);
     } finally {
       if (timer !== undefined) clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Fetch waiting messages from the transport for every locally registered agent and deliver them
+   * to the handlers, in the order `poll` returns them. A handler failure is reported on diagnostics
+   * and does not stop the other messages. Returns the count delivered to a handler (failed ones
+   * included). Without a transport, returns 0.
+   */
+  async pump(): Promise<number> {
+    const transport = this._transport;
+    if (!transport) return 0;
+    let delivered = 0;
+    for (const agentId of this.listAgents()) {
+      for (const message of await transport.poll(agentId)) {
+        const handler = this._handlers.get(agentId);
+        if (!handler) break;
+        delivered++;
+        await this._deliverPumped(agentId, handler, message);
+      }
+    }
+    return delivered;
+  }
+
+  private async _deliverPumped(
+    agentId: string,
+    handler: MessageHandler,
+    message: A2AMessage,
+  ): Promise<void> {
+    try {
+      await handler(message);
+    } catch (cause) {
+      const reason = cause instanceof Error ? cause.message : String(cause);
+      diag(`[theokit-sdk] a2a: handler for "${agentId}" failed on a pumped message: ${reason}\n`);
     }
   }
 
