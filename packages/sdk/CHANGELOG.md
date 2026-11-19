@@ -1,5 +1,17 @@
 # Changelog
 
+## 5.29.0
+
+### Minor Changes
+
+- [#1272](https://github.com/usetheokit/theokit-sdk/pull/1272) [`2290e6a`](https://github.com/usetheokit/theokit-sdk/commit/2290e6aa592ebc8436b5a40a94f5f7bc05d5da0b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `pre_tool_call` plugins receive the run's conversation: `AgentOptions.conversation` and `SendOptions.conversation` (send wins) take a `ConversationRef` (`platform`, `channelId`, `sessionKey`), exposed as `PreToolCallContext.conversation` and omitted when none is declared ([#1032](https://github.com/usetheokit/theokit-sdk/issues/1032)).
+
+- [#1285](https://github.com/usetheokit/theokit-sdk/pull/1285) [`3522f95`](https://github.com/usetheokit/theokit-sdk/commit/3522f95546798a72bb7236f65ec23b97af524098) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Export synchronous `validateCron` and `validateCronTimezone` from `@theokit/sdk/cron`.
+
+- [#1278](https://github.com/usetheokit/theokit-sdk/pull/1278) [`438c394`](https://github.com/usetheokit/theokit-sdk/commit/438c394f817611083b975dadaeddaf56044e5865) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `window` and `windowRepeatLimit` to `DoomLoopThresholds`: a sliding-window repeat limit that blocks identical tool calls (same tool, same arguments) which alternate with others, so A-B-A-B loops no longer slip past the consecutive-only guard ([#1031](https://github.com/usetheokit/theokit-sdk/issues/1031)).
+
+- [#1268](https://github.com/usetheokit/theokit-sdk/pull/1268) [`86040fa`](https://github.com/usetheokit/theokit-sdk/commit/86040fa03c4914f873550e7a6eefe37c9f8ffca8) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `Workflow.resume` and `workflowResumeTool` accept a committed workflow with a typed input without a cast. `Workflow.resume` gains a second type parameter `TI`, inferred from `workflow`.
+
 ## 5.28.0
 
 ### Minor Changes
