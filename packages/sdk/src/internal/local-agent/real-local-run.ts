@@ -1,6 +1,6 @@
 import { ConfigurationError } from "../../errors.js";
 import type { SDKMessage } from "../../types/messages.js";
-import type { Run, RunOperation, RunStatus, SendOptions } from "../../types/run.js";
+import type { Run, RunOperation, RunStatus } from "../../types/run.js";
 import { type AgentLoopInputs, runAgentLoop } from "../agent-loop/loop.js";
 import { validatePruneToolResults } from "../agent-loop/prune-tool-results.js";
 import { anySignal } from "../concurrency/abort-utils.js";
@@ -66,8 +66,9 @@ export function createRealLocalRun(options: CreateRealLocalRunOptions): Run {
  * pruning (the forward is pinned by tests/agent-loop/prune-aged-tool-results-send-path.test.ts) so a consumer can enable them via SendOptions (not only internal AgentLoopInputs).
  */
 function toolResultPolicyInputs(
-  sendOptions: SendOptions,
+  run: CreateRealLocalRunOptions,
 ): Pick<AgentLoopInputs, "perToolTimeoutMs" | "toolResultGuard" | "pruneToolResults"> {
+  const sendOptions = applySendDefaults(run.agentOptions.sendDefaults, run.sendOptions);
   return {
     ...(sendOptions.perToolTimeoutMs !== undefined
       ? { perToolTimeoutMs: sendOptions.perToolTimeoutMs }
@@ -97,8 +98,9 @@ function buildLoopInputs(
       { code: "invalid_max_iterations" },
     );
   }
-  const effectiveSend = applySendDefaults(options.agentOptions.sendDefaults, options.sendOptions);
-  validatePruneToolResults(effectiveSend.pruneToolResults);
+  validatePruneToolResults(
+    applySendDefaults(options.agentOptions.sendDefaults, options.sendOptions).pruneToolResults,
+  );
   const { primary, effectiveModelId } = resolveRunProvider(options);
   const fallback = options.agentOptions.providers?.fallback;
   // M4: thread the single explicit `apiKey` into the pool for `primary` so an
@@ -194,7 +196,7 @@ function buildLoopInputs(
       ? { runEventSink: options.sendOptions.onRunEvent }
       : {}),
     ...(options.steerQueue !== undefined ? { steerQueue: options.steerQueue } : {}),
-    ...toolResultPolicyInputs(effectiveSend),
+    ...toolResultPolicyInputs(options),
     // M1-2: per-send iteration ceiling (validated above). The loop reads
     // inputs.maxIterations (default 8 when unset).
     ...(maxIterations !== undefined ? { maxIterations } : {}),
