@@ -16,7 +16,7 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, workspace]
   schedule:
     # Weekly, so a newly published query pattern finds existing code rather than
     # waiting for that file to be touched again.

@@ -19,7 +19,6 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, posix, resolve as resolveHost } from "node:path";
 
-import { ConfigurationError } from "../errors.js";
 import {
   type ExecuteResult,
   SandboxBackend,
@@ -58,37 +57,9 @@ export interface DockerSandboxConfig extends SandboxConfig {
   runner?: DockerRunner;
   /** `uid:gid` the container runs as. Default: the host user. */
   user?: string;
-  /** Mount the workspace read-only (`:ro`). Default `false`. `uploadFile` then fails. */
-  readOnlyWorkspace?: boolean;
-  /** Labels added to every container this sandbox starts (`--label k=v`). */
-  labels?: Readonly<Record<string, string>>;
 }
 
-const LABEL_KEY = /^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/;
-
-/** Validates labels and returns a private copy, so later mutation cannot bypass the check. */
-function validateLabels(labels: Readonly<Record<string, string>> | undefined): [string, string][] {
-  const out: [string, string][] = [];
-  for (const [key, value] of Object.entries(labels ?? {})) {
-    if (!LABEL_KEY.test(key)) {
-      throw new ConfigurationError(`Invalid Docker label key "${key}": must match ${LABEL_KEY}`, {
-        code: "invalid_docker_label",
-      });
-    }
-    if (typeof value !== "string" || /[\r\n]/.test(value)) {
-      throw new ConfigurationError(
-        `Invalid Docker label value for key "${key}": must be a string without newlines`,
-        { code: "invalid_docker_label" },
-      );
-    }
-    out.push([key, value]);
-  }
-  return out;
-}
-
-/** The runner {@link DockerSandbox} uses by default; exported so a custom runner can wrap it. */
-export function defaultDockerRunner(dockerBin = "docker"): DockerRunner {
-  const bin = dockerBin;
+function defaultRunner(bin: string): DockerRunner {
   return (args, { input, timeoutMs, maxOutputBytes }) =>
     new Promise((resolve, reject) => {
       const child = spawn(bin, [...args], { stdio: ["pipe", "pipe", "pipe"] });
@@ -128,8 +99,6 @@ export class DockerSandbox extends SandboxBackend {
   private readonly runner: DockerRunner;
   private readonly hostDir: string;
   private readonly user: string | undefined;
-  private readonly readOnlyWorkspace: boolean;
-  private readonly labels: readonly [string, string][];
 
   constructor(config: DockerSandboxConfig = {}) {
     // No workDir ⇒ a fresh private directory, never the host /tmp.
@@ -137,12 +106,10 @@ export class DockerSandbox extends SandboxBackend {
       ...config,
       workDir: config.workDir ?? mkdtempSync(join(tmpdir(), "theokit-docker-ws-")),
     });
-    this.labels = validateLabels(config.labels);
-    this.readOnlyWorkspace = config.readOnlyWorkspace ?? false;
     this.image = config.image ?? "alpine:3";
     this.network = config.network ?? false;
     this.networkPolicy = { mode: this.network ? "unrestricted" : "none" };
-    this.runner = config.runner ?? defaultDockerRunner(config.dockerBin);
+    this.runner = config.runner ?? defaultRunner(config.dockerBin ?? "docker");
     this.hostDir = resolveHost(this.config.workDir ?? "/tmp");
     this.user =
       config.user ??
@@ -171,9 +138,8 @@ export class DockerSandbox extends SandboxBackend {
       "--network",
       this.network ? "bridge" : "none",
       ...(this.user ? ["--user", this.user] : []),
-      ...this.labels.flatMap(([k, v]) => ["--label", `${k}=${v}`]),
       "-v",
-      `${this.hostDir}:${CONTAINER_WORKDIR}:${this.readOnlyWorkspace ? "ro" : "rw"}`,
+      `${this.hostDir}:${CONTAINER_WORKDIR}:rw`,
       "-w",
       CONTAINER_WORKDIR,
       "-e",

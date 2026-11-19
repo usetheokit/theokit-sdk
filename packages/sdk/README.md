@@ -190,21 +190,6 @@ if (r.truncated.stdout) console.error("stdout was cut at maxOutputBytes");
 
 `runBounded` spawns the child in its own process group (POSIX) and sends `SIGKILL` to the whole group on timeout or when `signal` aborts, so pipelines and background jobs die with it. Each of stdout and stderr is capped at `maxOutputBytes` (default 5 MiB) and `truncated` says which was cut. `timeoutMs <= 0` throws `ConfigurationError`. On Windows process groups do not apply: only the child itself is killed. The `shell` tool and command hooks use this runner; a truncated stream gets a trailing `[output truncated]` note.
 
-## `@theokit/sdk/sandbox`: DockerSandbox options
-
-```ts
-import { DockerSandbox, defaultDockerRunner } from "@theokit/sdk/sandbox";
-
-const sandbox = new DockerSandbox({
-  workDir: "/srv/ws",
-  readOnlyWorkspace: true, // mounts the workspace `:ro` (default false, `:rw`)
-  labels: { "theoclaw.session": "s1" }, // `--label k=v` on every container
-  runner: defaultDockerRunner("docker"), // the default runner, to wrap in a custom one
-});
-```
-
-`readOnlyWorkspace: true` changes only the workspace mount; the root filesystem is already read-only with a `/tmp` tmpfs. Because the workspace is then not writable, `uploadFile` fails. Label keys must match `[a-z0-9]([a-z0-9._-]*[a-z0-9])?` and values must not contain newlines; otherwise the constructor throws `ConfigurationError` with code `invalid_docker_label`.
-
 ## `@theokit/sdk/persistence`: single instance lock
 
 `acquireInstanceLock(dir, { path? })` takes `<dir>.instance.lock` for the life of the process, so two processes never run against the same state directory. A second holder rejects with `InstanceLockedError` (`lockPath`, `holderPid`); the message names the lock and the pid, and says to stop that process or remove the lock if the pid is not running. A lock left by a pid that is no longer running is taken over, and only one of several contenders wins a given stale lock. `release()` removes the lock only while this holder still owns it, and is idempotent.
