@@ -16,8 +16,11 @@ import type { Plugin as PluginType } from "../../types/plugin.js";
 export type {
   CommandHandler,
   CommandOptions,
+  GeneralPlugin,
+  HookContextMap,
   HookHandler,
   HookName,
+  HookResultMap,
   LlmCallContext,
   // #335 — this used to be omitted here, with the note that it "stays reachable as
   // the `createProvider` field type on the `Plugin` union, which IS re-exported".
@@ -47,6 +50,7 @@ export type {
   ToolContext,
   ToolResultTransformContext,
   TransformContext,
+  TypedHookHandler,
 } from "../../types/plugin.js";
 
 // Re-establish the declaration merge locally: `Plugin` is BOTH the discriminated

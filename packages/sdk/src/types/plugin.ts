@@ -258,6 +258,56 @@ export interface PostAssistantReplyContext {
 
 export type HookHandler = (ctx: unknown) => unknown | Promise<unknown>;
 
+/**
+ * The context each hook's handler receives, keyed by {@link HookName}. For the two transform hooks
+ * this is the SECOND argument: the first is the chained value (see {@link TypedHookHandler}).
+ *
+ * @public
+ */
+export interface HookContextMap {
+  pre_tool_call: PreToolCallContext;
+  post_tool_call: PostToolCallContext;
+  pre_llm_call: LlmCallContext;
+  post_llm_call: LlmCallContext;
+  on_session_start: SessionLifecycleContext;
+  on_session_end: SessionLifecycleContext;
+  transform_tool_result: ToolResultTransformContext;
+  transform_llm_output: TransformContext;
+  pre_user_send: PreUserSendContext;
+  post_assistant_reply: PostAssistantReplyContext;
+}
+
+/**
+ * What each hook's handler may return. Fire-and-forget hooks discard the value, so they are `void`.
+ * The transform hooks chain: `undefined` keeps the current value, anything else replaces it.
+ *
+ * @public
+ */
+export interface HookResultMap {
+  pre_tool_call: PreToolCallDecision | undefined | void;
+  post_tool_call: void;
+  pre_llm_call: void;
+  post_llm_call: void;
+  on_session_start: void;
+  on_session_end: void;
+  transform_tool_result: unknown;
+  transform_llm_output: unknown;
+  pre_user_send: PreUserSendResult | undefined | void;
+  post_assistant_reply: void;
+}
+
+/**
+ * A handler for hook `H`, with the context and return value checked. The transform hooks are called
+ * as `handler(currentValue, context)`; every other hook as `handler(context)`.
+ *
+ * @public
+ */
+export type TypedHookHandler<H extends HookName> = H extends
+  | "transform_tool_result"
+  | "transform_llm_output"
+  ? (value: unknown, ctx: HookContextMap[H]) => HookResultMap[H] | Promise<HookResultMap[H]>
+  : (ctx: HookContextMap[H]) => HookResultMap[H] | Promise<HookResultMap[H]>;
+
 export type CommandHandler = (args: Record<string, unknown>) => Promise<string> | string;
 
 export interface CommandOptions {
@@ -311,7 +361,15 @@ export interface PluginContext {
    * detach one hook. Two observers in this package already return their own disposer
    * (`FixtureRunBase.onDidChangeStatus`) or offer an explicit removal (`MessageBus.unregister`).
    */
-  on(hook: HookName, handler: HookHandler): PluginHookDisposer;
+  on<H extends HookName>(hook: H, handler: TypedHookHandler<H>): PluginHookDisposer;
+  /**
+   * Compatibility: a handler explicitly typed as {@link HookHandler} (`(ctx: unknown) => unknown`).
+   * Inline callbacks are checked by the typed overload above, not this one.
+   */
+  on<F extends HookHandler>(
+    hook: HookName,
+    handler: F & (unknown extends ReturnType<F> ? unknown : never),
+  ): PluginHookDisposer;
   /** Inject a user/system message into the next agent turn. v1 supports only `on_session_start` context. */
   injectMessage(content: string, role?: "user" | "system"): void;
 }
@@ -359,3 +417,10 @@ export type Plugin =
       kind: "memory";
       createProvider: MemoryProviderFactory;
     });
+
+/**
+ * The `"general"` member of {@link Plugin}.
+ *
+ * @public
+ */
+export type GeneralPlugin = Extract<Plugin, { kind: "general" }>;

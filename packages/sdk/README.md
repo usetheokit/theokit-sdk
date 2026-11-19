@@ -122,6 +122,30 @@ import { listWorkspacePlugins } from "@theokit/sdk";
 const plugins = await listWorkspacePlugins(process.cwd(), { compatSources: ["claude-code"] });
 ```
 
+A `"general"` plugin registers hooks through `ctx.on`. The handler is typed by hook name, so the
+context needs no cast and a `pre_tool_call` veto is checked (`block` is the literal `true`):
+
+```ts
+import { Plugin } from "@theokit/sdk";
+
+const guard = Plugin.create({
+  kind: "general",
+  name: "guard",
+  version: "1.0.0",
+  register(ctx) {
+    // `c` is inferred as `PreToolCallContext`.
+    ctx.on("pre_tool_call", (c) =>
+      c.name === "Bash" ? { block: true, message: "Bash is disabled here." } : undefined,
+    );
+    // Transform hooks get the chained value first, then their context.
+    ctx.on("transform_llm_output", (text, c) => `${String(text)} [${c.runId}]`);
+  },
+});
+```
+
+`HookContextMap`, `HookResultMap`, `TypedHookHandler` and `GeneralPlugin` are exported for plugin
+authors; handlers typed as `HookHandler` keep compiling.
+
 ## Explain skills
 
 `explainSkills` from `@theokit/sdk/skills` reports what an agent would see, from the same walk the
