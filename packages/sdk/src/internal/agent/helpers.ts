@@ -1,6 +1,8 @@
 import { stat } from "node:fs/promises";
 
 import { AuthenticationError, ConfigurationError, UnknownAgentError } from "../../errors.js";
+import { mergeDefinedKeys } from "../../internal/agent-loop/merge-send-defaults.js";
+import { validatePruneToolResults } from "../../internal/agent-loop/prune-tool-results.js";
 import { validateApiKeyShape } from "../../internal/auth/api-key-validator.js";
 import { CloudAgent, validateCloudToolParity } from "../../internal/cloud-agent/index.js";
 import { API_KEY_ENV_VAR, resolveApiKey } from "../../internal/env.js";
@@ -305,11 +307,13 @@ export async function rehydrateExistingAgent(
       ? { ...existing.options.local, ...options.local }
       : (options.local ?? existing.options.local);
   const mergedMemory = mergeResumedMemory(existing.options.memory, options.memory);
+  const mergedSendDefaults = mergeSendDefaults(existing.options.sendDefaults, options.sendDefaults);
   const mergedOptions: AgentOptions = {
     ...existing.options,
     ...options,
     ...(mergedLocal !== undefined ? { local: mergedLocal } : {}),
     ...(mergedMemory !== undefined ? { memory: mergedMemory } : {}),
+    ...(mergedSendDefaults !== undefined ? { sendDefaults: mergedSendDefaults } : {}),
     // SE8 — normalize a caller-supplied bare-string model override at this resume
     // boundary (Agent.resume never flows through runCreateUnderSpan). Cloud resume
     // honors it; local resume forces the persisted model below.
@@ -320,6 +324,7 @@ export async function rehydrateExistingAgent(
   // Agent.resume never reaches validateAgentOptions, so a ceiling passed here is checked here,
   // before the agent exists (B-380).
   resolveMaxFacts(mergedOptions.memory?.maxFacts);
+  validatePruneToolResults(mergedOptions.sendDefaults?.pruneToolResults);
   if (existing.runtime === "cloud") {
     return new CloudAgent(mergedOptions, agentId);
   }
@@ -328,6 +333,14 @@ export async function rehydrateExistingAgent(
   const agent = new LocalAgent({ ...mergedOptions, model: existing.options.model });
   await agent.initialize();
   return agent;
+}
+
+/** Persisted send defaults with the resume override per key; an `undefined` override keeps the persisted value. */
+function mergeSendDefaults(
+  persisted: AgentOptions["sendDefaults"],
+  override: AgentOptions["sendDefaults"],
+): AgentOptions["sendDefaults"] {
+  return mergeDefinedKeys(persisted, override);
 }
 
 /**

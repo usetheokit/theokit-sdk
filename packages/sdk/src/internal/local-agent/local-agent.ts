@@ -14,6 +14,7 @@ import type {
 import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
 import type { AgentOperation } from "../../types/sdk-agent.js";
 import type { SessionStore } from "../../types/session-store.js";
+import { applySendDefaults } from "../agent-loop/merge-send-defaults.js";
 import { diagFailure } from "../diagnostics.js";
 import { generateLocalAgentId } from "../ids.js";
 import { withCwdMutex } from "../persistence/cwd-mutex.js";
@@ -311,6 +312,7 @@ export class LocalAgent implements SDKAgent {
   async send(message: string | SDKUserMessage, options: SendOptions = {}): Promise<Run> {
     // Per-call tools get the creation-time checks (cloud agents reject them in CloudAgent.send);
     // #381 — with the agent's withhold list. Also validates `doomLoop.window` (#1031).
+    options = applySendDefaults(this.options.sendDefaults, options);
     validateSendOptions(options, this.options.withheldBuiltinTools);
     // T0.1: `agent.send` parent span spans the FULL lifecycle (mutex acquire +
     // dispatch + post-run). Child step spans (`agent.send.<step>`) land in T1.7.

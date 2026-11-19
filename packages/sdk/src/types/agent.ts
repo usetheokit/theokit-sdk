@@ -658,6 +658,13 @@ export interface AgentOptions {
    * Subagents do NOT inherit this — they use {@link AgentDefinition.prompt}.
    */
   systemPrompt?: string | SystemPromptResolver;
+  /**
+   * Send options applied to every send of this agent (local runtime), including sends made by
+   * `fork()`, `generate()` and the goal loop. Merged per key: a key the call passes itself replaces
+   * the default as a whole value. Passing a key as `undefined` explicitly does NOT remove the
+   * default. `pruneToolResults` is validated at `Agent.create` (`invalid_prune_tool_results`).
+   */
+  sendDefaults?: Pick<SendOptions, "toolResultGuard" | "pruneToolResults" | "perToolTimeoutMs">;
   local?: LocalOptions;
   cloud?: CloudOptions;
   mcpServers?: Record<string, McpServerConfig>;

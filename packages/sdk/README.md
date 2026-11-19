@@ -321,3 +321,28 @@ await agent.send("...", { doomLoop: { window: 20, windowRepeatLimit: 3 } });
 ```
 
 Once a call (same tool, same arguments; key order does not matter) already occurs `windowRepeatLimit` times in the last `window` calls, the next identical call is not executed. The model receives a blocked tool result naming the tool so it can change course. Blocked attempts count toward the window. `window` and `windowRepeatLimit` must be positive integers set together, otherwise `send` rejects with `ConfigurationError` code `invalid_doom_loop`. The consecutive `softThreshold`/`hardThreshold` keep working.
+
+## Tool-result guard and `sendDefaults`
+
+`SendOptions.toolResultGuard` (for example `{ delimit: true }`, which wraps tool output in
+`<untrusted-tool-output>`) and `SendOptions.pruneToolResults` are read per send. To apply them to
+every send of an agent, set `AgentOptions.sendDefaults`:
+
+```ts
+const agent = await Agent.create({
+  model: { id: "claude-sonnet-4-6" },
+  local: { cwd },
+  sendDefaults: {
+    toolResultGuard: { delimit: true },
+    pruneToolResults: { olderThanRounds: 3 },
+    perToolTimeoutMs: 30_000,
+  },
+});
+await agent.send("hello"); // guarded, pruned, per-tool timeout
+```
+
+Defaults are merged per key: a key the call passes replaces the default as a whole value
+(`send(msg, { toolResultGuard: { redactPii: true } })` uses only the call's guard). Passing a key as
+`undefined` explicitly does not remove the default. `fork()`, `generate()` and the goal loop send
+through the agent, so they inherit the defaults. An invalid `pruneToolResults` fails at
+`Agent.create` (and `Agent.resume`) with `ConfigurationError` code `invalid_prune_tool_results`.

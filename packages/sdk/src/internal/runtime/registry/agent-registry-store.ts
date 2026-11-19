@@ -79,6 +79,8 @@ export function stripSecretsFromOptions(options: AgentOptions): SerializedAgentO
     context: serializeContext(options.context),
     providers: serializeProviders(options.providers),
     agents: serializeAgents(options.agents),
+    // Non-secret policy; without it a cold resume would silently run unguarded.
+    sendDefaults: options.sendDefaults !== undefined ? { ...options.sendDefaults } : undefined,
   });
 }
 
@@ -213,6 +215,7 @@ export interface SerializedAgentOptions {
   name?: string;
   model?: { id: string };
   systemPrompt?: string;
+  sendDefaults?: AgentOptions["sendDefaults"];
   local?: {
     cwd?: string;
     settingSources?: ReadonlyArray<string>;
