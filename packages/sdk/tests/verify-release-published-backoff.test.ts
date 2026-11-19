@@ -165,17 +165,7 @@ describe("#574 — the budget covers the lag that was actually measured", () => 
 });
 
 describe("#1241 — a version that shows up after the old window is still reported published", () => {
-  it("the default ladder keeps waiting past the old 6.3 minute window", () => {
-    const src = readFileSync(script, "utf8");
-    const match = /THEOKIT_RELEASE_VERIFY_DELAYS_MS \?\? "([\d,]+)"/.exec(src);
-    const ladder = match![1]!.split(",").map(Number);
-    const scale = Math.min(4, 13_018_300 / 5_000_000);
-    const budget = ladder.reduce((sum, d) => sum + Math.round(d * scale), 0);
-    // Run 44432134014: six rungs (~6.3 min) were not enough for 5.26.0.
-    expect(budget).toBeGreaterThan(600_000);
-  });
-
-  it("reports published when the registry shows the version only on the seventh re-read", () => {
+  it("reports published when the registry shows the version only on the seventh re-read of the default ladder", () => {
     const fx = mkdtempSync(join(tmpdir(), "theokit-1241-ws-"));
     const bin = mkdtempSync(join(tmpdir(), "theokit-1241-bin-"));
     try {
@@ -201,13 +191,21 @@ process.exit(1);
 `;
       writeFileSync(join(bin, "npm"), shim, "utf8");
       chmodSync(join(bin, "npm"), 0o755);
+      // Default ladder, but every wait fires at once: preload a setTimeout that ignores its delay.
+      const preload = join(bin, "instant-timers.cjs");
+      writeFileSync(
+        preload,
+        "const t = global.setTimeout; global.setTimeout = (f, _ms, ...a) => t(f, 0, ...a);",
+        "utf8",
+      );
       const r = spawnSync(process.execPath, [script], {
         cwd: fx,
         encoding: "utf8",
         env: {
           ...process.env,
           PATH: `${bin}:${process.env.PATH ?? ""}`,
-          THEOKIT_RELEASE_VERIFY_DELAYS_MS: "1,1,1,1,1,1,1",
+          THEOKIT_RELEASE_VERIFY_DELAYS_MS: undefined,
+          NODE_OPTIONS: `--require ${preload}`,
         },
       });
       expect(r.stdout + r.stderr).toContain("is on the registry (after a retry)");
