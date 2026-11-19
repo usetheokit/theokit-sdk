@@ -16,6 +16,7 @@ import type { AgentOperation } from "../../types/sdk-agent.js";
 import type { SessionStore } from "../../types/session-store.js";
 import { diagFailure } from "../diagnostics.js";
 import { generateLocalAgentId } from "../ids.js";
+import { createMemoryMirror, type MemoryMirror } from "../memory/mirror.js";
 import { withCwdMutex } from "../persistence/cwd-mutex.js";
 import { FsSessionStore } from "../persistence/fs-session-store.js";
 import { resolveSessionDir } from "../persistence/session-dir.js";
@@ -62,7 +63,11 @@ import {
   releaseLeaseIfPossible,
   reloadLocalAgent,
 } from "./local-agent-lifecycle.js";
-import { buildAgentMemory } from "./local-agent-memory-direct.js";
+import {
+  type AdapterResolver,
+  buildAgentMemory,
+  createAdapterResolver,
+} from "./local-agent-memory-direct.js";
 import { createLocalAgentMemoryProvider } from "./local-agent-memory-provider.js";
 import {
   applyPersonalityOverlay,
@@ -168,6 +173,8 @@ export class LocalAgent implements SDKAgent {
   private readonly defaultMemoryProviderForLoop: ReturnType<typeof createLocalAgentMemoryProvider>;
   /** T4.1 — PluginManager for code plugins (kind: general/model-provider/memory). @internal */
   private readonly pluginManagerCode: PluginManager = new PluginManager();
+  /** `memory.mirror` wiring; undefined when mirroring is not configured. @internal */
+  private readonly memoryMirror: MemoryMirror | undefined;
   /** Personality presets — lazy-loaded on first `usePersonality` call (ADRs D160-D164). @internal */
   // Not private: `local-agent-personality-extensions.ts` reads both through
   // `LocalAgentPersonalityTarget`, the same way `local-agent-lifecycle.ts` reads `sessionStore` and
@@ -223,11 +230,14 @@ export class LocalAgent implements SDKAgent {
     // ADR D141 / D142: `agent.memory.*` direct API over plugin-aggregated adapters.
     // Built unconditionally; `requireAdapters` throws ConfigurationError when called
     // without any registered memory plugin.
+    const adapterResolver = createAdapterResolver(this.pluginManagerCode, this.workspaceCwd);
     this.memory = buildAgentMemory(
       this.pluginManagerCode,
       this.workspaceCwd,
       this.options.memoryContext,
+      adapterResolver,
     );
+    this.memoryMirror = this.buildMemoryMirror(adapterResolver);
 
     registerLocalAgent({
       agentId: this.agentId,
@@ -463,6 +473,21 @@ export class LocalAgent implements SDKAgent {
     }
   }
 
+  private buildMemoryMirror(resolver: AdapterResolver): MemoryMirror | undefined {
+    const settings = this.options.memory;
+    if (settings?.enabled !== true || settings.mirror === undefined) return undefined;
+    return createMemoryMirror({
+      options: settings.mirror,
+      adapters: async () => (await resolver.ensure()).adapters,
+      context: () => {
+        const base = this.options.memoryContext;
+        const userId = base?.userId ?? settings.userId;
+        if (userId === undefined || userId === "") return undefined;
+        return { ...base, userId };
+      },
+    });
+  }
+
   private async sendLocked(message: string | SDKUserMessage, options: SendOptions): Promise<Run> {
     return executeSendLocked(
       {
@@ -478,6 +503,7 @@ export class LocalAgent implements SDKAgent {
         pluginManagerCode: this.pluginManagerCode,
         defaultMemoryProviderForLoop: this.defaultMemoryProviderForLoop,
         workspaceCwd: this.workspaceCwd,
+        ...(this.memoryMirror !== undefined ? { memoryMirror: this.memoryMirror } : {}),
         telemetry: this._telemetry,
         lifecycleAbortController: this.lifecycleAbortController,
         runPreHook: (ut) => this.runPreHook(ut),

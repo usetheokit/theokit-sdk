@@ -22,7 +22,7 @@ import type {
 import { diag } from "../diagnostics.js";
 import type { PluginManager } from "../plugins/manager.js";
 
-interface ResolvedAdapters {
+export interface ResolvedAdapters {
   adapters: ReadonlyArray<MemoryAdapter>;
   initialized: boolean;
   /** How many memory plugins were registered, before `isAvailable()` filtered them (#360). */
@@ -65,6 +65,53 @@ async function createAvailableAdapters(
   return available;
 }
 
+/** @internal */
+export interface AdapterResolver {
+  /** Resolve (once, concurrency-safe) and initialize the registered adapters. */
+  ensure(): Promise<ResolvedAdapters>;
+  /** The adapters if `ensure()` already resolved, else `undefined`. */
+  peek(): ResolvedAdapters | undefined;
+}
+
+/**
+ * Lazy, shared adapter resolution: `initialize()` fires once per adapter even when the direct API
+ * and the memory mirror ask at the same time. A failed resolution is not cached.
+ *
+ * @internal
+ */
+export function createAdapterResolver(
+  pluginManager: PluginManager,
+  workspaceCwd: string,
+): AdapterResolver {
+  let resolved: ResolvedAdapters | undefined;
+  let pending: Promise<ResolvedAdapters> | undefined;
+
+  async function resolve(): Promise<ResolvedAdapters> {
+    const entries = pluginManager.aggregated.memoryProviders;
+    const created = await createAvailableAdapters(entries, workspaceCwd);
+    // EC-I: initialize() each adapter exactly once on first access.
+    for (const adapter of created) {
+      if (adapter.initialize !== undefined) {
+        await adapter.initialize();
+      }
+    }
+    resolved = { adapters: created, initialized: true, registered: entries.length };
+    return resolved;
+  }
+
+  return {
+    ensure(): Promise<ResolvedAdapters> {
+      if (resolved !== undefined) return Promise.resolve(resolved);
+      pending ??= resolve().catch((cause: unknown) => {
+        pending = undefined;
+        throw cause;
+      });
+      return pending;
+    },
+    peek: () => resolved,
+  };
+}
+
 /**
  * Build a lazy `AgentMemory` accessor over the plugin-aggregated
  * memory adapters. Returns `null` when no `kind: "memory"` plugin
@@ -76,21 +123,10 @@ export function buildAgentMemory(
   pluginManager: PluginManager,
   workspaceCwd: string,
   defaultContext: MemoryContext | undefined,
+  resolver: AdapterResolver = createAdapterResolver(pluginManager, workspaceCwd),
 ): AgentMemory {
-  let resolved: ResolvedAdapters | undefined;
-
   async function ensure(): Promise<ResolvedAdapters> {
-    if (resolved !== undefined) return resolved;
-    const entries = pluginManager.aggregated.memoryProviders;
-    const created = await createAvailableAdapters(entries, workspaceCwd);
-    // EC-I: initialize() each adapter exactly once on first access.
-    for (const adapter of created) {
-      if (adapter.initialize !== undefined) {
-        await adapter.initialize();
-      }
-    }
-    resolved = { adapters: created, initialized: true, registered: entries.length };
-    return resolved;
+    return resolver.ensure();
   }
 
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 6 optional fields × per-field caller-wins-over-default merge is a flat ladder; extracting helpers fragments the EC-P invariant.
@@ -204,6 +240,7 @@ export function buildAgentMemory(
       // Synchronous — only useful AFTER `ensure()` resolved at least once.
       // Callers that want adapter introspection should `await agent.memory.write/recall`
       // first to trigger initialization.
+      const resolved = resolver.peek();
       if (resolved === undefined) return null;
       return resolved.adapters[0] ?? null;
     },
