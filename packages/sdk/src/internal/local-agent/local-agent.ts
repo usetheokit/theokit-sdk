@@ -14,7 +14,6 @@ import type {
 import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
 import type { AgentOperation } from "../../types/sdk-agent.js";
 import type { SessionStore } from "../../types/session-store.js";
-import { assertValidDoomLoopWindow } from "../agent-loop/doom-loop-tracker.js";
 import { diagFailure } from "../diagnostics.js";
 import { generateLocalAgentId } from "../ids.js";
 import { withCwdMutex } from "../persistence/cwd-mutex.js";
@@ -49,7 +48,7 @@ import {
 } from "../runtime/system-prompt/local-assembly.js";
 import { SystemPromptPipeline } from "../runtime/system-prompt/pipeline.js";
 import { resolveSystemPromptForSend } from "../runtime/system-prompt/system-prompt.js";
-import { validateToolCatalog } from "../runtime/validation/validate-agent-options.js";
+import { validateSendOptions } from "../runtime/validation/validate-agent-options.js";
 import { hydrateSession } from "../session/index.js";
 import { SPAN_NAMES } from "../telemetry/span-names.js";
 import { createTelemetry, type OTelSpan, type TelemetryHandle } from "../telemetry/tracer.js";
@@ -310,15 +309,9 @@ export class LocalAgent implements SDKAgent {
   }
 
   async send(message: string | SDKUserMessage, options: SendOptions = {}): Promise<Run> {
-    // Per-call tools: run the same name/schema/dedupe checks as creation.
-    // (Cloud agents reject per-call tools in CloudAgent.send.)
-    if (options.tools !== undefined && options.tools.length > 0) {
-      // usetheokit/theokit-sdk#381 — with the agent's withhold list, so a per-send tool may claim a
-      // builtin name the agent withheld. Omitting it here would make the same catalog legal at
-      // create-time and rejected at send-time.
-      validateToolCatalog(options.tools, this.options.withheldBuiltinTools);
-    }
-    assertValidDoomLoopWindow(options.doomLoop);
+    // Per-call tools get the creation-time checks (cloud agents reject them in CloudAgent.send);
+    // #381 — with the agent's withhold list. Also validates `doomLoop.window` (#1031).
+    validateSendOptions(options, this.options.withheldBuiltinTools);
     // T0.1: `agent.send` parent span spans the FULL lifecycle (mutex acquire +
     // dispatch + post-run). Child step spans (`agent.send.<step>`) land in T1.7.
     const sendSpan = this._telemetry.startSpan(SPAN_NAMES.AGENT_SEND, {
