@@ -14,6 +14,8 @@ import type { CustomTool, PermissionMode } from "./types/agent-prims.js";
  *
  * A handler that throws is NOT converted to a veto: the exception propagates and this promise
  * rejects with it, exactly as in the agent loop's tool dispatch.
+ *
+ * @public
  */
 export async function runPreToolCall(
   plugins: readonly Plugin[],
@@ -24,6 +26,11 @@ export async function runPreToolCall(
   return manager.runPreToolCallHooks(ctx);
 }
 
+/**
+ * Identity of the run a guarded tool call belongs to.
+ *
+ * @public
+ */
 export interface GuardToolsContext {
   agentId: string;
   /** Called per call; default a fresh id per call. */
@@ -37,6 +44,8 @@ export interface GuardToolsContext {
  * propagates its exception (as in the agent loop). Name, description and schema are unchanged.
  * The plugins are registered once, on the first call. The context carries no conversation; use
  * `runPreToolCall` directly to pass one.
+ *
+ * @public
  */
 export function guardTools(
   tools: readonly CustomTool[],

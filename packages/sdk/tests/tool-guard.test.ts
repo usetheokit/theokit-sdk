@@ -106,7 +106,7 @@ describe("guardTools", () => {
       [plugin("a", () => ({ block: true, message: "m" }))],
       { agentId: "ag" },
     );
-    const err = await wrapped?.handler({}).catch((e: unknown) => e);
+    const err = await Promise.resolve(wrapped?.handler({})).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ToolCallBlockedError);
     expect((err as ToolCallBlockedError).toolName).toBe("t");
     expect((err as ToolCallBlockedError).pluginMessage).toBe("m");
@@ -117,7 +117,9 @@ describe("guardTools", () => {
     const p = plugin("veto", () => ({ block: true, message: "nope" }));
     const handler = vi.fn(() => "ran");
     const [wrapped] = guardTools([tool(handler)], [p], { agentId: "ag" });
-    const guarded = await wrapped?.handler({}).catch((e: unknown) => e as ToolCallBlockedError);
+    const guarded = await Promise.resolve(wrapped?.handler({})).catch(
+      (e: unknown) => e as ToolCallBlockedError,
+    );
 
     let turn = 0;
     const llm: LlmClient = {
