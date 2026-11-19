@@ -182,7 +182,11 @@ export {
 // .asPlugin() factories without reaching into ./internal/plugins sub-path.
 export {
   type ConversationRef,
+  type GeneralPlugin,
+  type HookContextMap,
+  type HookHandler,
   type HookName,
+  type HookResultMap,
   // #335 — named here because the PUBLIC `Plugin` union references it in the
   // `createProvider` position. The DTS rollup emits an exported type's body but
   // treeshakes a non-exported type that body names, so leaving this out of the
@@ -203,6 +207,7 @@ export {
   type ToolCallSummary,
   type ToolResultTransformContext,
   type TransformContext,
+  type TypedHookHandler,
 } from "./internal/plugins/types.js";
 export type {
   ProviderProfile,
