@@ -81,6 +81,17 @@ describe("versions", () => {
     expect(compareSkillVersions("1.0.0+a", "1.0.0+b")).toBe(0);
     expect(() => compareSkillVersions("1.0", "1.0.0")).toThrow(SkillsRegistryError);
   });
+
+  it("compares large numeric components without precision loss", () => {
+    const big = "9007199254740993";
+    const bigger = "9007199254740992";
+    expect(compareSkillVersions(`${big}.0.0`, `${bigger}.0.0`)).toBe(1);
+    expect(compareSkillVersions(`1.${bigger}.0`, `1.${big}.0`)).toBe(-1);
+    expect(compareSkillVersions(`1.0.${big}`, `1.0.${big}`)).toBe(0);
+    expect(compareSkillVersions("1.0.0", "1.0.123456789012345678901234567890")).toBe(-1);
+    expect(compareSkillVersions(`1.0.0-${big}`, `1.0.0-${bigger}`)).toBe(1);
+    expect(compareSkillVersions("1.0.0-9", "1.0.0-10")).toBe(-1);
+  });
 });
 
 describe("downloadSkill", () => {
@@ -126,6 +137,21 @@ describe("downloadSkill", () => {
 
   it("fails with invalid_skill_md when SKILL.md names another skill", async () => {
     const p = pack("1.0.0", [{ path: "SKILL.md", contentBase64: b64(skillMd("other")) }]);
+    expect(await code(downloadSkill(REG, "demo", { fetch: fakeFetch([p]) }))).toBe(
+      "invalid_skill_md",
+    );
+  });
+
+  it.each([
+    ["duplicate name", "---\nname: other\nname: demo\n---\n"],
+    ["duplicate name reversed", "---\nname: demo\nname: other\n---\n"],
+    ["duplicate other key", "---\nname: demo\ndescription: a\ndescription: b\n---\n"],
+    ["malformed name", "---\nname: De Mo\n---\n"],
+    ["empty name", "---\nname:\n---\n"],
+    ["unbalanced quote", "---\nname: \"demo\n---\n"],
+    ["malformed line", "---\nname: demo\nnot a key\n---\n"],
+  ])("fails with invalid_skill_md for %s", async (_l, md) => {
+    const p = pack("1.0.0", [{ path: "SKILL.md", contentBase64: b64(md) }]);
     expect(await code(downloadSkill(REG, "demo", { fetch: fakeFetch([p]) }))).toBe(
       "invalid_skill_md",
     );

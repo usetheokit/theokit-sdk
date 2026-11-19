@@ -61,7 +61,7 @@ export function assertSkillName(name: string): void {
 }
 
 interface ParsedVersion {
-  core: [number, number, number];
+  core: [string, string, string];
   pre: string[];
 }
 
@@ -71,7 +71,7 @@ function parseVersion(version: string): ParsedVersion {
     throw new SkillsRegistryError("invalid_version", `invalid version: ${JSON.stringify(version)}`);
   }
   return {
-    core: [Number(m[1]), Number(m[2]), Number(m[3])],
+    core: [m[1] as string, m[2] as string, m[3] as string],
     pre: m[4] ? m[4].split(".") : [],
   };
 }
@@ -80,10 +80,16 @@ export function assertSkillVersion(version: string): void {
   parseVersion(version);
 }
 
+/** Compares canonical (no leading zero) numeric strings without converting to Number. */
+function compareNumeric(a: string, b: string): number {
+  if (a.length !== b.length) return a.length < b.length ? -1 : 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 function comparePreId(a: string, b: string): number {
   const an = /^\d+$/.test(a);
   const bn = /^\d+$/.test(b);
-  if (an && bn) return Math.sign(Number(a) - Number(b));
+  if (an && bn) return compareNumeric(a, b);
   if (an) return -1;
   if (bn) return 1;
   return a < b ? -1 : a > b ? 1 : 0;
@@ -104,8 +110,8 @@ export function compareSkillVersions(a: string, b: string): number {
   const pa = parseVersion(a);
   const pb = parseVersion(b);
   for (let i = 0; i < 3; i++) {
-    const d = (pa.core[i] as number) - (pb.core[i] as number);
-    if (d !== 0) return Math.sign(d);
+    const d = compareNumeric(pa.core[i] as string, pb.core[i] as string);
+    if (d !== 0) return d;
   }
   return comparePre(pa.pre, pb.pre);
 }
@@ -131,15 +137,48 @@ export function assertSafePath(path: string): void {
   }
 }
 
-/** Reads `name` from the leading `---` frontmatter block of a SKILL.md. */
+/**
+ * Reads `name` from the leading `---` frontmatter block of a SKILL.md, checking the
+ * whole block: every top-level key must be unique and well formed, and `name` must
+ * appear exactly once as a valid skill name.
+ */
 export function parseSkillMdName(text: string): string {
-  const m = /^﻿?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
+  const m = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
   if (!m) throw new SkillsRegistryError("invalid_skill_md", "SKILL.md has no frontmatter");
+  const keys = new Set<string>();
+  let name: string | undefined;
   for (const line of (m[1] as string).split(/\r?\n/)) {
-    const kv = /^name\s*:\s*(.*?)\s*$/.exec(line);
-    if (kv) return (kv[1] as string).replace(/^(["'])(.*)\1$/, "$2");
+    if (line.trim() === "" || /^\s/.test(line) || line.startsWith("#") || line.startsWith("- ")) {
+      continue; // blank, comment, or nested/continuation content
+    }
+    const kv = /^([A-Za-z0-9_][A-Za-z0-9_.-]*)\s*:(?:\s+(.*?))?\s*$/.exec(line);
+    if (!kv) {
+      throw new SkillsRegistryError(
+        "invalid_skill_md",
+        `SKILL.md frontmatter has a malformed line: ${JSON.stringify(line)}`,
+      );
+    }
+    const key = kv[1] as string;
+    if (keys.has(key)) {
+      throw new SkillsRegistryError("invalid_skill_md", `SKILL.md frontmatter repeats "${key}"`);
+    }
+    keys.add(key);
+    if (key === "name") {
+      const raw = kv[2] ?? "";
+      const q = /^(["'])(.*)\1$/.exec(raw);
+      name = q ? (q[2] as string) : raw;
+      if (/^["']|["']$/.test(name) || !NAME_RE.test(name)) {
+        throw new SkillsRegistryError(
+          "invalid_skill_md",
+          `SKILL.md name is malformed: ${JSON.stringify(raw)}`,
+        );
+      }
+    }
   }
-  throw new SkillsRegistryError("invalid_skill_md", "SKILL.md frontmatter has no name");
+  if (name === undefined) {
+    throw new SkillsRegistryError("invalid_skill_md", "SKILL.md frontmatter has no name");
+  }
+  return name;
 }
 
 /** Checks names, paths, duplicates and SKILL.md of an already-decoded package. */
