@@ -116,8 +116,8 @@ function assertSingleRoot(id: string, matches: FactEntry[]): void {
 
 /**
  * Drop the one `MEMORY.md` index entry (`- [title](file) — hook`) that points at `file`. Only a
- * bullet that is exactly an index entry counts, so a prose bullet that merely links to the file is
- * left alone; a match outside `## Facts` wins over one inside it.
+ * bullet that is exactly an index entry counts, and the `## Facts` section is skipped, so a prose
+ * bullet that merely links to the file, or a copy under another heading, is left alone.
  */
 async function removeIndexLine(dir: string, file: string): Promise<void> {
   const raw = await unlessMissing(readFile(join(dir, "MEMORY.md"), "utf8"));
@@ -125,16 +125,12 @@ async function removeIndexLine(dir: string, file: string): Promise<void> {
   const facts = factsBlockRange(raw);
   const lines = raw.split("\n");
   let offset = 0;
-  const hits: { at: number; inFacts: boolean }[] = [];
-  lines.forEach((line, at) => {
+  const at = lines.findIndex((line) => {
     const start = offset;
     offset += line.length + 1;
-    if (!line.startsWith("- ") || !isIndexEntryFor(line.slice(2), file)) return;
-    hits.push({ at, inFacts: facts !== undefined && start >= facts.start && start < facts.end });
+    if (facts !== undefined && start >= facts.start && start < facts.end) return false;
+    return line.startsWith("- ") && isIndexEntryFor(line.slice(2), file);
   });
-  // Prefer a line outside `## Facts`; inside it only when nothing else matches, because the
-  // writer appends its index line at the end of the file, which can be within a trailing section.
-  const at = (hits.find((h) => !h.inFacts) ?? hits[hits.length - 1])?.at ?? -1;
   if (at === -1) return;
   lines.splice(at, 1);
   await replaceFileAtomic(join(dir, "MEMORY.md"), lines.join("\n"));

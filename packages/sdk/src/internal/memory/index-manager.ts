@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { diag } from "../diagnostics.js";
-import { withCwdMutex } from "../persistence/cwd-mutex.js";
 import { containsCjk, sanitizeFts5Query } from "../persistence/fts5-sanitize.js";
 import { syncCorpus } from "./corpus-sync.js";
 import type { EmbeddingRuntime } from "./embedding-adapter.js";
@@ -165,11 +164,7 @@ export class IndexManager implements MemoryIndex {
   // this method silently no longer assignable to `MemoryIndex` — the compiler caught it, which is
   // the argument for naming the type instead of restating it.
   async sync(): Promise<SyncResult> {
-    // Same key as the store's writers and `removeMemoryFact`: a walk that read a file before it was
-    // removed must not commit its chunks after the removal's cleanup.
-    const counts = await withCwdMutex(this.memoryRoot, () =>
-      syncCorpus(this.repo, this.memoryRoot),
-    );
+    const counts = await syncCorpus(this.repo, this.memoryRoot);
     let chunksEmbedded = 0;
     if (this.vectorReady && this.embedding !== undefined) {
       chunksEmbedded = await embedMissingChunks({ db: this.db, runtime: this.embedding });
