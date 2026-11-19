@@ -105,6 +105,19 @@ const bob = await Agent.create({ memory: { enabled: true, userId: "bob" } });
 
 `userId` must match `[a-z0-9][a-z0-9-_]*`; other values (such as `../x`) are rejected.
 
+### List and remove memory facts
+
+```ts
+import { listMemoryFacts, removeMemoryFact } from "@theokit/sdk";
+
+const facts = await listMemoryFacts(process.cwd());
+// [{ id, text, modified?, root, removable }, ...]
+const removed = await removeMemoryFact(process.cwd(), facts[0].id); // true, or false for an unknown id
+```
+
+`listMemoryFacts` covers per-memory files and legacy `## Facts` bullets, in the order the agent reads them. `removeMemoryFact` deletes the file and its `MEMORY.md` index line (or one legacy bullet), serialized with the SDK's writes. Entries from another tool's store (for example the Claude Code CLI's) have `removable: false`, and removing one rejects with `MemoryFactNotRemovableError`. Removal also drops the entry's rows from the sqlite memory search index, so recall does not return it; a Lance index is not part of the built-in store and is not touched. Two identical legacy bullets in one root share an id, and removal takes the first. An id found in more than one root (the same file name in the write root and the Claude Code store) rejects with `MemoryFactAmbiguousError` naming every root, and removes nothing.
+
+
 ### Mirroring facts to a memory adapter
 
 Set `memory.mirror` to link the built-in fact store to the agent's `kind: "memory"` plugins (Mem0, Honcho, Supermemory). Every fact the built-in store saves is also written to each adapter, with the agent's `memoryContext` and `userId` defaulting to `memory.userId`. A failed adapter write is reported on the diagnostics channel with the adapter id and never fails the local save or the run.
@@ -317,6 +330,26 @@ await applyProfile(profile, process.env);
 - **List patterns.** A `DiscoverySpec` with `scope: "cwd-only"` or `"git-root-walk"` may set `pattern: ["THEO.md", "AGENTS.md", "CLAUDE.md"]`. Each directory contributes only the first name that exists. A list on a `"globbed"` spec throws `ConfigurationError` naming the spec id.
 - **`wrapImport(name, content)`.** Wraps each inlined `@import` at every depth, e.g. `(n, c) => \`--- import: ${n} ---\n${c}\n--- end import ---\``. Refusal and not-found placeholders are never wrapped. Default: content unchanged.
 - **Already loaded.** A file discovery emits is not inlined again by an import; the import line becomes `[@import already loaded: <path>]`.
+
+## `@theokit/sdk/a2a`: reaching agents in other processes
+
+`MessageBus` routes in-process. Pass an `A2ATransport` to let `send` reach peers elsewhere:
+
+```ts
+import { MessageBus, inMemoryTransport } from "@theokit/sdk/a2a";
+
+const transport = inMemoryTransport(); // shared object, for tests and same-process use
+const a = new MessageBus({ transport });
+const b = new MessageBus({ transport });
+b.register("worker", (m) => console.log(m.payload));
+await a.send("boss", "worker", { type: "job", payload: 1 }); // no local handler: goes to transport.send
+await b.pump(); // polls for every locally registered agent, delivers in order, returns 1
+```
+
+- A local handler always wins; the transport is used only when there is none. Without a transport an unknown peer still rejects with `A2APeerNotRegisteredError`.
+- `request` stays local only. With a transport and no local handler it rejects with `A2ARemoteRequestUnsupportedError` (`a2a_remote_request_unsupported`).
+- `pump()` is not automatic: call it when you want waiting messages delivered. A handler failure is reported on diagnostics and does not stop the others.
+- `from` is self-asserted. The transport does not authenticate it; that is the job of a sealed transport.
 
 ## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
 

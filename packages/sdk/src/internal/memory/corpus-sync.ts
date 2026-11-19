@@ -56,5 +56,9 @@ export async function syncCorpus(
     chunksWritten += chunks.length;
   }
 
+  // A file that left the disk must leave the index, or its chunks stay searchable forever.
+  const onDisk = new Set(files.map((f) => f.absolutePath));
+  for (const path of existingByPath.keys()) if (!onDisk.has(path)) repo.deleteFileByPath(path);
+
   return { filesScanned: files.length, filesUpdated, chunksWritten };
 }
