@@ -336,7 +336,7 @@ export interface SDKUserMessage {
  * | If you are… | you want |
  * |---|---|
  * | rendering a live UI | `onDelta`, `onStep`, `onRunEvent` |
- * | applying a policy | `permissionMode`, `activeTools`, `toolChoice`, `toolResultGuard`, `pruneToolResults`, `perToolTimeoutMs` |
+ * | applying a policy | `permissionMode`, `conversation`, `activeTools`, `toolChoice`, `toolResultGuard`, `pruneToolResults`, `perToolTimeoutMs` |
  * | running an eval or a harness | `maxIterations`, `completionCheck`, `doomLoop`, `signal` |
  * | orchestrating agents | `origin`, `task`, `context`, `queueMode` |
  * | overriding this one send | `model`, `systemPrompt`, `tools`, `mcpServers`, `contextPaths`, `local` |

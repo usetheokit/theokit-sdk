@@ -90,7 +90,7 @@ describe("PreToolCallContext.conversation (#1032)", () => {
       kind: "general",
       register: (ctx) => {
         ctx.on("pre_tool_call", (c) => {
-          seen.push(c);
+          seen.push(c as PreToolCallContext);
           return undefined;
         });
       },
