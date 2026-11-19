@@ -18,6 +18,7 @@ import {
   hydrateRegistryFromDisk,
   updateRegisteredAgent,
 } from "../../internal/runtime/registry/agent-registry.js";
+import { validatePruneToolResults } from "../agent-loop/prune-tool-results.js";
 import { validateAgentOptions } from "../../internal/runtime/validation/validate-agent-options.js";
 import type { OTelSpan } from "../../internal/telemetry/tracer.js";
 import { getProviderProfile } from "../../providers.js";
@@ -320,6 +321,7 @@ export async function rehydrateExistingAgent(
   // Agent.resume never reaches validateAgentOptions, so a ceiling passed here is checked here,
   // before the agent exists (B-380).
   resolveMaxFacts(mergedOptions.memory?.maxFacts);
+  validatePruneToolResults(mergedOptions.sendDefaults?.pruneToolResults);
   if (existing.runtime === "cloud") {
     return new CloudAgent(mergedOptions, agentId);
   }

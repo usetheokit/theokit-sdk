@@ -98,7 +98,9 @@ function buildLoopInputs(
       { code: "invalid_max_iterations" },
     );
   }
-  validatePruneToolResults(options.sendOptions.pruneToolResults);
+  validatePruneToolResults(
+    applySendDefaults(options.agentOptions.sendDefaults, options.sendOptions).pruneToolResults,
+  );
   const { primary, effectiveModelId } = resolveRunProvider(options);
   const fallback = options.agentOptions.providers?.fallback;
   // M4: thread the single explicit `apiKey` into the pool for `primary` so an
