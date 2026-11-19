@@ -3,6 +3,7 @@
  * validation, run-boundary validation, and fork inheritance. Observes `runAgentLoop` inputs.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { useTempCwd } from "./helpers/temp-workspace.js";
 
 const loopInputs: Array<Record<string, unknown>> = [];
@@ -75,6 +76,34 @@ describe("sendDefaults forwarding", () => {
     await (await resumed.send("go")).wait();
     expect(loopInputs.at(-1)?.pruneToolResults).toEqual({ olderThanRounds: 2 });
     resumed.dispose();
+    agent.dispose();
+  });
+
+  it("agent.generate sends with the agent's defaults", async () => {
+    const agent = await Agent.create({
+      ...base,
+      sendDefaults: { toolResultGuard: { delimit: true } },
+    });
+    // Phase 2 (structuring) cannot parse the mocked "ok" answer; only phase 1's inputs matter.
+    await agent.generate("go", { output: z.object({ a: z.string() }) }).catch(() => undefined);
+    expect(loopInputs[0]?.toolResultGuard).toEqual({ delimit: true });
+    agent.dispose();
+  });
+
+  it("the goal loop (runUntil) sends with the agent's defaults", async () => {
+    const agent = await Agent.create({ ...base, sendDefaults: defaults });
+    const it = agent.runUntil?.("finish", { maxTurns: 1 } as never);
+    if (it !== undefined) {
+      try {
+        for await (const _ of it) {
+          // drain
+        }
+      } catch {
+        // the mocked loop never satisfies the goal; only the first send's inputs matter
+      }
+    }
+    expect(loopInputs.length).toBeGreaterThan(0);
+    expect(loopInputs[0]?.pruneToolResults).toEqual({ olderThanRounds: 2 });
     agent.dispose();
   });
 });
