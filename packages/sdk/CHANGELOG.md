@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.31.0
+
+### Minor Changes
+
+- [#1297](https://github.com/usetheokit/theokit-sdk/pull/1297) [`ea34140`](https://github.com/usetheokit/theokit-sdk/commit/ea34140f326763596d8a52ee3616fe1c381bcdc8) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `memory.mirror` (`MemoryMirrorOptions`): write every fact the built-in store saves through to the agent's `kind: "memory"` adapters, and optionally build the `<memory>` block from them first (`recall: "adapters-first"`), with local facts as the fallback. Adapter write failures are reported on the diagnostics channel with the adapter id and never fail the save or the run.
+
+### Patch Changes
+
+- [#1286](https://github.com/usetheokit/theokit-sdk/pull/1286) [`5152672`](https://github.com/usetheokit/theokit-sdk/commit/5152672545f81e7608bb9f475c2f179b103b6322) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Regenerate the capability map so its export count (1414) matches the built declarations after `AgentLike` and `RunLike` were exported.
+
 ## 5.30.0
 
 ### Minor Changes
