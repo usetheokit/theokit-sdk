@@ -36,6 +36,7 @@ import {
 import { enqueueSessionWrite } from "./internal/session/agent-session.js";
 import { SPAN_NAMES } from "./internal/telemetry/span-names.js";
 import { createTelemetry, type OTelSpan } from "./internal/telemetry/tracer.js";
+import { createSessionPool, type SessionPool, type SessionPoolOptions } from "./session-pool.js";
 import type {
   AgentDescription,
   AgentOperationOptions,
@@ -398,6 +399,20 @@ export class Agent {
     } finally {
       registry.unreserve(agentId);
     }
+  }
+
+  /**
+   * One agent per session key with generations (`reset`), same-id rebuilds (`rebuild`) and a drained
+   * shutdown (`disposeAll`). Built on {@link Agent.lease}. Use agent ids that no other pool or caller
+   * uses, since `Agent.registry` is process-wide.
+   *
+   * @public
+   */
+  static sessionPool(options: SessionPoolOptions): SessionPool {
+    return createSessionPool(options, {
+      lease: (id, o) => Agent.lease(id, o),
+      registry: Agent.registry,
+    });
   }
 
   /**

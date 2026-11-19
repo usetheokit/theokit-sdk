@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-270 distinct code(s).
+272 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -43,7 +43,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `cloud_plugin_path_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:162` +1 |
 | `cloud_run_http_error` | domain | NetworkError | `packages/sdk/src/internal/cloud-agent/real-cloud-run.ts:159` |
 | `cloud_run_unknown_status` | domain | NetworkError | `packages/sdk/src/internal/cloud-agent/real-cloud-run.ts:292` +1 |
-| `cloud_runtime_pre_release` | domain | ConfigurationError | `packages/sdk/src/agent.ts:467` +2 |
+| `cloud_runtime_pre_release` | domain | ConfigurationError | `packages/sdk/src/agent.ts:482` +2 |
 | `cloud_stdio_cwd_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:126` |
 | `compression_failed` | domain | — | `packages/sdk/src/errors.ts:703` |
 | `compression_model_unresolved` | domain | — | `packages/sdk/src/internal/runtime/compression/compression-model-registry.ts:102` +1 |
@@ -78,6 +78,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `filesystem_security` | domain | FilesystemSecurityError | `packages/sdk/src/filesystem/types.ts:61` +1 |
 | `filesystem_stale` | domain | StaleFileError | `packages/sdk/src/filesystem/types.ts:115` +2 |
 | `forbidden_path` | domain | — | `packages/sdk/src/internal/security/path-guard.ts:57` +1 |
+| `generation_file_invalid` | domain | — | `packages/sdk/src/errors.ts:731` |
 | `handoff_package_missing` | domain | ConfigurationError | `packages/sdk/src/internal/agent/helpers.ts:110` +1 |
 | `handoff_target_invalid` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:116` |
 | `handoff_target_required` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:111` |
@@ -205,7 +206,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `reserved_env_prefix` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:113` |
 | `response_headers_timeout` | domain | NetworkError | `packages/sdk/src/internal/llm/sse.ts:57` |
 | `run_cancelled` | domain | — | `packages/sdk/src/errors.ts:656` |
-| `run_not_found` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:474` |
+| `run_not_found` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:489` |
 | `runtime_exclusive` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:93` |
 | `sandbox_derived_helper_failed` | domain | ConfigurationError | `packages/sdk/src/sandbox/types.ts:223` +1 |
 | `sandbox_not_available` | domain | SandboxNotAvailableError | `packages/sdk/src/sandbox/types.ts:108` +1 |
@@ -213,6 +214,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `schema_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:104` +5 |
 | `server_error` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:92` +1 |
 | `session_busy` | domain | — | `packages/sdk/src/internal/persistence/session-writer.ts:56` +1 |
+| `session_pool_closed` | domain | — | `packages/sdk/src/errors.ts:716` |
 | `sql_injection_blocked` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:359` +1 |
 | `sqlite_driver_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/sqlite-open.ts:195` |
 | `sqlite_vec_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/memory/sqlite-vec-loader.ts:22` |
@@ -253,7 +255,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `transport_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:614` +1 |
 | `unimplemented_budget_scope` | domain | ConfigurationError | `packages/sdk/src/internal/budget/registry.ts:58` +1 |
 | `unknown` | domain | AgentRunError, MemoryAdapterError, TheokitAgentError | `packages/memory-honcho/src/adapter.ts:264` +5 |
-| `unknown_agent` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:224` +1 |
+| `unknown_agent` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:225` +1 |
 | `unknown_artifact` | domain | UnknownAgentError | `packages/sdk/src/internal/cloud-agent/cloud-agent.ts:313` |
 | `unknown_category` | domain | ConfigurationError | `packages/sdk-memory/src/internal/categorized-memory.ts:76` |
 | `unknown_cron_job` | domain | UnknownAgentError | `packages/sdk/src/cron.ts:80` +2 |

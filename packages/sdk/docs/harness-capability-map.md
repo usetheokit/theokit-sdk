@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1409 export(s) across 57 entry point(s).
+1419 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -201,6 +201,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `GenerateObjectResult` | interface | Successful return from {@link Agent.generateObject } . |
 | `GenerateOptions` | interface | SE9 — options for the integrated structured-output method `agent.generate`: the {@link SendOptions } that drive the tool loop (phase 1) plus the required `output` Zod schema and structuring knobs (... |
 | `GenerateRunResult` | interface | SE9 — result of `agent.generate`: the validated typed object plus the underlying tool-loop {@link RunResult } (status / usage / model) and the raw pre-parse input. |
+| `GenerationFileError` | class | The file given to `jsonGenerations` is not a generations file this SDK wrote (`{ version: 1, generations }`).  |
+| `GenerationStore` | interface | Generation counter per session key.  |
 | `GetAgentOptions` | interface | Options for `Agent.get()`.  |
 | `getPricingEntry` | function | Returns the pricing entry for a given `{provider, model}` route.  |
 | `GetRunOptions` | type | Options for `Agent.getRun()`.  |
@@ -228,6 +230,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `isValidTaskId` | function | Validates a task ID against the public grammar + reserved prefixes.  |
 | `JobQueue` | class | An in-process queue of background jobs with status tracking, cancellation, and an optional concurrency bound.  |
 | `JobQueueOptions` | interface | #58 — construction options. |
+| `jsonGenerations` | function | Generations persisted to a JSON file (`{ version: 1, generations }`, mode 0600), one write at a time.  |
 | `JudgeCredentialError` | class | M80 — the judge's credential or model does not work: 401/404.  |
 | `JudgeResult` | interface | M80 — the result of a judge call, now public.  |
 | `KeepReason` | type | Why an artifact survived. |
@@ -261,6 +264,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryAdapterErrorCode` | type | Finite error codes specific to memory adapter operations (ADR D141). |
 | `MemoryContext` | interface | Portable identity context.  |
 | `MemoryFact` | interface | A single memory fact returned by `recall` or `get`. |
+| `memoryGenerations` | function | In-memory generations, lost on restart. |
 | `MemoryId` | type | Branded provider memory ID.  |
 | `MemoryProvider` | interface | The kernel-facing contract.  |
 | `MemoryProviderAgentRef` | interface | The agent identity a `MemoryProvider` is given — the whole of it.  |
@@ -402,6 +406,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SessionLifecycleContext` | interface | #65 — context for the `on_session_start` / `on_session_end` hooks.  |
 | `SessionMessage` | interface | One turn of a session.  |
 | `SessionMessagePart` | type | One structured element of a {@link SessionMessage } .  |
+| `SessionPool` | interface |  |
+| `SessionPoolClosedError` | class | `SessionPool.lease` was called after `disposeAll` started. |
+| `SessionPoolOptions` | interface |  |
 | `SessionRecord` | interface | One transcript record — a single line of the session JSONL file, and the unit the pluggable `SessionStore` seam reads and writes.  |
 | `SessionScope` | type | M3 #62 — session state scope. |
 | `sessionScopePrefix` | function | M3 #62 — the id prefix (`"<scope>__"`) used to match a scope's conversations. |
@@ -1084,6 +1091,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CredentialPoolExhaustedError` | class | Thrown when every credential in a per-provider pool is in cooldown and no healthy key is available (ADR D133).  |
 | `ErrorCode` | type | Finite, machine-readable error codes for provider-originated errors (ADR D66).  |
 | `ErrorMetadata` | interface | Structured context for errors that originated from a provider HTTP call (ADR D65).  |
+| `GenerationFileError` | class | The file given to `jsonGenerations` is not a generations file this SDK wrote (`{ version: 1, generations }`).  |
 | `IntegrationNotConnectedError` | class | Thrown when creating a cloud agent for a repo whose SCM provider is not connected.  |
 | `InvalidTaskIdError` | class | Thrown when a user-supplied task ID violates the grammar `^[a-z0-9][a-z0-9_-]*$` (D368) OR starts with a reserved adapter prefix (`wf-` / `b-` / `cron-`, EC-5). |
 | `isTransientError` | function | Is this error transient (worth retrying)?  |
@@ -1092,6 +1100,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryAdapterErrorCode` | type | Finite error codes specific to memory adapter operations (ADR D141). |
 | `NetworkError` | class | Service unavailable, timeout, transport-level failure. |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
+| `SessionPoolClosedError` | class | `SessionPool.lease` was called after `disposeAll` started. |
 | `StructuredOutputError` | class | The failure contract shared by `generateObject` and `streamObject`.  |
 | `StructuredOutputErrorCode` | type | Why a structured-output call failed.  |
 | `TaskNotFoundError` | class | Thrown when `Task.subscribe(id)` is called for a task that has been evicted, never submitted, or evicted after retention (D373). |

@@ -91,6 +91,7 @@ export {
   ConfigurationError,
   type ErrorCode,
   type ErrorMetadata,
+  GenerationFileError,
   IntegrationNotConnectedError,
   InvalidTaskIdError,
   isTransientError,
@@ -98,6 +99,7 @@ export {
   type MemoryAdapterErrorCode,
   NetworkError,
   RateLimitError,
+  SessionPoolClosedError,
   TaskNotFoundError,
   TheokitAgentError,
   UnknownAgentError,
@@ -377,6 +379,13 @@ export {
 // #546 — the history of a session the host is not holding an Agent for. `transcript()` serves a
 // live agent; re-rendering a RESUMED session needs the messages before there is one to ask.
 export { type ReadSessionMessagesOptions, readSessionMessages } from "./session-messages.js";
+export {
+  type GenerationStore,
+  jsonGenerations,
+  memoryGenerations,
+  type SessionPool,
+  type SessionPoolOptions,
+} from "./session-pool.js";
 // M3 #62 — scoped session state helpers (app:/user:/temp:).
 export { type SessionScope, scopedConversationId, sessionScopePrefix } from "./session-scope.js";
 // Squad — sequential multi-agent team (composes Workflow+agentStep; cross-val Gap 1)

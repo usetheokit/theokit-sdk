@@ -251,6 +251,36 @@ try {
 
 LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
 
+## Session pool: `Agent.sessionPool`
+
+One agent per conversation key, started afresh on `/new`, rebuilt when settings change, drained on shutdown. Built on `Agent.lease`; use agent ids no other caller uses, since `Agent.registry` is process-wide.
+
+```ts
+import { Agent, jsonGenerations } from "@theokit/sdk";
+
+const pool = Agent.sessionPool({
+  open: (key) => ({ apiKey, model: { id: "openai/gpt-4o-mini" }, local: { cwd: workdir } }),
+  generations: jsonGenerations("./generations.json"), // survives restarts; default is in memory
+  idleMs: 30 * 60_000,
+  maxOpen: 50,
+});
+
+async function onMessage(key: string, text: string) {
+  const lease = await pool.lease(key); // waits for a reset in progress
+  try {
+    await (await lease.agent.send(text)).wait();
+  } finally {
+    lease.release();
+  }
+}
+
+await pool.reset("chat-1"); // /new: next lease gets a new agent id; a turn in flight finishes on the old one
+pool.rebuild("chat-1"); // settings changed: same id (same transcript), fresh options on the next lease
+const { stillRunning } = await pool.disposeAll({ drainMs: 30_000 }); // lease() now rejects with SessionPoolClosedError
+```
+
+`jsonGenerations` throws `GenerationFileError` for a file that is not `{ version: 1, generations }`, and writes with mode 0600.
+
 ## Status
 
 The full contract is defined by the exported TypeScript types; see [`CHANGELOG.md`](./CHANGELOG.md) for the release history.

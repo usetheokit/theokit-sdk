@@ -703,3 +703,34 @@ export class CompressionFailedError extends TheokitAgentError {
     super(message, { ...options, code: "compression_failed", isRetryable: true });
   }
 }
+
+/**
+ * `SessionPool.lease` was called after `disposeAll` started.
+ *
+ * @public
+ */
+export class SessionPoolClosedError extends TheokitAgentError {
+  override readonly name = "SessionPoolClosedError";
+
+  constructor(key: string) {
+    super(`session pool is closed: no new lease for ${key}`, { code: "session_pool_closed" });
+  }
+}
+
+/**
+ * The file given to `jsonGenerations` is not a generations file this SDK wrote
+ * (`{ version: 1, generations }`). The file is left as it was.
+ *
+ * @public
+ */
+export class GenerationFileError extends TheokitAgentError {
+  override readonly name = "GenerationFileError";
+  readonly file: string;
+
+  constructor(file: string, reason: string) {
+    super(`generation file ${file} is not a generations file: ${reason}`, {
+      code: "generation_file_invalid",
+    });
+    this.file = file;
+  }
+}
