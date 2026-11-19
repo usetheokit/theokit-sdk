@@ -179,6 +179,7 @@ export {
 // added to barrel so extracted packages (sdk-cache, sdk-handoff) can type their
 // .asPlugin() factories without reaching into ./internal/plugins sub-path.
 export {
+  type ConversationRef,
   type HookName,
   // #335 — named here because the PUBLIC `Plugin` union references it in the
   // `createProvider` position. The DTS rollup emits an exported type's body but
@@ -430,6 +431,7 @@ export type {
   CustomTool,
   SDKAgent,
 } from "./types/agent.js";
+export type { AgentLike, RunLike } from "./types/agent-like.js";
 // SE7 — structured/multimodal tool-result content blocks (explicit for rollup-dts).
 export type { ImageBlock, ToolResultContentBlock } from "./types/content-blocks.js";
 export type { EnvPolicy } from "./types/env-policy.js";
