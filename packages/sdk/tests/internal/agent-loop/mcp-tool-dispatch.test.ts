@@ -90,6 +90,15 @@ describe("name sanitization", () => {
     for (const n of names) expect(n).toMatch(/^[a-zA-Z0-9_-]{1,64}$/);
   });
 
+  it("keeps distinct names when identities share a long readable prefix", () => {
+    const long = "x".repeat(60);
+    const a = mcpModelToolName("srv", `${long}/1`);
+    const b = mcpModelToolName("srv", `${long}/2`);
+    expect(a).not.toBe(b);
+    expect(a.length).toBeLessThanOrEqual(64);
+    expect(a).toMatch(/_[0-9a-f]{32}$/);
+  });
+
   it("refuses a forced call to a filtered tool whose sanitized form matches an offered tool", async () => {
     const { out, calls } = await dispatchOn(
       { srv: ["do_thing_5abb2e"] },

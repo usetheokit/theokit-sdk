@@ -345,11 +345,11 @@ export function mcpModelToolName(serverName: string, toolName: string): string {
   if (/^[a-zA-Z0-9-]+$/.test(serverName) && /^[a-zA-Z0-9_-]+$/.test(toolName)) {
     return `mcp_${serverName}_${toolName}`;
   }
-  const readable = `${readablePart(serverName)}_${readablePart(toolName)}`.slice(0, 40);
+  const readable = `${readablePart(serverName)}_${readablePart(toolName)}`.slice(0, 26);
   const hash = createHash("sha256")
     .update(JSON.stringify([serverName, toolName]))
     .digest("hex")
-    .slice(0, 16);
+    .slice(0, 32);
   return `mcp__${readable}_${hash}`;
 }
 
