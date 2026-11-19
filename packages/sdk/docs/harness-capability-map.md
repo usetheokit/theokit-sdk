@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1419 export(s) across 57 entry point(s).
+1421 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -194,7 +194,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `foldLayers` | function | Combine `entries` into one record.  |
 | `ForkOptions` | interface | Caller-supplied fork configuration.  |
 | `ForkResult` | interface | Outcome of a fork run. |
-| `GeneralPlugin` | type | The `"general"` member of {@link Plugin } . |
 | `GeneratedImage` | interface | Result of {@link generateImage } . |
 | `generateImage` | function | Generate one image.  |
 | `GenerateImageOptions` | interface | Options for {@link generateImage } . |
@@ -214,11 +213,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `guardSessionDestruction` | function | Throw unless `sessionId` is safe to destroy. |
 | `HookApprovalGate` | interface | #631 — a consumer's decision point before this package spawns a hook.  |
 | `HookApprovalRequest` | interface | #631 — what the consumer is shown when asked to approve a hook.  |
-| `HookContextMap` | interface | The context each hook's handler receives, keyed by {@link HookName } .  |
 | `hookFingerprint` | function | The hex sha256 of `sourceEvent`, `command` and `timeoutMs`, one per line (`${sourceEvent}\n${command}\n${timeoutMs}`).  |
-| `HookHandler` | type | The untyped hook handler shape, `(ctx: unknown) => unknown`.  |
 | `HookName` | type | The fixed set of points a `"general"` plugin may attach to through `PluginContext.on`.  |
-| `HookResultMap` | interface | What each hook's handler may return.  |
 | `ImageBlock` | interface | SE7 — a base64-encoded image block a tool can hand back as (part of) its result or its `ToolError`.  |
 | `inferApiMode` | function | Guess which usage shape a provider reports, from its name alone.  |
 | `InlineSkill` | interface | A code-defined skill (from {@link createSkill } ) — a {@link Skill } plus its inline body. |
@@ -267,6 +263,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryContext` | interface | Portable identity context.  |
 | `MemoryFact` | interface | A single memory fact returned by `recall` or `get`. |
 | `MemoryId` | type | Branded provider memory ID.  |
+| `MemoryMirrorOptions` | interface | How the built-in fact store is mirrored to memory adapters.  |
 | `MemoryProvider` | interface | The kernel-facing contract.  |
 | `MemoryProviderAgentRef` | interface | The agent identity a `MemoryProvider` is given — the whole of it.  |
 | `MemoryProviderFactory` | type | Memory provider factory shape (ADR D141).  |
@@ -494,7 +491,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `TrustPostureInput` | interface | What the decision is made from: the capability vocabulary, a way to read the operator's record, and an optional blanket override.  |
 | `TrustSource` | type | Where the decision came from. |
 | `TurnEndedUpdate` | interface | Turn ended with usage summary. |
-| `TypedHookHandler` | type | A handler for hook `H`, with the context and return value checked.  |
 | `UngatedCapabilityError` | class | Raised when a recorded capability has no entry in the gate. |
 | `UnicodeNormalizer` | class | SE36 — `UnicodeNormalizer.create` replaces `createUnicodeNormalizer` (ADR 0015). |
 | `UnicodeNormalizerOptions` | interface | Options for {@link createUnicodeNormalizer } . |
@@ -848,6 +844,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `QuestionTool` | interface | M76 — aligned with the SDK's `CustomTool`.  |
 | `QuestionToolOptions` | interface | `question` — interactive tool that asks the user a question and waits for a response.  |
 | `ReadTracker` | class | `ReadTracker` — SE32 read-before-write safety.  |
+| `readXwdHeader` | function | Validate and parse the XWD header in `bytes` without allocating pixel buffers. |
 | `ReasoningTools` | class | Reasoning scratchpad tools.  |
 | `RedirectBlockedError` | class | Thrown when a request is refused by the REDIRECT policy (the `maxRedirects` hop limit was exceeded) — a distinct event from {@link SsrfBlockedError } (a blocked host).  |
 | `renderToolList` | function | Render the agent's actual `CustomTool[]` — single source of truth, so an overridden/added/removed tool is reflected automatically.  |
@@ -879,6 +876,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `withName` | function | Return a new `CustomTool` exposed under a different `name`, sharing the SAME `inputSchema` + `handler` (alias parity).  |
 | `withShellExitGuidance` | function | Wrap `shell_exec` so a SOFT failure — `{ ok: true, exit_code != 0 }` (the TOOL ran, the COMMAND failed) — gains a `guidance` hint.  |
 | `withToolResultGuidance` | function | Wrap a `CustomTool` so its failed results gain a `guidance` hint from `guidance`.  |
+| `XWD_LIMITS` | const | Upper bounds enforced on an untrusted header before any allocation. |
+| `XwdFormatError` | class | A header field is unsupported or outside `XWD_LIMITS`; names the file, field and value. |
+| `XwdHeader` | interface | Parsed fields of an XWD header that a ZPixmap framebuffer needs. |
+| `XwdNotWrittenError` | class | The header or pixel data is larger than the bytes read: Xvfb may still be writing; retry. |
+| `xwdToPng` | function | Decode an XWD (24/32-bit ZPixmap) into an RGB PNG; throws `XwdNotWrittenError` while the file is incomplete. |
 
 ## `@theokit/sdk-tools/extract-document`
 
