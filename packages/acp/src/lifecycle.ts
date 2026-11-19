@@ -20,9 +20,10 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import * as acp from "@agentclientprotocol/sdk";
-import { Agent, type SDKAgent } from "@theokit/sdk";
+import { Agent, type AgentLike } from "@theokit/sdk";
+import { assertPermissionEnforceable } from "./permission-plugin.js";
 import type { AcpSession, SessionStore } from "./session-store.js";
-import type { AcpAgentInfo, AcpCapabilities, AgentFactory } from "./types.js";
+import type { AcpAgentInfo, AcpCapabilities, AgentFactory, PermissionMode } from "./types.js";
 
 // ===== initialize =====
 
@@ -69,6 +70,8 @@ interface NewSessionDeps {
   factory: AgentFactory;
   store: SessionStore;
   log: (msg: string) => void;
+  /** When `ask`/`deny`, refuse the session up front if the agent cannot enforce permissions. */
+  permissionMode?: PermissionMode;
 }
 
 type AcpResult<T> = { ok: true; value: T } | { ok: false; error: AcpError };
@@ -136,7 +139,7 @@ export async function handleNewSession(
   if (!cwdResult.ok) return { error: cwdResult.error };
 
   const sessionId = randomUUID();
-  let agent: SDKAgent;
+  let agent: AgentLike;
   try {
     agent = await deps.factory(sessionId);
   } catch (err) {
@@ -148,6 +151,23 @@ export async function handleNewSession(
         message: `agent factory threw: ${msg}`,
       },
     };
+  }
+
+  if (deps.permissionMode !== undefined && deps.permissionMode !== "auto") {
+    try {
+      assertPermissionEnforceable(agent, deps.permissionMode, sessionId);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const code = (err as { code?: unknown }).code;
+      deps.log(`[acp] new_session refused: ${msg}`);
+      return {
+        error: {
+          code: ACP_ERR.INTERNAL_ERROR,
+          message: msg,
+          ...(typeof code === "string" ? { data: { code } } : {}),
+        },
+      };
+    }
   }
 
   const session: AcpSession = {
@@ -200,7 +220,7 @@ export async function handleLoadSession(
     };
   }
 
-  let agent: SDKAgent;
+  let agent: AgentLike;
   try {
     agent = await Agent.resume(params.sessionId, { local: { cwd: cwdResult.value } });
   } catch (err) {

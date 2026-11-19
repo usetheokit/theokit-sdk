@@ -18,7 +18,7 @@
 
 import { randomUUID } from "node:crypto";
 import type * as acp from "@agentclientprotocol/sdk";
-import { ConfigurationError, Plugin, type SDKAgent } from "@theokit/sdk";
+import { ConfigurationError, Plugin, type AgentLike } from "@theokit/sdk";
 import { toolKind } from "./translator.js";
 import type { PermissionMode } from "./types.js";
 
@@ -84,6 +84,34 @@ async function askWithTimeout(
   return undefined;
 }
 
+type PluginManagerLike = {
+  register?: (p: unknown) => Promise<void> | void;
+  initialize?: (plugins: unknown[]) => Promise<void>;
+};
+
+/**
+ * Return the agent's plugin manager (read structurally; `LocalAgent` exposes `pluginManager()`).
+ *
+ * **Fail-closed (SEC-M0-03):** THROWS `ConfigurationError` (`permission_enforcement_unavailable`)
+ * when there is none, so tools never run ungated while the operator believes they are gated.
+ */
+export function assertPermissionEnforceable(
+  agent: AgentLike,
+  mode: PermissionMode,
+  sessionId: string,
+): PluginManagerLike {
+  const mgr = (agent as AgentLike & { pluginManager?: () => PluginManagerLike | undefined })
+    .pluginManager?.();
+  if (mgr === undefined) {
+    throw new ConfigurationError(
+      `permission enforcement unavailable on this runtime (no plugin manager) — ` +
+        `cannot honor permissionDefault="${mode}" for session "${sessionId}"`,
+      { code: "permission_enforcement_unavailable" },
+    );
+  }
+  return mgr;
+}
+
 /**
  * Install the tool-permission veto on an SDK agent, for one session.
  *
@@ -98,7 +126,7 @@ async function askWithTimeout(
  * the first tool dispatch.
  */
 export async function installPermissionPlugin(
-  agent: SDKAgent,
+  agent: AgentLike,
   args: PermissionPluginArgs,
 ): Promise<void> {
   const plugin = Plugin.create({
@@ -120,27 +148,7 @@ export async function installPermissionPlugin(
     },
   });
 
-  // The agent's plugin manager is exposed via `pluginManager()` on LocalAgent.
-  // The plugin is registered for the lifetime of the session — adequate for
-  // ACP's one-process-per-session model (D356).
-  const agentLike = agent as SDKAgent & {
-    pluginManager?: () => {
-      register?: (p: unknown) => Promise<void> | void;
-      initialize?: (plugins: unknown[]) => Promise<void>;
-    };
-  };
-  const mgr = agentLike.pluginManager?.();
-  if (mgr === undefined) {
-    // SEC-M0-03 — FAIL CLOSED. If the operator asked for `deny`/`ask` but this
-    // runtime (e.g. CloudAgent) has no plugin manager, tools would run UNGATED
-    // while the operator believes they are gated. A security control must not
-    // fail open: refuse the session instead of warning-and-continuing.
-    throw new ConfigurationError(
-      `permission enforcement unavailable on this runtime (no plugin manager) — ` +
-        `cannot honor permissionDefault="${args.mode}" for session "${args.sessionId}"`,
-      { code: "permission_enforcement_unavailable" },
-    );
-  }
+  const mgr = assertPermissionEnforceable(agent, args.mode, args.sessionId);
   // ARCH-08/SEC-M0-05 — await so the veto hook is aggregated before any tool
   // dispatch, and an async registration failure surfaces (not an unhandled
   // rejection).

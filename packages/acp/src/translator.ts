@@ -21,7 +21,7 @@ import type { SDKMessage } from "@theokit/sdk";
 const MAX_CONSECUTIVE_SEND_FAILURES = 10;
 
 interface TranslateStreamArgs {
-  messages: AsyncGenerator<SDKMessage, void>;
+  messages: AsyncIterable<SDKMessage>;
   conn: acp.AgentSideConnection;
   sessionId: string;
   signal: AbortSignal;
