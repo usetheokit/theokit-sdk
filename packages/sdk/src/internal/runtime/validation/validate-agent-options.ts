@@ -8,6 +8,7 @@ import type {
   CustomTool,
 } from "../../../types/agent.js";
 import type { McpServerConfig } from "../../../types/mcp.js";
+import { assertValidDoomLoopWindow } from "../../agent-loop/doom-loop-tracker.js";
 import { validateMcpToolFilter } from "../../mcp/tool-filter.js";
 import { resolveMaxFacts } from "../../memory/storage/fact-ceiling.js";
 
@@ -307,4 +308,18 @@ function validateMemory(options: AgentOptions): void {
       { code: "memory_path_traversal" },
     );
   }
+}
+
+/** Send-time checks: per-call tool catalog and `doomLoop.window` (#1031). @internal */
+export function validateSendOptions(
+  options: {
+    tools?: ReadonlyArray<CustomTool>;
+    doomLoop?: Parameters<typeof assertValidDoomLoopWindow>[0];
+  },
+  withheldBuiltins?: ReadonlyArray<BuiltinToolName>,
+): void {
+  if (options.tools !== undefined && options.tools.length > 0) {
+    validateToolCatalog(options.tools, withheldBuiltins);
+  }
+  assertValidDoomLoopWindow(options.doomLoop);
 }

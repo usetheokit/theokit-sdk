@@ -35,6 +35,42 @@ import type {
 import type { Run } from "./types/run.js";
 
 /**
+ * Synchronously validate a cron expression with the same rules `Cron.create` applies.
+ *
+ * @example
+ * ```ts
+ * import { validateCron } from "@theokit/sdk/cron";
+ *
+ * validateCron("*\/15 * * * *"); // ok
+ * validateCron("61 * * * *"); // throws ConfigurationError (code "invalid_cron")
+ * ```
+ *
+ * @throws ConfigurationError with code `invalid_cron` when `expression` is not one `Cron.create` accepts.
+ * @public
+ */
+export function validateCron(expression: string): void {
+  validateCronExpression(expression);
+}
+
+/**
+ * Synchronously validate an IANA timezone name with the same rules `Cron.create` applies.
+ *
+ * @example
+ * ```ts
+ * import { validateCronTimezone } from "@theokit/sdk/cron";
+ *
+ * validateCronTimezone("America/Sao_Paulo"); // ok
+ * validateCronTimezone("Mars/Base"); // throws ConfigurationError (code "invalid_timezone")
+ * ```
+ *
+ * @throws ConfigurationError with code `invalid_timezone` when `timezone` is not a valid IANA zone.
+ * @public
+ */
+export function validateCronTimezone(timezone: string): void {
+  validateTimezone(timezone);
+}
+
+/**
  * Static façade for scheduling Theo agent runs on a cron expression.
  *
  * @public

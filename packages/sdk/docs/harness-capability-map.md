@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1410 export(s) across 57 entry point(s).
+1417 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -67,6 +67,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AgentDescription` | interface | theokit#123 — the read-only introspection of a registered agent, returned by `Agent.describe()`.  |
 | `AgentDisposedError` | class | T1.6 — Thrown when a consumer calls `agent.send()` or any method on an agent that has already been `dispose()`d.  |
 | `AgentFactory` | class | Handle returned by {@link createAgentFactory } .  |
+| `AgentLease` | interface | A hold on a live agent returned by {@link Agent.lease } . |
+| `AgentLike` | interface | Narrow agent port: the part of `SDKAgent` a wrapper, test double or failover decorator needs.  |
 | `AgentMemory` | interface | Direct memory API exposed on `SDKAgent.memory`.  |
 | `AgentOperation` | type | An operation a consumer may ask an {@link SDKAgent } about via `supports()`.  |
 | `AgentOperationOptions` | interface | Options for archive/unarchive/delete. |
@@ -130,6 +132,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ContextSnapshot` | interface | Result of `agent.context.snapshot()`.  |
 | `ContextSource` | interface | A single context source resolved by the context manager. |
 | `ContextSourceStatus` | type | Inclusion state of a single context source in a {@link ContextSnapshot } . |
+| `ConversationRef` | interface | Where a run's conversation lives, as the caller declares it.  |
 | `ConversationStep` | type | A single step inside an agent turn, discriminated by `type`: an assistant message, a tool call, the tool result that pairs with it, or a thinking block.  |
 | `ConversationTurn` | type | Structured per-turn view of a run. |
 | `CostBreakdown` | interface | Cost breakdown attached to `RunResult.cost`.  |
@@ -352,6 +355,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `RunEventSink` | type | Receives every {@link RunEvent } a run emits, in emission order.  |
 | `RunGitInfo` | interface | Git metadata attached to cloud runs. |
 | `runGoalLoop` | function | Run the goal-driven loop (`send → judge → continuation`) over ANY `send → wait` surface.  |
+| `RunLike` | interface | Narrow run port: the part of {@link import ("./run.js").Run } a wrapper, fake or decorator needs.  |
 | `RunMemoryDegradedEvent` | interface | A memory stage failed and the run continued without it.  |
 | `RunOperation` | type | Operations that may or may not be supported on a given `Run`, or on its parent agent.  |
 | `RunPermissionDeniedEvent` | interface | A tool call was DENIED before dispatch — by the permission gate/plugin (SE1), an operator file-hook `preToolUse`, or the fork tool-whitelist.  |
@@ -1069,6 +1073,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | Symbol | Kind | Summary |
 |---|---|---|
 | `Cron` | class | Static façade for scheduling Theo agent runs on a cron expression. |
+| `validateCron` | function | Synchronously validate a cron expression with the same rules `Cron.create` applies. |
+| `validateCronTimezone` | function | Synchronously validate an IANA timezone name with the same rules `Cron.create` applies. |
 
 ## `@theokit/sdk/errors`
 
@@ -1513,6 +1519,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `BwrapProbes` | interface | Injectable probes — each mirrors one Codex availability check. |
 | `createSandboxBackend` | function | Honest factory: bwrap available + mode wants confinement → `LinuxSandbox` (kernel enforcement, running the VALIDATED absolute bin); `danger-full-access` → plain `LocalSandbox` silently (explicit op... |
 | `CreateSandboxBackendOptions` | interface | Options for `createSandboxBackend`, which probes for bubblewrap and returns a {@link LinuxSandbox } when confinement is genuinely available or a `LocalSandbox` when it is not — warning once when th... |
+| `defaultDockerRunner` | function | The runner {@link DockerSandbox } uses by default; exported so a custom runner can wrap it. |
 | `detectBwrap` | function | Honest detection — fail-closed on every probe; NEVER throws (callers WARN + fall back). |
 | `detectBwrapMemoized` | function | `detectBwrap` with memoization — what production should call.  |
 | `DockerRunner` | type | Seam for tests: runs `docker <args>`, optionally feeding `input` to stdin. |
