@@ -188,11 +188,7 @@ export class SessionTranscript {
     return this.#push({
       type: "system",
       subtype: "deferred_tool_calls",
-      deferredToolCalls: calls.map((c) => ({
-        ...c,
-        input: redactValue(c.input),
-        ...(c.reason !== undefined ? { reason: red(c.reason) } : {}),
-      })),
+      deferredToolCalls: calls.map((c) => ({ ...c, input: redactValue(c.input) })),
     });
   }
 

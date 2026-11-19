@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1413 export(s) across 57 entry point(s).
+1412 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -471,7 +471,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `Tool` | class | SE36 — the uniform `X.create()` namespace API.  |
 | `ToolCall` | interface | Single tool call event.  |
 | `ToolCallCompletedUpdate` | interface | Tool call completed. |
-| `ToolCallDecision` | interface | A host's answer for one deferred tool call, keyed by the call's `toolUseId`.  |
 | `ToolCallStartedUpdate` | interface | Tool call started — args committed. |
 | `ToolCallSummary` | interface | M82 — one tool call of the turn, as seen by `transform_tool_result`.  |
 | `ToolContext` | interface | #65 — a 2nd argument passed to a tool handler, carrying the run's cancellation signal (ties into #58) so a cooperative tool can stop when the run is cancelled.  |

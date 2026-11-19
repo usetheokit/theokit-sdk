@@ -58,18 +58,6 @@ export interface DeferredToolCall {
 }
 
 /**
- * A host's answer for one deferred tool call, keyed by the call's `toolUseId`. Answering deferred
- * calls on a later send is not implemented yet; this is the shape that send will take.
- *
- * @public
- */
-export interface ToolCallDecision {
-  readonly toolUseId: string;
-  readonly behavior: "allow" | "deny";
-  readonly message?: string;
-}
-
-/**
  * Lifecycle status of a {@link Run}.
  *
  * @public
