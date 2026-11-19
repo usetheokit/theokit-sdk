@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1421 export(s) across 57 entry point(s).
+1425 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1538,11 +1538,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `interactiveWrapCommand` | function | The composition the interactive path needs — the counterpart of `createSandboxBackend`.  |
 | `InteractiveWrapOptions` | interface | Options for `interactiveWrapCommand`, the PTY counterpart of `createSandboxBackend`.  |
 | `LinuxSandbox` | class | Kernel-confined backend for Linux hosts: a `LocalSandbox` whose commands are rewritten as `bwrap <policy flags> -- /bin/sh -c '<command>'` before they are spawned.  |
+| `listSandboxContainers` | function | Lists containers (running or not) that carry every one of `labels`. |
 | `LocalSandbox` | class | Runs a command with `/bin/sh -c` on the host.  |
 | `provisionRepo` | function | Clone `repoUrl` into `<sandbox workdir>/<instanceId>` and check out `ref`.  |
 | `ProvisionRepoOptions` | interface | Options for {@link provisionRepo } . |
 | `realProbeCount` | function | How many real probes ran.  |
 | `realProbes` | const | Real probes used in production. |
+| `removeSandboxContainers` | function | Removes containers carrying every one of `labels`.  |
 | `RepoProvisionError` | class | Raised when cloning or checking out a repo fails.  |
 | `resetBwrapMemo` | function | Clears the `detectBwrapMemoized` memo.  |
 | `resetInteractiveWarnLatch` | function | Reset for tests — the latch is module state and tests need isolation.  |
@@ -1552,6 +1554,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `restrictedSeccompPath` | function | M57 — the memoized x64-gated seccomp program, written once per process to a temp file. |
 | `SandboxBackend` | class | The execution capability handed to an agent tool, and the extension point for new environments.  |
 | `SandboxConfig` | interface | Construction-time settings shared by every {@link SandboxBackend } .  |
+| `SandboxContainer` | interface | A container started by a `DockerSandbox`, as `docker ps -a` reports it. |
+| `SandboxDockerError` | class | A `docker` subcommand failed or timed out. |
 | `SandboxMode` | type | Codex's three canonical sandbox modes; lives in this leaf module so bwrap.ts and deny-read.ts need not import each other. |
 | `SandboxNetworkPolicy` | interface | What a {@link SandboxBackend } states about its outbound network.  |
 | `SandboxNotAvailableError` | class | A backend cannot be used at all: its runtime is missing or unusable.  |
