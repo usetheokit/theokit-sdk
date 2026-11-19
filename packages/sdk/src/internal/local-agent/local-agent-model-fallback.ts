@@ -208,7 +208,13 @@ class FallbackRun implements Run {
     try {
       return await this.runAttempts();
     } catch (cause) {
-      return errorResult(this.id, this.attempts, String(cause), failureCode(cause), cause);
+      return errorResult({
+        id: this.id,
+        attempts: this.attempts,
+        message: String(cause),
+        code: failureCode(cause),
+        cause,
+      });
     }
   }
 
@@ -314,18 +320,18 @@ class FallbackRun implements Run {
   }
 }
 
-function errorResult(
-  id: string,
-  attempts: ModelAttempt[],
-  message: string,
-  code: string,
-  cause: unknown,
-): RunResult {
+function errorResult(args: {
+  id: string;
+  attempts: ModelAttempt[];
+  message: string;
+  code: string;
+  cause: unknown;
+}): RunResult {
   return {
-    id,
+    id: args.id,
     status: "error",
-    modelAttempts: attempts,
-    error: { message, code, cause: cause as TheokitAgentError },
+    modelAttempts: args.attempts,
+    error: { message: args.message, code: args.code, cause: args.cause as TheokitAgentError },
   };
 }
 
