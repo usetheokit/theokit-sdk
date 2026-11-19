@@ -59,7 +59,7 @@ describe("sendDefaults forwarding", () => {
 
   it("fork inherits the parent's sendDefaults", async () => {
     const agent = await Agent.create({ ...base, sendDefaults: defaults });
-    await agent.fork({ prompt: "hi" });
+    await agent.fork?.({ prompt: "hi", allowedTools: new Set<string>() });
     expect(loopInputs).toHaveLength(1);
     expect(loopInputs[0]?.pruneToolResults).toEqual({ olderThanRounds: 2 });
     expect(loopInputs[0]?.perToolTimeoutMs).toBe(1234);
