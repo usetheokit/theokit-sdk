@@ -445,7 +445,9 @@ export interface WorkflowRunOptions {
  */
 export interface WorkflowResumeOptions<TI = unknown> {
   readonly runId: string;
-  readonly workflow: { run: (input: TI, opts?: WorkflowRunOptions) => Promise<WorkflowRun> };
+  // Method syntax on purpose: method parameters are bivariant under `strictFunctionTypes`, so a
+  // committed `Workflow<Input, ...>` is assignable here without a cast.
+  readonly workflow: { run(input: TI, opts?: WorkflowRunOptions): Promise<WorkflowRun> };
   readonly payload?: unknown;
   readonly signal?: AbortSignal;
 }

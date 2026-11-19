@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.28.0
+
+### Minor Changes
+
+- [#1263](https://github.com/usetheokit/theokit-sdk/pull/1263) [`4df47f4`](https://github.com/usetheokit/theokit-sdk/commit/4df47f40ce8602aa1764918cf43bc0c88c88907b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `Agent.lease` and `AgentLease`: a hold on a live agent so the registry's LRU, idle sweep and `evict` never dispose it while a turn is running ([#1016](https://github.com/usetheokit/theokit-sdk/issues/1016)).
+
+### Patch Changes
+
+- [#1274](https://github.com/usetheokit/theokit-sdk/pull/1274) [`5c7fcd1`](https://github.com/usetheokit/theokit-sdk/commit/5c7fcd140dbdad3c7ddb1109f2f2e80e9f51d2a8) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Correct the export count in the generated capability map to include `AgentLease`.
+
 ## 5.27.0
 
 ### Minor Changes

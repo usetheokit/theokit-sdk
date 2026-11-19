@@ -16,6 +16,7 @@ import type { Plugin as PluginType } from "../../types/plugin.js";
 export type {
   CommandHandler,
   CommandOptions,
+  ConversationRef,
   HookHandler,
   HookName,
   LlmCallContext,
