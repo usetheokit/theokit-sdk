@@ -14,6 +14,7 @@ import type {
 import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
 import type { AgentOperation } from "../../types/sdk-agent.js";
 import type { SessionStore } from "../../types/session-store.js";
+import { assertValidDoomLoopWindow } from "../agent-loop/doom-loop-tracker.js";
 import { diagFailure } from "../diagnostics.js";
 import { generateLocalAgentId } from "../ids.js";
 import { withCwdMutex } from "../persistence/cwd-mutex.js";
@@ -317,6 +318,7 @@ export class LocalAgent implements SDKAgent {
       // create-time and rejected at send-time.
       validateToolCatalog(options.tools, this.options.withheldBuiltinTools);
     }
+    assertValidDoomLoopWindow(options.doomLoop);
     // T0.1: `agent.send` parent span spans the FULL lifecycle (mutex acquire +
     // dispatch + post-run). Child step spans (`agent.send.<step>`) land in T1.7.
     const sendSpan = this._telemetry.startSpan(SPAN_NAMES.AGENT_SEND, {

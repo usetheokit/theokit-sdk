@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-269 distinct code(s).
+270 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -82,7 +82,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `handoff_target_invalid` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:116` |
 | `handoff_target_required` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:111` |
 | `hitl_timeout` | domain | HitlTimeoutError | `packages/sdk/src/internal/runtime/tools/hitl-middleware.ts:42` +1 |
-| `hook_denied` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent.ts:553` |
+| `hook_denied` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent.ts:555` |
 | `hook_fingerprint_invalid` | domain | ConfigurationError | `packages/sdk/src/hooks-approval.ts:48` |
 | `hooks_invalid_command` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:436` |
 | `hooks_json_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:273` +2 |
@@ -101,7 +101,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_context_window_margin` | domain | — | `packages/sdk/src/compaction.ts:278` +1 |
 | `invalid_cron` | domain | ConfigurationError | `packages/sdk/src/internal/cron/validate.ts:35` +3 |
 | `invalid_docker_label` | domain | ConfigurationError | `packages/sdk/src/sandbox/docker-sandbox.ts:74` +1 |
-| `invalid_doom_loop_threshold` | domain | ConfigurationError | `packages/sdk/src/internal/agent-loop/doom-loop-tracker.ts:51` |
+| `invalid_doom_loop` | domain | ConfigurationError | `packages/sdk/src/internal/agent-loop/doom-loop-tracker.ts:74` +1 |
+| `invalid_doom_loop_threshold` | domain | ConfigurationError | `packages/sdk/src/internal/agent-loop/doom-loop-tracker.ts:55` |
 | `invalid_filename_id` | domain | ConfigurationError | `packages/sdk/src/internal/security/path-guard.ts:486` |
 | `invalid_identifier` | domain | ConfigurationError | `packages/sdk/src/internal/security/path-guard.ts:434` +2 |
 | `invalid_input` | domain | MemoryAdapterError | `packages/memory-honcho/src/adapter.ts:98` +9 |

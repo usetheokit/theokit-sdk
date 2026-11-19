@@ -306,3 +306,13 @@ const doc = readManagedSettingsDocument(undefined, { onWarn: (m) => console.warn
 - An absent file returns `null` and warns nothing. An unreadable, invalid or non-object file returns `null` and warns through `onWarn` (default: the SDK failure diagnostic).
 - Nothing is validated: the caller owns the schema for its keys.
 - `managedSettingsPathFor(root?)` is the one path resolver. It picks a single path by `process.platform`; it does not consult all three platform paths.
+
+## Doom-loop guard: sliding-window repeat limit
+
+The built-in doom-loop guard counts consecutive identical tool calls, so an alternating loop (read A, read B, read A, read B) never trips it. Opt in to a sliding window with `SendOptions.doomLoop`:
+
+```ts
+await agent.send("...", { doomLoop: { window: 20, windowRepeatLimit: 3 } });
+```
+
+Once a call (same tool, same arguments; key order does not matter) already occurs `windowRepeatLimit` times in the last `window` calls, the next identical call is not executed. The model receives a blocked tool result naming the tool so it can change course. Blocked attempts count toward the window. `window` and `windowRepeatLimit` must be positive integers set together, otherwise `send` rejects with `ConfigurationError` code `invalid_doom_loop`. The consecutive `softThreshold`/`hardThreshold` keep working.

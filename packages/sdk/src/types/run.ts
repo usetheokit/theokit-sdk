@@ -199,6 +199,10 @@ export interface DoomLoopThresholds {
   softThreshold?: number;
   /** Consecutive-identical count at which the run stops (`no_progress`). Default 5. */
   hardThreshold?: number;
+  /** Size of the sliding window of recent tool calls for repeat counting. Default: off (consecutive only). */
+  window?: number;
+  /** Identical calls (same tool, same arguments) allowed within `window` before the next one is blocked. Required when `window` is set. */
+  windowRepeatLimit?: number;
 }
 
 /**
