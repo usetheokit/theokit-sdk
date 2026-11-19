@@ -1,11 +1,16 @@
 import { chmodSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { GenerationFileError } from "../src/errors.js";
 import { jsonGenerations, memoryGenerations } from "../src/session-pool.js";
+import { removeTempDirRobustSync } from "./helpers/temp-workspace.js";
 
-const dir = () => mkdtempSync(join(tmpdir(), "gens-"));
+const dir = () => {
+  const d = mkdtempSync(join(tmpdir(), "gens-"));
+  onTestFinished(() => removeTempDirRobustSync(d));
+  return d;
+};
 
 describe("generations", () => {
   it("memory counts per key", async () => {

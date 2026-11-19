@@ -406,9 +406,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SessionLifecycleContext` | interface | #65 — context for the `on_session_start` / `on_session_end` hooks.  |
 | `SessionMessage` | interface | One turn of a session.  |
 | `SessionMessagePart` | type | One structured element of a {@link SessionMessage } .  |
-| `SessionPool` | interface |  |
+| `SessionPool` | interface | One agent per session key, with generations, rebuilds and a drained shutdown. |
 | `SessionPoolClosedError` | class | `SessionPool.lease` was called after `disposeAll` started. |
-| `SessionPoolOptions` | interface |  |
+| `SessionPoolOptions` | interface | Options for {@link Agent.sessionPool } . |
 | `SessionRecord` | interface | One transcript record — a single line of the session JSONL file, and the unit the pluggable `SessionStore` seam reads and writes.  |
 | `SessionScope` | type | M3 #62 — session state scope. |
 | `sessionScopePrefix` | function | M3 #62 — the id prefix (`"<scope>__"`) used to match a scope's conversations. |

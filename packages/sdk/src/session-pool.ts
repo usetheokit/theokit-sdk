@@ -1,8 +1,14 @@
 import { readFileSync } from "node:fs";
-import type { AgentLease } from "./agent.js";
 import { GenerationFileError, SessionPoolClosedError } from "./errors.js";
 import { atomicWriteJson } from "./internal/persistence/atomic-write.js";
 import type { AgentOptions, SDKAgent } from "./types/agent.js";
+
+/** Same shape as `AgentLease`; declared here so this file does not import `agent.ts` (cycle). */
+type AgentLease = {
+  readonly agent: SDKAgent;
+  readonly agentId: string;
+  release(): void;
+};
 
 /**
  * Generation counter per session key. A new generation means a new agent id, so a conversation
@@ -89,7 +95,7 @@ export function jsonGenerations(file: string): GenerationStore {
   };
 }
 
-/** @public */
+/** Options for {@link Agent.sessionPool}. @public */
 export interface SessionPoolOptions {
   /** Options for the agent of `key`. Called when an agent opens. */
   open(key: string): AgentOptions | Promise<AgentOptions>;
@@ -103,7 +109,7 @@ export interface SessionPoolOptions {
   agentId?(key: string, generation: number): string;
 }
 
-/** @public */
+/** One agent per session key, with generations, rebuilds and a drained shutdown. @public */
 export interface SessionPool {
   /** Hold the agent of `key`. Waits for a reset or a dispose in progress. */
   lease(key: string): Promise<AgentLease>;
