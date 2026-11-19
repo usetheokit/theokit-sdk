@@ -83,7 +83,9 @@ export function createPluginContext(): {
       if (opts.description !== undefined) entry.description = opts.description;
       registrations.commands.push(entry);
     },
-    on(hook, handler) {
+    // Overloaded in the public type; storage is heterogeneous, so the handler is erased to the
+    // internal `HookHandler` (the dispatcher casts it back to the right shape per hook).
+    on(hook: HookName, handler: unknown) {
       // EC-2 fix: defense-in-depth. Plugin author can bypass TS via `as any`
       // and pass null/undefined; ignore + warn rather than crash the loop
       // downstream when `runPreToolCallHooks` tries to invoke the handler.
@@ -94,10 +96,10 @@ export function createPluginContext(): {
         return () => undefined;
       }
       const existing = registrations.hooks.get(hook) ?? [];
-      existing.push(handler);
+      existing.push(handler as HookHandler);
       registrations.hooks.set(hook, existing);
 
-      return makeHookDisposer(registrations, hook, handler);
+      return makeHookDisposer(registrations, hook, handler as HookHandler);
     },
     injectMessage(content, role = "user") {
       registrations.injected.push({ content, role });

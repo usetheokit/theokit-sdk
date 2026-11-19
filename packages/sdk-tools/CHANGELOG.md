@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.33.0
+
+### Minor Changes
+
+- [#1256](https://github.com/usetheokit/theokit-sdk/pull/1256) [`42ce590`](https://github.com/usetheokit/theokit-sdk/commit/42ce59006344bca2506452661be593ca370f3893) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `xwdToPng` and `readXwdHeader` to decode an Xvfb framebuffer dump (X Window Dump) into a PNG with bounded allocation, plus `XwdFormatError`, `XwdNotWrittenError` and `XWD_LIMITS`.
+
 ## 0.32.0
 
 ### Minor Changes
