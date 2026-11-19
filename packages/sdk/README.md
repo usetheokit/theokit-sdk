@@ -54,6 +54,25 @@ specifier, or the call fails on a private field.
 
 Agents that consume documentation should prefer the machine-readable corpora on the docs site ([llmstxt.org](https://llmstxt.org) convention): [`llms.txt`](https://docs.usetheo.dev/llms.txt) (curated index) and [`llms-full.txt`](https://docs.usetheo.dev/llms-full.txt) (every page inlined).
 
+## Masking secrets: `Security.redact` and `Security.createMask`
+
+`Security.redact(text)` masks known credential *shapes* (API keys, `Bearer`, `key=value`).
+When the app knows the exact values it loaded, `Security.createMask(values)` masks those values:
+
+```ts
+import { Security } from "@theokit/sdk";
+
+const mask = Security.createMask([botToken, apiKey]); // { placeholder = "[redacted]", minLength = 4 }
+mask.text("token " + botToken); // longest value first
+mask.deep({ args: ["k " + apiKey], n: 1 }); // structural copy, strings masked
+const s = mask.stream(); // push(delta) releases what is safe, flush() the rest
+const uninstall = mask.wrapStreams([process.stdout, process.stderr]); // write and end(chunk)
+```
+
+Values shorter than `minLength` (default 4) are ignored. A value split across stream chunks is held
+back until it is known not to match. `wrapStreams` throws `ConfigurationError` for a stream that is
+already wrapped; a write held back whole calls its callback before its bytes reach the stream.
+
 ## Install
 
 ```bash
@@ -315,6 +334,26 @@ await applyProfile(profile, process.env);
 - **List patterns.** A `DiscoverySpec` with `scope: "cwd-only"` or `"git-root-walk"` may set `pattern: ["THEO.md", "AGENTS.md", "CLAUDE.md"]`. Each directory contributes only the first name that exists. A list on a `"globbed"` spec throws `ConfigurationError` naming the spec id.
 - **`wrapImport(name, content)`.** Wraps each inlined `@import` at every depth, e.g. `(n, c) => \`--- import: ${n} ---\n${c}\n--- end import ---\``. Refusal and not-found placeholders are never wrapped. Default: content unchanged.
 - **Already loaded.** A file discovery emits is not inlined again by an import; the import line becomes `[@import already loaded: <path>]`.
+
+## `@theokit/sdk/a2a`: reaching agents in other processes
+
+`MessageBus` routes in-process. Pass an `A2ATransport` to let `send` reach peers elsewhere:
+
+```ts
+import { MessageBus, inMemoryTransport } from "@theokit/sdk/a2a";
+
+const transport = inMemoryTransport(); // shared object, for tests and same-process use
+const a = new MessageBus({ transport });
+const b = new MessageBus({ transport });
+b.register("worker", (m) => console.log(m.payload));
+await a.send("boss", "worker", { type: "job", payload: 1 }); // no local handler: goes to transport.send
+await b.pump(); // polls for every locally registered agent, delivers in order, returns 1
+```
+
+- A local handler always wins; the transport is used only when there is none. Without a transport an unknown peer still rejects with `A2APeerNotRegisteredError`.
+- `request` stays local only. With a transport and no local handler it rejects with `A2ARemoteRequestUnsupportedError` (`a2a_remote_request_unsupported`).
+- `pump()` is not automatic: call it when you want waiting messages delivered. A handler failure is reported on diagnostics and does not stop the others.
+- `from` is self-asserted. The transport does not authenticate it; that is the job of a sealed transport.
 
 ## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
 
