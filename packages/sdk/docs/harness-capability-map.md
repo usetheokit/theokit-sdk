@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1423 export(s) across 57 entry point(s).
+1421 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -219,7 +219,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `inferApiMode` | function | Guess which usage shape a provider reports, from its name alone.  |
 | `InlineSkill` | interface | A code-defined skill (from {@link createSkill } ) — a {@link Skill } plus its inline body. |
 | `InputProcessorContext` | interface | Context passed to {@link Processor.processInput } . |
-| `installWorkspacePlugin` | function | Validate `source`, copy it to `<workspace>/.theokit/plugins/<name>/`, then trust the copy.  |
 | `IntegrationNotConnectedError` | class | Thrown when creating a cloud agent for a repo whose SCM provider is not connected.  |
 | `InteractionUpdate` | type | Lowest-level raw update from a run.  |
 | `InvalidateCacheOptions` | interface | Options for {@link SDKAgent.invalidateCache } . |
@@ -264,6 +263,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryContext` | interface | Portable identity context.  |
 | `MemoryFact` | interface | A single memory fact returned by `recall` or `get`. |
 | `MemoryId` | type | Branded provider memory ID.  |
+| `MemoryMirrorOptions` | interface | How the built-in fact store is mirrored to memory adapters.  |
 | `MemoryProvider` | interface | The kernel-facing contract.  |
 | `MemoryProviderAgentRef` | interface | The agent identity a `MemoryProvider` is given — the whole of it.  |
 | `MemoryProviderFactory` | type | Memory provider factory shape (ADR D141).  |
@@ -291,7 +291,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `OTelSpan` | interface | The subset of the OpenTelemetry `Span` API this SDK calls.  |
 | `OutputProcessorContext` | interface | Context passed to {@link Processor.processOutput } . |
 | `parsePermissionRules` | function | Parse a rule set into engine rules, DENY first.  |
-| `parsePluginManifest` | function | Parse the YAML frontmatter of a `PLUGIN.md` with the SDK's own frontmatter schema. |
 | `PartialToolCallUpdate` | interface | Tool call arguments streaming in incrementally. |
 | `PermissionAction` | type | `PermissionEngine` — first-match permission rules for tool invocations.  |
 | `PermissionEngine` | class | Ordered first-match permission rules for tool invocations — the policy object you hand to `PermissionPlugin.create()` to have it enforced.  |
@@ -311,8 +310,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `Plugin` | type | SE36 — `Plugin.create` replaces `definePlugin` (ADR 0015).  |
 | `PluginContext` | interface | The registration surface passed to a `"general"` plugin's `register(ctx)`, and the plugin's only route into the agent.  |
 | `PluginHookDisposer` | type | Detaches a hook handler attached with {@link PluginContext.on } .  |
-| `PluginManifest` | interface | A validated `PLUGIN.md` manifest. |
-| `PluginManifestError` | class | A workspace plugin's `PLUGIN.md` is not a valid manifest (`parsePluginManifest`, `installWorkspacePlugin`).  |
 | `PluginsSettings` | interface | Plugins configuration accepted by `Agent.create()` via {@link AgentOptions.plugins } . |
 | `PostAssistantReplyContext` | interface | Context passed to `post_assistant_reply` hook handlers (ADR D145).  |
 | `PostToolCallContext` | interface | #65 — context for the `post_tool_call` hook (fired after a tool runs). |
@@ -492,9 +489,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `TrustLevel` | type | Whether a project directory may switch anything on.  |
 | `TrustPosture` | interface | The decision: the level, where it came from, and one boolean per declared capability.  |
 | `TrustPostureInput` | interface | What the decision is made from: the capability vocabulary, a way to read the operator's record, and an optional blanket override.  |
-| `TrustRecordError` | class | The workspace plugin trust record exists but cannot be read as a JSON array of folder paths.  |
 | `TrustSource` | type | Where the decision came from. |
-| `trustWorkspacePlugin` | function | Add the folder's realpath to the workspace trust record.  |
 | `TurnEndedUpdate` | interface | Turn ended with usage summary. |
 | `UngatedCapabilityError` | class | Raised when a recorded capability has no entry in the gate. |
 | `UnicodeNormalizer` | class | SE36 — `UnicodeNormalizer.create` replaces `createUnicodeNormalizer` (ADR 0015). |
@@ -504,7 +499,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `UnsupportedBudgetOperationError` | class | Thrown when a budget operation is requested on a `CloudAgent` (D388).  |
 | `UnsupportedRunOperationError` | class | Thrown when a {@link Run } or agent operation is not available on the current runtime.  |
 | `UnsupportedTaskOperationError` | class | Thrown when `CloudAgent` is asked to wrap a task (D370).  |
-| `untrustWorkspacePlugin` | function | Remove the folder from the trust record.  |
 | `UsageAccumulator` | class | Sums the per-step token counts of a multi-step run into one `TokenUsage`.  |
 | `UserMessage` | interface | User-authored message in a conversation history. |
 | `UserMessageAppendedUpdate` | interface | User message appended to the conversation. |
@@ -850,6 +844,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `QuestionTool` | interface | M76 — aligned with the SDK's `CustomTool`.  |
 | `QuestionToolOptions` | interface | `question` — interactive tool that asks the user a question and waits for a response.  |
 | `ReadTracker` | class | `ReadTracker` — SE32 read-before-write safety.  |
+| `readXwdHeader` | function | Validate and parse the XWD header in `bytes` without allocating pixel buffers. |
 | `ReasoningTools` | class | Reasoning scratchpad tools.  |
 | `RedirectBlockedError` | class | Thrown when a request is refused by the REDIRECT policy (the `maxRedirects` hop limit was exceeded) — a distinct event from {@link SsrfBlockedError } (a blocked host).  |
 | `renderToolList` | function | Render the agent's actual `CustomTool[]` — single source of truth, so an overridden/added/removed tool is reflected automatically.  |
@@ -881,6 +876,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `withName` | function | Return a new `CustomTool` exposed under a different `name`, sharing the SAME `inputSchema` + `handler` (alias parity).  |
 | `withShellExitGuidance` | function | Wrap `shell_exec` so a SOFT failure — `{ ok: true, exit_code != 0 }` (the TOOL ran, the COMMAND failed) — gains a `guidance` hint.  |
 | `withToolResultGuidance` | function | Wrap a `CustomTool` so its failed results gain a `guidance` hint from `guidance`.  |
+| `XWD_LIMITS` | const | Upper bounds enforced on an untrusted header before any allocation. |
+| `XwdFormatError` | class | A header field is unsupported or outside `XWD_LIMITS`; names the file, field and value. |
+| `XwdHeader` | interface | Parsed fields of an XWD header that a ZPixmap framebuffer needs. |
+| `XwdNotWrittenError` | class | The header or pixel data is larger than the bytes read: Xvfb may still be writing; retry. |
+| `xwdToPng` | function | Decode an XWD (24/32-bit ZPixmap) into an RGB PNG; throws `XwdNotWrittenError` while the file is incomplete. |
 
 ## `@theokit/sdk-tools/extract-document`
 
@@ -1102,13 +1102,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryAdapterError` | class | Error raised by `@theokit-memory-*` adapters.  |
 | `MemoryAdapterErrorCode` | type | Finite error codes specific to memory adapter operations (ADR D141). |
 | `NetworkError` | class | Service unavailable, timeout, transport-level failure. |
-| `PluginManifestError` | class | A workspace plugin's `PLUGIN.md` is not a valid manifest (`parsePluginManifest`, `installWorkspacePlugin`).  |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
 | `StructuredOutputError` | class | The failure contract shared by `generateObject` and `streamObject`.  |
 | `StructuredOutputErrorCode` | type | Why a structured-output call failed.  |
 | `TaskNotFoundError` | class | Thrown when `Task.subscribe(id)` is called for a task that has been evicted, never submitted, or evicted after retention (D373). |
 | `TheokitAgentError` | class | Base class for all errors thrown by `@theokit/sdk`.  |
-| `TrustRecordError` | class | The workspace plugin trust record exists but cannot be read as a JSON array of folder paths.  |
 | `UnknownAgentError` | class | Catch-all for unclassified server or runtime errors. |
 | `UnsupportedBudgetOperationError` | class | Thrown when a budget operation is requested on a `CloudAgent` (D388).  |
 | `UnsupportedRunOperationError` | class | Thrown when a {@link Run } or agent operation is not available on the current runtime.  |
