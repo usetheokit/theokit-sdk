@@ -63,6 +63,18 @@ let streamObjectImport: Promise<typeof import("./stream-object.js")> | undefined
  */
 export type AgentPromptResult = RunResult;
 
+/**
+ * A hold on a live agent returned by {@link Agent.lease}.
+ *
+ * @public
+ */
+export interface AgentLease {
+  readonly agent: SDKAgent;
+  readonly agentId: string;
+  /** Ends this hold. Idempotent. */
+  release(): void;
+}
+
 /** In-flight `Agent.getOrCreate` builds, keyed by agent id (single-flight). */
 const getOrCreateInFlight = new Map<string, Promise<SDKAgent>>();
 
@@ -365,6 +377,26 @@ export class Agent {
       return await build;
     } finally {
       if (getOrCreateInFlight.get(agentId) === build) getOrCreateInFlight.delete(agentId);
+    }
+  }
+
+  /**
+   * `getOrCreate` plus a hold: while the lease is held, the live-agent registry never disposes the
+   * agent (LRU, idle sweep, `evict` and `evictAll` all wait for the last `release()`). Call
+   * `release()` in a `finally`; it is idempotent. A failed build rejects and holds nothing.
+   *
+   * @public
+   */
+  static async lease(agentId: string, options: AgentOptions): Promise<AgentLease> {
+    const registry = Agent.registry;
+    // Reserve the id first so the entry the build inserts cannot be evicted before we hold it.
+    registry.reserve(agentId);
+    try {
+      const agent = await Agent.getOrCreate(agentId, options);
+      const release = registry.hold(agentId, agent);
+      return { agent, agentId, release };
+    } finally {
+      registry.unreserve(agentId);
     }
   }
 
