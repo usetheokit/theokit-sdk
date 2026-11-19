@@ -158,3 +158,43 @@ describe("Agent.lease", () => {
     expect(Agent.registry.leaseCount("lease-bad")).toBe(0);
   });
 });
+
+describe("lease edge cases", () => {
+  afterEach(() => Agent.registry.configure({ maxAgents: 100, idleTimeoutMs: 0 }));
+
+  it("evict/evictAll during lease acquisition do not dispose the cached agent", async () => {
+    const cached = await Agent.getOrCreate("lease-race", opts());
+    const pending = Agent.lease("lease-race", opts());
+    await Agent.registry.evict("lease-race");
+    const lease = await pending;
+    expect(lease.agent).toBe(cached);
+    const spy = vi.spyOn(cached, "dispose");
+    expect(spy).not.toHaveBeenCalled();
+    lease.release();
+    await tick();
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    const c2 = await Agent.getOrCreate("lease-race2", opts());
+    const p2 = Agent.lease("lease-race2", opts());
+    await Agent.registry.evictAll();
+    const l2 = await p2;
+    expect(l2.agent).toBe(c2);
+    const spy2 = vi.spyOn(c2, "dispose");
+    expect(spy2).not.toHaveBeenCalled();
+    l2.release();
+    await tick();
+    expect(spy2).toHaveBeenCalledTimes(1);
+  });
+
+  it("disposing an old evicted instance keeps a newer cached agent", async () => {
+    const lease = await Agent.lease("lease-replace", opts());
+    await Agent.registry.evict("lease-replace");
+    const newer = await Agent.getOrCreate("lease-replace", opts());
+    expect(newer).not.toBe(lease.agent);
+    lease.release();
+    await tick();
+    await tick();
+    expect(Agent.registry.get("lease-replace")).toBe(newer);
+    await newer.dispose();
+  });
+});

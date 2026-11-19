@@ -174,7 +174,9 @@ export class LiveAgentRegistry {
    *
    * @internal
    */
-  forget(id: string): void {
+  forget(id: string, instance?: object): void {
+    // Instance-aware: a disposed OLD instance must not drop a newer entry cached under the same id.
+    if (instance !== undefined && this.#agents.get(id)?.agent !== instance) return;
     this.#agents.delete(id);
   }
 
@@ -209,8 +211,17 @@ export class LiveAgentRegistry {
   /** @internal Drop one reservation made by {@link reserve}. */
   unreserve(id: string): void {
     const n = (this.#reserved.get(id) ?? 0) - 1;
-    if (n > 0) this.#reserved.set(id, n);
-    else this.#reserved.delete(id);
+    if (n > 0) {
+      this.#reserved.set(id, n);
+      return;
+    }
+    this.#reserved.delete(id);
+    // Agents evicted under the reservation that never got a hold are disposed now.
+    for (const [agent, pid] of [...this.#pendingDispose]) {
+      if (pid !== id || this.#isHeld(id, agent)) continue;
+      this.#pendingDispose.delete(agent);
+      void this.#disposeAndNotify(id, agent, "explicit");
+    }
   }
 
   /** @internal Hold `agent` so it is never disposed by eviction. Returns an idempotent release. */
@@ -245,10 +256,8 @@ export class LiveAgentRegistry {
   }
 
   #isHeld(id: string, agent: SDKAgent): boolean {
-    return (
-      (this.#holds.get(agent)?.count ?? 0) > 0 ||
-      ((this.#reserved.get(id) ?? 0) > 0 && this.#agents.get(id)?.agent === agent)
-    );
+    // A reservation outlives the entry's removal, so an eviction during lease acquisition defers.
+    return (this.#holds.get(agent)?.count ?? 0) > 0 || (this.#reserved.get(id) ?? 0) > 0;
   }
 
   async #disposeOrDefer(id: string, agent: SDKAgent, reason: EvictReason): Promise<void> {
