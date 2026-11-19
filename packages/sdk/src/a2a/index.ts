@@ -8,6 +8,7 @@ export type { ToolContextMessage } from "../types/agent-prims.js";
 export { AgentMailbox } from "./agent-mailbox.js";
 export {
   A2APeerNotRegisteredError,
+  A2ARemoteRequestUnsupportedError,
   A2ARequestTimeoutError,
   MessageBus,
   type RequestOptions,
@@ -22,4 +23,5 @@ export {
   SubAgent,
   type SubAgentSpec,
 } from "./subagent.js";
+export { type A2ATransport, inMemoryTransport } from "./transport.js";
 export type { A2AMessage, MessageHandler } from "./types.js";
