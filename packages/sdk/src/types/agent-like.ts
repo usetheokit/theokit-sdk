@@ -1,3 +1,7 @@
+/**
+ * Owner: `src/` (0 importers besides the `src/index.ts` barrel; consumers are external wrappers
+ * and test doubles). Narrow ports over `SDKAgent` and `Run`.
+ */
 import type { SDKMessage } from "./messages.js";
 import type { RunResult, RunStatus, SDKUserMessage, SendOptions } from "./run.js";
 
