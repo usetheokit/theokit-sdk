@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 /** Largest package body accepted, in bytes (1 MiB). */
 export const MAX_PACKAGE_BYTES = 1024 * 1024;
 
+/** Stable, machine-readable reason a registry operation failed. */
 export type SkillsRegistryErrorCode =
   | "invalid_name"
   | "invalid_version"
@@ -16,6 +17,7 @@ export type SkillsRegistryErrorCode =
   | "insecure_url"
   | "install_failed";
 
+/** Typed error thrown by every registry operation; branch on `code`. */
 export class SkillsRegistryError extends Error {
   readonly code: SkillsRegistryErrorCode;
   constructor(code: SkillsRegistryErrorCode, message: string, options?: { cause?: unknown }) {
@@ -25,6 +27,7 @@ export class SkillsRegistryError extends Error {
   }
 }
 
+/** The JSON package as published: base64 file contents. */
 export interface SkillPackage {
   name: string;
   version: string;
@@ -32,6 +35,7 @@ export interface SkillPackage {
   files: { path: string; contentBase64: string }[];
 }
 
+/** A package whose digest, name, version, paths and SKILL.md were checked. */
 export interface VerifiedSkillPackage {
   name: string;
   version: string;
@@ -196,6 +200,7 @@ function parsePackageJson(bytes: Uint8Array): SkillPackage {
   return p as SkillPackage;
 }
 
+/** Checks size, sha256, identity, paths and SKILL.md of a package body; throws `SkillsRegistryError`. */
 export function verifySkillPackage(
   bytes: Uint8Array,
   expected: { name: string; version: string; sha256: string },

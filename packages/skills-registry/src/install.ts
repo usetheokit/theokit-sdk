@@ -140,6 +140,7 @@ function pickVersion(listed: ListedVersion[], name: string, wanted?: string): Li
   return pool.reduce((best, v) => (compareSkillVersions(v.version, best.version) > 0 ? v : best));
 }
 
+/** Resolves `name` or `name@version` against a registry and returns the verified package. */
 export async function downloadSkill(
   registryUrl: string,
   spec: string,
@@ -205,6 +206,7 @@ async function swapIn(stage: string, target: string, backup: string): Promise<vo
   await rm(backup, { recursive: true, force: true });
 }
 
+/** Atomically installs a verified package into `<skillsDir>/<name>`, restoring the previous version on failure. */
 export async function installSkill(
   skillsDir: string,
   pkg: VerifiedSkillPackage,
