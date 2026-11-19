@@ -3,9 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
-import { ConfigurationError } from "../../src/errors.js";
-import { fn, Workflow, WorkflowSet, WorkflowSnapshotNotFoundError } from "../../src/workflow.js";
-import { removeTempDirRobustSync } from "../helpers/temp-workspace.js";
+import { ConfigurationError } from "../src/errors.js";
+import {
+  fn,
+  Workflow,
+  WorkflowResumeWorkflowMismatchError,
+  WorkflowSet,
+  WorkflowSnapshotNotFoundError,
+} from "../src/workflow.js";
+import { removeTempDirRobustSync } from "./helpers/temp-workspace.js";
 
 const dir = () => {
   const d = mkdtempSync(join(tmpdir(), "wfset-"));
@@ -34,6 +40,24 @@ describe("WorkflowSet.resume (#1030)", () => {
     const { name, run } = await set.resume(suspended.id, { approved: true });
     expect(name).toBe("second");
     expect(run.status).toBe("completed");
+  });
+
+  it("skips a member whose store holds another workflow's snapshot, and forwards the signal", async () => {
+    const d = dir();
+    const first = make("first", d);
+    const second = make("second", d);
+    const suspended = await second.run({ a: "x" });
+    // Alone, `first` reports a mismatch (the snapshot is another workflow's) ...
+    const direct = await Workflow.resume({ workflow: first, runId: suspended.id }).catch((e) => e);
+    expect(direct).toBeInstanceOf(WorkflowResumeWorkflowMismatchError);
+    // ... and the set treats it as "not this one", forwarding the signal to the owner.
+    const ac = new AbortController();
+    ac.abort();
+    const { name, run } = await WorkflowSet.of([first, second]).resume(suspended.id, undefined, {
+      signal: ac.signal,
+    });
+    expect(name).toBe("second");
+    expect(run.status).toBe("cancelled");
   });
 
   it("rejects an unknown run id naming it", async () => {
