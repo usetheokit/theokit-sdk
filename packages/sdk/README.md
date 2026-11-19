@@ -105,6 +105,19 @@ const bob = await Agent.create({ memory: { enabled: true, userId: "bob" } });
 
 `userId` must match `[a-z0-9][a-z0-9-_]*`; other values (such as `../x`) are rejected.
 
+### List and remove memory facts
+
+```ts
+import { listMemoryFacts, removeMemoryFact } from "@theokit/sdk";
+
+const facts = await listMemoryFacts(process.cwd());
+// [{ id, text, modified?, root, removable }, ...]
+const removed = await removeMemoryFact(process.cwd(), facts[0].id); // true, or false for an unknown id
+```
+
+`listMemoryFacts` covers per-memory files and legacy `## Facts` bullets, in the order the agent reads them. `removeMemoryFact` deletes the file and its `MEMORY.md` index line (or one legacy bullet), serialized with the SDK's writes. Entries from another tool's store (for example the Claude Code CLI's) have `removable: false`, and removing one rejects with `MemoryFactNotRemovableError`. Removal also drops the entry's rows from the sqlite memory search index, so recall does not return it; a Lance index is not part of the built-in store and is not touched. Two identical legacy bullets in one root share an id, and removal takes the first. An id found in more than one root (the same file name in the write root and the Claude Code store) rejects with `MemoryFactAmbiguousError` naming every root, and removes nothing.
+
+
 ### Mirroring facts to a memory adapter
 
 Set `memory.mirror` to link the built-in fact store to the agent's `kind: "memory"` plugins (Mem0, Honcho, Supermemory). Every fact the built-in store saves is also written to each adapter, with the agent's `memoryContext` and `userId` defaulting to `memory.userId`. A failed adapter write is reported on the diagnostics channel with the adapter id and never fails the local save or the run.
@@ -141,6 +154,30 @@ import { listWorkspacePlugins } from "@theokit/sdk";
 
 const plugins = await listWorkspacePlugins(process.cwd(), { compatSources: ["claude-code"] });
 ```
+
+A `"general"` plugin registers hooks through `ctx.on`. The handler is typed by hook name, so the
+context needs no cast and a `pre_tool_call` veto is checked (`block` is the literal `true`):
+
+```ts
+import { Plugin } from "@theokit/sdk";
+
+const guard = Plugin.create({
+  kind: "general",
+  name: "guard",
+  version: "1.0.0",
+  register(ctx) {
+    // `c` is inferred as `PreToolCallContext`.
+    ctx.on("pre_tool_call", (c) =>
+      c.name === "Bash" ? { block: true, message: "Bash is disabled here." } : undefined,
+    );
+    // Transform hooks get the chained value first, then their context.
+    ctx.on("transform_llm_output", (text, c) => `${String(text)} [${c.runId}]`);
+  },
+});
+```
+
+`HookContextMap`, `HookResultMap`, `TypedHookHandler` and `GeneralPlugin` are exported for plugin
+authors; handlers typed as `HookHandler` keep compiling.
 
 A `pre_tool_call` plugin sees which conversation the run belongs to in `ctx.conversation`, a
 `ConversationRef` (`platform`, `channelId`, `sessionKey`) the caller declares with
@@ -257,6 +294,19 @@ process.once("SIGTERM", async () => {
 ```
 
 Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must share one pid namespace (not containers or hosts sharing a volume). The lock needs a filesystem with hard links; without one the call rejects with `InstanceLockedError`.
+
+## `@theokit/sdk/persistence`: named profiles
+
+`resolveProfile(name, { profilesRoot?, appDirectories? })` maps a profile name to `<profilesRoot>/<name>` (default `getProfilesRoot()`, `~/.theokit/profiles`) and returns `directory`, `directories` and `env` (`THEOKIT_HOME` and `THEOKIT_AUTH_HOME` set to the profile directory, plus one entry per `appDirectories` item, joined under the profile). Names must match `^[a-z0-9][a-z0-9-]{0,15}$`, otherwise `ConfigurationError` code `profile_name_invalid` (the name is not echoed). App directory values must be relative and free of `..`. It touches no disk.
+
+`applyProfile(profile, env)` throws `ProfileConflictError` (`variables`: names only, never values) when any variable the profile owns is already set to a non-blank value in `env`. It then creates each directory at 0700, tightens an existing one to 0700 without reading or removing its contents, and only then writes the overrides into `env`. A filesystem failure throws `ConfigurationError` code `profile_directory_failed` naming the path and errno code and leaves `env` unchanged (directories made before the failure remain).
+
+```ts
+import { applyProfile, resolveProfile } from "@theokit/sdk/persistence";
+
+const profile = resolveProfile("work", { appDirectories: { APP_WORKSPACE: "workspace" } });
+await applyProfile(profile, process.env);
+```
 
 ## `@theokit/sdk/context`
 

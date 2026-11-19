@@ -94,6 +94,11 @@ export class MemoryIndexRepository {
     return new Map(rows.map((row) => [row.path, { id: row.id, hash: row.hash }]));
   }
 
+  /** Drop a file's row and, by cascade, its chunks. The next corpus walk re-adds it if it exists. */
+  deleteFileByPath(absPath: string): void {
+    this.db.prepare("DELETE FROM files WHERE path = ?").run(absPath);
+  }
+
   upsertFile(file: {
     absPath: string;
     relPath: string;
