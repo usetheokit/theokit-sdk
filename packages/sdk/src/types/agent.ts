@@ -621,6 +621,13 @@ export interface TelemetrySettings {
  */
 export interface AgentOptions {
   /**
+   * Local runtime only. Applied to every send of this agent, including `fork`, `generate` and the
+   * goal loop. A key the send passes itself wins, per key. Passing a key as `undefined` explicitly
+   * does NOT remove the default. `pruneToolResults` is validated at `Agent.create`
+   * (`ConfigurationError` code `invalid_prune_tool_results`).
+   */
+  sendDefaults?: Pick<SendOptions, "toolResultGuard" | "pruneToolResults" | "perToolTimeoutMs">;
+  /**
    * The model to run. SE8 — accepts a bare-string id shorthand
    * (`"openai/gpt-4o-mini"`, normalized to `{ id }`) OR a {@link ModelSelection}
    * object (use the object form to pass `params`).

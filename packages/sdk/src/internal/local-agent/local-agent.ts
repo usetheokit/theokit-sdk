@@ -308,7 +308,8 @@ export class LocalAgent implements SDKAgent {
     return agentGenerate(this, this.model, apiKey, local, message, options);
   }
 
-  async send(message: string | SDKUserMessage, options: SendOptions = {}): Promise<Run> {
+  async send(message: string | SDKUserMessage, callOptions: SendOptions = {}): Promise<Run> {
+    const options = applySendDefaults(this.options.sendDefaults, callOptions);
     // Per-call tools: run the same name/schema/dedupe checks as creation.
     // (Cloud agents reject per-call tools in CloudAgent.send.)
     if (options.tools !== undefined && options.tools.length > 0) {
@@ -717,4 +718,21 @@ function includesSetting(options: AgentOptions, source: string): boolean {
   return (
     sources !== undefined && (sources.includes(source as never) || sources.includes("all" as never))
   );
+}
+
+/**
+ * `AgentOptions.sendDefaults`: per key, the call's value wins; an explicit `undefined` keeps the
+ * default.
+ */
+function applySendDefaults(
+  defaults: AgentOptions["sendDefaults"],
+  options: SendOptions,
+): SendOptions {
+  if (defaults === undefined) return options;
+  return {
+    ...options,
+    toolResultGuard: options.toolResultGuard ?? defaults.toolResultGuard,
+    pruneToolResults: options.pruneToolResults ?? defaults.pruneToolResults,
+    perToolTimeoutMs: options.perToolTimeoutMs ?? defaults.perToolTimeoutMs,
+  };
 }

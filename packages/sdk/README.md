@@ -105,6 +105,25 @@ const bob = await Agent.create({ memory: { enabled: true, userId: "bob" } });
 
 `userId` must match `[a-z0-9][a-z0-9-_]*`; other values (such as `../x`) are rejected.
 
+## Tool-result guard and send defaults
+
+`send(msg, { toolResultGuard, pruneToolResults, perToolTimeoutMs })` guards, prunes and bounds tool
+output for one send. To apply them to every send of an agent (local runtime), set
+`AgentOptions.sendDefaults`:
+
+```ts
+const agent = await Agent.create({
+  model: "anthropic/claude-sonnet-4-6",
+  local: {},
+  sendDefaults: { toolResultGuard: { delimit: true }, pruneToolResults: { olderThanRounds: 3 } },
+});
+await agent.send("hi"); // tool output arrives wrapped in <untrusted-tool-output>
+await agent.send("hi", { toolResultGuard: { redactPii: true } }); // replaces the default guard
+```
+
+Merging is per key: a key the call passes wins. Passing a key as `undefined` does not remove the
+default. A bad `pruneToolResults` default fails at `Agent.create` with `invalid_prune_tool_results`.
+
 ## Builtin tool names
 
 `BUILTIN_TOOL_NAMES` (`"shell"`, `"memory_search"`, `"memory_get"`) lists the tools the SDK declares itself; these are the names `withheldBuiltinTools` accepts and a custom tool may not claim. `isBuiltinToolName(name)` tests one, so an app that takes tool names from configuration can refuse a collision at load time. Withholding a builtin via `withheldBuiltinTools` releases its name, so a custom tool may then use it.
