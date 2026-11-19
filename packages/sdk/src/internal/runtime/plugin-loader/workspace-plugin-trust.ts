@@ -11,7 +11,9 @@
  * @internal
  */
 
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
+import { TrustRecordError } from "../../../errors.js";
 import { diag } from "../../diagnostics.js";
 import { readTrustArray, type TrustArrayShape, trustFilePath } from "../../providers/trust-gate.js";
 
@@ -39,4 +41,30 @@ export function readTrustedWorkspaceFolders(): Set<string> {
     );
   }
   return trusted;
+}
+
+/**
+ * The record's entries for a mutation: strict, unlike the loader's fail-closed reader. A record
+ * that exists but is not a JSON array of strings throws `TrustRecordError`, so a caller never
+ * rewrites (and so never loses) entries it could not read.
+ */
+export function readWorkspaceTrustRecordStrict(
+  path: string = workspaceTrustRecordPath(),
+): string[] {
+  if (!existsSync(path)) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(path, "utf-8"));
+  } catch (cause) {
+    throw new TrustRecordError(
+      `Workspace plugin trust record ${path} is not valid JSON; fix or remove it`,
+      { cause },
+    );
+  }
+  if (!Array.isArray(parsed) || parsed.some((e) => typeof e !== "string")) {
+    throw new TrustRecordError(
+      `Workspace plugin trust record ${path} is not a JSON array of folder paths; fix or remove it`,
+    );
+  }
+  return parsed as string[];
 }

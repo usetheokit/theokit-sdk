@@ -122,6 +122,26 @@ import { listWorkspacePlugins } from "@theokit/sdk";
 const plugins = await listWorkspacePlugins(process.cwd(), { compatSources: ["claude-code"] });
 ```
 
+### Installing and trusting a workspace plugin
+
+The SDK imports a workspace plugin's `entry` only when the folder's realpath is in
+`~/.theokit/plugins/trusted-workspace-plugins.json`. Use these helpers instead of editing that file:
+
+```ts
+import { installWorkspacePlugin, trustWorkspacePlugin, untrustWorkspacePlugin } from "@theokit/sdk";
+
+// Validates PLUGIN.md and its entry, copies to <workspace>/.theokit/plugins/<name>/, trusts the copy.
+const manifest = await installWorkspacePlugin({ source: "./echo-plugin", workspace: process.cwd() });
+// Refuses an existing destination unless { replace: true }; a failed replace keeps the old plugin.
+
+await trustWorkspacePlugin("/path/to/plugins/echo"); // idempotent, atomic, mode 0600
+await untrustWorkspacePlugin("/path/to/plugins/echo"); // true when an entry was removed
+```
+
+`parsePluginManifest(text)` throws `PluginManifestError` for a bad name or an entry outside the
+plugin folder. A trust record that exists but is not a JSON array makes the trust calls throw
+`TrustRecordError` naming the file; it is never overwritten.
+
 ## Explain skills
 
 `explainSkills` from `@theokit/sdk/skills` reports what an agent would see, from the same walk the

@@ -97,9 +97,11 @@ export {
   MemoryAdapterError,
   type MemoryAdapterErrorCode,
   NetworkError,
+  PluginManifestError,
   RateLimitError,
   TaskNotFoundError,
   TheokitAgentError,
+  TrustRecordError,
   UnknownAgentError,
   UnsupportedBudgetOperationError,
   UnsupportedRunOperationError,
@@ -505,3 +507,11 @@ export {
  * `quality:dts-identity` now fails the build on the shape.
  */
 export { agentStep, fn, Workflow } from "./workflow.js";
+// Parse, install and trust a workspace plugin
+export {
+  installWorkspacePlugin,
+  type PluginManifest,
+  parsePluginManifest,
+  trustWorkspacePlugin,
+  untrustWorkspacePlugin,
+} from "./workspace-plugins.js";

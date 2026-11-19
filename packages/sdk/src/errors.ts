@@ -703,3 +703,31 @@ export class CompressionFailedError extends TheokitAgentError {
     super(message, { ...options, code: "compression_failed", isRetryable: true });
   }
 }
+
+/**
+ * A workspace plugin's `PLUGIN.md` is not a valid manifest (`parsePluginManifest`,
+ * `installWorkspacePlugin`). The message names the first problem.
+ *
+ * @public
+ */
+export class PluginManifestError extends TheokitAgentError {
+  override readonly name = "PluginManifestError";
+
+  constructor(message: string, options: { cause?: unknown } = {}) {
+    super(message, { ...options, code: "plugin_manifest_invalid", isRetryable: false });
+  }
+}
+
+/**
+ * The workspace plugin trust record exists but cannot be read as a JSON array of folder paths.
+ * It is never overwritten; the message names the file.
+ *
+ * @public
+ */
+export class TrustRecordError extends TheokitAgentError {
+  override readonly name = "TrustRecordError";
+
+  constructor(message: string, options: { cause?: unknown } = {}) {
+    super(message, { ...options, code: "trust_record_invalid", isRetryable: false });
+  }
+}
