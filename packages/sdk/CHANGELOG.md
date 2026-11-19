@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.26.1
+
+### Patch Changes
+
+- [#1234](https://github.com/usetheokit/theokit-sdk/pull/1234) [`03b648a`](https://github.com/usetheokit/theokit-sdk/commit/03b648a87245a6a37e549358cedad49027c1638a) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Agent loop: a forced call to an MCP tool outside the offered catalog is refused without reaching the server, `mcp_` names are never case-repaired onto another tool, and MCP name sanitization lives in one helper ([#1208](https://github.com/usetheokit/theokit-sdk/issues/1208)).
+
+- [#1244](https://github.com/usetheokit/theokit-sdk/pull/1244) [`b3b0d8f`](https://github.com/usetheokit/theokit-sdk/commit/b3b0d8fbf8e4904115db41a15ef5640f4dbaad1b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Release verification waits one more backoff rung before calling an accepted version unpublished.
+
 ## 5.26.0
 
 ### Minor Changes
