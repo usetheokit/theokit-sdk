@@ -98,7 +98,14 @@ function varsFor(provider: string, candidates: readonly ProviderCandidate[]): st
   // OPENROUTER_API_KEY first).
   const ownPrimary = getProviderProfile(provider)?.envVars[0];
   if (ownPrimary !== undefined) foreign.delete(ownPrimary);
-  const own = candidates.find((x) => x.name === provider && !foreign.has(x.envVar))?.envVar;
+  // A candidate's variable must not be any variable another profile lists (primary or secondary).
+  const foreignAny = new Set(
+    listProviders()
+      .filter((p) => p.name !== getProviderProfile(provider)?.name)
+      .flatMap((p) => p.envVars),
+  );
+  if (ownPrimary !== undefined) foreignAny.delete(ownPrimary);
+  const own = candidates.find((x) => x.name === provider && !foreignAny.has(x.envVar))?.envVar;
   const all = [
     ...(own === undefined ? [] : [own]),
     ...(getProviderProfile(provider)?.envVars ?? []).filter(
