@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1408 export(s) across 57 entry point(s).
+1413 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -191,6 +191,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `foldLayers` | function | Combine `entries` into one record.  |
 | `ForkOptions` | interface | Caller-supplied fork configuration.  |
 | `ForkResult` | interface | Outcome of a fork run. |
+| `GeneralPlugin` | type | The `"general"` member of {@link Plugin } . |
 | `GeneratedImage` | interface | Result of {@link generateImage } . |
 | `generateImage` | function | Generate one image.  |
 | `GenerateImageOptions` | interface | Options for {@link generateImage } . |
@@ -210,8 +211,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `guardSessionDestruction` | function | Throw unless `sessionId` is safe to destroy. |
 | `HookApprovalGate` | interface | #631 — a consumer's decision point before this package spawns a hook.  |
 | `HookApprovalRequest` | interface | #631 — what the consumer is shown when asked to approve a hook.  |
+| `HookContextMap` | interface | The context each hook's handler receives, keyed by {@link HookName } .  |
 | `hookFingerprint` | function | The hex sha256 of `sourceEvent`, `command` and `timeoutMs`, one per line (`${sourceEvent}\n${command}\n${timeoutMs}`).  |
+| `HookHandler` | type | The untyped hook handler shape, `(ctx: unknown) => unknown`.  |
 | `HookName` | type | The fixed set of points a `"general"` plugin may attach to through `PluginContext.on`.  |
+| `HookResultMap` | interface | What each hook's handler may return.  |
 | `ImageBlock` | interface | SE7 — a base64-encoded image block a tool can hand back as (part of) its result or its `ToolError`.  |
 | `inferApiMode` | function | Guess which usage shape a provider reports, from its name alone.  |
 | `InlineSkill` | interface | A code-defined skill (from {@link createSkill } ) — a {@link Skill } plus its inline body. |
@@ -486,6 +490,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `TrustPostureInput` | interface | What the decision is made from: the capability vocabulary, a way to read the operator's record, and an optional blanket override.  |
 | `TrustSource` | type | Where the decision came from. |
 | `TurnEndedUpdate` | interface | Turn ended with usage summary. |
+| `TypedHookHandler` | type | A handler for hook `H`, with the context and return value checked.  |
 | `UngatedCapabilityError` | class | Raised when a recorded capability has no entry in the gate. |
 | `UnicodeNormalizer` | class | SE36 — `UnicodeNormalizer.create` replaces `createUnicodeNormalizer` (ADR 0015). |
 | `UnicodeNormalizerOptions` | interface | Options for {@link createUnicodeNormalizer } . |

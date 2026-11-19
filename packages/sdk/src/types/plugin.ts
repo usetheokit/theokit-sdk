@@ -256,6 +256,12 @@ export interface PostAssistantReplyContext {
   memoryContext?: import("./memory-adapter.js").MemoryContext;
 }
 
+/**
+ * The untyped hook handler shape, `(ctx: unknown) => unknown`. Kept for compatibility; prefer
+ * {@link TypedHookHandler}, which types the context and return value by hook name.
+ *
+ * @public
+ */
 export type HookHandler = (ctx: unknown) => unknown | Promise<unknown>;
 
 /**
