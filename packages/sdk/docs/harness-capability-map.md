@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1420 export(s) across 57 entry point(s).
+1421 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1703,6 +1703,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WorkflowResumeWorkflowMismatchError` | class | Thrown by `Workflow.resume()` (and so by a `workflowResumeTool` tool) when the snapshot for the run id was written by a workflow of another name.  |
 | `WorkflowRun` | interface | The terminal record of one run — what `Workflow.run()` resolves to, what `Workflow.resume()` returns, and what the `result` promise of `Workflow.stream()` settles with.  |
 | `WorkflowRunOptions` | interface | Per-run options for `Workflow.run()` and `Workflow.stream()`.  |
+| `WorkflowSet` | interface | Build a {@link WorkflowSet } with `WorkflowSet.of(workflows)`; throws `ConfigurationError` when two members share a workflow name. |
 | `WorkflowSnapshot` | interface | The persisted state of a suspended run: written when a step calls `StepContext.suspend()`, read back by `Workflow.resume()`.  |
 | `WorkflowSnapshotNotFoundError` | class | Thrown by `Workflow.resume()` when no snapshot exists for the given run id.  |
 | `WorkflowStateError` | class | SE29 — `WorkflowOptions.stateSchema` rejected an `initialState` or a `setState(next)` call.  |
