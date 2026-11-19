@@ -172,3 +172,34 @@ export class TurnReviewQueue {
     }
   }
 }
+
+/** The queue for an agent whose `memory.review` is on; undefined otherwise. */
+export function createTurnReviewQueue(
+  agentId: string,
+  options: AgentOptions,
+  workspaceCwd: string,
+): TurnReviewQueue | undefined {
+  const memory = options.memory;
+  if (memory?.enabled !== true || memory.review === undefined) return undefined;
+  return new TurnReviewQueue({
+    agentId,
+    options,
+    workspaceCwd,
+    createAgent: async (opts) => {
+      const { getAgentFacade } = await import("../runtime/registry/agent-factory-registry.js");
+      return getAgentFacade().create(opts);
+    },
+  });
+}
+
+const queues = new WeakMap<object, TurnReviewQueue>();
+
+/** Remember which review queue belongs to an agent's `memory` object. */
+export function registerReviewQueue(memory: object, queue: TurnReviewQueue | undefined): void {
+  if (queue !== undefined) queues.set(memory, queue);
+}
+
+/** The review queue of an agent's `memory` object, if review is on. */
+export function reviewQueueOf(memory: object | undefined): TurnReviewQueue | undefined {
+  return memory === undefined ? undefined : queues.get(memory);
+}

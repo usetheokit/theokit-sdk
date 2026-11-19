@@ -5,9 +5,9 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 
-import { Agent } from "../src/index.js";
-import { setDiagnosticsSink } from "../src/internal/diagnostics.js";
-import { readFacts } from "../src/internal/memory/storage/markdown-store.js";
+import { Agent } from "../../src/index.js";
+import { setDiagnosticsSink } from "../../src/internal/diagnostics.js";
+import { readFacts } from "../../src/internal/memory/storage/markdown-store.js";
 import {
   blockStop,
   messageStart,
@@ -16,8 +16,8 @@ import {
   textDelta,
   toolBlockStart,
   toolInputDelta,
-} from "./helpers/anthropic-sse.js";
-import { removeTempDirRobustSync } from "./helpers/temp-workspace.js";
+} from "../helpers/anthropic-sse.js";
+import { removeTempDirRobustSync } from "../helpers/temp-workspace.js";
 
 interface Body {
   system?: unknown;
@@ -231,7 +231,7 @@ describe("memory.review (#1026)", () => {
 
 describe("memory.review disposal (#1026)", () => {
   it("dispose drops reviews still pending after the timeout and says how many", async () => {
-    const { TurnReviewQueue } = await import("../src/internal/memory/turn-review.js");
+    const { TurnReviewQueue } = await import("../../src/internal/memory/turn-review.js");
     const messages: string[] = [];
     setDiagnosticsSink((m) => messages.push(m));
     const queue = new TurnReviewQueue({
