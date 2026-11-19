@@ -79,6 +79,7 @@ import {
 import { type DispatchRunArgs, executeSendLocked } from "./local-agent-send.js";
 import { registerRunAsTask } from "./local-agent-task-wrap.js";
 import { reportUnknownLocalOptions } from "./local-option-keys.js";
+import { applySendDefaults } from "./send-defaults.js";
 import {
   type ActiveTurn,
   type CollectBatch,
@@ -718,21 +719,4 @@ function includesSetting(options: AgentOptions, source: string): boolean {
   return (
     sources !== undefined && (sources.includes(source as never) || sources.includes("all" as never))
   );
-}
-
-/**
- * `AgentOptions.sendDefaults`: per key, the call's value wins; an explicit `undefined` keeps the
- * default.
- */
-function applySendDefaults(
-  defaults: AgentOptions["sendDefaults"],
-  options: SendOptions,
-): SendOptions {
-  if (defaults === undefined) return options;
-  return {
-    ...options,
-    toolResultGuard: options.toolResultGuard ?? defaults.toolResultGuard,
-    pruneToolResults: options.pruneToolResults ?? defaults.pruneToolResults,
-    perToolTimeoutMs: options.perToolTimeoutMs ?? defaults.perToolTimeoutMs,
-  };
 }
