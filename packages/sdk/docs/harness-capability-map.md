@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1407 export(s) across 57 entry point(s).
+1413 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -839,6 +839,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `QuestionTool` | interface | M76 — aligned with the SDK's `CustomTool`.  |
 | `QuestionToolOptions` | interface | `question` — interactive tool that asks the user a question and waits for a response.  |
 | `ReadTracker` | class | `ReadTracker` — SE32 read-before-write safety.  |
+| `readXwdHeader` | function |  |
 | `ReasoningTools` | class | Reasoning scratchpad tools.  |
 | `RedirectBlockedError` | class | Thrown when a request is refused by the REDIRECT policy (the `maxRedirects` hop limit was exceeded) — a distinct event from {@link SsrfBlockedError } (a blocked host).  |
 | `renderToolList` | function | Render the agent's actual `CustomTool[]` — single source of truth, so an overridden/added/removed tool is reflected automatically.  |
@@ -870,6 +871,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `withName` | function | Return a new `CustomTool` exposed under a different `name`, sharing the SAME `inputSchema` + `handler` (alias parity).  |
 | `withShellExitGuidance` | function | Wrap `shell_exec` so a SOFT failure — `{ ok: true, exit_code != 0 }` (the TOOL ran, the COMMAND failed) — gains a `guidance` hint.  |
 | `withToolResultGuidance` | function | Wrap a `CustomTool` so its failed results gain a `guidance` hint from `guidance`.  |
+| `XWD_LIMITS` | const |  |
+| `XwdFormatError` | class |  |
+| `XwdHeader` | interface |  |
+| `XwdNotWrittenError` | class | The header or pixel data is larger than the bytes read: Xvfb may still be writing; retry. |
+| `xwdToPng` | function |  |
 
 ## `@theokit/sdk-tools/extract-document`
 
