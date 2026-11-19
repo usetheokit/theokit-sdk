@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1418 export(s) across 57 entry point(s).
+1421 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -263,6 +263,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryContext` | interface | Portable identity context.  |
 | `MemoryFact` | interface | A single memory fact returned by `recall` or `get`. |
 | `MemoryId` | type | Branded provider memory ID.  |
+| `MemoryMirrorOptions` | interface | How the built-in fact store is mirrored to memory adapters.  |
 | `MemoryProvider` | interface | The kernel-facing contract.  |
 | `MemoryProviderAgentRef` | interface | The agent identity a `MemoryProvider` is given — the whole of it.  |
 | `MemoryProviderFactory` | type | Memory provider factory shape (ADR D141).  |
@@ -843,6 +844,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `QuestionTool` | interface | M76 — aligned with the SDK's `CustomTool`.  |
 | `QuestionToolOptions` | interface | `question` — interactive tool that asks the user a question and waits for a response.  |
 | `ReadTracker` | class | `ReadTracker` — SE32 read-before-write safety.  |
+| `readXwdHeader` | function | Validate and parse the XWD header in `bytes` without allocating pixel buffers. |
 | `ReasoningTools` | class | Reasoning scratchpad tools.  |
 | `RedirectBlockedError` | class | Thrown when a request is refused by the REDIRECT policy (the `maxRedirects` hop limit was exceeded) — a distinct event from {@link SsrfBlockedError } (a blocked host).  |
 | `renderToolList` | function | Render the agent's actual `CustomTool[]` — single source of truth, so an overridden/added/removed tool is reflected automatically.  |
@@ -874,6 +876,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `withName` | function | Return a new `CustomTool` exposed under a different `name`, sharing the SAME `inputSchema` + `handler` (alias parity).  |
 | `withShellExitGuidance` | function | Wrap `shell_exec` so a SOFT failure — `{ ok: true, exit_code != 0 }` (the TOOL ran, the COMMAND failed) — gains a `guidance` hint.  |
 | `withToolResultGuidance` | function | Wrap a `CustomTool` so its failed results gain a `guidance` hint from `guidance`.  |
+| `XWD_LIMITS` | const | Upper bounds enforced on an untrusted header before any allocation. |
+| `XwdFormatError` | class | A header field is unsupported or outside `XWD_LIMITS`; names the file, field and value. |
+| `XwdHeader` | interface | Parsed fields of an XWD header that a ZPixmap framebuffer needs. |
+| `XwdNotWrittenError` | class | The header or pixel data is larger than the bytes read: Xvfb may still be writing; retry. |
+| `xwdToPng` | function | Decode an XWD (24/32-bit ZPixmap) into an RGB PNG; throws `XwdNotWrittenError` while the file is incomplete. |
 
 ## `@theokit/sdk-tools/extract-document`
 
@@ -1531,13 +1538,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `interactiveWrapCommand` | function | The composition the interactive path needs — the counterpart of `createSandboxBackend`.  |
 | `InteractiveWrapOptions` | interface | Options for `interactiveWrapCommand`, the PTY counterpart of `createSandboxBackend`.  |
 | `LinuxSandbox` | class | Kernel-confined backend for Linux hosts: a `LocalSandbox` whose commands are rewritten as `bwrap <policy flags> -- /bin/sh -c '<command>'` before they are spawned.  |
-| `listSandboxContainers` | function | Lists containers (running or not) that carry every one of `labels`. |
 | `LocalSandbox` | class | Runs a command with `/bin/sh -c` on the host.  |
 | `provisionRepo` | function | Clone `repoUrl` into `<sandbox workdir>/<instanceId>` and check out `ref`.  |
 | `ProvisionRepoOptions` | interface | Options for {@link provisionRepo } . |
 | `realProbeCount` | function | How many real probes ran.  |
 | `realProbes` | const | Real probes used in production. |
-| `removeSandboxContainers` | function | Removes containers carrying every one of `labels`.  |
 | `RepoProvisionError` | class | Raised when cloning or checking out a repo fails.  |
 | `resetBwrapMemo` | function | Clears the `detectBwrapMemoized` memo.  |
 | `resetInteractiveWarnLatch` | function | Reset for tests — the latch is module state and tests need isolation.  |
@@ -1547,8 +1552,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `restrictedSeccompPath` | function | M57 — the memoized x64-gated seccomp program, written once per process to a temp file. |
 | `SandboxBackend` | class | The execution capability handed to an agent tool, and the extension point for new environments.  |
 | `SandboxConfig` | interface | Construction-time settings shared by every {@link SandboxBackend } .  |
-| `SandboxContainer` | interface | A container started by a `DockerSandbox`, as `docker ps -a` reports it. |
-| `SandboxDockerError` | class | A `docker` subcommand failed or timed out. |
 | `SandboxMode` | type | Codex's three canonical sandbox modes; lives in this leaf module so bwrap.ts and deny-read.ts need not import each other. |
 | `SandboxNetworkPolicy` | interface | What a {@link SandboxBackend } states about its outbound network.  |
 | `SandboxNotAvailableError` | class | A backend cannot be used at all: its runtime is missing or unusable.  |
