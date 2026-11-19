@@ -13,7 +13,6 @@
  * @public
  */
 
-import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,6 +21,10 @@ import { join, posix, resolve as resolveHost } from "node:path";
 import { ConfigurationError } from "../errors.js";
 import { diag } from "../internal/diagnostics.js";
 import { KEEP_LABEL, removeEarlierKept } from "./docker-containers.js";
+import { type DockerRunner, type DockerRunResult, defaultDockerRunner } from "./docker-runner.js";
+
+export { type DockerRunner, type DockerRunResult, defaultDockerRunner };
+
 import {
   type ExecuteResult,
   SandboxBackend,
@@ -33,20 +36,6 @@ import {
 
 /** Where the host `workDir` appears inside the container. */
 const CONTAINER_WORKDIR = "/workspace";
-
-/** Result of one `docker` invocation: captured output, exit code and whether it timed out. */
-export interface DockerRunResult {
-  stdout: string;
-  stderr: string;
-  code: number | null;
-  timedOut: boolean;
-}
-
-/** Seam for tests: runs `docker <args>`, optionally feeding `input` to stdin. */
-export type DockerRunner = (
-  args: readonly string[],
-  opts: { input?: string | Buffer; timeoutMs: number; maxOutputBytes: number },
-) => Promise<DockerRunResult>;
 
 /** Configuration for {@link DockerSandbox}. */
 export interface DockerSandboxConfig extends SandboxConfig {
@@ -109,40 +98,6 @@ function applyKeepLast(
   }
   labels.push([KEEP_LABEL, key]);
   return key;
-}
-
-/** The runner {@link DockerSandbox} uses by default; exported so a custom runner can wrap it. */
-export function defaultDockerRunner(dockerBin = "docker"): DockerRunner {
-  const bin = dockerBin;
-  return (args, { input, timeoutMs, maxOutputBytes }) =>
-    new Promise((resolve, reject) => {
-      const child = spawn(bin, [...args], { stdio: ["pipe", "pipe", "pipe"] });
-      let stdout = "";
-      let stderr = "";
-      let timedOut = false;
-      const cap = (s: string, chunk: Buffer) =>
-        s.length >= maxOutputBytes ? s : s + chunk.toString("utf-8");
-      child.stdout.on("data", (c: Buffer) => {
-        stdout = cap(stdout, c);
-      });
-      child.stderr.on("data", (c: Buffer) => {
-        stderr = cap(stderr, c);
-      });
-      const timer = setTimeout(() => {
-        timedOut = true;
-        child.kill("SIGKILL");
-      }, timeoutMs);
-      child.on("error", (e) => {
-        clearTimeout(timer);
-        reject(e);
-      });
-      child.on("close", (code) => {
-        clearTimeout(timer);
-        resolve({ stdout, stderr, code, timedOut });
-      });
-      child.stdin.on("error", () => {});
-      child.stdin.end(input);
-    });
 }
 
 /** Sandbox backend that runs each command in a throwaway Docker container. */

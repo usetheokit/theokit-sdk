@@ -6,7 +6,7 @@
  */
 
 import { TheokitAgentError } from "../errors.js";
-import { type DockerRunner, defaultDockerRunner } from "./docker-sandbox.js";
+import { type DockerRunner, defaultDockerRunner } from "./docker-runner.js";
 
 /** Label `keepLast` puts on a container; its value is the key. */
 export const KEEP_LABEL = "theokit.sandbox.keep";
