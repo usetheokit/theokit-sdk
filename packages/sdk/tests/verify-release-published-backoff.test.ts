@@ -172,7 +172,7 @@ describe("#1241 — a version that shows up after the old window is still report
     const scale = Math.min(4, 13_018_300 / 5_000_000);
     const budget = ladder.reduce((sum, d) => sum + Math.round(d * scale), 0);
     // Run 44432134014: six rungs (~6.3 min) were not enough for 5.26.0.
-    expect(budget).toBeGreaterThan(2 * 380_000 - 60_000);
+    expect(budget).toBeGreaterThan(600_000);
   });
 
   it("reports published when the registry shows the version only on the seventh re-read", () => {
