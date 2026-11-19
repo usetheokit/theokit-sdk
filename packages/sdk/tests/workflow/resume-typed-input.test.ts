@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { fn, Workflow, workflowResumeTool } from "../src/workflow.js";
+import { fn, Workflow, workflowResumeTool } from "../../src/workflow.js";
 
 const build = () =>
   Workflow.create<{ a: string }>({ name: "typed-resume", inputSchema: z.object({ a: z.string() }) })
