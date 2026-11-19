@@ -148,7 +148,7 @@ describe("downloadSkill", () => {
     ["duplicate other key", "---\nname: demo\ndescription: a\ndescription: b\n---\n"],
     ["malformed name", "---\nname: De Mo\n---\n"],
     ["empty name", "---\nname:\n---\n"],
-    ["unbalanced quote", "---\nname: \"demo\n---\n"],
+    ["unbalanced quote", '---\nname: "demo\n---\n'],
     ["malformed line", "---\nname: demo\nnot a key\n---\n"],
   ])("fails with invalid_skill_md for %s", async (_l, md) => {
     const p = pack("1.0.0", [{ path: "SKILL.md", contentBase64: b64(md) }]);
