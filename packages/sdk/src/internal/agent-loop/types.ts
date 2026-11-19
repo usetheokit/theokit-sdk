@@ -118,6 +118,8 @@ export interface AgentLoopInputs {
    * registered `PermissionPlugin` gates per-run.
    */
   permissionMode?: import("../../permission-engine.js").PermissionMode;
+  /** The run's resolved conversation (`SendOptions.conversation` ?? `AgentOptions.conversation`). */
+  conversation?: import("../../types/plugin.js").ConversationRef;
   /**
    * SE2 — opt-in typed runtime-event sink (from `SendOptions.onRunEvent`). The loop
    * emits `RunEvent`s (permission_denied, tool_progress, rate_limit, task_*,

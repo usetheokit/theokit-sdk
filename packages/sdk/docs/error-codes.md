@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-271 distinct code(s).
+272 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -43,8 +43,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `cloud_plugin_path_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:162` +1 |
 | `cloud_run_http_error` | domain | NetworkError | `packages/sdk/src/internal/cloud-agent/real-cloud-run.ts:159` |
 | `cloud_run_unknown_status` | domain | NetworkError | `packages/sdk/src/internal/cloud-agent/real-cloud-run.ts:292` +1 |
-| `cloud_runtime_pre_release` | domain | ConfigurationError | `packages/sdk/src/agent.ts:435` +2 |
-| `cloud_stdio_cwd_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:125` |
+| `cloud_runtime_pre_release` | domain | ConfigurationError | `packages/sdk/src/agent.ts:467` +2 |
+| `cloud_stdio_cwd_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:126` |
 | `compression_failed` | domain | — | `packages/sdk/src/errors.ts:703` |
 | `compression_model_unresolved` | domain | — | `packages/sdk/src/internal/runtime/compression/compression-model-registry.ts:102` +1 |
 | `content_filtered` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:135` |
@@ -54,16 +54,16 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `context_read_error` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-manager.ts:269` |
 | `context_sources_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-manager.ts:309` |
 | `context_too_long` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:133` |
-| `credential_pool_ambiguous` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:72` +1 |
+| `credential_pool_ambiguous` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:73` +1 |
 | `credential_pool_empty` | domain | ConfigurationError | `packages/sdk/src/internal/llm/credential-pool.ts:91` |
-| `cron_ambiguous_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:215` |
-| `cron_missing_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:233` +1 |
-| `cron_no_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:221` +1 |
-| `cron_workflow_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:227` |
+| `cron_ambiguous_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:251` |
+| `cron_missing_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:269` +1 |
+| `cron_no_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:257` +1 |
+| `cron_workflow_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:263` |
 | `decision_checksum_mismatch` | domain | — | `packages/sdk/src/decide.ts:59` |
 | `discovery_list_pattern_globbed` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-discovery-runner.ts:144` |
 | `duplicate_skill_name` | domain | ConfigurationError | `packages/sdk/src/define-skill-read-tool.ts:166` |
-| `duplicate_tool_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:223` |
+| `duplicate_tool_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:224` |
 | `effective_tools_expected_options` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/effective-tools.ts:102` +1 |
 | `embedding_dimension_mismatch` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:204` |
 | `embedding_invalid_response` | domain | NetworkError | `packages/sdk/src/internal/memory/adapters/openai-compatible.ts:400` |
@@ -82,7 +82,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `handoff_target_invalid` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:116` |
 | `handoff_target_required` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:111` |
 | `hitl_timeout` | domain | HitlTimeoutError | `packages/sdk/src/internal/runtime/tools/hitl-middleware.ts:42` +1 |
-| `hook_denied` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent.ts:553` |
+| `hook_denied` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent.ts:548` |
 | `hook_fingerprint_invalid` | domain | ConfigurationError | `packages/sdk/src/hooks-approval.ts:48` |
 | `hooks_invalid_command` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:436` |
 | `hooks_json_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:273` +2 |
@@ -101,7 +101,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_context_window_margin` | domain | — | `packages/sdk/src/compaction.ts:278` +1 |
 | `invalid_cron` | domain | ConfigurationError | `packages/sdk/src/internal/cron/validate.ts:35` +3 |
 | `invalid_docker_label` | domain | ConfigurationError | `packages/sdk/src/sandbox/docker-sandbox.ts:74` +1 |
-| `invalid_doom_loop_threshold` | domain | ConfigurationError | `packages/sdk/src/internal/agent-loop/doom-loop-tracker.ts:51` |
+| `invalid_doom_loop` | domain | ConfigurationError | `packages/sdk/src/internal/agent-loop/doom-loop-tracker.ts:74` +1 |
+| `invalid_doom_loop_threshold` | domain | ConfigurationError | `packages/sdk/src/internal/agent-loop/doom-loop-tracker.ts:55` |
 | `invalid_filename_id` | domain | ConfigurationError | `packages/sdk/src/internal/security/path-guard.ts:486` |
 | `invalid_identifier` | domain | ConfigurationError | `packages/sdk/src/internal/security/path-guard.ts:434` +2 |
 | `invalid_input` | domain | MemoryAdapterError | `packages/memory-honcho/src/adapter.ts:98` +9 |
@@ -134,7 +135,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `local_provider_unreachable` | domain | ConfigurationError | `packages/sdk/src/internal/catalog/local-models.ts:46` |
 | `malformed_api_key` | domain | AuthenticationError | `packages/sdk/src/internal/agent/helpers.ts:235` +1 |
 | `max_delegation_depth` | domain | MaxDelegationDepthError | `packages/sdk/src/a2a/subagent.ts:239` +1 |
-| `mcp_auth_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:143` +1 |
+| `mcp_auth_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:144` +1 |
 | `mcp_buffer_overflow` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:347` |
 | `mcp_closed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:322` |
 | `mcp_config_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-dispatch.ts:154` |
@@ -147,14 +148,14 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `memory_ceiling_reached` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:43` +1 |
 | `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:128` |
 | `memory_path_escapes_root` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:115` +1 |
-| `memory_path_traversal` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:305` |
+| `memory_path_traversal` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:306` |
 | `memory_threat_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/markdown-store.ts:283` |
 | `memory_tool_bad_args` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:138` +1 |
 | `migration_destination_exists` | domain | ConfigurationError | `packages/sdk/src/internal/memory/migrate-sqlite-to-lance.ts:172` |
 | `missing_api_key` | domain | AuthenticationError, ConfigurationError | `packages/sdk/src/internal/agent/helpers.ts:226` +2 |
 | `missing_credential` | domain | AuthenticationError | `packages/sdk/src/internal/providers/builtin/openai-chatgpt.ts:72` |
 | `missing_frontmatter` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:93` |
-| `missing_model` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:39` |
+| `missing_model` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:40` |
 | `model_unavailable` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:75` +2 |
 | `muse_not_installed` | domain | ConfigurationError | `packages/sdk/src/internal/llm/muse.ts:60` |
 | `muse_not_signed_in` | domain | AuthenticationError | `packages/sdk/src/internal/llm/muse.ts:67` |
@@ -194,7 +195,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `plugin_manifest_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:281` |
 | `plugin_manifest_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:287` |
 | `plugin_missing_manifest` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:272` +2 |
-| `programmatic_hooks_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:101` |
+| `programmatic_hooks_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:102` |
 | `provider_unreachable` | domain | TheokitAgentError | `packages/sdk/src/internal/llm/muse.ts:248` |
 | `provider_unresolved` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:113` +2 |
 | `quota_exceeded` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:144` |
@@ -202,11 +203,11 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `rate_limited` | domain | MemoryAdapterError | `packages/memory-honcho/src/adapter.ts:244` +3 |
 | `redirect_blocked` | domain | — | `packages/sdk-tools/src/internal/network-guard.ts:38` |
 | `repo_provision_failed` | domain | — | `packages/sdk/src/sandbox/provision.ts:33` |
-| `reserved_env_prefix` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:112` |
+| `reserved_env_prefix` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:113` |
 | `response_headers_timeout` | domain | NetworkError | `packages/sdk/src/internal/llm/sse.ts:57` |
 | `run_cancelled` | domain | — | `packages/sdk/src/errors.ts:656` |
-| `run_not_found` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:442` |
-| `runtime_exclusive` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:92` |
+| `run_not_found` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:474` |
+| `runtime_exclusive` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:93` |
 | `sandbox_derived_helper_failed` | domain | ConfigurationError | `packages/sdk/src/sandbox/types.ts:223` +1 |
 | `sandbox_not_available` | domain | SandboxNotAvailableError | `packages/sdk/src/sandbox/types.ts:108` +1 |
 | `sandbox_security` | domain | SandboxSecurityError | `packages/sdk/src/sandbox/types.ts:89` +1 |
@@ -225,9 +226,9 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `stream_truncated` | domain | NetworkError | `packages/sdk/src/internal/llm/anthropic.ts:194` +1 |
 | `subagent_foreign_runtime_field` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/subagents-loader.ts:245` |
 | `subagent_mcp_unsupported_local` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/subagents-loader.ts:272` |
-| `subagent_missing_description` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:169` |
+| `subagent_missing_description` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:170` |
 | `subagent_missing_frontmatter` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/subagents-loader.ts:352` |
-| `subagent_missing_prompt` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:174` |
+| `subagent_missing_prompt` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:175` |
 | `subagent_reasoning_effort_without_model` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/subagents-loader.ts:295` |
 | `subagent_sandbox_not_boolean` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/subagents-loader.ts:315` |
 | `subagent_unknown_field` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/subagents-loader.ts:249` |
@@ -243,21 +244,21 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `task_op_unsupported` | domain | — | `packages/sdk/src/task-errors.ts:73` +1 |
 | `telemetry_peer_missing` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:81` |
 | `timeout` | domain | — | `packages/sdk/src/internal/error-mappers/vertex.ts:55` |
-| `tool_invalid_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:261` |
-| `tool_invalid_schema_type` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:290` |
-| `tool_missing_description` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:276` |
-| `tool_missing_handler` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:248` |
-| `tool_missing_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:256` |
-| `tool_missing_schema` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:285` |
-| `tool_reserved_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:267` |
+| `tool_invalid_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:262` |
+| `tool_invalid_schema_type` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:291` |
+| `tool_missing_description` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:277` |
+| `tool_missing_handler` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:249` |
+| `tool_missing_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:257` |
+| `tool_missing_schema` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:286` |
+| `tool_reserved_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:268` |
 | `transport_failure` | domain | NetworkError | `packages/sdk/src/internal/llm/transport-error.ts:48` |
 | `transport_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:614` +1 |
 | `unimplemented_budget_scope` | domain | ConfigurationError | `packages/sdk/src/internal/budget/registry.ts:58` +1 |
 | `unknown` | domain | AgentRunError, MemoryAdapterError, TheokitAgentError | `packages/memory-honcho/src/adapter.ts:264` +5 |
-| `unknown_agent` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:212` +1 |
+| `unknown_agent` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:224` +1 |
 | `unknown_artifact` | domain | UnknownAgentError | `packages/sdk/src/internal/cloud-agent/cloud-agent.ts:313` |
 | `unknown_category` | domain | ConfigurationError | `packages/sdk-memory/src/internal/categorized-memory.ts:76` |
-| `unknown_cron_job` | domain | UnknownAgentError | `packages/sdk/src/cron.ts:80` +2 |
+| `unknown_cron_job` | domain | UnknownAgentError | `packages/sdk/src/cron.ts:116` +2 |
 | `unsafe_filename` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/project-instructions.ts:120` |
 | `unsupported_schema` | domain | ConfigurationError | `packages/sdk/src/schema-normalizer.ts:110` +1 |
 | `upstream_run_failed` | domain | — | `packages/sdk/src/errors.ts:656` |

@@ -24,6 +24,10 @@ export interface DoomLoopConfig {
   /** Consecutive same-tool calls with CHANGING arguments but an unchanged result (argument churn).
    *  Soft nudge at `churnThreshold - 2`, hard stop at `churnThreshold`. */
   churnThreshold: number;
+  /** Sliding window of recent calls for repeat counting (opt-in; pairs with `windowRepeatLimit`). */
+  window?: number;
+  /** Identical calls allowed within `window` before the next one is blocked. */
+  windowRepeatLimit?: number;
 }
 
 /** Public config on a send: `false` disables the guard; an object tunes the thresholds; absent = on. */
@@ -51,6 +55,31 @@ function assertValidThresholds(soft: number, hard: number, churn: number): void 
       throw new ConfigurationError(
         `doomLoop.${label} must be a positive integer (received ${value}).`,
         { code: "invalid_doom_loop_threshold" },
+      );
+    }
+  }
+}
+
+/** Fail-fast: `window` and `windowRepeatLimit` must be positive integers and be set together.
+ *  Throws `ConfigurationError` code `invalid_doom_loop`. @internal */
+export function assertValidDoomLoopWindow(option?: DoomLoopOption): void {
+  if (option === undefined || option === false) return;
+  const { window, windowRepeatLimit } = option;
+  if (window === undefined && windowRepeatLimit === undefined) return;
+  for (const [label, value] of [
+    ["window", window],
+    ["windowRepeatLimit", windowRepeatLimit],
+  ] as const) {
+    if (value === undefined) {
+      throw new ConfigurationError(
+        `doomLoop.window and doomLoop.windowRepeatLimit must be set together (missing ${label}).`,
+        { code: "invalid_doom_loop" },
+      );
+    }
+    if (!Number.isInteger(value) || value < 1) {
+      throw new ConfigurationError(
+        `doomLoop.${label} must be a positive integer (received ${value}).`,
+        { code: "invalid_doom_loop" },
       );
     }
   }
@@ -86,6 +115,18 @@ export function signatureOf(call: { name: string; input: unknown }): string {
   return `${call.name}\u0000${inputSig}`;
 }
 
+/** Signature for window counting: name + key-sorted JSON args; unserializable args share one
+ *  per-tool signature. @internal */
+function windowSignature(call: { name: string; input: unknown }): string {
+  let inputSig: string;
+  try {
+    inputSig = JSON.stringify(sortKeys(call.input)) ?? "undefined";
+  } catch {
+    inputSig = "unserializable";
+  }
+  return `${call.name}\u0000${inputSig}`;
+}
+
 /** Per-run detector of consecutive identical tool calls. Owned by one agent-loop run, inspected
  *  sequentially per turn (no shared state across concurrent runs). @internal */
 export class DoomLoopTracker {
@@ -95,13 +136,35 @@ export class DoomLoopTracker {
   #lastName = "";
   #lastResult: string | undefined;
   #churn = 0;
+  readonly #recent: string[] = [];
 
   constructor(config?: Partial<DoomLoopConfig>) {
     const softThreshold = config?.softThreshold ?? DEFAULT_CONFIG.softThreshold;
     const hardThreshold = config?.hardThreshold ?? DEFAULT_CONFIG.hardThreshold;
     const churnThreshold = config?.churnThreshold ?? DEFAULT_CONFIG.churnThreshold;
     assertValidThresholds(softThreshold, hardThreshold, churnThreshold);
+    assertValidDoomLoopWindow(config);
     this.#config = { softThreshold, hardThreshold, churnThreshold };
+    if (config?.window !== undefined) {
+      this.#window = config.window;
+      this.#windowRepeatLimit = config.windowRepeatLimit ?? 0;
+    }
+  }
+
+  readonly #window: number = 0;
+  readonly #windowRepeatLimit: number = 0;
+
+  /** Sliding-window check: when the call's signature already occurs `windowRepeatLimit` times in the
+   *  last `window` calls, returns a block message. Every attempt (blocked or not) enters the window.
+   *  Always `undefined` when the window is off. */
+  checkWindow(call: { name: string; input: unknown }): string | undefined {
+    if (this.#window === 0) return undefined;
+    const signature = windowSignature(call);
+    const seen = this.#recent.filter((s) => s === signature).length;
+    this.#recent.push(signature);
+    if (this.#recent.length > this.#window) this.#recent.shift();
+    if (seen < this.#windowRepeatLimit) return undefined;
+    return `Blocked: \`${call.name}\` was already called ${seen} times with identical arguments in the last ${this.#window} calls. Try something different.`;
   }
 
   inspect(call: { name: string; input: unknown; result?: string }): DoomLoopVerdict {
@@ -154,6 +217,7 @@ export class DoomLoopTracker {
     this.#lastName = "";
     this.#lastResult = undefined;
     this.#churn = 0;
+    this.#recent.length = 0;
   }
 }
 

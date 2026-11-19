@@ -1,5 +1,6 @@
 import type { ToolContextMessage } from "../../types/agent-prims.js";
 import type { BudgetTracker, BudgetUsageEvent } from "../../types/budget-tracker.js";
+import type { SDKMessage } from "../../types/messages.js";
 import { IterationBudget } from "../budget/tracker/budget.js";
 import { diagFailure } from "../diagnostics.js";
 import type { LlmContentPart, LlmMessage, LlmThinkingPart, LlmToolCallPart } from "../llm/types.js";
@@ -12,7 +13,7 @@ import { finalizeLoopOutput } from "./loop-finalize.js";
 import { type LlmTurnOutput, streamLlmTurn } from "./loop-llm-stream.js";
 import { recordThinkingOnSilentToolRound, thinkingStep } from "./loop-thinking-steps.js";
 import { buildAssistantEvent, buildAssistantTurn } from "./message-builders.js";
-import { dispatchTools } from "./tool-dispatch.js";
+import { dispatchTools, type ResolvedTool } from "./tool-dispatch.js";
 import { applyToolResultGuard } from "./tool-result-guard.js";
 import type { AgentLoopInputs, AgentLoopOutput } from "./types.js";
 import { accumulateUsage } from "./usage-and-cost.js";
@@ -420,6 +421,28 @@ async function guardAndTransformToolResults(
     : guarded;
 }
 
+/** Sliding-window doom-loop guard: calls the window denies are not executed and get a blocked
+ *  tool result (decided in model order, before dispatch); the rest dispatch as usual. */
+async function dispatchWithWindowGuard(
+  ctx: LoopContext,
+  inputs: AgentLoopInputs,
+  calls: LlmToolCallPart[],
+  dispatchArgs: [ResolvedTool[], SDKMessage[], Parameters<typeof dispatchTools>[4]],
+): Promise<LlmContentPart[]> {
+  const [tools, events, span] = dispatchArgs;
+  const blocks = calls.map((c) => ctx.doomLoop?.checkWindow(c));
+  if (blocks.every((b) => b === undefined))
+    return dispatchTools(inputs, tools, calls, events, span);
+  const allowed = calls.filter((_, i) => blocks[i] === undefined);
+  const ran = await dispatchTools(inputs, tools, allowed, events, span);
+  let next = 0;
+  return calls.map((c, i): LlmContentPart => {
+    const message = blocks[i];
+    if (message === undefined) return ran[next++] as LlmContentPart;
+    return { type: "tool_result", toolUseId: c.id, content: message };
+  });
+}
+
 export async function continueOrTerminate(
   inputs: AgentLoopInputs,
   ctx: LoopContext,
@@ -448,14 +471,14 @@ export async function continueOrTerminate(
   // theokit#122 — and the REPLAY must carry it too: Anthropic verifies the signed block on the next
   // request, so an assistant turn that reaches the provider without it is rejected outright.
   ctx.messages.push(buildAssistantTurn(text, llmOutput.toolCalls, thinking));
-  const rawResults = await dispatchTools(
+  const rawResults = await dispatchWithWindowGuard(
+    ctx,
     // SE12 — forward a read-only text projection of the transcript-so-far to tool
     // handlers via `ctx.messages` (consumed by defineSubAgent's messageFilter).
     { ...inputs, messages: projectToolContextMessages(ctx.messages) },
-    ctx.tools,
     llmOutput.toolCalls,
-    ctx.events,
-    ctx.sendSpan, // M3 #64 — nest tool.call spans under agent.send
+    // M3 #64 — nest tool.call spans under agent.send
+    [ctx.tools, ctx.events, ctx.sendSpan],
   );
   const toolResults = await guardAndTransformToolResults(
     inputs,
