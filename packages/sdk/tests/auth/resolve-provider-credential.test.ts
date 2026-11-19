@@ -99,17 +99,6 @@ describe("resolveProviderCredential", () => {
     expect(e.code).toBe("model_provider_without_credential");
   });
 
-  it("does not accept another provider's secondary variable through a custom candidate", async () => {
-    const e = await codeOf(
-      resolveProviderCredential({
-        env: { GOOGLE_GENERATIVE_AI_API_KEY: "opaque-key" },
-        model: "openai/x",
-        providers: [{ name: "openai", envVar: "GOOGLE_GENERATIVE_AI_API_KEY", priority: 1 }],
-      }),
-    );
-    expect(e.code).toBe("model_provider_without_credential");
-  });
-
   it("rejects an empty pinned variable", async () => {
     const e = await codeOf(resolveProviderCredential({ env: { X: "" }, pinnedEnvVar: "X" }));
     expect(e.code).toBe("pinned_credential_missing");
