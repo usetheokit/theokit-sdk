@@ -1,5 +1,17 @@
 # Changelog
 
+## 5.27.0
+
+### Minor Changes
+
+- [#1252](https://github.com/usetheokit/theokit-sdk/pull/1252) [`83b8dc7`](https://github.com/usetheokit/theokit-sdk/commit/83b8dc7b44ff3c4f3bfb5eb93f56489401cea9c3) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - DockerSandbox: `readOnlyWorkspace` mounts the workspace `:ro`, `labels` adds `--label` to every container (invalid ones throw `invalid_docker_label`), and `defaultDockerRunner` is exported from `@theokit/sdk/sandbox` ([#1037](https://github.com/usetheokit/theokit-sdk/issues/1037)).
+
+### Patch Changes
+
+- [#1205](https://github.com/usetheokit/theokit-sdk/pull/1205) [`38306ab`](https://github.com/usetheokit/theokit-sdk/commit/38306abda42569437660b91cd7d3b34d78d9fb2e) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `LanceIndex.removeFacts` now runs after any `addFacts` already in flight on the same storage path, so a concurrent sync can no longer restore a removed fact. Chunks of a split fact are linked through a new `fact_id` column (default: the row's own `id`). An older table gets the column on open; its existing rows keep `fact_id` NULL, no parent link is guessed for them, and they are removed by exact id only. The new optional second argument `{ namespace, source }` removes every row linked to the fact, limited to that namespace and source; without it, removal is the exact-id deletion it was.
+  
+  There is still no fact-forget call site in the SDK that uses this; wiring one in is separate work.
+
 ## 5.26.1
 
 ### Patch Changes

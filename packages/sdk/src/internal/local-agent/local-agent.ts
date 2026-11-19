@@ -602,7 +602,7 @@ export class LocalAgent implements SDKAgent {
   close(): void {
     this.closed = true;
     // A closed handle refuses work, so it must not be served by the next getOrCreate.
-    liveAgentRegistry.forget(this.agentId);
+    liveAgentRegistry.forget(this.agentId, this);
   }
 
   async reload(): Promise<void> {
