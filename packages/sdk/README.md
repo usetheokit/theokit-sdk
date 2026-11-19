@@ -205,6 +205,36 @@ const sandbox = new DockerSandbox({
 
 `readOnlyWorkspace: true` changes only the workspace mount; the root filesystem is already read-only with a `/tmp` tmpfs. Because the workspace is then not writable, `uploadFile` fails. Label keys must match `[a-z0-9]([a-z0-9._-]*[a-z0-9])?` and values must not contain newlines; otherwise the constructor throws `ConfigurationError` with code `invalid_docker_label`.
 
+## `@theokit/sdk/telemetry-node`: export traces and metrics
+
+`AgentOptions.telemetry` records spans through the global OpenTelemetry API; something has to register
+providers for them to leave the process. `registerTelemetry` does that over OTLP/HTTP. The OpenTelemetry
+packages are optional peers, loaded only when it is called (a missing one rejects with
+`ConfigurationError` code `telemetry_peer_missing`):
+
+```sh
+pnpm add @opentelemetry/api @opentelemetry/sdk-trace-base @opentelemetry/sdk-metrics @opentelemetry/resources \
+  @opentelemetry/exporter-trace-otlp-http @opentelemetry/exporter-metrics-otlp-http
+# plus @opentelemetry/exporter-prometheus when you pass prometheusPort
+```
+
+```ts
+import { Agent } from "@theokit/sdk";
+import { registerTelemetry } from "@theokit/sdk/telemetry-node";
+
+const telemetry = await registerTelemetry({
+  endpoint: "http://localhost:4318", // spans go to /v1/traces, metrics to /v1/metrics
+  serviceName: "my-app",
+  prometheusPort: 9464, // optional; served on 127.0.0.1 only
+});
+const agent = await Agent.create({ model: { id: "openai/gpt-4o-mini" }, telemetry: { enabled: true } });
+// ...
+await telemetry.shutdown(); // flushes, never rejects
+```
+
+Export failures reach `onExportError` (default: the SDK diagnostics channel) with secrets redacted and
+URL credentials masked as `https://***@host`.
+
 ## `@theokit/sdk/persistence`: single instance lock
 
 `acquireInstanceLock(dir, { path? })` takes `<dir>.instance.lock` for the life of the process, so two processes never run against the same state directory. A second holder rejects with `InstanceLockedError` (`lockPath`, `holderPid`); the message names the lock and the pid, and says to stop that process or remove the lock if the pid is not running. A lock left by a pid that is no longer running is taken over, and only one of several contenders wins a given stale lock. `release()` removes the lock only while this holder still owns it, and is idempotent.

@@ -1,7 +1,7 @@
 {
   "name": "@theokit/sdk",
   "version": "5.26.1",
-  "description": "TypeScript SDK for the Theo agent harness — same surface, local or cloud.",
+  "description": "TypeScript SDK for the Theo agent harness \u2014 same surface, local or cloud.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/usetheokit/theokit-sdk#readme",
   "bugs": "https://github.com/usetheokit/theokit-sdk/issues",
@@ -388,6 +388,16 @@
         "types": "./dist/subagents-loader.d.cts",
         "default": "./dist/subagents-loader.cjs"
       }
+    },
+    "./telemetry-node": {
+      "import": {
+        "types": "./dist/telemetry-node.d.ts",
+        "default": "./dist/telemetry-node.js"
+      },
+      "require": {
+        "types": "./dist/telemetry-node.d.cts",
+        "default": "./dist/telemetry-node.cjs"
+      }
     }
   },
   "files": [
@@ -416,6 +426,12 @@
   "peerDependencies": {
     "@lancedb/lancedb": "^0.30.0",
     "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/exporter-metrics-otlp-http": ">=0.200.0 <0.300.0",
+    "@opentelemetry/exporter-prometheus": ">=0.200.0 <0.300.0",
+    "@opentelemetry/exporter-trace-otlp-http": ">=0.200.0 <0.300.0",
+    "@opentelemetry/resources": "^2.0.0",
+    "@opentelemetry/sdk-metrics": "^2.0.0",
+    "@opentelemetry/sdk-trace-base": "^2.0.0",
     "@types/ws": ">=8.0.0",
     "better-sqlite3": "^12.0.0",
     "onnxruntime-node": ">=1.17.0",
@@ -428,6 +444,24 @@
       "optional": true
     },
     "@opentelemetry/api": {
+      "optional": true
+    },
+    "@opentelemetry/exporter-metrics-otlp-http": {
+      "optional": true
+    },
+    "@opentelemetry/exporter-prometheus": {
+      "optional": true
+    },
+    "@opentelemetry/exporter-trace-otlp-http": {
+      "optional": true
+    },
+    "@opentelemetry/resources": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-metrics": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-trace-base": {
       "optional": true
     },
     "@types/ws": {
@@ -475,7 +509,12 @@
   },
   "devDependencies": {
     "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/sdk-trace-base": "^2.10.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.223.2",
+    "@opentelemetry/exporter-prometheus": "^0.223.2",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.223.2",
+    "@opentelemetry/resources": "^2.12.1",
+    "@opentelemetry/sdk-metrics": "^2.12.1",
+    "@opentelemetry/sdk-trace-base": "^2.12.1",
     "@theokit/sdk-budget": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "@types/proper-lockfile": "^4.1.4",
