@@ -94,7 +94,7 @@ function varsFor(provider: string, candidates: readonly ProviderCandidate[]): st
       .filter((p) => p.name !== getProviderProfile(provider)?.name)
       .map((p) => p.envVars[0]),
   );
-  const own = candidates.find((x) => x.name === provider)?.envVar;
+  const own = candidates.find((x) => x.name === provider && !foreign.has(x.envVar))?.envVar;
   const all = [
     ...(own === undefined ? [] : [own]),
     ...(getProviderProfile(provider)?.envVars ?? []).filter(
@@ -159,11 +159,18 @@ async function resolvePinned(
       { code: "pinned_credential_missing" },
     );
   }
-  const provider =
-    parseModelId(input.model).provider ??
+  const owner =
+    listProviders().find((p) => p.envVars[0] === pinned)?.name ??
     candidates.find((c) => c.envVar === pinned)?.name ??
-    listProviders().find((p) => p.envVars.includes(pinned))?.name ??
-    providerFromApiKeyPrefix(apiKey);
+    listProviders().find((p) => p.envVars.includes(pinned))?.name;
+  const named = parseModelId(input.model).provider;
+  if (owner !== undefined && named !== undefined && named !== owner) {
+    throw new ProviderCredentialError(
+      `The pinned credential variable ${pinned} belongs to provider "${owner}" but the model names provider "${named}"; refusing to send it to the wrong vendor.`,
+      { code: "credential_provider_mismatch" },
+    );
+  }
+  const provider = owner ?? named ?? providerFromApiKeyPrefix(apiKey);
   if (provider === undefined) {
     throw new ProviderCredentialError(
       `The provider for the pinned credential variable ${pinned} cannot be determined; name it in the model id.`,

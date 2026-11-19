@@ -35,7 +35,11 @@ export async function executeTool(
   call: LlmToolCallPart,
 ): Promise<ToolResult> {
   if (resolved === undefined) {
-    return { stdout: "", stderr: `Unknown tool ${call.name}`, exitCode: 127 };
+    // A forced call to an MCP name outside the offered catalog (omitted by a tool filter, or never
+    // listed) is refused here and never reaches a server: only catalog entries carry the
+    // server/tool pair `runMcpTool` needs.
+    const note = call.name.startsWith("mcp_") ? " (not offered by any connected MCP server)" : "";
+    return { stdout: "", stderr: `Unknown tool ${call.name}${note}`, exitCode: 127 };
   }
   if (resolved.origin === "shell") return runShellTool(inputs, call);
   // #119 — `inputs.agentId` is the run's session identity (the `Agent.getOrCreate(sessionId)`
