@@ -198,8 +198,8 @@ export function pluginBundleRoots(
  *
  * Takes no `cwd` for the same reason. Creates nothing; the path may not exist.
  *
- * Semver-exempt: reachable via the `@theokit/sdk/internal/persistence` sub-path, which the package
- * declares in `exports` but does NOT cover with its semver contract.
+ * Public: exported from `@theokit/sdk/persistence` (also reachable from the semver-exempt
+ * `@theokit/sdk/internal/persistence`).
  */
 export function getProfilesRoot(): string {
   return join(homedir(), THEOKIT_DIR_LITERAL, "profiles");
