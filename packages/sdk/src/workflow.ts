@@ -638,3 +638,5 @@ function walkStepsValidating(steps: ReadonlyArray<Step>, seen: Set<string>): voi
     }
   }
 }
+
+export { WorkflowSet } from "./workflow-set.js";

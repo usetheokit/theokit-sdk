@@ -251,6 +251,19 @@ try {
 
 LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
 
+## `@theokit/sdk/workflow`: resume by run id
+
+When several workflows suspend for approval and the user returns one run id, `WorkflowSet` finds the owner:
+
+```ts
+import { WorkflowSet } from "@theokit/sdk/workflow";
+
+const set = WorkflowSet.of([refunds, deploys]); // names must be unique
+const { name, run } = await set.resume(runId, { approved: true });
+```
+
+Members are tried in order. Only `WorkflowSnapshotNotFoundError` and `WorkflowResumeWorkflowMismatchError` mean "not this workflow". Any other error (payload validation, a throwing step, an I/O failure) is rethrown unchanged and the remaining members are not tried. When no member owns the id, `resume` throws `WorkflowSnapshotNotFoundError`. Members must share a persistent snapshot store (for example one `json` directory). `WorkflowSet.of` throws `ConfigurationError` when two members share a name.
+
 ## Status
 
 The full contract is defined by the exported TypeScript types; see [`CHANGELOG.md`](./CHANGELOG.md) for the release history.
