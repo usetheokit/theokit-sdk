@@ -180,7 +180,11 @@ export {
 // .asPlugin() factories without reaching into ./internal/plugins sub-path.
 export {
   type ConversationRef,
+  type GeneralPlugin,
+  type HookContextMap,
+  type HookHandler,
   type HookName,
+  type HookResultMap,
   // #335 — named here because the PUBLIC `Plugin` union references it in the
   // `createProvider` position. The DTS rollup emits an exported type's body but
   // treeshakes a non-exported type that body names, so leaving this out of the
@@ -201,6 +205,7 @@ export {
   type ToolCallSummary,
   type ToolResultTransformContext,
   type TransformContext,
+  type TypedHookHandler,
 } from "./internal/plugins/types.js";
 export type {
   ProviderProfile,
@@ -430,9 +435,11 @@ export type {
   AgentToolDescription,
   CustomTool,
   MemoryReviewOptions,
+  MemoryMirrorOptions,
   MemorySettings,
   SDKAgent,
 } from "./types/agent.js";
+export type { AgentLike, RunLike } from "./types/agent-like.js";
 // SE7 — structured/multimodal tool-result content blocks (explicit for rollup-dts).
 export type { ImageBlock, ToolResultContentBlock } from "./types/content-blocks.js";
 export type { EnvPolicy } from "./types/env-policy.js";

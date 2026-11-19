@@ -6,6 +6,7 @@ import { anySignal } from "../concurrency/abort-utils.js";
 import { diagFailure } from "../diagnostics.js";
 import { emitRunEvent } from "../emit-run-event.js";
 import type { TurnReviewQueue } from "../memory/turn-review.js";
+import type { MemoryMirror } from "../memory/mirror.js";
 import type { PluginManager } from "../plugins/manager.js";
 import {
   type CompletionCheckDeps,
@@ -14,7 +15,10 @@ import {
 import type { MemoryProvider } from "../runtime/memory-glue/memory-provider.js";
 import type { MemoryFact } from "../runtime/memory-glue/memory-store.js";
 import { readMemoryFacts } from "../runtime/memory-glue/memory-store.js";
-import { selectFactsForInjection } from "../runtime/memory-glue/select-facts.js";
+import {
+  DEFAULT_MAX_ENTRIES,
+  selectFactsForInjection,
+} from "../runtime/memory-glue/select-facts.js";
 import { normalizeModel } from "../runtime/model-selection.js";
 import { runInputProcessors } from "../runtime/processors/run-processors.js";
 import { createTripwireRun } from "../runtime/processors/tripwire-run.js";
@@ -47,6 +51,8 @@ export interface SendLockedInputs {
   workspaceCwd: string;
   /** `memory.review` queue; undefined when review is off. */
   reviewQueue?: TurnReviewQueue | undefined;
+  /** Built-in memory ↔ adapter mirror, when `memory.mirror` is set. */
+  memoryMirror?: MemoryMirror;
   telemetry: TelemetryHandle;
   lifecycleAbortController: AbortController;
   runPreHook: (userText: string) => Promise<void>;
@@ -198,8 +204,18 @@ export async function executeSendLocked(
   // Where memory lives is `memory.directory`'s answer and nobody else's. It used to be
   // `local.sessionDir`'s — the option that names the TRANSCRIPT home — so one option answered two
   // questions and only the writer heard the second answer (#463).
-  await persistMemoryFactIfWritePrompt(inputs.workspaceCwd, inputs.options.memory, userText);
-  const memoryFacts = await readMemoryForSend(inputs.workspaceCwd, inputs.options.memory, userText);
+  await persistMemoryFactIfWritePrompt(
+    inputs.workspaceCwd,
+    inputs.options.memory,
+    userText,
+    inputs.memoryMirror,
+  );
+  const memoryFacts = await readMemoryForSend(
+    inputs.workspaceCwd,
+    inputs.options.memory,
+    userText,
+    inputs.memoryMirror,
+  );
   // The MemoryProvider port is the ONLY memory path now (kernel flip, 2026-09-02). Both of this
   // send's memory jobs happen inside the agent loop: the tool catalog comes from
   // `provider.buildTools()` and the recall summary from `provider.runActivePass()`, so nothing is
@@ -300,10 +316,20 @@ function reportRefusedMemoryDirectoryOnce(
   );
 }
 
+/** Facts the adapters returned for `adapters-first` recall, ranked and cut like local ones. */
+async function selectMirroredFacts(
+  mirror: MemoryMirror | undefined,
+  query: string | undefined,
+): Promise<MemoryFact[]> {
+  const fromAdapters = (await mirror?.recall(query, DEFAULT_MAX_ENTRIES)) ?? [];
+  return selectFactsForInjection(fromAdapters, { ...(query === undefined ? {} : { query }) });
+}
+
 function readMemoryForSend(
   workspaceCwd: string,
   memoryConfig: AgentOptions["memory"],
   query?: string,
+  mirror?: MemoryMirror,
 ): Promise<MemoryFact[]> {
   if (memoryConfig?.enabled !== true) return Promise.resolve([]);
   // Rank and cut before the facts reach the prompt. Without the cut the injected block tracked
@@ -314,6 +340,8 @@ function readMemoryForSend(
   return safeCall(
     async () => {
       try {
+        const mirrored = await selectMirroredFacts(mirror, query);
+        if (mirrored.length > 0) return mirrored;
         return selectFactsForInjection(await readMemoryFacts(workspaceCwd, memoryConfig), {
           ...(query === undefined ? {} : { query }),
         });
