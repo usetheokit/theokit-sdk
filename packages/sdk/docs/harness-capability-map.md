@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1408 export(s) across 57 entry point(s).
+1409 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -130,6 +130,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ContextSnapshot` | interface | Result of `agent.context.snapshot()`.  |
 | `ContextSource` | interface | A single context source resolved by the context manager. |
 | `ContextSourceStatus` | type | Inclusion state of a single context source in a {@link ContextSnapshot } . |
+| `ConversationRef` | interface | Where a run's conversation lives, as the caller declares it.  |
 | `ConversationStep` | type | A single step inside an agent turn, discriminated by `type`: an assistant message, a tool call, the tool result that pairs with it, or a thinking block.  |
 | `ConversationTurn` | type | Structured per-turn view of a run. |
 | `CostBreakdown` | interface | Cost breakdown attached to `RunResult.cost`.  |

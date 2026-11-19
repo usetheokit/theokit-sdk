@@ -122,6 +122,11 @@ import { listWorkspacePlugins } from "@theokit/sdk";
 const plugins = await listWorkspacePlugins(process.cwd(), { compatSources: ["claude-code"] });
 ```
 
+A `pre_tool_call` plugin sees which conversation the run belongs to in `ctx.conversation`, a
+`ConversationRef` (`platform`, `channelId`, `sessionKey`) the caller declares with
+`Agent.create({ conversation })` or `agent.send(prompt, { conversation })`; the send value wins. The
+key is absent when none was declared. It is threaded on the local runtime.
+
 ## Explain skills
 
 `explainSkills` from `@theokit/sdk/skills` reports what an agent would see, from the same walk the

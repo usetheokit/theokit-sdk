@@ -9,6 +9,7 @@ import type { CustomTool, ModelSelection, PermissionMode, RunOperation } from ".
 import type { ConversationStep, ConversationTurn } from "./conversation.js";
 import type { McpServerConfig } from "./mcp.js";
 import type { SDKMessage } from "./messages.js";
+import type { ConversationRef } from "./plugin.js";
 import type { InteractionUpdate } from "./updates.js";
 import type { CostBreakdown, TokenUsage } from "./usage.js";
 
@@ -424,6 +425,11 @@ export interface SendOptions {
    * Absent ⇒ the plugin's own construction-time mode applies. Local runtime.
    */
   permissionMode?: PermissionMode;
+  /**
+   * The conversation for THIS run, passed to `pre_tool_call` plugins as
+   * `PreToolCallContext.conversation`. Wins over `AgentOptions.conversation`. Local runtime.
+   */
+  conversation?: ConversationRef;
   onStep?: (args: { step: ConversationStep }) => void | Promise<void>;
   onDelta?: (args: { update: InteractionUpdate }) => void | Promise<void>;
   /**
