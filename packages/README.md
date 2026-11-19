@@ -27,6 +27,7 @@ This monorepo ships the Agent-AI **Harness**, organized in **3 families**. The f
 | `@theokit/sdk-tools` | Built-in tools (read-file, list-dir, search-text, git-diff, subprocess, run-vitest). |
 | `@theokit/sdk-memory` | `MemoryProvider` port consumer — markdown store with disk-backed session-summary write/recall + `memory_remember` / `memory_search` tools + agent-scope privacy filter. |
 | `@theokit/sdk-budget` | `BudgetTracker` port consumer + USD pricing tracker. |
+| `@theokit/skills-registry` | Skill package format (`SKILL.md` folders as JSON), semver version resolution, digest-verified `downloadSkill`, and an atomic `installSkill` that rejects unsafe paths and rolls back a failed swap. |
 | `@theokit/sdk-handoff` | Inter-agent dispatch via plugin protocol. `Handoff.asPlugin()` + lazy-loaded `internal/tool-injector`. The receiving agent currently starts with an EMPTY history in both wirings (`{ messages: [] }`, history replay deferred), so it does not see the message that triggered the handoff. |
 | `@theokit/sdk-pty` | `PtyInteractiveBackend` — `node-pty`-backed `InteractiveProvider` for the interactive-shell tools. Opt-in; isolates the native module so core/`sdk-tools` stay surface-agnostic (terminal / desktop / cluster). |
 
