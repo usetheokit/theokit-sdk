@@ -6,14 +6,14 @@
 import { createServer, type Server } from "node:http";
 
 import { afterEach, describe, expect, it } from "vitest";
-import { Agent } from "../src/index.js";
-import { setDiagnosticsSink } from "../src/internal/diagnostics.js";
-import { Plugin } from "../src/internal/plugins/types.js";
-import { mkMemoryId } from "../src/memory-adapter-helpers.js";
-import type { AgentOptions } from "../src/types/agent.js";
-import type { MemoryAdapter, MemoryContext } from "../src/types/memory-adapter.js";
-import { messageDelta, sseFrame } from "./helpers/anthropic-sse.js";
-import { useTempCwd } from "./helpers/temp-workspace.js";
+import { Agent } from "../../src/index.js";
+import { setDiagnosticsSink } from "../../src/internal/diagnostics.js";
+import { Plugin } from "../../src/internal/plugins/types.js";
+import { mkMemoryId } from "../../src/memory-adapter-helpers.js";
+import type { AgentOptions } from "../../src/types/agent.js";
+import type { MemoryAdapter, MemoryContext } from "../../src/types/memory-adapter.js";
+import { messageDelta, sseFrame } from "../helpers/anthropic-sse.js";
+import { useTempCwd } from "../helpers/temp-workspace.js";
 
 useTempCwd();
 

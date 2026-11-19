@@ -11,6 +11,7 @@
  */
 
 import { ConfigurationError } from "../../errors.js";
+import type { AgentOptions } from "../../types/agent.js";
 import type {
   AgentMemory,
   MemoryAdapter,
@@ -20,6 +21,7 @@ import type {
   MemoryTurnMessage,
 } from "../../types/memory-adapter.js";
 import { diag } from "../diagnostics.js";
+import { createMemoryMirror, type MemoryMirror } from "../memory/mirror.js";
 import type { PluginManager } from "../plugins/manager.js";
 
 export interface ResolvedAdapters {
@@ -245,4 +247,31 @@ export function buildAgentMemory(
       return resolved.adapters[0] ?? null;
     },
   };
+}
+
+/**
+ * Build the `agent.memory` accessor and, when `memory.mirror` is set, the built-in-store mirror,
+ * over one shared adapter resolver so each adapter is initialized once.
+ *
+ * @internal
+ */
+export function wireAgentMemory(
+  pluginManager: PluginManager,
+  workspaceCwd: string,
+  options: AgentOptions,
+): [AgentMemory, MemoryMirror | undefined] {
+  const resolver = createAdapterResolver(pluginManager, workspaceCwd);
+  const memory = buildAgentMemory(pluginManager, workspaceCwd, options.memoryContext, resolver);
+  const settings = options.memory;
+  if (settings?.enabled !== true || settings.mirror === undefined) return [memory, undefined];
+  const mirror = createMemoryMirror({
+    options: settings.mirror,
+    adapters: async () => (await resolver.ensure()).adapters,
+    context: () => {
+      const userId = options.memoryContext?.userId ?? settings.userId;
+      if (userId === undefined || userId === "") return undefined;
+      return { ...options.memoryContext, userId };
+    },
+  });
+  return [memory, mirror];
 }
