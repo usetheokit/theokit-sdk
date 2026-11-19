@@ -131,6 +131,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ContextSnapshot` | interface | Result of `agent.context.snapshot()`.  |
 | `ContextSource` | interface | A single context source resolved by the context manager. |
 | `ContextSourceStatus` | type | Inclusion state of a single context source in a {@link ContextSnapshot } . |
+| `ConversationRef` | interface | Where a run's conversation lives, as the caller declares it.  |
 | `ConversationStep` | type | A single step inside an agent turn, discriminated by `type`: an assistant message, a tool call, the tool result that pairs with it, or a thinking block.  |
 | `ConversationTurn` | type | Structured per-turn view of a run. |
 | `CostBreakdown` | interface | Cost breakdown attached to `RunResult.cost`.  |
