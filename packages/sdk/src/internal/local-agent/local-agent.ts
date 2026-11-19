@@ -79,7 +79,6 @@ import {
 import { type DispatchRunArgs, executeSendLocked } from "./local-agent-send.js";
 import { registerRunAsTask } from "./local-agent-task-wrap.js";
 import { reportUnknownLocalOptions } from "./local-option-keys.js";
-import { applySendDefaults } from "./send-defaults.js";
 import {
   type ActiveTurn,
   type CollectBatch,
@@ -309,8 +308,7 @@ export class LocalAgent implements SDKAgent {
     return agentGenerate(this, this.model, apiKey, local, message, options);
   }
 
-  async send(message: string | SDKUserMessage, callOptions: SendOptions = {}): Promise<Run> {
-    const options = applySendDefaults(this.options.sendDefaults, callOptions);
+  async send(message: string | SDKUserMessage, options: SendOptions = {}): Promise<Run> {
     // Per-call tools: run the same name/schema/dedupe checks as creation.
     // (Cloud agents reject per-call tools in CloudAgent.send.)
     if (options.tools !== undefined && options.tools.length > 0) {

@@ -82,7 +82,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `handoff_target_invalid` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:116` |
 | `handoff_target_required` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:111` |
 | `hitl_timeout` | domain | HitlTimeoutError | `packages/sdk/src/internal/runtime/tools/hitl-middleware.ts:42` +1 |
-| `hook_denied` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent.ts:555` |
+| `hook_denied` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent.ts:553` |
 | `hook_fingerprint_invalid` | domain | ConfigurationError | `packages/sdk/src/hooks-approval.ts:48` |
 | `hooks_invalid_command` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:436` |
 | `hooks_json_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:273` +2 |
@@ -104,7 +104,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_filename_id` | domain | ConfigurationError | `packages/sdk/src/internal/security/path-guard.ts:486` |
 | `invalid_identifier` | domain | ConfigurationError | `packages/sdk/src/internal/security/path-guard.ts:434` +2 |
 | `invalid_input` | domain | MemoryAdapterError | `packages/memory-honcho/src/adapter.ts:98` +9 |
-| `invalid_max_iterations` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/real-local-run.ts:94` |
+| `invalid_max_iterations` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/real-local-run.ts:96` |
 | `invalid_mcp_tool_filter` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/tool-filter.ts:36` +1 |
 | `invalid_memory_backend` | domain | ConfigurationError | `packages/sdk/src/internal/memory/index-manager-dispatch.ts:24` |
 | `invalid_memory_ceiling` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:23` +1 |

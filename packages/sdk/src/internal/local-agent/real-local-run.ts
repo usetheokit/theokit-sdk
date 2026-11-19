@@ -24,6 +24,7 @@ export type { CreateRealLocalRunOptions } from "./real-local-run-options.js";
 import type { CreateRealLocalRunOptions } from "./real-local-run-options.js";
 import { mergeExplicitApiKey, resolveRunProvider } from "./real-local-run-provider.js";
 import { buildRunToolCatalogInput, resolveInheritedCredentials } from "./real-local-run-tools.js";
+import { applySendDefaults } from "./send-defaults.js";
 
 export function createRealLocalRun(options: CreateRealLocalRunOptions): Run {
   const { userText, userImages, id, startTime } = prepareRunContext(options.message);
@@ -65,8 +66,9 @@ export function createRealLocalRun(options: CreateRealLocalRunOptions): Run {
  * pruning (the forward is pinned by tests/agent-loop/prune-aged-tool-results-send-path.test.ts) so a consumer can enable them via SendOptions (not only internal AgentLoopInputs).
  */
 function toolResultPolicyInputs(
-  sendOptions: CreateRealLocalRunOptions["sendOptions"],
+  run: CreateRealLocalRunOptions,
 ): Pick<AgentLoopInputs, "perToolTimeoutMs" | "toolResultGuard" | "pruneToolResults"> {
+  const sendOptions = applySendDefaults(run.agentOptions.sendDefaults, run.sendOptions);
   return {
     ...(sendOptions.perToolTimeoutMs !== undefined
       ? { perToolTimeoutMs: sendOptions.perToolTimeoutMs }
@@ -192,7 +194,7 @@ function buildLoopInputs(
       ? { runEventSink: options.sendOptions.onRunEvent }
       : {}),
     ...(options.steerQueue !== undefined ? { steerQueue: options.steerQueue } : {}),
-    ...toolResultPolicyInputs(options.sendOptions),
+    ...toolResultPolicyInputs(options),
     // M1-2: per-send iteration ceiling (validated above). The loop reads
     // inputs.maxIterations (default 8 when unset).
     ...(maxIterations !== undefined ? { maxIterations } : {}),
