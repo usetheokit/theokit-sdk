@@ -772,7 +772,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | Symbol | Kind | Summary |
 |---|---|---|
 | `clampYield` | function | Bound the yield window to [ {@link YIELD_MIN_MS } , {@link YIELD_MAX_MS } ]. |
+| `ConfinedPtyBackendOptions` | interface | Options for {@link createConfinedPtyBackend } . |
+| `ConfinementProbeResult` | type | Outcome of {@link probeConfinement } : confined, or the reason it could not be proven. |
+| `createConfinedPtyBackend` | function | An {@link InteractiveBackend } whose every session starts in `root`, runs under `interactiveWrapCommand({ mode })` and sees only the allowlisted environment (plus `HOME=root`).  |
 | `MaxSessionsError` | class | M77 — the {@link PtyInteractiveBackendOptions.maxSessions } ceiling was reached.  |
+| `probeConfinement` | function | Starts a real session that touches `paths.inside` (inside the root) and `paths.outside` (beside it), and reports whether the confinement held.  |
 | `PtyInteractiveBackend` | class | `InteractiveBackend` backed by a real pty, for programs that only behave correctly on a terminal.  |
 | `PtyInteractiveBackendOptions` | interface | Constructor options for {@link PtyInteractiveBackend } .  |
 | `YIELD_MAX_MS` | const | Ceiling for `StartInteractiveOptions.yieldMs`, clamped down.  |
