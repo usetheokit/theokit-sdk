@@ -249,40 +249,53 @@ export class MessageBus {
   private async _pumpAgent(transport: A2ATransport, agentId: string): Promise<number> {
     const stranded = this._stranded.get(agentId) ?? [];
     this._stranded.delete(agentId);
-    let polled: A2AMessage[];
-    try {
-      polled = await transport.poll(agentId);
-    } catch (cause) {
-      this._stranded.set(agentId, stranded);
-      throw cause;
-    }
-    const batch = [...stranded, ...polled];
+    const batch = [...stranded, ...(await this._pollKeeping(transport, agentId, stranded))];
     let delivered = 0;
     for (let i = 0; i < batch.length; i++) {
       const handler = this._handlers.get(agentId);
       if (!handler) {
-        // `poll` already removed the whole batch: unregistered mid-pump, so hand the rest back
-        // to the transport instead of losing it.
-        // If the transport refuses a message, keep it (and keep going) so none is dropped.
-        const kept: A2AMessage[] = [];
-        for (const message of batch.slice(i)) {
-          try {
-            await transport.send(message);
-          } catch (cause) {
-            const reason = cause instanceof Error ? cause.message : String(cause);
-            diag(
-              `[theokit-sdk] a2a: requeue for "${agentId}" failed, will retry on next pump: ${reason}\n`,
-            );
-            kept.push(message);
-          }
-        }
-        if (kept.length > 0) this._stranded.set(agentId, kept);
+        // `poll` already removed the whole batch: unregistered mid-pump, so hand the rest back.
+        await this._requeue(transport, agentId, batch.slice(i));
         break;
       }
       delivered++;
       await this._deliverPumped(agentId, handler, batch[i] as A2AMessage);
     }
     return delivered;
+  }
+
+  private async _pollKeeping(
+    transport: A2ATransport,
+    agentId: string,
+    stranded: A2AMessage[],
+  ): Promise<A2AMessage[]> {
+    try {
+      return await transport.poll(agentId);
+    } catch (cause) {
+      if (stranded.length > 0) this._stranded.set(agentId, stranded);
+      throw cause;
+    }
+  }
+
+  /** Hand messages back to the transport; any it refuses are kept for the next pump. */
+  private async _requeue(
+    transport: A2ATransport,
+    agentId: string,
+    messages: A2AMessage[],
+  ): Promise<void> {
+    const kept: A2AMessage[] = [];
+    for (const message of messages) {
+      try {
+        await transport.send(message);
+      } catch (cause) {
+        const reason = cause instanceof Error ? cause.message : String(cause);
+        diag(
+          `[theokit-sdk] a2a: requeue for "${agentId}" failed, will retry on next pump: ${reason}\n`,
+        );
+        kept.push(message);
+      }
+    }
+    if (kept.length > 0) this._stranded.set(agentId, kept);
   }
 
   private async _deliverPumped(
