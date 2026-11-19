@@ -56,10 +56,10 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `context_too_long` | domain | — | `packages/sdk/src/internal/error-mappers/openai-compatible.ts:133` |
 | `credential_pool_ambiguous` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:75` +1 |
 | `credential_pool_empty` | domain | ConfigurationError | `packages/sdk/src/internal/llm/credential-pool.ts:91` |
-| `cron_ambiguous_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:215` |
-| `cron_missing_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:233` +1 |
-| `cron_no_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:221` +1 |
-| `cron_workflow_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:227` |
+| `cron_ambiguous_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:251` |
+| `cron_missing_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:269` +1 |
+| `cron_no_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:257` +1 |
+| `cron_workflow_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:263` |
 | `decision_checksum_mismatch` | domain | — | `packages/sdk/src/decide.ts:59` |
 | `discovery_list_pattern_globbed` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-discovery-runner.ts:144` |
 | `duplicate_skill_name` | domain | ConfigurationError | `packages/sdk/src/define-skill-read-tool.ts:166` |
@@ -256,7 +256,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `unknown_agent` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:224` +1 |
 | `unknown_artifact` | domain | UnknownAgentError | `packages/sdk/src/internal/cloud-agent/cloud-agent.ts:313` |
 | `unknown_category` | domain | ConfigurationError | `packages/sdk-memory/src/internal/categorized-memory.ts:76` |
-| `unknown_cron_job` | domain | UnknownAgentError | `packages/sdk/src/cron.ts:80` +2 |
+| `unknown_cron_job` | domain | UnknownAgentError | `packages/sdk/src/cron.ts:116` +2 |
 | `unsafe_filename` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/project-instructions.ts:120` |
 | `unsupported_schema` | domain | ConfigurationError | `packages/sdk/src/schema-normalizer.ts:110` +1 |
 | `upstream_run_failed` | domain | — | `packages/sdk/src/errors.ts:656` |
