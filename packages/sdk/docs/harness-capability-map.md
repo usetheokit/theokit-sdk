@@ -839,7 +839,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `QuestionTool` | interface | M76 — aligned with the SDK's `CustomTool`.  |
 | `QuestionToolOptions` | interface | `question` — interactive tool that asks the user a question and waits for a response.  |
 | `ReadTracker` | class | `ReadTracker` — SE32 read-before-write safety.  |
-| `readXwdHeader` | function |  |
+| `readXwdHeader` | function | Validate and parse the XWD header in `bytes` without allocating pixel buffers. |
 | `ReasoningTools` | class | Reasoning scratchpad tools.  |
 | `RedirectBlockedError` | class | Thrown when a request is refused by the REDIRECT policy (the `maxRedirects` hop limit was exceeded) — a distinct event from {@link SsrfBlockedError } (a blocked host).  |
 | `renderToolList` | function | Render the agent's actual `CustomTool[]` — single source of truth, so an overridden/added/removed tool is reflected automatically.  |
@@ -871,11 +871,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `withName` | function | Return a new `CustomTool` exposed under a different `name`, sharing the SAME `inputSchema` + `handler` (alias parity).  |
 | `withShellExitGuidance` | function | Wrap `shell_exec` so a SOFT failure — `{ ok: true, exit_code != 0 }` (the TOOL ran, the COMMAND failed) — gains a `guidance` hint.  |
 | `withToolResultGuidance` | function | Wrap a `CustomTool` so its failed results gain a `guidance` hint from `guidance`.  |
-| `XWD_LIMITS` | const |  |
-| `XwdFormatError` | class |  |
-| `XwdHeader` | interface |  |
+| `XWD_LIMITS` | const | Upper bounds enforced on an untrusted header before any allocation. |
+| `XwdFormatError` | class | A header field is unsupported or outside `XWD_LIMITS`; names the file, field and value. |
+| `XwdHeader` | interface | Parsed fields of an XWD header that a ZPixmap framebuffer needs. |
 | `XwdNotWrittenError` | class | The header or pixel data is larger than the bytes read: Xvfb may still be writing; retry. |
-| `xwdToPng` | function |  |
+| `xwdToPng` | function | Decode an XWD (24/32-bit ZPixmap) into an RGB PNG; throws `XwdNotWrittenError` while the file is incomplete. |
 
 ## `@theokit/sdk-tools/extract-document`
 

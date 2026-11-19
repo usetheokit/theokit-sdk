@@ -63,13 +63,12 @@ describe("xwdToPng", () => {
     expect(idatPixels(xwdToPng(build({ bpp: 24, lsb: false }), "fb").png)).toEqual(EXPECTED);
   });
   it("rejects an oversized width by field and value", () => {
-    const err = (() => {
-      try {
-        readXwdHeader(build({ bpp: 32, lsb: true, over: { 4: 16385 } }), "fb");
-      } catch (e) {
-        return e as XwdFormatError;
-      }
-    })();
+    let err: XwdFormatError | undefined;
+    try {
+      readXwdHeader(build({ bpp: 32, lsb: true, over: { 4: 16385 } }), "fb");
+    } catch (e) {
+      err = e as XwdFormatError;
+    }
     expect(err).toBeInstanceOf(XwdFormatError);
     expect(err?.field).toBe("width");
     expect(err?.value).toBe(16385);
