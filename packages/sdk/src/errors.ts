@@ -722,3 +722,22 @@ export class ToolCallBlockedError extends TheokitAgentError {
     this.pluginMessage = pluginMessage;
   }
 }
+
+/**
+ * Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a
+ * variable the profile owns. Lists variable NAMES only, never their values.
+ *
+ * @public
+ */
+export class ProfileConflictError extends ConfigurationError {
+  override readonly name: string = "ProfileConflictError";
+  readonly variables: readonly string[];
+
+  constructor(variables: readonly string[]) {
+    super(
+      `Profile conflicts with variables already set: ${variables.join(", ")}. Unset them or drop the profile.`,
+      { code: "profile_conflict" },
+    );
+    this.variables = [...variables];
+  }
+}
