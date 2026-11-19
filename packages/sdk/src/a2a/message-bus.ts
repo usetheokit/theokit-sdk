@@ -145,6 +145,8 @@ export interface RequestOptions {
 export class MessageBus {
   private readonly _handlers = new Map<string, MessageHandler>();
   private readonly _transport: A2ATransport | undefined;
+  /** Messages polled but neither delivered nor handed back to the transport; retried by the next pump. */
+  private readonly _stranded = new Map<string, A2AMessage[]>();
 
   constructor(options?: { transport?: A2ATransport }) {
     this._transport = options?.transport;
@@ -245,14 +247,34 @@ export class MessageBus {
   }
 
   private async _pumpAgent(transport: A2ATransport, agentId: string): Promise<number> {
-    const batch = await transport.poll(agentId);
+    const stranded = this._stranded.get(agentId) ?? [];
+    this._stranded.delete(agentId);
+    let polled: A2AMessage[];
+    try {
+      polled = await transport.poll(agentId);
+    } catch (cause) {
+      this._stranded.set(agentId, stranded);
+      throw cause;
+    }
+    const batch = [...stranded, ...polled];
     let delivered = 0;
     for (let i = 0; i < batch.length; i++) {
       const handler = this._handlers.get(agentId);
       if (!handler) {
         // `poll` already removed the whole batch: unregistered mid-pump, so hand the rest back
         // to the transport instead of losing it.
-        for (const message of batch.slice(i)) await transport.send(message);
+        // If the transport refuses a message, keep it (and keep going) so none is dropped.
+        const kept: A2AMessage[] = [];
+        for (const message of batch.slice(i)) {
+          try {
+            await transport.send(message);
+          } catch (cause) {
+            const reason = cause instanceof Error ? cause.message : String(cause);
+            diag(`[theokit-sdk] a2a: requeue for "${agentId}" failed, will retry on next pump: ${reason}\n`);
+            kept.push(message);
+          }
+        }
+        if (kept.length > 0) this._stranded.set(agentId, kept);
         break;
       }
       delivered++;

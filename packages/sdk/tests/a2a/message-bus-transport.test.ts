@@ -107,4 +107,36 @@ describe("MessageBus transport", () => {
     expect(handler).not.toHaveBeenCalled();
     expect(await inner.poll("worker")).toHaveLength(1);
   });
+  it("keeps every pending message when requeue send rejects, and retries on the next pump", async () => {
+    const inner = inMemoryTransport();
+    let failSends = false;
+    const b: MessageBus = new MessageBus({
+      transport: {
+        send: async (m) => {
+          if (failSends) throw new Error("down");
+          await inner.send(m);
+        },
+        poll: (id) => inner.poll(id),
+      },
+    });
+    const seen: unknown[] = [];
+    b.register("worker", (m) => {
+      seen.push(m.payload);
+      b.unregister("worker");
+      failSends = true;
+    });
+    for (const n of [1, 2, 3, 4]) {
+      await inner.send({ type: "t", payload: n, from: "x", to: "worker", timestamp: 0 } as A2AMessage);
+    }
+    expect(await b.pump()).toBe(1);
+    expect(await inner.poll("worker")).toHaveLength(0);
+    failSends = false;
+    const later: unknown[] = [];
+    b.register("worker", (m) => {
+      later.push(m.payload);
+    });
+    expect(await b.pump()).toBe(3);
+    expect(seen).toEqual([1]);
+    expect(later).toEqual([2, 3, 4]);
+  });
 });
