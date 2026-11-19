@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1421 export(s) across 57 entry point(s).
+1424 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1659,6 +1659,14 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `InMemoryTaskStore` | class | Default `TaskStore` — a plain `Map` living in the current process.  |
 | `JsonFileTaskStore` | class | Opt-in `TaskStore` that keeps one JSON file per task under `dir`, so another process can read the registry off disk.  |
 | `TaskStore` | interface | Storage interface used by `TaskRegistry`. |
+
+## `@theokit/sdk/telemetry-node`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `RegisteredTelemetry` | interface | Handle returned by {@link registerTelemetry } . |
+| `registerTelemetry` | function | Registers global OpenTelemetry tracer and meter providers that export over OTLP/HTTP, so spans recorded by agents created with `telemetry: { enabled: true }` actually leave the process. |
+| `RegisterTelemetryOptions` | interface | Options for {@link registerTelemetry } . |
 
 ## `@theokit/sdk/workflow`
 
