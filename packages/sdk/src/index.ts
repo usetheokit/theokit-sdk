@@ -429,6 +429,8 @@ export type {
   AgentSubagentDescription,
   AgentToolDescription,
   CustomTool,
+  MemoryMirrorOptions,
+  MemorySettings,
   SDKAgent,
 } from "./types/agent.js";
 export type { AgentLike, RunLike } from "./types/agent-like.js";

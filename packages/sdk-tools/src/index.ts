@@ -153,3 +153,11 @@ export {
   createGenericHttpSearchAdapter,
 } from "./web-search-http.js";
 export { type CreateWriteFileToolOptions, createWriteFileTool } from "./write-file.js";
+export {
+  readXwdHeader,
+  XWD_LIMITS,
+  XwdFormatError,
+  type XwdHeader,
+  XwdNotWrittenError,
+  xwdToPng,
+} from "./xwd.js";
