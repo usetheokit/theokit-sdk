@@ -167,6 +167,16 @@ await Cron.create({
 await Cron.start();   // required for local jobs to fire
 ```
 
+To reject a bad schedule when you read config, call the synchronous validators from `@theokit/sdk/cron`. They apply the same rules as `Cron.create`:
+
+```typescript
+import { validateCron, validateCronTimezone } from "@theokit/sdk/cron";
+
+validateCron("0 9 * * 1-5");             // ok
+validateCron("61 * * * *");              // throws ConfigurationError (code "invalid_cron")
+validateCronTimezone("America/Sao_Paulo"); // ok; "Mars/Base" throws "invalid_timezone"
+```
+
 Two runtimes: **local** (in-process scheduler — fires while the host process is alive) and **cloud** (Theo PaaS schedules server-side). See the exported `Cron` types for the full contract.
 
 ## Hook allowlists
