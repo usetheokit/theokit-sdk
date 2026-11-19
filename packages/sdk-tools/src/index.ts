@@ -149,6 +149,11 @@ export {
   createBraveWebSearchAdapter,
 } from "./web-search-brave.js";
 export {
+  type ResolvedWebSearch,
+  resolveWebSearchAdapter,
+  type WebSearchProvider,
+} from "./web-search-from-env.js";
+export {
   type CreateGenericHttpSearchAdapterOptions,
   createGenericHttpSearchAdapter,
 } from "./web-search-http.js";

@@ -91,6 +91,25 @@ import { createReadFileTool } from "@theokit/sdk-tools";
 
 See the monorepo `CHANGELOG.md` for the 1.x → 2.0 package-split migration notes.
 
+## Web search from the environment
+
+`resolveWebSearchAdapter(env, { fetchImpl? })` picks a web search adapter from an env record you pass in
+(it never reads `process.env`). Blank values count as unset. First match wins:
+
+1. `THEOKIT_SEARCH`: `brave`, `tavily` (each needs its `*_API_KEY`), `searxng:<http(s) url>`, `generic`, or `off`.
+2. `BRAVE_API_KEY` selects Brave.
+3. `TAVILY_API_KEY` selects Tavily.
+4. `THEOKIT_SEARCH_API_URL` plus `THEOKIT_SEARCH_API_KEY` selects the generic HTTP adapter.
+
+With none set it returns no `adapter` and an `offReason` naming these variables. A half-configured generic pair,
+a missing key for an explicit choice, a bad `searxng:` URL or an unknown `THEOKIT_SEARCH` value throws
+`ConfigurationError` naming the variable, never its value. `secrets` lists the credentials for your output mask.
+
+```ts
+const { adapter, secrets, offReason } = resolveWebSearchAdapter(process.env);
+const search = adapter ? createWebSearchTool({ search: adapter }) : undefined;
+```
+
 ## API reference
 
 Every symbol this package exports, with the exact specifier to import it from, is in the generated
