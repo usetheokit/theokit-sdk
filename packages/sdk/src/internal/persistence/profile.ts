@@ -17,6 +17,7 @@ export interface ResolvedProfile {
   readonly env: Readonly<Record<string, string>>;
 }
 
+/** Options for {@link resolveProfile}. */
 export interface ResolveProfileOptions {
   /** Default `getProfilesRoot()`. */
   profilesRoot?: string;

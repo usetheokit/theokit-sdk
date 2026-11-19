@@ -10,9 +10,9 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ConfigurationError } from "../../src/errors.js";
-import { _resetForTests, setTokens } from "../../src/internal/mcp/token-storage.js";
-import { applyProfile, ProfileConflictError, resolveProfile } from "../../src/persistence.js";
+import { ConfigurationError } from "../src/errors.js";
+import { _resetForTests, setTokens } from "../src/internal/mcp/token-storage.js";
+import { applyProfile, ProfileConflictError, resolveProfile } from "../src/persistence.js";
 
 const POSIX = process.platform !== "win32";
 let tmp: string;
@@ -47,7 +47,8 @@ describe("resolveProfile", () => {
   });
 
   it.each(["../out", "/abs", "a/../b", "THEOKIT_HOME"])("rejects app directory %j", (v) => {
-    const appDirectories = v === "THEOKIT_HOME" ? { THEOKIT_HOME: "x" } : { X: v };
+    const appDirectories: Record<string, string> =
+      v === "THEOKIT_HOME" ? { THEOKIT_HOME: "x" } : { X: v };
     expect(() => resolveProfile("work", { profilesRoot: tmp, appDirectories })).toThrow(
       ConfigurationError,
     );
