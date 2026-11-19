@@ -14,6 +14,7 @@
 import type { AgentDefinition, AgentOptions } from "../../types/agent.js";
 import type { SessionStore } from "../../types/session-store.js";
 import { diag } from "../diagnostics.js";
+import type { TurnReviewQueue } from "../memory/turn-review.js";
 import { withCwdMutex } from "../persistence/cwd-mutex.js";
 import type { FileContextManager } from "../runtime/context/context-manager.js";
 import type { PluginsManager } from "../runtime/plugin-loader/plugins-manager.js";
@@ -90,6 +91,8 @@ export interface LocalAgentDisposeTarget {
   readonly workspaceCwd: string;
   readonly lifecycleAbortController: AbortController;
   readonly sessionStore: SessionStore;
+  /** `memory.review` queue, drained (bounded) before the agent's resources are released. */
+  readonly reviewQueue?: TurnReviewQueue | undefined;
 }
 
 /**
@@ -105,6 +108,9 @@ export interface LocalAgentDisposeTarget {
 export async function disposeLocalAgentSession(agent: LocalAgentDisposeTarget): Promise<void> {
   // Evict from live cache so the next Agent.getOrCreate(id) builds fresh.
   liveAgentRegistry.forget(agent.agentId, agent);
+  // Queued memory reviews finish (bounded) BEFORE the abort below: they are the agent's own
+  // post-turn work, and the abort would cancel the reviewer's model call.
+  await agent.reviewQueue?.drain();
   // D319: fire the lifecycle abort so any in-flight LLM `fetch()` cancels.
   // `abort()` is idempotent — safe to call even when already aborted.
   agent.lifecycleAbortController.abort();

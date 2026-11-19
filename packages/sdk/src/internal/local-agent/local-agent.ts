@@ -16,6 +16,7 @@ import type { AgentOperation } from "../../types/sdk-agent.js";
 import type { SessionStore } from "../../types/session-store.js";
 import { diagFailure } from "../diagnostics.js";
 import { generateLocalAgentId } from "../ids.js";
+import { TurnReviewQueue } from "../memory/turn-review.js";
 import { withCwdMutex } from "../persistence/cwd-mutex.js";
 import { FsSessionStore } from "../persistence/fs-session-store.js";
 import { resolveSessionDir } from "../persistence/session-dir.js";
@@ -165,6 +166,8 @@ export class LocalAgent implements SDKAgent {
    * Accessible to tests via `_defaultMemoryProviderForLoop()` helper.
    * @internal
    */
+  /** `memory.review`: serial post-turn reviews; undefined when review is off. @internal */
+  readonly reviewQueue: TurnReviewQueue | undefined;
   private readonly defaultMemoryProviderForLoop: ReturnType<typeof createLocalAgentMemoryProvider>;
   /** T4.1 — PluginManager for code plugins (kind: general/model-provider/memory). @internal */
   private readonly pluginManagerCode: PluginManager = new PluginManager();
@@ -223,10 +226,12 @@ export class LocalAgent implements SDKAgent {
     // ADR D141 / D142: `agent.memory.*` direct API over plugin-aggregated adapters.
     // Built unconditionally; `requireAdapters` throws ConfigurationError when called
     // without any registered memory plugin.
+    this.reviewQueue = this.buildReviewQueue();
     this.memory = buildAgentMemory(
       this.pluginManagerCode,
       this.workspaceCwd,
       this.options.memoryContext,
+      () => this.reviewQueue?.idle() ?? Promise.resolve(),
     );
 
     registerLocalAgent({
@@ -234,6 +239,20 @@ export class LocalAgent implements SDKAgent {
       model: this.model,
       options,
       workspaceCwd: this.workspaceCwd,
+    });
+  }
+
+  private buildReviewQueue(): TurnReviewQueue | undefined {
+    const memory = this.options.memory;
+    if (memory?.enabled !== true || memory.review === undefined) return undefined;
+    return new TurnReviewQueue({
+      agentId: this.agentId,
+      options: this.options,
+      workspaceCwd: this.workspaceCwd,
+      createAgent: async (opts) => {
+        const { getAgentFacade } = await import("../runtime/registry/agent-factory-registry.js");
+        return getAgentFacade().create(opts);
+      },
     });
   }
 
@@ -477,6 +496,7 @@ export class LocalAgent implements SDKAgent {
         options: this.options,
         pluginManagerCode: this.pluginManagerCode,
         defaultMemoryProviderForLoop: this.defaultMemoryProviderForLoop,
+        reviewQueue: this.reviewQueue,
         workspaceCwd: this.workspaceCwd,
         telemetry: this._telemetry,
         lifecycleAbortController: this.lifecycleAbortController,

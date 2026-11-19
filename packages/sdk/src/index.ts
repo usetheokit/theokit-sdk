@@ -429,6 +429,8 @@ export type {
   AgentSubagentDescription,
   AgentToolDescription,
   CustomTool,
+  MemoryReviewOptions,
+  MemorySettings,
   SDKAgent,
 } from "./types/agent.js";
 // SE7 — structured/multimodal tool-result content blocks (explicit for rollup-dts).

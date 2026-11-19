@@ -203,4 +203,10 @@ export interface AgentMemory {
 
   /** Returns the first registered adapter or `null` when none exists. */
   adapter(): MemoryAdapter | null;
+
+  /**
+   * Resolves once every queued `memory.review` turn review has finished (or at once when review
+   * is off). For tests and shutdown; `dispose()` already waits, bounded.
+   */
+  reviewsIdle(): Promise<void>;
 }

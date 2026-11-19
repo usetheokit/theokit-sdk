@@ -5,6 +5,7 @@ import type { MemoryToolSpec } from "../agent-loop/types.js";
 import { anySignal } from "../concurrency/abort-utils.js";
 import { diagFailure } from "../diagnostics.js";
 import { emitRunEvent } from "../emit-run-event.js";
+import type { TurnReviewQueue } from "../memory/turn-review.js";
 import type { PluginManager } from "../plugins/manager.js";
 import {
   type CompletionCheckDeps,
@@ -44,6 +45,8 @@ export interface SendLockedInputs {
     typeof import("./local-agent-memory-provider.js").createLocalAgentMemoryProvider
   >;
   workspaceCwd: string;
+  /** `memory.review` queue; undefined when review is off. */
+  reviewQueue?: TurnReviewQueue | undefined;
   telemetry: TelemetryHandle;
   lifecycleAbortController: AbortController;
   runPreHook: (userText: string) => Promise<void>;
@@ -247,6 +250,7 @@ export async function executeSendLocked(
     options: inputs.options,
     run: processedRun,
     userText,
+    reviewQueue: inputs.reviewQueue,
   });
   // SE34 — outermost wrap: judge the FINAL reply against the per-send completion
   // criterion (opt-in). Absent `completionCheck` ⇒ returns `hookedRun` unchanged.

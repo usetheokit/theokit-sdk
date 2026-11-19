@@ -13,6 +13,7 @@
 
 import type { AgentOptions } from "../../types/agent.js";
 import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
+import type { TurnReviewQueue } from "../memory/turn-review.js";
 import type { PluginManager } from "../plugins/manager.js";
 
 const DEFAULT_MAX_RECALL_BYTES = 16_000;
@@ -68,6 +69,18 @@ async function runCalledATool(run: Run): Promise<boolean> {
   return false;
 }
 
+/** Queue one memory review for a run that finished with a reply. Returns whether it queued. */
+function enqueueReview(
+  queue: TurnReviewQueue | undefined,
+  prompt: string,
+  result: { status: string; result?: string },
+): boolean {
+  if (queue === undefined || result.status !== "finished") return false;
+  if (typeof result.result !== "string" || result.result.length === 0) return false;
+  queue.enqueue({ prompt, reply: result.result });
+  return true;
+}
+
 /**
  * Wrap a `Run` so `post_assistant_reply` fires once after `wait()`.
  * Fire-and-forget — errors are surfaced to stderr (EC-O) so the caller
@@ -80,11 +93,16 @@ export function wrapRunWithPostReplyHook(args: {
   options: AgentOptions;
   run: Run;
   userText: string;
+  /** `memory.review`: gets one turn per run that ends `finished` with a reply. */
+  reviewQueue?: TurnReviewQueue | undefined;
 }): Run {
   const handlers = args.pluginManager.hooksFor("post_assistant_reply");
-  if (handlers.length === 0) return args.run;
+  if (handlers.length === 0 && args.reviewQueue === undefined) return args.run;
+  let reviewed = false;
   const wrappedWait: Run["wait"] = async () => {
     const result = await args.run.wait();
+    if (!reviewed && enqueueReview(args.reviewQueue, args.userText, result)) reviewed = true;
+    if (handlers.length === 0) return result;
     const replyText = (result as { result?: string }).result ?? "";
     const ctx = {
       prompt: args.userText,

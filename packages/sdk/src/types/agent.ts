@@ -467,6 +467,21 @@ export type SkillsResolver = (
 ) => SkillsSettings | Promise<SkillsSettings>;
 
 /**
+ * Turn review for {@link MemorySettings.review}: after each finished turn a small internal
+ * reviewer agent reads the turn and saves durable facts about the user.
+ *
+ * @public
+ */
+export interface MemoryReviewOptions {
+  /** When to review. Only `"turn"` exists: once after each run that ends `finished` with a reply. */
+  after: "turn";
+  /** Model for the reviewer. Default: the agent's model. */
+  model?: string;
+  /** Replaces the default review instructions. */
+  instructions?: string;
+}
+
+/**
  * Memory configuration accepted by `Agent.create()` via {@link AgentOptions.memory}.
  *
  * Persists durable facts as markdown files under `<cwd>/.theokit/memory/` (or `directory`), with the
@@ -486,6 +501,11 @@ export type SkillsResolver = (
  */
 export interface MemorySettings {
   enabled: boolean;
+  /**
+   * Save durable facts from each finished turn with an internal reviewer. Needs `enabled: true`.
+   * See {@link MemoryReviewOptions}.
+   */
+  review?: MemoryReviewOptions;
   namespace?: string;
   userId?: string;
   scope?: "agent" | "user" | "team";

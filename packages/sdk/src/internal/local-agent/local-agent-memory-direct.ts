@@ -76,6 +76,7 @@ export function buildAgentMemory(
   pluginManager: PluginManager,
   workspaceCwd: string,
   defaultContext: MemoryContext | undefined,
+  reviewsIdle: () => Promise<void> = () => Promise.resolve(),
 ): AgentMemory {
   let resolved: ResolvedAdapters | undefined;
 
@@ -199,6 +200,8 @@ export function buildAgentMemory(
       }
       await target.delete(id);
     },
+
+    reviewsIdle,
 
     adapter(): MemoryAdapter | null {
       // Synchronous — only useful AFTER `ensure()` resolved at least once.
