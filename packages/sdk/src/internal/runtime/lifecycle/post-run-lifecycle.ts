@@ -24,8 +24,7 @@ import {
 import type { HooksExecutor } from "../hooks/hooks-executor.js";
 import type { MemoryProvider } from "../memory-glue/memory-provider.js";
 import { buildContextBudgetEvent } from "./context-budget-event.js";
-import type { DeferredDurability } from "./deferred-durability.js";
-import { readRunResolving } from "./throw-on-error-run.js";
+import { type DeferredDurability, readRunResolving } from "./throw-on-error-run.js";
 
 /**
  * Inputs for {@link runPostRunLifecycle}. Bundled into a single record so the

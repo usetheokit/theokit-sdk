@@ -30,13 +30,13 @@ import { reportUndeclaredSources } from "../runtime/compat/foreign-config-source
 import type { ProvidersManagerImpl } from "../runtime/config/providers-manager.js";
 import type { FileContextManager } from "../runtime/context/context-manager.js";
 import { HooksExecutor } from "../runtime/hooks/hooks-executor.js";
+import { runPostRunLifecycle } from "../runtime/lifecycle/post-run-lifecycle.js";
 import {
-  createDeferredDurability,
+  durabilityOf,
   settleAfter,
   withDeferredDurability,
-} from "../runtime/lifecycle/deferred-durability.js";
-import { runPostRunLifecycle } from "../runtime/lifecycle/post-run-lifecycle.js";
-import { wrapRunWithThrowOnError } from "../runtime/lifecycle/throw-on-error-run.js";
+  wrapRunWithThrowOnError,
+} from "../runtime/lifecycle/throw-on-error-run.js";
 import type { MemoryFact } from "../runtime/memory-glue/memory-store.js";
 import { normalizeModel } from "../runtime/model-selection.js";
 import { importTrustedManifestPlugins } from "../runtime/plugin-loader/manifest-entry-import.js";
@@ -442,15 +442,14 @@ export class LocalAgent implements SDKAgent {
     }
     // T3.2: opt-in Task wrapping (ADRs D363/D374).
     if (options.task !== undefined) registerRunAsTask(run, this.agentId, options.task, userText);
-    const durability = createDeferredDurability();
-    const view = withDeferredDurability(callerView(run, this.options.throwOnError), durability);
+    const view = withDeferredDurability(callerView(run, this.options.throwOnError));
     res(view);
     resolve(view);
     try {
-      await settleAfter(durability, () =>
+      await settleAfter(view, () =>
         runPostRunLifecycle({
           run,
-          deferredDurability: durability,
+          deferredDurability: durabilityOf(view),
           userText,
           agentId: this.agentId,
           workspaceCwd: this.workspaceCwd,

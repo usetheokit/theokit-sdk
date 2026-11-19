@@ -61,7 +61,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `cron_no_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:221` +1 |
 | `cron_workflow_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:227` |
 | `decision_checksum_mismatch` | domain | — | `packages/sdk/src/decide.ts:59` |
-| `deferred_schema_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/session/deferred-calls.ts:23` |
+| `deferred_schema_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/session/deferred-calls.ts:11` |
 | `deferred_transcript_write_failed` | domain | — | `packages/sdk/src/errors.ts:180` |
 | `discovery_list_pattern_globbed` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-discovery-runner.ts:144` |
 | `duplicate_skill_name` | domain | ConfigurationError | `packages/sdk/src/define-skill-read-tool.ts:166` |
@@ -84,7 +84,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `handoff_target_invalid` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:116` |
 | `handoff_target_required` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:111` |
 | `hitl_timeout` | domain | HitlTimeoutError | `packages/sdk/src/internal/runtime/tools/hitl-middleware.ts:42` +1 |
-| `hook_denied` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent.ts:564` |
+| `hook_denied` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent.ts:562` |
 | `hook_fingerprint_invalid` | domain | ConfigurationError | `packages/sdk/src/hooks-approval.ts:48` |
 | `hooks_invalid_command` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:436` |
 | `hooks_json_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:273` +2 |
