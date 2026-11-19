@@ -211,7 +211,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `GoalResult` | interface | Return value of the `runUntil` async generator.  |
 | `guardSessionDestruction` | function | Throw unless `sessionId` is safe to destroy. |
 | `guardTools` | function | Wrap each tool so its handler runs the `pre_tool_call` chain first.  |
-| `GuardToolsContext` | interface |  |
+| `GuardToolsContext` | interface | Identity of the run a guarded tool call belongs to. |
 | `HookApprovalGate` | interface | #631 — a consumer's decision point before this package spawns a hook.  |
 | `HookApprovalRequest` | interface | #631 — what the consumer is shown when asked to approve a hook.  |
 | `hookFingerprint` | function | The hex sha256 of `sourceEvent`, `command` and `timeoutMs`, one per line (`${sourceEvent}\n${command}\n${timeoutMs}`).  |
