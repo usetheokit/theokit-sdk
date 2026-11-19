@@ -76,7 +76,7 @@ describe("applyProfile", () => {
     expect(err.variables).toEqual(["THEOKIT_HOME"]);
     expect(err.message).not.toContain("/x");
     expect(env).toEqual({ THEOKIT_HOME: "/x", THEOKIT_AUTH_HOME: "  " });
-    expect(() => statSync(p.directory)).toThrow();
+    expect(() => statSync(p.directory)).toThrow(/ENOENT|ENOTDIR/);
   });
 
   it("names path and errno on failure and leaves env unchanged", async () => {

@@ -194,10 +194,10 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `plugin_manifest_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:281` |
 | `plugin_manifest_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:287` |
 | `plugin_missing_manifest` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:272` +2 |
-| `profile_app_directory_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/profile.ts:30` +1 |
+| `profile_app_directory_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/profile.ts:31` +1 |
 | `profile_conflict` | domain | — | `packages/sdk/src/errors.ts:718` |
-| `profile_directory_failed` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/profile.ts:72` |
-| `profile_name_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/profile.ts:40` |
+| `profile_directory_failed` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/profile.ts:73` |
+| `profile_name_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/profile.ts:41` |
 | `programmatic_hooks_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:102` |
 | `provider_unreachable` | domain | TheokitAgentError | `packages/sdk/src/internal/llm/muse.ts:248` |
 | `provider_unresolved` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:113` +2 |

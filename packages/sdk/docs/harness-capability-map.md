@@ -1458,7 +1458,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ResilientSqliteDb` | interface | Minimal SQLite handle surface every driver (`better-sqlite3`) exposes. |
 | `ResolvedProfile` | interface | A profile name turned into directories and environment overrides. |
 | `resolveProfile` | function | Turn a profile name into its directories and environment overrides.  |
-| `ResolveProfileOptions` | interface |  |
+| `ResolveProfileOptions` | interface | Options for {@link resolveProfile } . |
 | `sanitizeFts5Query` | function | Six-step FTS5 query sanitizer.  |
 | `SessionArtifact` | type | The kinds of file this SDK leaves in a project's transcript directory.  |
 | `SessionBusyError` | class | M81 — another process already holds the writer lease for this session.  |
