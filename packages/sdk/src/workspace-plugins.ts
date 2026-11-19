@@ -13,6 +13,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { PluginManifestError } from "./errors.js";
 import { atomicWriteJson } from "./internal/persistence/atomic-write.js";
 import { withFileLock } from "./internal/persistence/file-lock.js";
+import { theokitConfigRoot } from "./internal/persistence/paths.js";
 import { parseSimpleYaml, splitFrontmatter } from "./internal/runtime/context/context-yaml-lite.js";
 import { parsePluginFrontmatter } from "./internal/runtime/plugin-loader/plugin-frontmatter.js";
 import {
@@ -140,7 +141,7 @@ export async function installWorkspacePlugin(input: {
   const manifest = parsePluginManifest(await readFile(join(source, MANIFEST_FILE), "utf-8"));
   await assertEntryInside(source, manifest.entry);
 
-  const pluginsDir = join(resolve(input.workspace), ".theokit", "plugins");
+  const pluginsDir = join(theokitConfigRoot(resolve(input.workspace)), "plugins");
   const dest = join(pluginsDir, manifest.name);
   const replacing = await exists(dest);
   if (replacing && input.replace !== true) {
