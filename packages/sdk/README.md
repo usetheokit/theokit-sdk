@@ -185,6 +185,16 @@ await Cron.create({
 await Cron.start();   // required for local jobs to fire
 ```
 
+To reject a bad schedule when you read config, call the synchronous validators from `@theokit/sdk/cron`. They apply the same rules as `Cron.create`:
+
+```typescript
+import { validateCron, validateCronTimezone } from "@theokit/sdk/cron";
+
+validateCron("0 9 * * 1-5");             // ok
+validateCron("61 * * * *");              // throws ConfigurationError (code "invalid_cron")
+validateCronTimezone("America/Sao_Paulo"); // ok; "Mars/Base" throws "invalid_timezone"
+```
+
 Two runtimes: **local** (in-process scheduler — fires while the host process is alive) and **cloud** (Theo PaaS schedules server-side). See the exported `Cron` types for the full contract.
 
 ## Hook allowlists
@@ -253,6 +263,10 @@ Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must
 - **List patterns.** A `DiscoverySpec` with `scope: "cwd-only"` or `"git-root-walk"` may set `pattern: ["THEO.md", "AGENTS.md", "CLAUDE.md"]`. Each directory contributes only the first name that exists. A list on a `"globbed"` spec throws `ConfigurationError` naming the spec id.
 - **`wrapImport(name, content)`.** Wraps each inlined `@import` at every depth, e.g. `(n, c) => \`--- import: ${n} ---\n${c}\n--- end import ---\``. Refusal and not-found placeholders are never wrapped. Default: content unchanged.
 - **Already loaded.** A file discovery emits is not inlined again by an import; the import line becomes `[@import already loaded: <path>]`.
+
+## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
+
+`AgentLike` (`agentId`, `send`, optional `dispose`) and `RunLike` (`status`, `stream`, `wait`, `cancel`) are the small ports `SDKAgent` and `Run` satisfy with no cast. Type a wrapper, failover decorator or test double against them instead of the full `SDKAgent`, or re-declaring a port that drifts. `RunLike.wait()` resolves the real `RunResult`, so `status` is `RunStatus` and a misspelled status such as `"completed"` fails to compile.
 
 ## Live-agent registry: `Agent.lease`
 
