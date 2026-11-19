@@ -6,12 +6,13 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-276 distinct code(s).
+277 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
-| `a2a_peer_not_registered` | domain | A2APeerNotRegisteredError | `packages/sdk/src/a2a/message-bus.ts:28` +1 |
-| `a2a_request_timeout` | domain | A2ARequestTimeoutError | `packages/sdk/src/a2a/message-bus.ts:62` +1 |
+| `a2a_peer_not_registered` | domain | A2APeerNotRegisteredError | `packages/sdk/src/a2a/message-bus.ts:50` +1 |
+| `a2a_remote_request_unsupported` | domain | A2ARemoteRequestUnsupportedError | `packages/sdk/src/a2a/message-bus.ts:23` +1 |
+| `a2a_request_timeout` | domain | A2ARequestTimeoutError | `packages/sdk/src/a2a/message-bus.ts:84` +1 |
 | `aborted` | domain | TheokitAgentError | `packages/sdk/src/internal/agent/batch.ts:358` +1 |
 | `agent_disposed` | domain | — | `packages/sdk/src/errors.ts:592` |
 | `agent_id_already_exists` | domain | ConfigurationError | `packages/sdk/src/internal/agent/helpers.ts:60` |

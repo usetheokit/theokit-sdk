@@ -316,6 +316,26 @@ await applyProfile(profile, process.env);
 - **`wrapImport(name, content)`.** Wraps each inlined `@import` at every depth, e.g. `(n, c) => \`--- import: ${n} ---\n${c}\n--- end import ---\``. Refusal and not-found placeholders are never wrapped. Default: content unchanged.
 - **Already loaded.** A file discovery emits is not inlined again by an import; the import line becomes `[@import already loaded: <path>]`.
 
+## `@theokit/sdk/a2a`: reaching agents in other processes
+
+`MessageBus` routes in-process. Pass an `A2ATransport` to let `send` reach peers elsewhere:
+
+```ts
+import { MessageBus, inMemoryTransport } from "@theokit/sdk/a2a";
+
+const transport = inMemoryTransport(); // shared object, for tests and same-process use
+const a = new MessageBus({ transport });
+const b = new MessageBus({ transport });
+b.register("worker", (m) => console.log(m.payload));
+await a.send("boss", "worker", { type: "job", payload: 1 }); // no local handler: goes to transport.send
+await b.pump(); // polls for every locally registered agent, delivers in order, returns 1
+```
+
+- A local handler always wins; the transport is used only when there is none. Without a transport an unknown peer still rejects with `A2APeerNotRegisteredError`.
+- `request` stays local only. With a transport and no local handler it rejects with `A2ARemoteRequestUnsupportedError` (`a2a_remote_request_unsupported`).
+- `pump()` is not automatic: call it when you want waiting messages delivered. A handler failure is reported on diagnostics and does not stop the others.
+- `from` is self-asserted. The transport does not authenticate it; that is the job of a sealed transport.
+
 ## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
 
 `AgentLike` (`agentId`, `send`, optional `dispose`) and `RunLike` (`status`, `stream`, `wait`, `cancel`) are the small ports `SDKAgent` and `Run` satisfy with no cast. Type a wrapper, failover decorator or test double against them instead of the full `SDKAgent`, or re-declaring a port that drifts. `RunLike.wait()` resolves the real `RunResult`, so `status` is `RunStatus` and a misspelled status such as `"completed"` fails to compile.
