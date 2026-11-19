@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-277 distinct code(s).
+279 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -123,6 +123,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_skill_spec` | domain | ConfigurationError | `packages/sdk/src/create-skill.ts:44` +1 |
 | `invalid_squad` | domain | ConfigurationError | `packages/sdk/src/squad.ts:138` |
 | `invalid_task_id` | domain | — | `packages/sdk/src/task-errors.ts:33` +1 |
+| `invalid_telemetry_endpoint` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:53` |
 | `invalid_timezone` | domain | ConfigurationError | `packages/sdk/src/internal/cron/validate.ts:135` |
 | `invalid_workflow_step` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:231` |
 | `iteration_limit_reached` | domain | — | `packages/sdk/src/internal/agent-loop/loop-finalize.ts:51` |
@@ -248,6 +249,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `subscription_not_found` | domain | SubscriptionError | `packages/sdk/src/subscription/internal/subscription-runtime.ts:130` |
 | `task_not_found` | domain | — | `packages/sdk/src/task-errors.ts:53` +1 |
 | `task_op_unsupported` | domain | — | `packages/sdk/src/task-errors.ts:73` +1 |
+| `telemetry_peer_missing` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:81` |
 | `timeout` | domain | — | `packages/sdk/src/internal/error-mappers/vertex.ts:55` |
 | `tool_invalid_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:262` |
 | `tool_invalid_schema_type` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:291` |
