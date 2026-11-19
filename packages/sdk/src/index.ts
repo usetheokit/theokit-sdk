@@ -376,7 +376,7 @@ export { type NormalizedJsonSchema, normalizeSchema } from "./schema-normalizer.
 // `internal/` because it owns filesystem I/O — public access is via the
 // `Agent.usePersonality(...)` method, not direct construction.
 // Security namespace (secret redaction; ADR D68)
-export { Security } from "./security.js";
+export { type ExactValueMask, Security } from "./security.js";
 export { applySecurityFloor, type SecurityFloorInput } from "./security-floor.js";
 export {
   guardSessionDestruction,
