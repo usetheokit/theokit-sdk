@@ -312,7 +312,6 @@ export class LocalAgent implements SDKAgent {
   async send(message: string | SDKUserMessage, options: SendOptions = {}): Promise<Run> {
     // Per-call tools get the creation-time checks (cloud agents reject them in CloudAgent.send);
     // #381 — with the agent's withhold list. Also validates `doomLoop.window` (#1031).
-    options = applySendDefaults(this.options.sendDefaults, options);
     validateSendOptions(options, this.options.withheldBuiltinTools);
     // T0.1: `agent.send` parent span spans the FULL lifecycle (mutex acquire +
     // dispatch + post-run). Child step spans (`agent.send.<step>`) land in T1.7.
@@ -326,7 +325,11 @@ export class LocalAgent implements SDKAgent {
     // concurrent sends to the SAME agentId cannot interleave user/assistant
     // records mid-turn AND `agent.dispose()` can never return before the
     // summary write finishes (ADR D20).
-    return this.enqueueSend(message, options, sendSpan);
+    return this.enqueueSend(
+      message,
+      applySendDefaults(this.options.sendDefaults, options),
+      sendSpan,
+    );
   }
 
   /** Queue one send behind the lock, or fold it into the running turn / pending batch. */

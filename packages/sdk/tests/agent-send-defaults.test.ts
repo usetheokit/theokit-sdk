@@ -56,7 +56,6 @@ describe("AgentOptions.sendDefaults (#1020)", () => {
       loopInputs[0]?.toolResultGuard as never,
     );
     expect((out as { content: string }).content).toContain("<untrusted-tool-output>");
-    await agent.dispose?.();
   });
 
   it("a call's own guard replaces the default; other defaults stay", async () => {
@@ -92,7 +91,7 @@ describe("AgentOptions.sendDefaults (#1020)", () => {
 
   it("fork inherits the defaults", async () => {
     const agent = await create({ toolResultGuard: { delimit: true } });
-    await agent.fork({ prompt: "sub" } as never);
+    await agent.fork?.({ prompt: "sub" } as never);
     expect(loopInputs.at(-1)?.toolResultGuard).toEqual({ delimit: true });
   });
 
