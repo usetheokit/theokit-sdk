@@ -326,36 +326,33 @@ export async function collectTools(
 }
 
 /**
- * The name the MODEL sees for an MCP tool: `mcp_<server>_<tool>`, each part reduced to characters
- * providers accept as a tool name. This is the ONLY place the transformation happens; execution
- * keeps the server's own names (`mcpServerName` / `mcpToolName` on the resolved tool), so the
- * sanitized form is never sent to a server. The catalog built from `listTools` (already narrowed by
- * any MCP tool filter) is the sole dispatch authority: a name that is not in it is refused.
+ * The name the MODEL sees for an MCP tool. This is the ONLY place the transformation happens;
+ * execution keeps the server's own names (`mcpServerName` / `mcpToolName` on the resolved tool), so
+ * the model-facing form is never sent to a server. The catalog built from `listTools` (already
+ * narrowed by any MCP tool filter) is the sole dispatch authority: a name that is not in it is
+ * refused.
+ *
+ * The mapping is injective, so a forced call naming a filtered-out tool can never equal the name of
+ * an offered one:
+ * - plain identities (server `[A-Za-z0-9-]+`, tool `[A-Za-z0-9_-]+`) become `mcp_<server>_<tool>`;
+ *   the server has no `_`, so the first `_` after the prefix splits the pair unambiguously;
+ * - any other identity becomes `mcp__<readable>_<hash>`, where the hash covers the exact
+ *   `[server, tool]` pair. The empty server slot (`mcp__`) cannot occur in a plain name.
  *
  * @internal
  */
 export function mcpModelToolName(serverName: string, toolName: string): string {
-  // A server part containing `_` is always tagged, so the first `_`-delimited segment identifies
-  // the server: server `a_b` + tool `c` can never equal server `a` + tool `b_c`.
-  const server = sanitizePart(serverName);
-  const serverPart =
-    server === serverName && server.includes("_") ? tagged(server, serverName) : server;
-  return `mcp_${serverPart}_${sanitizePart(toolName)}`;
+  if (/^[a-zA-Z0-9-]+$/.test(serverName) && /^[a-zA-Z0-9_-]+$/.test(toolName)) {
+    return `mcp_${serverName}_${toolName}`;
+  }
+  const readable = `${readablePart(serverName)}_${readablePart(toolName)}`.slice(0, 40);
+  const hash = createHash("sha256")
+    .update(JSON.stringify([serverName, toolName]))
+    .digest("hex")
+    .slice(0, 16);
+  return `mcp__${readable}_${hash}`;
 }
 
-/**
- * Sanitizing is lossy (`do/thing` and `do thing` both reduce to `do_thing`). A lossy result gets a
- * short hash of the ORIGINAL appended, so two distinct server names never share a model-facing
- * name: a forced call carrying a filtered-out tool's name cannot resolve to an offered tool that
- * merely sanitizes alike. Names that need no change stay unchanged.
- */
-function sanitizePart(name: string): string {
-  const clean = name.replace(/[^a-zA-Z0-9-]+/g, "_").replace(/^[_-]+|[_-]+$/g, "");
-  if (clean === name) return clean;
-  return tagged(clean, name);
-}
-
-function tagged(clean: string, original: string): string {
-  const tag = createHash("sha256").update(original).digest("hex").slice(0, 6);
-  return clean === "" ? tag : `${clean}_${tag}`;
+function readablePart(name: string): string {
+  return name.replace(/[^a-zA-Z0-9-]+/g, "_").replace(/^[_-]+|[_-]+$/g, "");
 }

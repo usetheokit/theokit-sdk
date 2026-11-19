@@ -47,42 +47,65 @@ async function dispatch(c: McpClient, toolName: string) {
   return JSON.stringify(part);
 }
 
+async function dispatchOn(servers: Record<string, string[]>, forced: string) {
+  const clients = Object.entries(servers).map(([n, names]) => [n, client(names)] as const);
+  const mcp = new Map(clients.map(([n, x]) => [n, x.c]));
+  const tools = await collectTools(mcp, new Set());
+  const inputs = {
+    agentId: "a",
+    runId: "r",
+    mcp,
+    hooks: { run: async () => ({ blocked: false }) },
+  } as unknown as AgentLoopInputs;
+  const [part] = await dispatchTools(
+    inputs,
+    tools,
+    [{ type: "tool_use", id: "c1", name: forced, input: {} }],
+    [],
+  );
+  return { out: JSON.stringify(part), calls: clients.map(([, x]) => x.callTool) };
+}
+
 describe("name sanitization", () => {
-  it("builds the model-facing name in one place", () => {
-    expect(mcpModelToolName("my.server", "do/thing")).toMatch(
-      /^mcp_my_server_[0-9a-f]{6}_do_thing_[0-9a-f]{6}$/,
-    );
+  it("keeps plain names readable", () => {
     expect(mcpModelToolName("srv", "plain-name")).toBe("mcp_srv_plain-name");
-  });
-
-  it("gives names that sanitize alike distinct model-facing names", () => {
-    expect(mcpModelToolName("srv", "do/thing")).not.toBe(mcpModelToolName("srv", "do thing"));
-    expect(mcpModelToolName("srv", "do/thing")).not.toBe(mcpModelToolName("srv", "do_thing"));
-  });
-
-  it("does not let a server/tool boundary shift collide names", () => {
-    expect(mcpModelToolName("a_b", "c")).not.toBe(mcpModelToolName("a", "b_c"));
     expect(mcpModelToolName("a", "b_c")).toBe("mcp_a_b_c");
   });
 
-  it("refuses a forced call to a filtered-out tool whose name collides across the boundary", async () => {
-    const offered = client(["b_c"]);
-    const mcp = new Map([["a", offered.c]]);
-    const tools = await collectTools(mcp, new Set());
-    const inputs = {
-      agentId: "a",
-      runId: "r",
-      mcp,
-      hooks: { run: async () => ({ blocked: false }) },
-    } as unknown as AgentLoopInputs;
-    const [part] = await dispatchTools(
-      inputs,
-      tools,
-      [{ type: "tool_use", id: "c1", name: mcpModelToolName("a_b", "c"), input: {} }],
-      [],
+  it("maps distinct identities to distinct names", () => {
+    const ids: Array<[string, string]> = [
+      ["srv", "do/thing"],
+      ["srv", "do thing"],
+      ["srv", "do_thing"],
+      ["srv", "do_thing_5abb2e"],
+      ["a_b", "c"],
+      ["a", "b_c"],
+      ["a", "b_648fa9_c"],
+      ["my.server", "x"],
+      ["my_server", "x"],
+      ["my server", "x"],
+    ];
+    const names = ids.map(([s, t]) => mcpModelToolName(s, t));
+    expect(new Set(names).size).toBe(ids.length);
+    for (const n of names) expect(n).toMatch(/^[a-zA-Z0-9_-]{1,64}$/);
+  });
+
+  it("refuses a forced call to a filtered tool whose sanitized form matches an offered tool", async () => {
+    const { out, calls } = await dispatchOn(
+      { srv: ["do_thing_5abb2e"] },
+      mcpModelToolName("srv", "do/thing"),
     );
-    expect(JSON.stringify(part)).toContain("Unknown tool");
-    expect(offered.callTool).not.toHaveBeenCalled();
+    expect(out).toContain("Unknown tool");
+    expect(calls[0]).not.toHaveBeenCalled();
+  });
+
+  it("refuses a forced call across a shifted server/tool boundary", async () => {
+    const offered = await dispatchOn({ a: ["b_648fa9_c"] }, mcpModelToolName("a_b", "c"));
+    expect(offered.out).toContain("Unknown tool");
+    expect(offered.calls[0]).not.toHaveBeenCalled();
+    const offered2 = await dispatchOn({ a: ["b_c"] }, mcpModelToolName("a_b", "c"));
+    expect(offered2.out).toContain("Unknown tool");
+    expect(offered2.calls[0]).not.toHaveBeenCalled();
   });
 
   it("refuses a forced call using a filtered-out tool's name when a look-alike is offered", async () => {
@@ -108,21 +131,22 @@ describe("name sanitization", () => {
 describe("forced calls", () => {
   it("refuses a forced call to a tool absent from the catalog", async () => {
     const { c, callTool } = client(["kept"]);
-    const out = await dispatch(c, "mcp_my_server_omitted");
-    expect(out).toContain("Unknown tool mcp_my_server_omitted");
+    const omitted = mcpModelToolName("my.server", "omitted");
+    const out = await dispatch(c, omitted);
+    expect(out).toContain(`Unknown tool ${omitted}`);
     expect(callTool).not.toHaveBeenCalled();
   });
 
   it("does not case-repair a differently cased mcp_ prefix onto an offered tool", async () => {
     const { c, callTool } = client(["foo"]);
-    const out = await dispatch(c, "MCP_my_server_Foo");
+    const out = await dispatch(c, mcpModelToolName("my.server", "foo").replace(/^mcp/, "MCP"));
     expect(out).toContain("Unknown tool");
     expect(callTool).not.toHaveBeenCalled();
   });
 
   it("does not case-repair an omitted name onto a different offered tool", async () => {
     const { c, callTool } = client(["foo"]);
-    const out = await dispatch(c, "mcp_my_server_Foo");
+    const out = await dispatch(c, mcpModelToolName("my.server", "foo").toUpperCase());
     expect(out).toContain("Unknown tool");
     expect(callTool).not.toHaveBeenCalled();
   });
