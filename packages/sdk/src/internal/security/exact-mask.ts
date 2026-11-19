@@ -11,6 +11,7 @@ export interface ExactMaskOptions {
   minLength?: number;
 }
 
+/** Shape returned by {@link createExactMask}; the public `ExactValueMask` mirrors it. */
 export interface ExactValueMaskImpl {
   text(text: string): string;
   deep<T>(value: T): T;
@@ -175,6 +176,7 @@ function wrapOne(stream: NodeJS.WritableStream, core: Core): () => void {
   };
 }
 
+/** Build an exact-value masker; `makeError` builds the error thrown for an already-wrapped stream. */
 export function createExactMask(
   values: readonly string[],
   options: ExactMaskOptions | undefined,

@@ -45,6 +45,12 @@ export interface ExactValueMask {
   wrapStreams(streams: readonly NodeJS.WritableStream[]): () => void;
 }
 
+/**
+ * Secret masking at consumer output boundaries: pattern-based `redact` / `addPattern` and
+ * exact-value `createMask`.
+ *
+ * @public
+ */
 export class Security {
   private constructor() {}
 
