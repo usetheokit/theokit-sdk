@@ -67,6 +67,15 @@ async function dispatchOn(servers: Record<string, string[]>, forced: string) {
 }
 
 describe("name sanitization", () => {
+  it("bounds overlong plain identities to 64 chars and keeps them distinct", () => {
+    const a = mcpModelToolName("srv", `t${"_".repeat(80)}a`);
+    const b = mcpModelToolName("srv", `t${"_".repeat(80)}b`);
+    expect(a.length).toBeLessThanOrEqual(64);
+    expect(b.length).toBeLessThanOrEqual(64);
+    expect(a).not.toBe(b);
+    expect(a.startsWith("mcp__")).toBe(true);
+  });
+
   it("keeps plain names readable", () => {
     expect(mcpModelToolName("srv", "plain-name")).toBe("mcp_srv_plain-name");
     expect(mcpModelToolName("a", "b_c")).toBe("mcp_a_b_c");

@@ -325,6 +325,8 @@ export async function collectTools(
   return tools;
 }
 
+const MAX_MODEL_TOOL_NAME = 64;
+
 /**
  * The name the MODEL sees for an MCP tool. This is the ONLY place the transformation happens;
  * execution keeps the server's own names (`mcpServerName` / `mcpToolName` on the resolved tool), so
@@ -343,7 +345,9 @@ export async function collectTools(
  */
 export function mcpModelToolName(serverName: string, toolName: string): string {
   if (/^[a-zA-Z0-9-]+$/.test(serverName) && /^[a-zA-Z0-9_-]+$/.test(toolName)) {
-    return `mcp_${serverName}_${toolName}`;
+    const plain = `mcp_${serverName}_${toolName}`;
+    // Providers reject tool names over 64 chars; overlong identities take the bounded hash form.
+    if (plain.length <= MAX_MODEL_TOOL_NAME) return plain;
   }
   const readable = `${readablePart(serverName)}_${readablePart(toolName)}`.slice(0, 26);
   const hash = createHash("sha256")
