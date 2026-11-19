@@ -100,6 +100,7 @@ export {
   RateLimitError,
   TaskNotFoundError,
   TheokitAgentError,
+  ToolCallBlockedError,
   UnknownAgentError,
   UnsupportedBudgetOperationError,
   UnsupportedRunOperationError,
@@ -409,6 +410,7 @@ export {
 } from "./tool-blast-radius.js";
 // SE7 — ToolError (thrown from a tool handler; own module for the G8 LoC budget).
 export { ToolError } from "./tool-error.js";
+export { type GuardToolsContext, guardTools, runPreToolCall } from "./tool-guard.js";
 // Trajectory export (ADR D139) — opt-in ShareGPT converter
 export { toShareGptTrajectory } from "./trajectory-helpers.js";
 export {
