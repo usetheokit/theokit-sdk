@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 
 import { ConfigurationError } from "../../errors.js";
 import type { EmbeddingRuntime } from "./embedding-adapter.js";
@@ -37,8 +37,6 @@ interface LanceTable {
   add: (rows: ReadonlyArray<LanceFactRecord>) => Promise<void>;
   search: (vector: ReadonlyArray<number>) => LanceQuery;
   delete: (predicate: string) => Promise<void>;
-  checkoutLatest: () => Promise<void>;
-  addColumns: (transforms: ReadonlyArray<{ name: string; valueSql: string }>) => Promise<unknown>;
   countRows: () => Promise<number>;
   // EC-8: schema introspection for dimension check.
   schema: () => Promise<{
@@ -75,12 +73,6 @@ export interface LanceFactRecord {
   scope: string;
   user_id: string;
   timestamp: number;
-  /**
-   * The fact this row is a chunk of. Rows of one split fact share it, so `removeFacts(<fact>)`
-   * finds them without guessing from the id. Defaults to `id` on write; rows written before this
-   * column existed have it NULL (no link is guessed) and are removed by exact id only.
-   */
-  fact_id?: string;
 }
 
 /**
@@ -143,9 +135,6 @@ function requireLance(): LanceModule {
   }
 }
 
-const WRITE_QUEUES = new Map<string, Promise<unknown>>();
-let nextAnonymousKey = 0;
-
 /**
  * Lance-backed memory index. Public API mirrors the SQLite one logically:
  * `addFacts`, `search`, `countFacts`, `removeFacts`, `close`.
@@ -158,24 +147,7 @@ export class LanceIndex {
     private readonly table: LanceTable,
     private readonly embedding: EmbeddingRuntime,
     private readonly embeddingDim: number,
-    /** Identity of the storage the table lives in; instances sharing it share one write queue. */
-    private readonly queueKey: string = `anonymous:${nextAnonymousKey++}`,
   ) {}
-
-  /**
-   * Adds and removals on one storage path run one at a time, in call order, even across several
-   * `LanceIndex` objects opened on that path in this process (not across processes).
-   */
-  private serialized<T>(task: () => Promise<T>): Promise<T> {
-    const tail = WRITE_QUEUES.get(this.queueKey) ?? Promise.resolve();
-    const run = tail.then(task, task);
-    const next = run.catch(() => undefined);
-    WRITE_QUEUES.set(this.queueKey, next);
-    void next.then(() => {
-      if (WRITE_QUEUES.get(this.queueKey) === next) WRITE_QUEUES.delete(this.queueKey);
-    });
-    return run;
-  }
 
   static async open(opts: OpenLanceOptions): Promise<LanceIndex> {
     const lance = requireLance();
@@ -194,10 +166,6 @@ export class LanceIndex {
       // in `type.listSize` (older API used `fixedSize`; we read both for
       // forward/backward safety).
       const schema = await table.schema();
-      if (!schema.fields.some((f) => f.name === "fact_id")) {
-        // Existing rows get NULL: no parent link is guessed for them.
-        await table.addColumns([{ name: "fact_id", valueSql: "cast(NULL as string)" }]);
-      }
       const embField = schema.fields.find((f) => f.name === "embedding");
       const existingDim = embField?.type?.listSize ?? embField?.type?.fixedSize;
       if (typeof existingDim === "number" && existingDim !== dim) {
@@ -218,29 +186,19 @@ export class LanceIndex {
         scope: "__bootstrap__",
         user_id: "__bootstrap__",
         timestamp: 0,
-        fact_id: "__bootstrap__",
       };
       table = await conn.createTable(tableName, [bootstrap]);
       await table.delete("namespace = '__bootstrap__'");
     }
-    return new LanceIndex(table, opts.embedding, dim, resolve(storagePath));
+    return new LanceIndex(table, opts.embedding, dim);
   }
 
   async addFacts(facts: ReadonlyArray<Omit<LanceFactRecord, "embedding">>): Promise<void> {
     if (facts.length === 0) return;
-    // Serialized with `removeFacts`: a removal issued while this add is embedding runs after the
-    // rows land, so it deletes them instead of being overtaken.
-    await this.serialized(() => this.addFactsNow(facts));
-  }
-
-  private async addFactsNow(
-    facts: ReadonlyArray<Omit<LanceFactRecord, "embedding">>,
-  ): Promise<void> {
     const texts = facts.map((f) => f.text);
     const embeddings = await this.embedding.embed(texts);
-    const rows: LanceFactRecord[] = facts.map(({ fact_id, ...f }, i) => ({
+    const rows: LanceFactRecord[] = facts.map((f, i) => ({
       ...f,
-      fact_id: fact_id ?? f.id,
       embedding: embeddings[i] ?? new Array(this.embeddingDim).fill(0),
     }));
     await this.table.add(rows);
@@ -289,54 +247,19 @@ export class LanceIndex {
     return this.table.countRows();
   }
 
-  /**
-   * Remove facts by id. Without `scope` this is the exact-id deletion it always was. With `scope`
-   * it removes every row of that namespace AND source whose `fact_id` is the id (a split fact's
-   * chunks share it), linked by `fact_id` and never by id shape, so a same-named row owned by
-   * another namespace or source (a note, a wiki page) survives. Rows that predate `fact_id` (NULL)
-   * match only by exact id. Runs after any add already queued on this storage path, including adds
-   * from other `LanceIndex` objects opened on it.
-   */
-  async removeFacts(
-    ids: ReadonlyArray<string>,
-    scope?: { namespace: string; source: "memory" | "sessions" | "wiki" },
-  ): Promise<void> {
+  async removeFacts(ids: ReadonlyArray<string>): Promise<void> {
     if (ids.length === 0) return;
-    const where = [
-      `(${ids
-        .map((id) =>
-          scope === undefined
-            ? `id = '${idLiteral(id)}'`
-            : `fact_id = '${idLiteral(id)}' OR (fact_id IS NULL AND id = '${idLiteral(id)}')`,
-        )
-        .join(" OR ")})`,
-      ...(scope
-        ? [
-            `namespace = '${escapeSqlValue(scope.namespace)}'`,
-            `source = '${escapeSqlValue(scope.source)}'`,
-          ]
-        : []),
-    ].join(" AND ");
-    await this.serialized(async () => {
-      // A table handle reads the version it opened; another handle on this path may have added since.
-      await this.table.checkoutLatest();
-      await this.table.delete(where);
-    });
+    // Build a parameterized-style delete predicate. Lance's delete still
+    // takes a string predicate, so we explicitly quote-escape each id —
+    // ids in our system are content-hashed (alphanumeric), so the risk
+    // is low, but we belt-and-suspenders.
+    const escaped = ids.map((id) => `'${id.replace(/'/g, "''")}'`).join(", ");
+    await this.table.delete(`id IN (${escaped})`);
   }
 
   async close(): Promise<void> {
     // Lance auto-closes on GC; no explicit shutdown needed.
   }
-}
-
-/**
- * An id as a Lance string literal: control characters rejected, `'` doubled, and nothing else
- * touched. Lance literals have no backslash escape, so unlike `escapeSqlValue` this keeps `\\`
- * as the one character it is; the stored id then matches itself.
- */
-function idLiteral(value: string): string {
-  escapeSqlValue(value);
-  return value.replace(/'/g, "''");
 }
 
 /**

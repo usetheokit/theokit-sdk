@@ -3,12 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ConfigurationError } from "../../src/errors.js";
-import {
-  type DockerRunner,
-  DockerSandbox,
-  defaultDockerRunner,
-} from "../../src/sandbox/docker-sandbox.js";
+import { type DockerRunner, DockerSandbox } from "../../src/sandbox/docker-sandbox.js";
 import { SandboxNotAvailableError, SandboxSecurityError } from "../../src/sandbox/types.js";
 
 function recorder(code = 0, timedOut = false) {
@@ -120,45 +115,3 @@ describe.skipIf(!dockerUsable() && process.env.THEOKIT_REQUIRE_DOCKER !== "1")(
     }, 60_000);
   },
 );
-
-describe("DockerSandbox read-only workspace and labels", () => {
-  it("mounts the workspace read-only", async () => {
-    const { calls, runner } = recorder();
-    await new DockerSandbox({ workDir: "/srv/ws", runner, readOnlyWorkspace: true }).execute("x");
-    const args = calls[0]?.args ?? [];
-    expect(args).toContain("/srv/ws:/workspace:ro");
-    expect(args.join(" ")).not.toContain(":rw");
-  });
-
-  it("puts labels before the image", async () => {
-    const { calls, runner } = recorder();
-    await new DockerSandbox({
-      workDir: "/srv/ws",
-      runner,
-      image: "img:1",
-      labels: { "theoclaw.session": "s1" },
-    }).execute("x");
-    const args = calls[0]?.args ?? [];
-    const i = args.indexOf("--label");
-    expect(args[i + 1]).toBe("theoclaw.session=s1");
-    expect(i).toBeGreaterThan(-1);
-    expect(i).toBeLessThan(args.indexOf("img:1"));
-  });
-
-  it("rejects invalid labels at construction", () => {
-    const bad = (labels: Record<string, string>) => () => new DockerSandbox({ labels });
-    expect(bad({ "Bad Key": "x" })).toThrow(ConfigurationError);
-    expect(bad({ "Bad Key": "x" })).toThrow(/Bad Key/);
-    try {
-      bad({ "Bad Key": "x" })();
-    } catch (e) {
-      expect((e as ConfigurationError).code).toBe("invalid_docker_label");
-    }
-    expect(bad({ ok: "a\nb" })).toThrow(/ok/);
-    expect(bad({ ok: "a\rb" })).toThrow(ConfigurationError);
-  });
-
-  it("exports the default runner", () => {
-    expect(typeof defaultDockerRunner()).toBe("function");
-  });
-});

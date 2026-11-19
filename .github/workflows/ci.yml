@@ -16,7 +16,7 @@ on:
   # which proves the author ran the gates on their machine, not that the merge
   # result is green, and which `--no-verify` skips.
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, workspace]
 
 permissions:
   contents: read
