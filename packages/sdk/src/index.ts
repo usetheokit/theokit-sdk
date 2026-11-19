@@ -179,10 +179,10 @@ export {
 // added to barrel so extracted packages (sdk-cache, sdk-handoff) can type their
 // .asPlugin() factories without reaching into ./internal/plugins sub-path.
 export {
+  type ConversationRef,
   type GeneralPlugin,
   type HookContextMap,
   type HookHandler,
-  type ConversationRef,
   type HookName,
   type HookResultMap,
   // #335 — named here because the PUBLIC `Plugin` union references it in the
