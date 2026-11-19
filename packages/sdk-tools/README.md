@@ -91,6 +91,28 @@ import { createReadFileTool } from "@theokit/sdk-tools";
 
 See the monorepo `CHANGELOG.md` for the 1.x → 2.0 package-split migration notes.
 
+## `xwdToPng`
+
+Decodes the X Window Dump that Xvfb keeps under `-fbdir` into a PNG:
+
+```ts
+import { xwdToPng, XwdNotWrittenError } from "@theokit/sdk-tools";
+
+try {
+  const { png, width, height } = xwdToPng(new Uint8Array(await readFile(path)), path);
+} catch (err) {
+  if (err instanceof XwdNotWrittenError) {
+    // Xvfb is still writing the file: read it again shortly.
+  } else throw err;
+}
+```
+
+Only ZPixmap dumps at 24 or 32 bits per pixel are accepted. Header fields are checked against
+`XWD_LIMITS` (header 100 to 4096 bytes, at most 65,536 colormap entries, each side 1 to 16,384,
+at most 33,554,432 pixels) before any pixel buffer is allocated. A refusal is an `XwdFormatError`
+naming the file, the field and its value; a file shorter than its header or pixel data raises
+`XwdNotWrittenError` (a subclass), which is safe to retry. `readXwdHeader` returns just the parsed header.
+
 ## API reference
 
 Every symbol this package exports, with the exact specifier to import it from, is in the generated
