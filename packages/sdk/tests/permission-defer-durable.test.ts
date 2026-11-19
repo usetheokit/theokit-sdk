@@ -190,6 +190,30 @@ describe("a deferred run is durable before it resolves", () => {
   });
 });
 
+describe("the deferred record is redacted", () => {
+  it("does not write a secret from the gate's reason to disk", async () => {
+    stubModel();
+    const dir = join(process.cwd(), "sessions");
+    const secret = `sk-${"a1B2".repeat(12)}`;
+    const cfg = build(dir, [], [{ tool: "risky", action: "ask" }]);
+    const gate: PermissionGate = () => ({ behavior: "defer", reason: `approve with ${secret}` });
+    const agent = await Agent.create({
+      ...cfg,
+      plugins: [
+        PermissionPlugin.create(new PermissionEngine([{ tool: "risky", action: "ask" }]), {
+          canUseTool: gate,
+        }),
+      ],
+    });
+    const result = await (await agent.send("do it")).wait();
+    expect(result.status).toBe("deferred");
+    const text = await readFile(await findTranscript(dir, agent.agentId), "utf8");
+    expect(text).toContain('"deferred_tool_calls"');
+    expect(text).not.toContain(secret);
+    await agent.dispose();
+  });
+});
+
 describe("a session that ends on deferred calls", () => {
   it("refuses a plain send, on the same agent and after a restart", async () => {
     stubModel();
