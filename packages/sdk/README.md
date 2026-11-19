@@ -124,6 +124,39 @@ const bob = await Agent.create({ memory: { enabled: true, userId: "bob" } });
 
 `userId` must match `[a-z0-9][a-z0-9-_]*`; other values (such as `../x`) are rejected.
 
+### List and remove memory facts
+
+```ts
+import { listMemoryFacts, removeMemoryFact } from "@theokit/sdk";
+
+const facts = await listMemoryFacts(process.cwd());
+// [{ id, text, modified?, root, removable }, ...]
+const removed = await removeMemoryFact(process.cwd(), facts[0].id); // true, or false for an unknown id
+```
+
+`listMemoryFacts` covers per-memory files and legacy `## Facts` bullets, in the order the agent reads them. `removeMemoryFact` deletes the file and its `MEMORY.md` index line (or one legacy bullet), serialized with the SDK's writes. Entries from another tool's store (for example the Claude Code CLI's) have `removable: false`, and removing one rejects with `MemoryFactNotRemovableError`. Removal also drops the entry's rows from the sqlite memory search index, so recall does not return it; a Lance index is not part of the built-in store and is not touched. Two identical legacy bullets in one root share an id, and removal takes the first. An id found in more than one root (the same file name in the write root and the Claude Code store) rejects with `MemoryFactAmbiguousError` naming every root, and removes nothing.
+
+
+### Mirroring facts to a memory adapter
+
+Set `memory.mirror` to link the built-in fact store to the agent's `kind: "memory"` plugins (Mem0, Honcho, Supermemory). Every fact the built-in store saves is also written to each adapter, with the agent's `memoryContext` and `userId` defaulting to `memory.userId`. A failed adapter write is reported on the diagnostics channel with the adapter id and never fails the local save or the run.
+
+```ts
+import { mem0Memory } from "@theokit/memory-mem0";
+
+const agent = await Agent.create({
+  memory: {
+    enabled: true,
+    userId: "alice",
+    // write: true is the default; "adapters-first" reads the <memory> block from the
+    // adapters (list() when available, else recall()) and falls back to local facts on
+    // an error or an empty result.
+    mirror: { recall: "adapters-first" },
+  },
+  plugins: [mem0Memory({ apiKey: process.env.MEM0_API_KEY! })],
+});
+```
+
 ## Builtin tool names
 
 `BUILTIN_TOOL_NAMES` (`"shell"`, `"memory_search"`, `"memory_get"`) lists the tools the SDK declares itself; these are the names `withheldBuiltinTools` accepts and a custom tool may not claim. `isBuiltinToolName(name)` tests one, so an app that takes tool names from configuration can refuse a collision at load time. Withholding a builtin via `withheldBuiltinTools` releases its name, so a custom tool may then use it.
@@ -140,6 +173,30 @@ import { listWorkspacePlugins } from "@theokit/sdk";
 
 const plugins = await listWorkspacePlugins(process.cwd(), { compatSources: ["claude-code"] });
 ```
+
+A `"general"` plugin registers hooks through `ctx.on`. The handler is typed by hook name, so the
+context needs no cast and a `pre_tool_call` veto is checked (`block` is the literal `true`):
+
+```ts
+import { Plugin } from "@theokit/sdk";
+
+const guard = Plugin.create({
+  kind: "general",
+  name: "guard",
+  version: "1.0.0",
+  register(ctx) {
+    // `c` is inferred as `PreToolCallContext`.
+    ctx.on("pre_tool_call", (c) =>
+      c.name === "Bash" ? { block: true, message: "Bash is disabled here." } : undefined,
+    );
+    // Transform hooks get the chained value first, then their context.
+    ctx.on("transform_llm_output", (text, c) => `${String(text)} [${c.runId}]`);
+  },
+});
+```
+
+`HookContextMap`, `HookResultMap`, `TypedHookHandler` and `GeneralPlugin` are exported for plugin
+authors; handlers typed as `HookHandler` keep compiling.
 
 A `pre_tool_call` plugin sees which conversation the run belongs to in `ctx.conversation`, a
 `ConversationRef` (`platform`, `channelId`, `sessionKey`) the caller declares with
@@ -184,6 +241,16 @@ await Cron.create({
 });
 
 await Cron.start();   // required for local jobs to fire
+```
+
+To reject a bad schedule when you read config, call the synchronous validators from `@theokit/sdk/cron`. They apply the same rules as `Cron.create`:
+
+```typescript
+import { validateCron, validateCronTimezone } from "@theokit/sdk/cron";
+
+validateCron("0 9 * * 1-5");             // ok
+validateCron("61 * * * *");              // throws ConfigurationError (code "invalid_cron")
+validateCronTimezone("America/Sao_Paulo"); // ok; "Mars/Base" throws "invalid_timezone"
 ```
 
 Two runtimes: **local** (in-process scheduler — fires while the host process is alive) and **cloud** (Theo PaaS schedules server-side). See the exported `Cron` types for the full contract.
@@ -247,6 +314,19 @@ process.once("SIGTERM", async () => {
 
 Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must share one pid namespace (not containers or hosts sharing a volume). The lock needs a filesystem with hard links; without one the call rejects with `InstanceLockedError`.
 
+## `@theokit/sdk/persistence`: named profiles
+
+`resolveProfile(name, { profilesRoot?, appDirectories? })` maps a profile name to `<profilesRoot>/<name>` (default `getProfilesRoot()`, `~/.theokit/profiles`) and returns `directory`, `directories` and `env` (`THEOKIT_HOME` and `THEOKIT_AUTH_HOME` set to the profile directory, plus one entry per `appDirectories` item, joined under the profile). Names must match `^[a-z0-9][a-z0-9-]{0,15}$`, otherwise `ConfigurationError` code `profile_name_invalid` (the name is not echoed). App directory values must be relative and free of `..`. It touches no disk.
+
+`applyProfile(profile, env)` throws `ProfileConflictError` (`variables`: names only, never values) when any variable the profile owns is already set to a non-blank value in `env`. It then creates each directory at 0700, tightens an existing one to 0700 without reading or removing its contents, and only then writes the overrides into `env`. A filesystem failure throws `ConfigurationError` code `profile_directory_failed` naming the path and errno code and leaves `env` unchanged (directories made before the failure remain).
+
+```ts
+import { applyProfile, resolveProfile } from "@theokit/sdk/persistence";
+
+const profile = resolveProfile("work", { appDirectories: { APP_WORKSPACE: "workspace" } });
+await applyProfile(profile, process.env);
+```
+
 ## `@theokit/sdk/context`
 
 `runDiscovery` finds context files (`AGENTS.md`, `CLAUDE.md`, ...) and inlines their `@path` imports.
@@ -254,6 +334,30 @@ Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must
 - **List patterns.** A `DiscoverySpec` with `scope: "cwd-only"` or `"git-root-walk"` may set `pattern: ["THEO.md", "AGENTS.md", "CLAUDE.md"]`. Each directory contributes only the first name that exists. A list on a `"globbed"` spec throws `ConfigurationError` naming the spec id.
 - **`wrapImport(name, content)`.** Wraps each inlined `@import` at every depth, e.g. `(n, c) => \`--- import: ${n} ---\n${c}\n--- end import ---\``. Refusal and not-found placeholders are never wrapped. Default: content unchanged.
 - **Already loaded.** A file discovery emits is not inlined again by an import; the import line becomes `[@import already loaded: <path>]`.
+
+## `@theokit/sdk/a2a`: reaching agents in other processes
+
+`MessageBus` routes in-process. Pass an `A2ATransport` to let `send` reach peers elsewhere:
+
+```ts
+import { MessageBus, inMemoryTransport } from "@theokit/sdk/a2a";
+
+const transport = inMemoryTransport(); // shared object, for tests and same-process use
+const a = new MessageBus({ transport });
+const b = new MessageBus({ transport });
+b.register("worker", (m) => console.log(m.payload));
+await a.send("boss", "worker", { type: "job", payload: 1 }); // no local handler: goes to transport.send
+await b.pump(); // polls for every locally registered agent, delivers in order, returns 1
+```
+
+- A local handler always wins; the transport is used only when there is none. Without a transport an unknown peer still rejects with `A2APeerNotRegisteredError`.
+- `request` stays local only. With a transport and no local handler it rejects with `A2ARemoteRequestUnsupportedError` (`a2a_remote_request_unsupported`).
+- `pump()` is not automatic: call it when you want waiting messages delivered. A handler failure is reported on diagnostics and does not stop the others.
+- `from` is self-asserted. The transport does not authenticate it; that is the job of a sealed transport.
+
+## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
+
+`AgentLike` (`agentId`, `send`, optional `dispose`) and `RunLike` (`status`, `stream`, `wait`, `cancel`) are the small ports `SDKAgent` and `Run` satisfy with no cast. Type a wrapper, failover decorator or test double against them instead of the full `SDKAgent`, or re-declaring a port that drifts. `RunLike.wait()` resolves the real `RunResult`, so `status` is `RunStatus` and a misspelled status such as `"completed"` fails to compile.
 
 ## Live-agent registry: `Agent.lease`
 

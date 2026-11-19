@@ -9,7 +9,29 @@
 
 import { TheokitAgentError } from "../errors.js";
 import { diag } from "../internal/diagnostics.js";
+import type { A2ATransport } from "./transport.js";
 import type { A2AMessage, MessageHandler } from "./types.js";
+
+/**
+ * Thrown by {@link MessageBus.request} when `to` has no local handler and the bus has a transport.
+ * `request` is local-only; a transport carries fire-and-forget messages, not replies.
+ *
+ * @public
+ */
+export class A2ARemoteRequestUnsupportedError extends TheokitAgentError {
+  override readonly name = "A2ARemoteRequestUnsupportedError";
+  override readonly code = "a2a_remote_request_unsupported" as const;
+
+  constructor(
+    /** The address with no local handler. */
+    public readonly to: string,
+  ) {
+    super(`Agent "${to}" is not local: request is local-only, use send for remote peers`, {
+      code: "a2a_remote_request_unsupported",
+      isRetryable: false,
+    });
+  }
+}
 
 /**
  * Thrown by {@link MessageBus.send} and {@link MessageBus.request} when `to` has no registered
@@ -91,8 +113,10 @@ export interface RequestOptions {
 /**
  * In-process router that delivers A2A messages between agents keyed by string id.
  *
- * Purely in-memory and single-process: nothing is persisted and nothing crosses a
- * process or network boundary. Register one handler per agent id, then `send`
+ * By default purely in-memory and single-process. With an {@link A2ATransport} (constructor
+ * `transport` option), `send` to a peer with no local handler goes to `transport.send`, and
+ * `pump()` polls it for every locally registered agent and delivers to their handlers; the bus
+ * itself persists nothing. Register one handler per agent id, then `send`
  * (fire-and-forget) or `request` (await the handler's return value).
  *
  *   const bus = new MessageBus();
@@ -102,10 +126,11 @@ export interface RequestOptions {
  * Callers supply only `{ type, payload }`; the bus stamps `from`, `to`,
  * `timestamp` and `origin` onto the delivered {@link A2AMessage}.
  *
- * How it fails: `send` and `request` both reject with {@link A2APeerNotRegisteredError}
- * (code `a2a_peer_not_registered`, carrying `to`) when `to` has no handler, and
- * `request` additionally rejects on timeout. No typed error class is exported for
- * either, so there is nothing to `instanceof`.
+ * How it fails: without a transport, `send` and `request` both reject with
+ * {@link A2APeerNotRegisteredError} (code `a2a_peer_not_registered`, carrying `to`) when `to` has
+ * no handler. With a transport, `send` forwards instead, and `request` (local-only) rejects with
+ * {@link A2ARemoteRequestUnsupportedError} (code `a2a_remote_request_unsupported`). `request`
+ * additionally rejects with {@link A2ARequestTimeoutError} on timeout.
  *
  * Traps:
  *  - `register` silently OVERWRITES an existing id; the previous handler simply
@@ -119,6 +144,13 @@ export interface RequestOptions {
  */
 export class MessageBus {
   private readonly _handlers = new Map<string, MessageHandler>();
+  private readonly _transport: A2ATransport | undefined;
+  /** Messages polled but neither delivered nor handed back to the transport; retried by the next pump. */
+  private readonly _stranded = new Map<string, A2AMessage[]>();
+
+  constructor(options?: { transport?: A2ATransport }) {
+    this._transport = options?.transport;
+  }
 
   register(agentId: string, handler: MessageHandler): void {
     this._handlers.set(agentId, handler);
@@ -130,7 +162,7 @@ export class MessageBus {
 
   async send(from: string, to: string, partial: { type: string; payload: unknown }): Promise<void> {
     const handler = this._handlers.get(to);
-    if (!handler) {
+    if (!handler && !this._transport) {
       throw new A2APeerNotRegisteredError(to);
     }
     const message: A2AMessage = {
@@ -141,6 +173,11 @@ export class MessageBus {
       // SE3 — provenance projection of the sender address (thin view over `from`).
       origin: { kind: "peer", from },
     };
+    if (!handler) {
+      // Non-null: the guard above throws when there is neither a handler nor a transport.
+      await (this._transport as A2ATransport).send(message);
+      return;
+    }
     // Fire-and-forget: the SENDER does not wait for the result, which is the whole point of
     // `send`. It does not mean nobody is told when delivery fails — that is the difference
     // between asynchronous and silent (#365).
@@ -164,7 +201,9 @@ export class MessageBus {
   ): Promise<unknown> {
     const handler = this._handlers.get(to);
     if (!handler) {
-      throw new A2APeerNotRegisteredError(to);
+      throw this._transport
+        ? new A2ARemoteRequestUnsupportedError(to)
+        : new A2APeerNotRegisteredError(to);
     }
     const timeoutMs = opts?.timeoutMs ?? 30_000;
     const message: A2AMessage = {
@@ -188,6 +227,87 @@ export class MessageBus {
       ]);
     } finally {
       if (timer !== undefined) clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Fetch waiting messages from the transport for every locally registered agent and deliver them
+   * to the handlers, in the order `poll` returns them. A handler failure is reported on diagnostics
+   * and does not stop the other messages. Returns the count delivered to a handler (failed ones
+   * included). Without a transport, returns 0.
+   */
+  async pump(): Promise<number> {
+    const transport = this._transport;
+    if (!transport) return 0;
+    let delivered = 0;
+    for (const agentId of this.listAgents()) {
+      delivered += await this._pumpAgent(transport, agentId);
+    }
+    return delivered;
+  }
+
+  private async _pumpAgent(transport: A2ATransport, agentId: string): Promise<number> {
+    const stranded = this._stranded.get(agentId) ?? [];
+    this._stranded.delete(agentId);
+    const batch = [...stranded, ...(await this._pollKeeping(transport, agentId, stranded))];
+    let delivered = 0;
+    for (let i = 0; i < batch.length; i++) {
+      const handler = this._handlers.get(agentId);
+      if (!handler) {
+        // `poll` already removed the whole batch: unregistered mid-pump, so hand the rest back.
+        await this._requeue(transport, agentId, batch.slice(i));
+        break;
+      }
+      delivered++;
+      await this._deliverPumped(agentId, handler, batch[i] as A2AMessage);
+    }
+    return delivered;
+  }
+
+  private async _pollKeeping(
+    transport: A2ATransport,
+    agentId: string,
+    stranded: A2AMessage[],
+  ): Promise<A2AMessage[]> {
+    try {
+      return await transport.poll(agentId);
+    } catch (cause) {
+      if (stranded.length > 0) this._stranded.set(agentId, stranded);
+      throw cause;
+    }
+  }
+
+  /** Hand messages back to the transport; any it refuses are kept for the next pump. */
+  private async _requeue(
+    transport: A2ATransport,
+    agentId: string,
+    messages: A2AMessage[],
+  ): Promise<void> {
+    const kept: A2AMessage[] = [];
+    for (const message of messages) {
+      try {
+        await transport.send(message);
+      } catch (cause) {
+        const reason = cause instanceof Error ? cause.message : String(cause);
+        diag(
+          `[theokit-sdk] a2a: requeue for "${agentId}" failed, will retry on next pump: ${reason}\n`,
+        );
+        kept.push(message);
+      }
+    }
+    if (kept.length > 0) this._stranded.set(agentId, kept);
+  }
+
+  private async _deliverPumped(
+    agentId: string,
+    handler: MessageHandler,
+    message: A2AMessage,
+  ): Promise<void> {
+    try {
+      await handler(message);
+    } catch (cause) {
+      const reason = cause instanceof Error ? cause.message : String(cause);
+      diag(`[theokit-sdk] a2a: handler for "${agentId}" failed on a pumped message: ${reason}\n`);
     }
   }
 
