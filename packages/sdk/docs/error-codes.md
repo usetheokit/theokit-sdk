@@ -180,7 +180,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `pagination_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/pagination.ts:34` |
 | `parse_failed` | domain | — | `packages/sdk/src/errors.ts:656` |
 | `path_traversal` | domain | — | `packages/sdk/src/internal/security/path-guard.ts:37` |
-| `permission_enforcement_unavailable` | domain | ConfigurationError | `packages/acp/src/permission-plugin.ts:138` +1 |
+| `permission_enforcement_unavailable` | domain | ConfigurationError | `packages/acp/src/permission-plugin.ts:107` +1 |
 | `permission_rule_invalid` | domain | ConfigurationError | `packages/sdk/src/permission-rules.ts:124` +2 |
 | `personality_empty_body` | domain | ConfigurationError | `packages/sdk/src/internal/personality/registry.ts:117` |
 | `personality_not_found` | domain | ConfigurationError | `packages/sdk/src/internal/personality/switch.ts:60` |

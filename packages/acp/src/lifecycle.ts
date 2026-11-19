@@ -122,6 +122,28 @@ function resolveCwdOrError(rawCwd: string | undefined): AcpResult<string> {
   return { ok: true, value: resolved };
 }
 
+/** Fail-closed check at `session/new`: an AcpError when `ask`/`deny` cannot be enforced. */
+function permissionRefusal(
+  agent: AgentLike,
+  sessionId: string,
+  deps: NewSessionDeps,
+): AcpError | undefined {
+  if (deps.permissionMode === undefined || deps.permissionMode === "auto") return undefined;
+  try {
+    assertPermissionEnforceable(agent, deps.permissionMode, sessionId);
+    return undefined;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const code = (err as { code?: unknown }).code;
+    deps.log(`[acp] new_session refused: ${msg}`);
+    return {
+      code: ACP_ERR.INTERNAL_ERROR,
+      message: msg,
+      ...(typeof code === "string" ? { data: { code } } : {}),
+    };
+  }
+}
+
 /**
  * Create a session: validate `params.cwd`, mint a UUID, await the factory, register the session.
  *
@@ -153,22 +175,8 @@ export async function handleNewSession(
     };
   }
 
-  if (deps.permissionMode !== undefined && deps.permissionMode !== "auto") {
-    try {
-      assertPermissionEnforceable(agent, deps.permissionMode, sessionId);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const code = (err as { code?: unknown }).code;
-      deps.log(`[acp] new_session refused: ${msg}`);
-      return {
-        error: {
-          code: ACP_ERR.INTERNAL_ERROR,
-          message: msg,
-          ...(typeof code === "string" ? { data: { code } } : {}),
-        },
-      };
-    }
-  }
+  const refusal = permissionRefusal(agent, sessionId, deps);
+  if (refusal !== undefined) return { error: refusal };
 
   const session: AcpSession = {
     sessionId,

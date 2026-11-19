@@ -19,15 +19,17 @@ const factory: AgentFactory = () => fake;
 async function drive(permissionDefault: "auto" | "ask", agent: AgentLike) {
   const stdin = new PassThrough();
   const stdout = new PassThrough();
-  const lines: Array<Record<string, any>> = [];
+  const lines: Array<{
+    id?: number;
+    result?: { sessionId?: string; stopReason?: string };
+    error?: { data?: unknown };
+  }> = [];
   let buf = "";
   stdout.on("data", (d) => {
     buf += String(d);
-    let i: number;
-    while ((i = buf.indexOf("\n")) >= 0) {
-      lines.push(JSON.parse(buf.slice(0, i)));
-      buf = buf.slice(i + 1);
-    }
+    const parts = buf.split("\n");
+    buf = parts.pop() ?? "";
+    for (const p of parts) lines.push(JSON.parse(p));
   });
   const done = serveAcp({
     agent: () => agent,
@@ -58,19 +60,19 @@ describe("serveAcp accepts AgentLike", () => {
 
   it("serves a prompt and closes without dispose", async () => {
     const { call, created, stdin, done } = await drive("auto", fake);
-    const sessionId = created.result.sessionId as string;
+    const sessionId = created.result?.sessionId as string;
     const res = await call(3, "session/prompt", {
       sessionId,
       prompt: [{ type: "text", text: "hi" }],
     });
-    expect(res.result.stopReason).toBeDefined();
+    expect(res.result?.stopReason).toBeDefined();
     stdin.end();
     await expect(done).resolves.toBeUndefined();
   });
 
   it("fails closed on session/new when ask mode has no pluginManager", async () => {
     const { created, stdin, done } = await drive("ask", fake);
-    expect(created.error.data).toEqual({ code: "permission_enforcement_unavailable" });
+    expect(created.error?.data).toEqual({ code: "permission_enforcement_unavailable" });
     stdin.end();
     await done;
   });
