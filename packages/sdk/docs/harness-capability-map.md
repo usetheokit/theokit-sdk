@@ -1102,6 +1102,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryAdapterError` | class | Error raised by `@theokit-memory-*` adapters.  |
 | `MemoryAdapterErrorCode` | type | Finite error codes specific to memory adapter operations (ADR D141). |
 | `NetworkError` | class | Service unavailable, timeout, transport-level failure. |
+| `ProfileConflictError` | class | Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a variable the profile owns.  |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
 | `StructuredOutputError` | class | The failure contract shared by `generateObject` and `streamObject`.  |
 | `StructuredOutputErrorCode` | type | Why a structured-output call failed.  |
@@ -1431,6 +1432,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `acquireInstanceLock` | function | Takes `<dir>.instance.lock` (or `options.path`) for the life of the process.  |
 | `acquireSessionWriter` | function | Take the exclusive writer lease for `sessionPath`, or reject with {@link SessionBusyError } .  |
 | `appendJsonl` | function | Append one record as a whole `\n`-terminated JSON line.  |
+| `applyProfile` | function | Create the profile directories at 0700 (tightening existing ones, never reading or removing their contents), then write the overrides into `env`.  |
 | `applyWalWithFallback` | function | Apply WAL mode with DELETE fallback.  |
 | `atomicWriteJson` | function | Typed JSON atomic write helper.  |
 | `AtomicWriteJsonOptions` | interface | Options for `atomicWriteJson`. |
@@ -1441,6 +1443,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `FileLockOptions` | interface | Retry and staleness tuning for `withFileLock`.  |
 | `forkTranscript` | function | Copy `src` into `dst`, keeping the first `beforeRecordIndex` records.  |
 | `ForkTranscriptOptions` | interface | Options for {@link forkTranscript } . |
+| `getProfilesRoot` | function | The directory holding every profile: always `~/.theokit/profiles`, from `os.homedir()`.  |
 | `InstanceLock` | interface | A held instance lock. |
 | `InstanceLockedError` | class | Another live process holds the instance lock, or the filesystem cannot hold one. |
 | `isCorruptionError` | function | True when an open error indicates an unreadable / corrupt database file. |
@@ -1454,11 +1457,15 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `openSqliteResilient` | function | Open a SQLite file with WAL (+ DELETE fallback) and corruption recovery. |
 | `OpenSqliteResilientOptions` | interface | Input to {@link openSqliteResilient } .  |
 | `PersistenceSchema` | const | `persistence?` opt-in JSON disk backend with `dir` required when chosen.  |
+| `ProfileConflictError` | class | Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a variable the profile owns.  |
 | `readJsonlIds` | function | Read the set of keys from an existing JSONL file for which `keyFn(parsed)` returns a non-empty string.  |
 | `readJsonlTail` | function | Read the LAST records of a JSONL file without loading the whole thing.  |
 | `ReadJsonlTailOptions` | interface | Options for {@link readJsonlTail } . |
 | `replaceFileAtomic` | function | Atomic file replacement: write content to a per-call unique tmp path, fsync, then rename over the target.  |
 | `ResilientSqliteDb` | interface | Minimal SQLite handle surface every driver (`better-sqlite3`) exposes. |
+| `ResolvedProfile` | interface | A profile name turned into directories and environment overrides. |
+| `resolveProfile` | function | Turn a profile name into its directories and environment overrides.  |
+| `ResolveProfileOptions` | interface | Options for {@link resolveProfile } . |
 | `sanitizeFts5Query` | function | Six-step FTS5 query sanitizer.  |
 | `SessionArtifact` | type | The kinds of file this SDK leaves in a project's transcript directory.  |
 | `SessionBusyError` | class | M81 — another process already holds the writer lease for this session.  |
