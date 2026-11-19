@@ -1,13 +1,17 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
-
 import { ConfigurationError } from "../../src/errors.js";
 import { fn, Workflow, WorkflowSet, WorkflowSnapshotNotFoundError } from "../../src/workflow.js";
+import { removeTempDirRobustSync } from "../helpers/temp-workspace.js";
 
-const dir = () => mkdtempSync(join(tmpdir(), "wfset-"));
+const dir = () => {
+  const d = mkdtempSync(join(tmpdir(), "wfset-"));
+  onTestFinished(() => removeTempDirRobustSync(d));
+  return d;
+};
 
 const make = (name: string, d: string, payloadSchema?: z.ZodType) =>
   Workflow.create<{ a: string }>({
