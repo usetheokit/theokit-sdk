@@ -67,6 +67,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AgentDescription` | interface | theokit#123 — the read-only introspection of a registered agent, returned by `Agent.describe()`.  |
 | `AgentDisposedError` | class | T1.6 — Thrown when a consumer calls `agent.send()` or any method on an agent that has already been `dispose()`d.  |
 | `AgentFactory` | class | Handle returned by {@link createAgentFactory } .  |
+| `AgentLease` | interface | A hold on a live agent returned by {@link Agent.lease } . |
 | `AgentMemory` | interface | Direct memory API exposed on `SDKAgent.memory`.  |
 | `AgentOperation` | type | An operation a consumer may ask an {@link SDKAgent } about via `supports()`.  |
 | `AgentOperationOptions` | interface | Options for archive/unarchive/delete. |
@@ -130,6 +131,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ContextSnapshot` | interface | Result of `agent.context.snapshot()`.  |
 | `ContextSource` | interface | A single context source resolved by the context manager. |
 | `ContextSourceStatus` | type | Inclusion state of a single context source in a {@link ContextSnapshot } . |
+| `ConversationRef` | interface | Where a run's conversation lives, as the caller declares it.  |
 | `ConversationStep` | type | A single step inside an agent turn, discriminated by `type`: an assistant message, a tool call, the tool result that pairs with it, or a thinking block.  |
 | `ConversationTurn` | type | Structured per-turn view of a run. |
 | `CostBreakdown` | interface | Cost breakdown attached to `RunResult.cost`.  |
@@ -1070,6 +1072,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | Symbol | Kind | Summary |
 |---|---|---|
 | `Cron` | class | Static façade for scheduling Theo agent runs on a cron expression. |
+| `validateCron` | function | Synchronously validate a cron expression with the same rules `Cron.create` applies. |
+| `validateCronTimezone` | function | Synchronously validate an IANA timezone name with the same rules `Cron.create` applies. |
 
 ## `@theokit/sdk/errors`
 

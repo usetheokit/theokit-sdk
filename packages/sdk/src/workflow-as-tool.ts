@@ -153,8 +153,8 @@ export function workflowAsTool<T extends ZodType, TOutput = unknown>(
  *
  * @public
  */
-export function workflowResumeTool(
-  workflow: WorkflowResumeOptions["workflow"],
+export function workflowResumeTool<TI = unknown>(
+  workflow: WorkflowResumeOptions<TI>["workflow"],
   spec: WorkflowResumeToolSpec,
 ): CustomTool {
   return {
@@ -165,7 +165,11 @@ export function workflowResumeTool(
       const { runId, payload } = resumeInputSchema.parse(rawInput);
       // Dynamic import, as `Workflow.resume` does: a static one would close a file cycle through workflow.ts.
       const { resumeWorkflow } = await import("./internal/workflow/executor.js");
-      const run = await resumeWorkflow({ runId, workflow, payload });
+      const run = await resumeWorkflow({
+        runId,
+        workflow: workflow as WorkflowResumeOptions["workflow"],
+        payload,
+      });
       return toToolResult(run, spec.name, spec.reportSuspended === true);
     },
   };
