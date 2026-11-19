@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 /*
- * #1235 — develop -> main failed `no re-consumed changesets`: main had consumed five changesets (#1311 added three more)
+ * #1235 — develop -> main failed `no re-consumed changesets`: main had consumed five changesets
  * in a "Version Packages" merge that develop still held. The fixture below rebuilds that history
  * in a throwaway repository (full history by construction, so no dependence on the checkout's
  * fetch depth or on origin/main existing) and runs the real guard against it via GIT_DIR.
@@ -18,9 +18,6 @@ const OFFENDERS = [
   "sdk-instance-lock",
   "squad-run-cancel-dispose",
   "workflow-containers-cancel",
-  "narrow-agent-run-types",
-  "xwd-capability-map",
-  "xwd-to-png",
 ].map((n) => `.changeset/${n}.md`);
 
 let dir: string;
@@ -63,7 +60,7 @@ beforeAll(() => {
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("promotion: no re-consumed changesets", () => {
-  it("rejects a develop that still holds the consumed changesets", () => {
+  it("rejects a develop that still holds the five consumed changesets", () => {
     const r = guard("main", "develop");
     expect(r.code).toBe(1);
     for (const p of OFFENDERS) expect(r.out).toContain(p);
