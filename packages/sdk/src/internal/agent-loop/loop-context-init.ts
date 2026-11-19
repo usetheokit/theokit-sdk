@@ -338,7 +338,8 @@ export function mcpModelToolName(serverName: string, toolName: string): string {
   // A server part containing `_` is always tagged, so the first `_`-delimited segment identifies
   // the server: server `a_b` + tool `c` can never equal server `a` + tool `b_c`.
   const server = sanitizePart(serverName);
-  const serverPart = server.includes("_") ? tagged(server, serverName) : server;
+  const serverPart =
+    server === serverName && server.includes("_") ? tagged(server, serverName) : server;
   return `mcp_${serverPart}_${sanitizePart(toolName)}`;
 }
 
