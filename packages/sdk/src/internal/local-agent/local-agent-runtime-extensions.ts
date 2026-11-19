@@ -143,6 +143,7 @@ export async function persistMemoryFactIfWritePrompt(
   workspaceCwd: string,
   memoryConfig: MemorySettings | undefined,
   userText: string,
+  mirror?: { write(text: string): Promise<void> },
 ): Promise<void> {
   if (memoryConfig?.enabled !== true) return;
   const unstored = unstoredRememberWarning(userText);
@@ -155,10 +156,15 @@ export async function persistMemoryFactIfWritePrompt(
   if (fact.length === 0) return;
   const kind = extractMemoryKind(userText);
   try {
-    await appendMemoryFact(workspaceCwd, memoryConfig, {
-      text: fact,
-      ...(kind === undefined ? {} : { kind }),
-    });
+    await appendMemoryFact(
+      workspaceCwd,
+      memoryConfig,
+      {
+        text: fact,
+        ...(kind === undefined ? {} : { kind }),
+      },
+      mirror,
+    );
   } catch (cause) {
     // NOT `safeCall`: it reports on `diag`, which is dropped entirely when the host installed no
     // sink — so a permission error on the memory directory looked exactly like a successful
