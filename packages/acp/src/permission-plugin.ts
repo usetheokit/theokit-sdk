@@ -18,7 +18,7 @@
 
 import { randomUUID } from "node:crypto";
 import type * as acp from "@agentclientprotocol/sdk";
-import { ConfigurationError, Plugin, type AgentLike } from "@theokit/sdk";
+import { type AgentLike, ConfigurationError, Plugin } from "@theokit/sdk";
 import { toolKind } from "./translator.js";
 import type { PermissionMode } from "./types.js";
 
@@ -100,8 +100,9 @@ export function assertPermissionEnforceable(
   mode: PermissionMode,
   sessionId: string,
 ): PluginManagerLike {
-  const mgr = (agent as AgentLike & { pluginManager?: () => PluginManagerLike | undefined })
-    .pluginManager?.();
+  const mgr = (
+    agent as AgentLike & { pluginManager?: () => PluginManagerLike | undefined }
+  ).pluginManager?.();
   if (mgr === undefined) {
     throw new ConfigurationError(
       `permission enforcement unavailable on this runtime (no plugin manager) — ` +
