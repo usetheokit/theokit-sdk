@@ -335,7 +335,11 @@ export async function collectTools(
  * @internal
  */
 export function mcpModelToolName(serverName: string, toolName: string): string {
-  return `mcp_${sanitizePart(serverName)}_${sanitizePart(toolName)}`;
+  // A server part containing `_` is always tagged, so the first `_`-delimited segment identifies
+  // the server: server `a_b` + tool `c` can never equal server `a` + tool `b_c`.
+  const server = sanitizePart(serverName);
+  const serverPart = server.includes("_") ? tagged(server, serverName) : server;
+  return `mcp_${serverPart}_${sanitizePart(toolName)}`;
 }
 
 /**
@@ -347,6 +351,10 @@ export function mcpModelToolName(serverName: string, toolName: string): string {
 function sanitizePart(name: string): string {
   const clean = name.replace(/[^a-zA-Z0-9-]+/g, "_").replace(/^[_-]+|[_-]+$/g, "");
   if (clean === name) return clean;
-  const tag = createHash("sha256").update(name).digest("hex").slice(0, 6);
+  return tagged(clean, name);
+}
+
+function tagged(clean: string, original: string): string {
+  const tag = createHash("sha256").update(original).digest("hex").slice(0, 6);
   return clean === "" ? tag : `${clean}_${tag}`;
 }

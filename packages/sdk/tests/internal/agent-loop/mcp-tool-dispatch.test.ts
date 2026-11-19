@@ -60,6 +60,31 @@ describe("name sanitization", () => {
     expect(mcpModelToolName("srv", "do/thing")).not.toBe(mcpModelToolName("srv", "do_thing"));
   });
 
+  it("does not let a server/tool boundary shift collide names", () => {
+    expect(mcpModelToolName("a_b", "c")).not.toBe(mcpModelToolName("a", "b_c"));
+    expect(mcpModelToolName("a", "b_c")).toBe("mcp_a_b_c");
+  });
+
+  it("refuses a forced call to a filtered-out tool whose name collides across the boundary", async () => {
+    const offered = client(["b_c"]);
+    const mcp = new Map([["a", offered.c]]);
+    const tools = await collectTools(mcp, new Set());
+    const inputs = {
+      agentId: "a",
+      runId: "r",
+      mcp,
+      hooks: { run: async () => ({ blocked: false }) },
+    } as unknown as AgentLoopInputs;
+    const [part] = await dispatchTools(
+      inputs,
+      tools,
+      [{ type: "tool_use", id: "c1", name: mcpModelToolName("a_b", "c"), input: {} }],
+      [],
+    );
+    expect(JSON.stringify(part)).toContain("Unknown tool");
+    expect(offered.callTool).not.toHaveBeenCalled();
+  });
+
   it("refuses a forced call using a filtered-out tool's name when a look-alike is offered", async () => {
     const { c, callTool } = client(["do thing"]);
     const out = await dispatch(c, mcpModelToolName("my.server", "do/thing"));
