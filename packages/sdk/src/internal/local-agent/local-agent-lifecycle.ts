@@ -104,7 +104,7 @@ export interface LocalAgentDisposeTarget {
  */
 export async function disposeLocalAgentSession(agent: LocalAgentDisposeTarget): Promise<void> {
   // Evict from live cache so the next Agent.getOrCreate(id) builds fresh.
-  liveAgentRegistry.forget(agent.agentId);
+  liveAgentRegistry.forget(agent.agentId, agent);
   // D319: fire the lifecycle abort so any in-flight LLM `fetch()` cancels.
   // `abort()` is idempotent — safe to call even when already aborted.
   agent.lifecycleAbortController.abort();

@@ -1,5 +1,27 @@
 # Changelog
 
+## 5.28.0
+
+### Minor Changes
+
+- [#1263](https://github.com/usetheokit/theokit-sdk/pull/1263) [`4df47f4`](https://github.com/usetheokit/theokit-sdk/commit/4df47f40ce8602aa1764918cf43bc0c88c88907b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `Agent.lease` and `AgentLease`: a hold on a live agent so the registry's LRU, idle sweep and `evict` never dispose it while a turn is running ([#1016](https://github.com/usetheokit/theokit-sdk/issues/1016)).
+
+### Patch Changes
+
+- [#1274](https://github.com/usetheokit/theokit-sdk/pull/1274) [`5c7fcd1`](https://github.com/usetheokit/theokit-sdk/commit/5c7fcd140dbdad3c7ddb1109f2f2e80e9f51d2a8) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Correct the export count in the generated capability map to include `AgentLease`.
+
+## 5.27.0
+
+### Minor Changes
+
+- [#1252](https://github.com/usetheokit/theokit-sdk/pull/1252) [`83b8dc7`](https://github.com/usetheokit/theokit-sdk/commit/83b8dc7b44ff3c4f3bfb5eb93f56489401cea9c3) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - DockerSandbox: `readOnlyWorkspace` mounts the workspace `:ro`, `labels` adds `--label` to every container (invalid ones throw `invalid_docker_label`), and `defaultDockerRunner` is exported from `@theokit/sdk/sandbox` ([#1037](https://github.com/usetheokit/theokit-sdk/issues/1037)).
+
+### Patch Changes
+
+- [#1205](https://github.com/usetheokit/theokit-sdk/pull/1205) [`38306ab`](https://github.com/usetheokit/theokit-sdk/commit/38306abda42569437660b91cd7d3b34d78d9fb2e) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `LanceIndex.removeFacts` now runs after any `addFacts` already in flight on the same storage path, so a concurrent sync can no longer restore a removed fact. Chunks of a split fact are linked through a new `fact_id` column (default: the row's own `id`). An older table gets the column on open; its existing rows keep `fact_id` NULL, no parent link is guessed for them, and they are removed by exact id only. The new optional second argument `{ namespace, source }` removes every row linked to the fact, limited to that namespace and source; without it, removal is the exact-id deletion it was.
+  
+  There is still no fact-forget call site in the SDK that uses this; wiring one in is separate work.
+
 ## 5.26.1
 
 ### Patch Changes
