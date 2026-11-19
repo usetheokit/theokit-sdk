@@ -431,6 +431,7 @@ export type {
   CustomTool,
   SDKAgent,
 } from "./types/agent.js";
+export type { AgentLike, RunLike } from "./types/agent-like.js";
 // SE7 — structured/multimodal tool-result content blocks (explicit for rollup-dts).
 export type { ImageBlock, ToolResultContentBlock } from "./types/content-blocks.js";
 export type { EnvPolicy } from "./types/env-policy.js";

@@ -68,6 +68,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AgentDisposedError` | class | T1.6 — Thrown when a consumer calls `agent.send()` or any method on an agent that has already been `dispose()`d.  |
 | `AgentFactory` | class | Handle returned by {@link createAgentFactory } .  |
 | `AgentLease` | interface | A hold on a live agent returned by {@link Agent.lease } . |
+| `AgentLike` | interface | Narrow agent port: the part of `SDKAgent` a wrapper, test double or failover decorator needs.  |
 | `AgentMemory` | interface | Direct memory API exposed on `SDKAgent.memory`.  |
 | `AgentOperation` | type | An operation a consumer may ask an {@link SDKAgent } about via `supports()`.  |
 | `AgentOperationOptions` | interface | Options for archive/unarchive/delete. |
@@ -354,6 +355,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `RunEventSink` | type | Receives every {@link RunEvent } a run emits, in emission order.  |
 | `RunGitInfo` | interface | Git metadata attached to cloud runs. |
 | `runGoalLoop` | function | Run the goal-driven loop (`send → judge → continuation`) over ANY `send → wait` surface.  |
+| `RunLike` | interface | Narrow run port: the part of {@link import ("./run.js").Run } a wrapper, fake or decorator needs.  |
 | `RunMemoryDegradedEvent` | interface | A memory stage failed and the run continued without it.  |
 | `RunOperation` | type | Operations that may or may not be supported on a given `Run`, or on its parent agent.  |
 | `RunPermissionDeniedEvent` | interface | A tool call was DENIED before dispatch — by the permission gate/plugin (SE1), an operator file-hook `preToolUse`, or the fork tool-whitelist.  |
