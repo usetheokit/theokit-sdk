@@ -18,6 +18,7 @@ export type {
   CommandOptions,
   GeneralPlugin,
   HookContextMap,
+  ConversationRef,
   HookHandler,
   HookName,
   HookResultMap,

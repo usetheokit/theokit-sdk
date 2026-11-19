@@ -4,7 +4,7 @@
 // Locked names: see CLAUDE.md.
 
 // Agent façade
-export { Agent, type AgentPromptResult } from "./agent.js";
+export { Agent, type AgentLease, type AgentPromptResult } from "./agent.js";
 // Types a consumer already meets through a public signature. Each was marked `@public` and reachable
 // from no entry — the promise the docblock makes was not kept by the export map. `AgentBuilderDeps`
 // states the reasoning in its own words: `new AgentBuilder(deps)` is callable by anyone, so this
@@ -182,6 +182,7 @@ export {
   type GeneralPlugin,
   type HookContextMap,
   type HookHandler,
+  type ConversationRef,
   type HookName,
   type HookResultMap,
   // #335 — named here because the PUBLIC `Plugin` union references it in the
@@ -435,6 +436,7 @@ export type {
   CustomTool,
   SDKAgent,
 } from "./types/agent.js";
+export type { AgentLike, RunLike } from "./types/agent-like.js";
 // SE7 — structured/multimodal tool-result content blocks (explicit for rollup-dts).
 export type { ImageBlock, ToolResultContentBlock } from "./types/content-blocks.js";
 export type { EnvPolicy } from "./types/env-policy.js";

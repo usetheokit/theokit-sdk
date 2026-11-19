@@ -146,6 +146,11 @@ const guard = Plugin.create({
 `HookContextMap`, `HookResultMap`, `TypedHookHandler` and `GeneralPlugin` are exported for plugin
 authors; handlers typed as `HookHandler` keep compiling.
 
+A `pre_tool_call` plugin sees which conversation the run belongs to in `ctx.conversation`, a
+`ConversationRef` (`platform`, `channelId`, `sessionKey`) the caller declares with
+`Agent.create({ conversation })` or `agent.send(prompt, { conversation })`; the send value wins. The
+key is absent when none was declared. It is threaded on the local runtime.
+
 ## Explain skills
 
 `explainSkills` from `@theokit/sdk/skills` reports what an agent would see, from the same walk the
@@ -184,6 +189,16 @@ await Cron.create({
 });
 
 await Cron.start();   // required for local jobs to fire
+```
+
+To reject a bad schedule when you read config, call the synchronous validators from `@theokit/sdk/cron`. They apply the same rules as `Cron.create`:
+
+```typescript
+import { validateCron, validateCronTimezone } from "@theokit/sdk/cron";
+
+validateCron("0 9 * * 1-5");             // ok
+validateCron("61 * * * *");              // throws ConfigurationError (code "invalid_cron")
+validateCronTimezone("America/Sao_Paulo"); // ok; "Mars/Base" throws "invalid_timezone"
 ```
 
 Two runtimes: **local** (in-process scheduler — fires while the host process is alive) and **cloud** (Theo PaaS schedules server-side). See the exported `Cron` types for the full contract.
@@ -255,6 +270,25 @@ Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must
 - **`wrapImport(name, content)`.** Wraps each inlined `@import` at every depth, e.g. `(n, c) => \`--- import: ${n} ---\n${c}\n--- end import ---\``. Refusal and not-found placeholders are never wrapped. Default: content unchanged.
 - **Already loaded.** A file discovery emits is not inlined again by an import; the import line becomes `[@import already loaded: <path>]`.
 
+## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
+
+`AgentLike` (`agentId`, `send`, optional `dispose`) and `RunLike` (`status`, `stream`, `wait`, `cancel`) are the small ports `SDKAgent` and `Run` satisfy with no cast. Type a wrapper, failover decorator or test double against them instead of the full `SDKAgent`, or re-declaring a port that drifts. `RunLike.wait()` resolves the real `RunResult`, so `status` is `RunStatus` and a misspelled status such as `"completed"` fails to compile.
+
+## Live-agent registry: `Agent.lease`
+
+`Agent.getOrCreate` caches agents in `Agent.registry`, which disposes them on LRU, idle or explicit eviction, even mid-turn. Use `Agent.lease` for work in flight: the registry never disposes a held agent.
+
+```ts
+const lease = await Agent.lease(conversationId, options);
+try {
+  await lease.agent.send("hello");
+} finally {
+  lease.release(); // idempotent
+}
+```
+
+LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
+
 ## Status
 
 The full contract is defined by the exported TypeScript types; see [`CHANGELOG.md`](./CHANGELOG.md) for the release history.
@@ -315,3 +349,13 @@ const doc = readManagedSettingsDocument(undefined, { onWarn: (m) => console.warn
 - An absent file returns `null` and warns nothing. An unreadable, invalid or non-object file returns `null` and warns through `onWarn` (default: the SDK failure diagnostic).
 - Nothing is validated: the caller owns the schema for its keys.
 - `managedSettingsPathFor(root?)` is the one path resolver. It picks a single path by `process.platform`; it does not consult all three platform paths.
+
+## Doom-loop guard: sliding-window repeat limit
+
+The built-in doom-loop guard counts consecutive identical tool calls, so an alternating loop (read A, read B, read A, read B) never trips it. Opt in to a sliding window with `SendOptions.doomLoop`:
+
+```ts
+await agent.send("...", { doomLoop: { window: 20, windowRepeatLimit: 3 } });
+```
+
+Once a call (same tool, same arguments; key order does not matter) already occurs `windowRepeatLimit` times in the last `window` calls, the next identical call is not executed. The model receives a blocked tool result naming the tool so it can change course. Blocked attempts count toward the window. `window` and `windowRepeatLimit` must be positive integers set together, otherwise `send` rejects with `ConfigurationError` code `invalid_doom_loop`. The consecutive `softThreshold`/`hardThreshold` keep working.

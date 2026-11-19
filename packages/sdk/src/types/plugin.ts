@@ -91,6 +91,22 @@ export interface PreToolCallContext {
    * default applies. Ignored by non-permission plugins.
    */
   permissionMode?: PermissionMode;
+  /**
+   * The conversation the run belongs to — `SendOptions.conversation` falling back to
+   * `AgentOptions.conversation`. The key is absent (not `undefined`) when the caller declared none.
+   * Local runtime.
+   */
+  conversation?: ConversationRef;
+}
+
+/**
+ * Where a run's conversation lives, as the caller declares it. A `pre_tool_call` plugin that asks a
+ * person to approve a call uses it to post the question in the conversation the call came from.
+ */
+export interface ConversationRef {
+  readonly platform?: string;
+  readonly channelId?: string;
+  readonly sessionKey?: string;
 }
 
 /**

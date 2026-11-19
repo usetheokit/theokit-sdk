@@ -26,7 +26,7 @@ import type { CustomTool, ModelSelection, PermissionMode } from "./agent-prims.j
 // Code `Plugin` objects (the array form of `AgentOptions.plugins`) are the
 // public discriminated union. SE45/SE46 — sourced from the sibling `./plugin.ts`
 // contract module so no `types/*.ts` file reaches into `internal/`.
-import type { Plugin } from "./plugin.js";
+import type { ConversationRef, Plugin } from "./plugin.js";
 // SE46 — the SDKAgent surface cluster lives in ./sdk-agent.ts (extracted from this
 // god-file to break the memory-provider madge cycle). agent.ts imports the ones it
 // uses internally, and re-exports the whole cluster so every existing importer of
@@ -707,6 +707,11 @@ export interface AgentOptions {
    * construction-time mode applies. Local runtime.
    */
   permissionMode?: PermissionMode;
+  /**
+   * The conversation this agent's runs belong to, passed to `pre_tool_call` plugins as
+   * `PreToolCallContext.conversation`. `SendOptions.conversation` overrides it. Local runtime.
+   */
+  conversation?: ConversationRef;
   /**
    * Skills configuration. Either a static {@link SkillsSettings} object or —
    * SE22 — a {@link SkillsResolver} evaluated per `send()` to pick skills from
