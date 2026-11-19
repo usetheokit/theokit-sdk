@@ -467,6 +467,18 @@ export type SkillsResolver = (
 ) => SkillsSettings | Promise<SkillsSettings>;
 
 /**
+ * How the built-in fact store is mirrored to memory adapters. See {@link MemorySettings.mirror}.
+ *
+ * @public
+ */
+export interface MemoryMirrorOptions {
+  /** Write every fact the built-in store saves to each registered memory adapter. Default true when mirror is set. */
+  write?: boolean;
+  /** Where the <memory> block reads facts: "local" (default), or "adapters-first" with local as fallback. */
+  recall?: "local" | "adapters-first";
+}
+
+/**
  * Memory configuration accepted by `Agent.create()` via {@link AgentOptions.memory}.
  *
  * Persists durable facts as markdown files under `<cwd>/.theokit/memory/` (or `directory`), with the
@@ -486,6 +498,12 @@ export type SkillsResolver = (
  */
 export interface MemorySettings {
   enabled: boolean;
+  /**
+   * Link the built-in fact store to the agent's `kind: "memory"` plugins (Mem0, Honcho,
+   * Supermemory). Absent means no mirroring. The `MemoryContext` passed to adapters is the agent's
+   * `memoryContext`, with `userId` defaulting to {@link MemorySettings.userId}.
+   */
+  mirror?: MemoryMirrorOptions;
   namespace?: string;
   userId?: string;
   scope?: "agent" | "user" | "team";

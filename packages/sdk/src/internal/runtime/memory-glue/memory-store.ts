@@ -143,6 +143,7 @@ export async function appendMemoryFact(
   cwd: string,
   config: MemoryConfig,
   fact: MemoryFact,
+  mirror?: { write(text: string): Promise<void> },
 ): Promise<void> {
   if (!config.enabled) return;
   // Before the migration, which can move a legacy JSON store on disk: an invalid ceiling is
@@ -159,4 +160,6 @@ export async function appendMemoryFact(
     ...(fact.kind === undefined ? {} : { kind: fact.kind }),
   };
   await appendFactMd(cwd, config, sanitized);
+  // Only after the local save succeeded; the mirror reports its own failures and never throws.
+  await mirror?.write(sanitized.text);
 }
