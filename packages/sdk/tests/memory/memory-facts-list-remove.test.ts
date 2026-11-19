@@ -90,6 +90,18 @@ describe("listMemoryFacts / removeMemoryFact", () => {
     expect(await removeMemoryFact(cwd, id)).toBe(false);
   });
 
+  it("removes the index line a later append put inside a trailing ## Facts section", async () => {
+    await appendFactToMarkdown(cwd, { text: "gamma fact" });
+    const gamma = (await listMemoryFacts(cwd)).find((f) => f.text === "gamma fact");
+    expect(gamma).toBeDefined();
+    // The writer appended its index line after the legacy `## Facts` bullets, i.e. inside it.
+    expect(readFileSync(md(), "utf8").lastIndexOf(`](${gamma?.id})`)).toBeGreaterThan(
+      readFileSync(md(), "utf8").indexOf("## Facts"),
+    );
+    expect(await removeMemoryFact(cwd, gamma?.id as string)).toBe(true);
+    expect(readFileSync(md(), "utf8")).not.toContain(`](${gamma?.id})`);
+  });
+
   it("resolves false for an unknown id and changes nothing", async () => {
     const before = readFileSync(md(), "utf8");
     expect(await removeMemoryFact(cwd, "no-such-id")).toBe(false);
@@ -158,6 +170,21 @@ describe("listMemoryFacts / removeMemoryFact", () => {
     expect(
       (await again.search("alpha")).every((h) => !h.path?.endsWith(target?.id as string)),
     ).toBe(true);
+  });
+
+  it("a sync running while a removal starts cannot bring the removed fact back", async () => {
+    const { IndexManager } = await import("../../src/internal/memory/index-manager.js");
+    const index = await IndexManager.open({ cwd });
+    onTestFinished(() => index.close());
+    const target = (await listMemoryFacts(cwd)).find(
+      (f) => f.text === "alpha fact" && !f.id.startsWith("legacy-"),
+    );
+    const syncing = index.sync();
+    const removing = removeMemoryFact(cwd, target?.id as string);
+    await Promise.all([syncing, removing]);
+    expect(
+      (await index.search("alpha")).some((h) => h.path?.endsWith(target?.id as string) === true),
+    ).toBe(false);
   });
 
   it("keeps an unrelated legacy fact recallable right after removing another", async () => {
