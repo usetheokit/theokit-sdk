@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1412 export(s) across 57 entry point(s).
+1423 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1704,4 +1704,18 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WorkflowStepDescription` | interface | theokit#161 — one step of a workflow, as a reflection surface sees it.  |
 | `WorkflowStream` | type | SE28 — the async iterator returned by `Workflow.stream()`.  |
 | `WorkflowToolError` | class | Raised by a {@link workflowAsTool } or {@link workflowResumeTool } tool when the run does not reach `status: "completed"` (a step failed, the run was cancelled, or it suspended without `reportSuspe... |
+
+## `@theokit/skills-registry`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `compareSkillVersions` | function | SemVer 2.0 precedence (build metadata ignored).  |
+| `downloadSkill` | function | Resolves `name` or `name@version` against a registry and returns the verified package. |
+| `installSkill` | function | Atomically installs a verified package into `<skillsDir>/<name>`, restoring the previous version on failure. |
+| `MAX_PACKAGE_BYTES` | const | Largest package body accepted, in bytes (1 MiB). |
+| `SkillPackage` | interface | The JSON package as published: base64 file contents. |
+| `SkillsRegistryError` | class | Typed error thrown by every registry operation; branch on `code`. |
+| `SkillsRegistryErrorCode` | type | Stable, machine-readable reason a registry operation failed. |
+| `VerifiedSkillPackage` | interface | A package whose digest, name, version, paths and SKILL.md were checked. |
+| `verifySkillPackage` | function | Checks size, sha256, identity, paths and SKILL.md of a package body; throws `SkillsRegistryError`. |
 
