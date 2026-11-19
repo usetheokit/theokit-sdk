@@ -66,19 +66,11 @@ export function removeFactEntry(
   beforeRemove?: (touched: string[]) => Promise<void>,
 ): Promise<string[]> {
   const writeRoot = resolveMemoryRoot(cwd, config);
-  return withCwdMutex(writeRoot, () => removeLocked(cwd, id, config, writeRoot, beforeRemove));
-}
-
-async function removeLocked(
-  cwd: string,
-  id: string,
-  config: MemoryLocationConfig | undefined,
-  writeRoot: string,
-  beforeRemove?: (touched: string[]) => Promise<void>,
-): Promise<string[]> {
-  const target = await findRemovable(cwd, id, config, writeRoot);
-  if (target === undefined) return [];
-  return removeTarget(writeRoot, target, beforeRemove);
+  return withCwdMutex(writeRoot, async () => {
+    const target = await findRemovable(cwd, id, config, writeRoot);
+    if (target === undefined) return [];
+    return removeTarget(writeRoot, target, beforeRemove);
+  });
 }
 
 async function removeTarget(
