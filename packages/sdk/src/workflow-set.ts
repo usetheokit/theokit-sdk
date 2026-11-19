@@ -7,15 +7,16 @@
  * (payload validation, a missing step, an I/O failure) is rethrown at once, unchanged.
  */
 import { ConfigurationError } from "./errors.js";
-import type { WorkflowRun } from "./types/workflow.js";
-import { Workflow } from "./workflow.js";
+import type { WorkflowDescription, WorkflowResumeOptions, WorkflowRun } from "./types/workflow.js";
 import {
   WorkflowResumeWorkflowMismatchError,
   WorkflowSnapshotNotFoundError,
 } from "./workflow-errors.js";
 
 /** A committed workflow of any input type. Method bivariance lets `Workflow<{a: string}>` in. */
-type CommittedWorkflow = Workflow<never, unknown>;
+type CommittedWorkflow = WorkflowResumeOptions<never>["workflow"] & {
+  describe(): WorkflowDescription;
+};
 
 /** @public */
 export interface WorkflowSet {
@@ -60,7 +61,8 @@ async function tryResume<TO>(
   signal: AbortSignal | undefined,
 ): Promise<WorkflowRun<TO> | undefined> {
   try {
-    return await Workflow.resume<TO>({
+    const { resumeWorkflow } = await import("./internal/workflow/executor.js");
+    return await resumeWorkflow<TO>({
       workflow,
       runId,
       ...(payload !== undefined ? { payload } : {}),
@@ -72,6 +74,12 @@ async function tryResume<TO>(
   }
 }
 
+/**
+ * Build a {@link WorkflowSet} with `WorkflowSet.of(workflows)`; throws `ConfigurationError` when two
+ * members share a workflow name.
+ *
+ * @public
+ */
 export const WorkflowSet = {
   of(workflows: ReadonlyArray<CommittedWorkflow>): WorkflowSet {
     const members = [...workflows];
