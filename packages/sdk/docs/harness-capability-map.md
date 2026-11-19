@@ -948,7 +948,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `A2APeerNotRegisteredError` | class | Thrown by {@link MessageBus.send } and {@link MessageBus.request } when `to` has no registered handler.  |
 | `A2ARemoteRequestUnsupportedError` | class | Thrown by {@link MessageBus.request } when `to` has no local handler and the bus has a transport.  |
 | `A2ARequestTimeoutError` | class | A peer did not answer a {@link MessageBus.request } within its timeout.  |
-| `A2ATransport` | interface |  |
+| `A2ATransport` | interface | A2ATransport — the seam that lets a {@link MessageBus } reach agents in other processes.  |
 | `AgentMailbox` | class | One agent's endpoint on a {@link MessageBus } : registers `agentId` on construction and forwards inbound messages to the handler installed by `onMessage`.  |
 | `DelegationCompleteContext` | interface | Context passed to {@link SubAgentSpec.onDelegationComplete } after the child settles. |
 | `DelegationCompleteDecision` | interface | Decision returned from {@link SubAgentSpec.onDelegationComplete } . |

@@ -1,3 +1,5 @@
+import type { A2AMessage } from "./types.js";
+
 /**
  * A2ATransport — the seam that lets a {@link MessageBus} reach agents in other processes.
  *
@@ -7,9 +9,6 @@
  *
  * @public
  */
-
-import type { A2AMessage } from "./types.js";
-
 export interface A2ATransport {
   /** Deliver one message to a peer outside this process. */
   send(message: A2AMessage): Promise<void>;
