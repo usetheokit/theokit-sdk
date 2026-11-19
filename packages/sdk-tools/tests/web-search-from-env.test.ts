@@ -88,7 +88,7 @@ describe("resolveWebSearchAdapter", () => {
   it("builds an adapter that calls the injected fetch", async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ web: { results: [] } })));
     const r = resolveWebSearchAdapter({ BRAVE_API_KEY: "k" }, { fetchImpl });
-    await r.adapter?.("hello");
+    await r.adapter?.("hello", 3);
     expect(fetchImpl).toHaveBeenCalled();
   });
 });
