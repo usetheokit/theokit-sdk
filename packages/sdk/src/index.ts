@@ -4,7 +4,7 @@
 // Locked names: see CLAUDE.md.
 
 // Agent façade
-export { Agent, type AgentPromptResult } from "./agent.js";
+export { Agent, type AgentLease, type AgentPromptResult } from "./agent.js";
 // Types a consumer already meets through a public signature. Each was marked `@public` and reachable
 // from no entry — the promise the docblock makes was not kept by the export map. `AgentBuilderDeps`
 // states the reasoning in its own words: `new AgentBuilder(deps)` is callable by anyone, so this

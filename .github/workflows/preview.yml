@@ -42,7 +42,8 @@ on:
     # fix would otherwise sit here with no preview during the window it is most worth
     # iterating on. A push with no pull request gets a `@workspace` tag rather than a
     # comment, which is exactly the addressable thing wanted.
-    branches: [workspace]
+    # `workspace` merges with no CI, so the push preview is cut from develop, after each promotion.
+    branches: [develop]
 
 # pkg.pr.new authenticates as its own GitHub App and comments as itself. It needs nothing
 # from GITHUB_TOKEN, so this job holds nothing.
