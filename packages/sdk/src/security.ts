@@ -24,7 +24,26 @@ import { ConfigurationError } from "./errors.js";
 import {
   addPattern as _addPattern,
   redactSecrets as _redactSecrets,
+  createExactMask,
 } from "./internal/security/index.js";
+
+/**
+ * Exact-value masker returned by {@link Security.createMask}. A plain object with no global state.
+ */
+export interface ExactValueMask {
+  /** Every configured value in `text` replaced by the placeholder, longest first. */
+  text(text: string): string;
+  /** A structural copy of `value` with every string masked. Objects and arrays are walked, other values returned as is. */
+  deep<T>(value: T): T;
+  /** A per-stream masker: push returns what is safe to release, flush returns the rest. */
+  stream(): { push(delta: string): string; flush(): string };
+  /**
+   * Route `write` (and `end(chunk)`) of each stream through the mask, byte-exact for any encoding.
+   * Returns an uninstall that flushes held bytes first. A write held back whole calls its callback
+   * before its bytes reach the stream. Throws `ConfigurationError` when a stream is already wrapped.
+   */
+  wrapStreams(streams: readonly NodeJS.WritableStream[]): () => void;
+}
 
 export class Security {
   private constructor() {}
@@ -87,5 +106,29 @@ export class Security {
       );
     }
     _addPattern(re);
+  }
+
+  /**
+   * Build a masker for exact secret values (API keys, bot tokens) the app already knows. Unlike
+   * {@link Security.redact} it matches values, not patterns, holds back a value split across stream
+   * chunks, and keeps no process-global state.
+   *
+   * Values shorter than `minLength` (default 4) are ignored, so a one-character value cannot mask
+   * every occurrence of that character; duplicates are removed. The longest value wins when one
+   * contains another. Choose a placeholder that does not contain a configured value.
+   *
+   * @example
+   * const mask = Security.createMask([process.env.BOT_TOKEN ?? ""]);
+   * mask.text("token is " + process.env.BOT_TOKEN); // → "token is [redacted]"
+   */
+  static createMask(
+    values: readonly string[],
+    options?: { placeholder?: string; minLength?: number },
+  ): ExactValueMask {
+    return createExactMask(
+      values,
+      options,
+      (message) => new ConfigurationError(message, { code: "invalid_mask_stream" }),
+    );
   }
 }

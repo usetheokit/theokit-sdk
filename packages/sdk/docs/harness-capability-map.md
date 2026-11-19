@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1409 export(s) across 57 entry point(s).
+1414 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -187,6 +187,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `evaluateBlastRadius` | function | Decide one declared action against the scopes the operator granted.  |
 | `EventBus` | class | A typed publish/subscribe bus, parameterised by a map of event name to payload type.  |
 | `EvictReason` | type | Live-agent cache for production deploys (Production-Readiness #2, ADRs D307-D310).  |
+| `ExactValueMask` | interface | Exact-value masker returned by {@link Security.createMask } .  |
 | `extractRawId` | function | Extract the raw provider id from a `MemoryId`, enforcing that the prefix matches `expectedAdapterId`.  |
 | `fingerprintHookGate` | function | A gate that approves only hooks whose fingerprint is listed.  |
 | `fn` | function | Build a `FnStep`.  |
@@ -396,7 +397,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SDKUser` | interface | Owner: `internal/catalog/` (2 of 3 importers).  |
 | `SDKUserMessage` | interface | Structured form of `agent.send()`'s message argument.  |
 | `SDKUserMessageEvent` | interface | Echo of the user prompt for this run. |
-| `Security` | class | Public security namespace (T2.1, ADR D68).  |
+| `Security` | class |  |
 | `SecurityFloorInput` | interface | The vocabulary, the layer names, and the values to resolve.  |
 | `SendOptions` | interface | Per-send overrides and callbacks.  |
 | `SessionLifecycleContext` | interface | #65 — context for the `on_session_start` / `on_session_end` hooks.  |
@@ -1340,6 +1341,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `addPattern` | function | Register an extra pattern for `redactSecrets` to mask, on top of the built-in vendor set.  |
 | `assertNoSymlinkEscape` | function | Assert that `path` — including every directory component in the chain — stays under `base` after symlink resolution.  |
+| `createExactMask` | function |  |
+| `ExactMaskOptions` | interface | Exact-value masking: replaces known secret values (not patterns) in text, structured values and Node writable streams.  |
+| `ExactValueMaskImpl` | interface |  |
 | `ForbiddenPathError` | class | Thrown when an agent tool is asked to read or write a sensitive path that the blocklist forbids (`.env`, `.git/`, `node_modules/`, `.theo/`, lock files).  |
 | `isForbiddenPath` | function | Decide whether a project-relative path points to a known-sensitive file that a coding agent must not read or write.  |
 | `maskToken` | function | Mask one string, keeping enough of it to be recognizable in a log.  |
