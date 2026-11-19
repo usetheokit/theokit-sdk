@@ -113,8 +113,10 @@ export interface RequestOptions {
 /**
  * In-process router that delivers A2A messages between agents keyed by string id.
  *
- * Purely in-memory and single-process: nothing is persisted and nothing crosses a
- * process or network boundary. Register one handler per agent id, then `send`
+ * By default purely in-memory and single-process. With an {@link A2ATransport} (constructor
+ * `transport` option), `send` to a peer with no local handler goes to `transport.send`, and
+ * `pump()` polls it for every locally registered agent and delivers to their handlers; the bus
+ * itself persists nothing. Register one handler per agent id, then `send`
  * (fire-and-forget) or `request` (await the handler's return value).
  *
  *   const bus = new MessageBus();
@@ -124,10 +126,11 @@ export interface RequestOptions {
  * Callers supply only `{ type, payload }`; the bus stamps `from`, `to`,
  * `timestamp` and `origin` onto the delivered {@link A2AMessage}.
  *
- * How it fails: `send` and `request` both reject with {@link A2APeerNotRegisteredError}
- * (code `a2a_peer_not_registered`, carrying `to`) when `to` has no handler, and
- * `request` additionally rejects on timeout. No typed error class is exported for
- * either, so there is nothing to `instanceof`.
+ * How it fails: without a transport, `send` and `request` both reject with
+ * {@link A2APeerNotRegisteredError} (code `a2a_peer_not_registered`, carrying `to`) when `to` has
+ * no handler. With a transport, `send` forwards instead, and `request` (local-only) rejects with
+ * {@link A2ARemoteRequestUnsupportedError} (code `a2a_remote_request_unsupported`). `request`
+ * additionally rejects with {@link A2ARequestTimeoutError} on timeout.
  *
  * Traps:
  *  - `register` silently OVERWRITES an existing id; the previous handler simply
@@ -236,12 +239,24 @@ export class MessageBus {
     if (!transport) return 0;
     let delivered = 0;
     for (const agentId of this.listAgents()) {
-      for (const message of await transport.poll(agentId)) {
-        const handler = this._handlers.get(agentId);
-        if (!handler) break;
-        delivered++;
-        await this._deliverPumped(agentId, handler, message);
+      delivered += await this._pumpAgent(transport, agentId);
+    }
+    return delivered;
+  }
+
+  private async _pumpAgent(transport: A2ATransport, agentId: string): Promise<number> {
+    const batch = await transport.poll(agentId);
+    let delivered = 0;
+    for (let i = 0; i < batch.length; i++) {
+      const handler = this._handlers.get(agentId);
+      if (!handler) {
+        // `poll` already removed the whole batch: unregistered mid-pump, so hand the rest back
+        // to the transport instead of losing it.
+        for (const message of batch.slice(i)) await transport.send(message);
+        break;
       }
+      delivered++;
+      await this._deliverPumped(agentId, handler, batch[i] as A2AMessage);
     }
     return delivered;
   }

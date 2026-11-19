@@ -61,4 +61,50 @@ describe("MessageBus transport", () => {
     expect(await b.pump()).toBe(3);
     expect(seen).toEqual([1, 2, 3]);
   });
+
+  it("requeues undelivered messages when the handler unregisters mid-batch", async () => {
+    const transport = inMemoryTransport();
+    const a = new MessageBus({ transport });
+    const b = new MessageBus({ transport });
+    const seen: unknown[] = [];
+    b.register("worker", (m) => {
+      seen.push(m.payload);
+      b.unregister("worker");
+    });
+    for (const n of [1, 2, 3]) await a.send("boss", "worker", { type: "t", payload: n });
+    expect(await b.pump()).toBe(1);
+    const later: unknown[] = [];
+    b.register("worker", (m) => {
+      later.push(m.payload);
+    });
+    expect(await b.pump()).toBe(2);
+    expect(seen).toEqual([1]);
+    expect(later).toEqual([2, 3]);
+  });
+
+  it("requeues the batch when the handler unregisters while poll is pending", async () => {
+    const inner = inMemoryTransport();
+    const b: MessageBus = new MessageBus({
+      transport: {
+        send: (m) => inner.send(m),
+        poll: async (id) => {
+          const got = await inner.poll(id);
+          b.unregister("worker");
+          return got;
+        },
+      },
+    });
+    const handler = vi.fn();
+    b.register("worker", handler);
+    await inner.send({
+      type: "t",
+      payload: 1,
+      from: "x",
+      to: "worker",
+      timestamp: 0,
+    } as A2AMessage);
+    expect(await b.pump()).toBe(0);
+    expect(handler).not.toHaveBeenCalled();
+    expect(await inner.poll("worker")).toHaveLength(1);
+  });
 });
