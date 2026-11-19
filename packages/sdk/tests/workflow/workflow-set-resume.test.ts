@@ -3,15 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
-import { ConfigurationError } from "../src/errors.js";
+import { ConfigurationError } from "../../src/errors.js";
 import {
   fn,
   Workflow,
   WorkflowResumeWorkflowMismatchError,
   WorkflowSet,
   WorkflowSnapshotNotFoundError,
-} from "../src/workflow.js";
-import { removeTempDirRobustSync } from "./helpers/temp-workspace.js";
+} from "../../src/workflow.js";
+import { removeTempDirRobustSync } from "../helpers/temp-workspace.js";
 
 const dir = () => {
   const d = mkdtempSync(join(tmpdir(), "wfset-"));
