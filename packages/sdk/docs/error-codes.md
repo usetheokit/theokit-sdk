@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-270 distinct code(s).
+274 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -82,7 +82,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `handoff_target_invalid` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:116` |
 | `handoff_target_required` | domain | ConfigurationError | `packages/sdk-handoff/src/handoff.ts:111` |
 | `hitl_timeout` | domain | HitlTimeoutError | `packages/sdk/src/internal/runtime/tools/hitl-middleware.ts:42` +1 |
-| `hook_denied` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent.ts:553` |
+| `hook_denied` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent.ts:556` |
 | `hook_fingerprint_invalid` | domain | ConfigurationError | `packages/sdk/src/hooks-approval.ts:48` |
 | `hooks_invalid_command` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:436` |
 | `hooks_json_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:273` +2 |
@@ -145,7 +145,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `mcp_not_init` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/client.ts:280` +2 |
 | `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:76` |
 | `memory_ceiling_reached` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:43` +1 |
-| `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:128` |
+| `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:166` |
 | `memory_path_escapes_root` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:115` +1 |
 | `memory_path_traversal` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:308` |
 | `memory_threat_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/markdown-store.ts:283` |
@@ -162,7 +162,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `network_error` | domain | NetworkError | `packages/sdk/src/internal/http.ts:99` |
 | `no_api_key` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-brave.ts:50` +1 |
 | `no_base_url` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-searxng.ts:35` |
-| `no_memory_adapter` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:141` +2 |
+| `no_memory_adapter` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:179` +2 |
 | `no_such_session` | domain | NoSuchSessionError | `packages/sdk/src/interactive/types.ts:41` +1 |
 | `no_text_answer` | domain | — | `packages/sdk/src/errors.ts:656` |
 | `no_tool_call` | domain | — | `packages/sdk/src/errors.ts:656` |
@@ -194,6 +194,10 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `plugin_manifest_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:281` |
 | `plugin_manifest_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:287` |
 | `plugin_missing_manifest` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:272` +2 |
+| `profile_app_directory_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/profile.ts:31` +1 |
+| `profile_conflict` | domain | — | `packages/sdk/src/errors.ts:718` |
+| `profile_directory_failed` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/profile.ts:73` |
+| `profile_name_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/profile.ts:41` |
 | `programmatic_hooks_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:104` |
 | `provider_unreachable` | domain | TheokitAgentError | `packages/sdk/src/internal/llm/muse.ts:248` |
 | `provider_unresolved` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:113` +2 |
