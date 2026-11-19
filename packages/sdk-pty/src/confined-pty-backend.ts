@@ -31,6 +31,11 @@ const DEFAULT_PROBE_TIMEOUT_MS = 3000;
 const PROBE_SETTLE_MS = 300;
 const PROBE_POLL_MS = 50;
 
+/**
+ * Options for {@link createConfinedPtyBackend}.
+ *
+ * @public
+ */
 export interface ConfinedPtyBackendOptions {
   /** Every session starts here; a cwd passed to startInteractive is ignored. */
   root: string;
@@ -113,6 +118,11 @@ export function createConfinedPtyBackend(options: ConfinedPtyBackendOptions): In
   return new ConfinedPtyBackend(inner, options);
 }
 
+/**
+ * Outcome of {@link probeConfinement}: confined, or the reason it could not be proven.
+ *
+ * @public
+ */
 export type ConfinementProbeResult =
   | { confined: true }
   | {
