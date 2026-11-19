@@ -575,7 +575,8 @@ export class LocalAgent implements SDKAgent {
     return dispatchLocalRun({
       inputs: {
         agentId: this.agentId,
-        model: this.model,
+        // A fallback attempt carries its model in the send options; the agent's own model stays.
+        model: normalizeModel(options.model) ?? this.model,
         options: effectiveAgentOptions,
         workspaceCwd: this.workspaceCwd,
         hooksExecutor: this.hooksExecutor,

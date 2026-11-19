@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-270 distinct code(s).
+271 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -155,6 +155,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `missing_credential` | domain | AuthenticationError | `packages/sdk/src/internal/providers/builtin/openai-chatgpt.ts:72` |
 | `missing_frontmatter` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:93` |
 | `missing_model` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:40` |
+| `model_fallback_exhausted` | domain | — | `packages/sdk/src/errors.ts:722` +1 |
 | `model_unavailable` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:75` +2 |
 | `muse_not_installed` | domain | ConfigurationError | `packages/sdk/src/internal/llm/muse.ts:60` |
 | `muse_not_signed_in` | domain | AuthenticationError | `packages/sdk/src/internal/llm/muse.ts:67` |

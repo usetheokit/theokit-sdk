@@ -703,3 +703,26 @@ export class CompressionFailedError extends TheokitAgentError {
     super(message, { ...options, code: "compression_failed", isRetryable: true });
   }
 }
+
+/**
+ * Every model of `AgentOptions.modelFallback` failed. `cause` is the primary model's error;
+ * `attempts` lists each model tried with its error code.
+ *
+ * @public
+ */
+export class ModelFallbackExhaustedError extends TheokitAgentError {
+  override readonly name = "ModelFallbackExhaustedError";
+  readonly attempts: ReadonlyArray<{ model: string; errorCode: string }>;
+
+  constructor(
+    attempts: ReadonlyArray<{ model: string; errorCode: string }>,
+    options: { cause?: unknown } = {},
+  ) {
+    const list = attempts.map((a) => `${a.model} (${a.errorCode})`).join(", ");
+    super(`The primary model failed and so did every fallback model: ${list}`, {
+      ...options,
+      code: "model_fallback_exhausted",
+    });
+    this.attempts = attempts;
+  }
+}

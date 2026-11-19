@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1409 export(s) across 57 entry point(s).
+1414 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -276,6 +276,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MigrateResult` | interface | Outcome of {@link migrateSqliteToLance } . |
 | `migrateSqliteToLance` | function | Migrate the Memory index from SQLite to LanceDB.  |
 | `mkMemoryId` | function | Construct a branded `MemoryId` for an adapter.  |
+| `ModelAttempt` | interface | One model tried for a turn under `AgentOptions.modelFallback`. |
+| `ModelFallbackExhaustedError` | class | Every model of `AgentOptions.modelFallback` failed.  |
+| `ModelFallbackOptions` | interface | Rerun a turn on another model when the primary model fails before it produced output.  |
 | `ModelListItem` | interface | Single model entry in the catalog. |
 | `ModelParameterDefinition` | interface | Per-model parameter definition discovered from `Theokit.models.list()`. |
 | `ModelParameterValue` | interface | One slot in a {@link ModelSelection.params } array.  |
@@ -1090,6 +1093,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `KnownAgentRunErrorCode` | type | T1.1 — closed literal union for `AgentRunError.code`.  |
 | `MemoryAdapterError` | class | Error raised by `@theokit-memory-*` adapters.  |
 | `MemoryAdapterErrorCode` | type | Finite error codes specific to memory adapter operations (ADR D141). |
+| `ModelFallbackExhaustedError` | class | Every model of `AgentOptions.modelFallback` failed.  |
 | `NetworkError` | class | Service unavailable, timeout, transport-level failure. |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
 | `StructuredOutputError` | class | The failure contract shared by `generateObject` and `streamObject`.  |

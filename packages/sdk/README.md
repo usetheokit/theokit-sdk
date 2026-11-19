@@ -312,6 +312,29 @@ const doc = readManagedSettingsDocument(undefined, { onWarn: (m) => console.warn
 - Nothing is validated: the caller owns the schema for its keys.
 - `managedSettingsPathFor(root?)` is the one path resolver. It picks a single path by `process.platform`; it does not consult all three platform paths.
 
+## Model fallback: `AgentOptions.modelFallback`
+
+```ts
+const agent = await Agent.create({
+  model: "anthropic/claude-sonnet-4-6",
+  modelFallback: { models: ["openai/gpt-4o-mini"] },
+});
+```
+
+When a turn fails with a provider or network error (`send` rejects, or the run ends `error`) **before
+any assistant text or tool call was streamed**, the SDK reruns the same turn on the next model in
+`models`, on the same agent, via `SendOptions.model`. The user message is in the transcript once, the
+`Run` you hold stays the same object, and its stream continues with the fallback's items. The
+fallback never becomes the agent's default model.
+
+- It never falls over on `cancelled`, on a `ConfigurationError`, or once any output has streamed.
+- `RunResult.modelAttempts` records each model tried and the error code of each failed one.
+- When every model fails the run ends `error` and `wait()` reports a `ModelFallbackExhaustedError`
+  that names each model with its error code; its `cause` is the primary model's error.
+
+This differs from `providers.fallback`, which only picks another *provider* when none is available for
+a route; it does not retry a run that failed. Credential-pool rotation also stays within one provider.
+
 ## Doom-loop guard: sliding-window repeat limit
 
 The built-in doom-loop guard counts consecutive identical tool calls, so an alternating loop (read A, read B, read A, read B) never trips it. Opt in to a sliding window with `SendOptions.doomLoop`:

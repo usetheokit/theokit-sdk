@@ -23,6 +23,7 @@ import { appendSessionMessage, clearSession, getSessionMessages } from "../sessi
 import type { TelemetryHandle } from "../telemetry/tracer.js";
 import { consumePending } from "./local-agent-invalidate.js";
 import { applyPreUserSendHook, wrapRunWithPostReplyHook } from "./local-agent-memory-hooks.js";
+import { dispatchWithModelFallback } from "./local-agent-model-fallback.js";
 import { persistMemoryFactIfWritePrompt } from "./local-agent-runtime-extensions.js";
 
 /**
@@ -220,9 +221,8 @@ export async function executeSendLocked(
     ...options,
     signal: anySignal([options.signal, inputs.lifecycleAbortController.signal]),
   };
-  const run = await inputs.dispatchRun({
+  const run = await dispatchSend(inputs, composedOptions, sendModel, {
     message: adaptedMessage,
-    options: composedOptions,
     systemPrompt: assembledSystemPrompt,
     memoryFacts,
     priorMessages,
@@ -255,6 +255,23 @@ export async function executeSendLocked(
     completionCheck: options.completionCheck,
     onRunEvent: options.onRunEvent,
     deps: buildCompletionCheckDeps(),
+  });
+}
+
+/** Dispatch the turn, through `modelFallback` when the agent configured fallback models. */
+function dispatchSend(
+  inputs: SendLockedInputs,
+  options: SendOptions,
+  sendModel: ModelSelection | undefined,
+  args: Omit<DispatchRunArgs, "options">,
+): Promise<Run> {
+  const models = inputs.options.modelFallback?.models ?? [];
+  if (models.length === 0) return inputs.dispatchRun({ ...args, options });
+  return dispatchWithModelFallback({
+    dispatch: (attemptOptions) => inputs.dispatchRun({ ...args, options: attemptOptions }),
+    options,
+    models,
+    primaryModel: (sendModel ?? normalizeModel(inputs.options.model))?.id ?? "primary",
   });
 }
 

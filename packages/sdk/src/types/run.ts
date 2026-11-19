@@ -97,12 +97,32 @@ export type MessageOrigin =
   | { readonly kind: "auto-continuation" };
 
 /**
+ * One model tried for a turn under `AgentOptions.modelFallback`.
+ *
+ * @public
+ */
+export interface ModelAttempt {
+  /** The model id this attempt ran on. */
+  model: string;
+  /** `"finished"` for the attempt that answered, `"failed"` for one that fell over. */
+  outcome: "finished" | "failed";
+  /** Error code of a failed attempt. */
+  errorCode?: string;
+}
+
+/**
  * Terminal result of a {@link Run}.
  *
  * @public
  */
 export interface RunResult {
   id: string;
+  /**
+   * Every model tried, in order, when `AgentOptions.modelFallback` is set. Absent otherwise.
+   *
+   * @public
+   */
+  modelAttempts?: ModelAttempt[];
   status: "finished" | "error" | "cancelled";
   result?: string;
   /**

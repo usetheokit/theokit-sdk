@@ -613,6 +613,21 @@ export interface TelemetrySettings {
 }
 
 /**
+ * Rerun a turn on another model when the primary model fails before it produced output.
+ *
+ * Unlike `providers.fallback` (which picks another provider when none is available for a route),
+ * this resends the failed turn on the same agent with `SendOptions.model` set to the next model.
+ *
+ * @public
+ */
+export interface ModelFallbackOptions {
+  /** Tried in order after the primary model. */
+  models: string[];
+  /** Only `"no-output"` for now: fall over only while the failed run has streamed no assistant output. */
+  when?: "no-output";
+}
+
+/**
  * Top-level options accepted by `Agent.create()`.
  *
  * Pass either `local` or `cloud` to pick a runtime.
@@ -620,6 +635,11 @@ export interface TelemetrySettings {
  * @public
  */
 export interface AgentOptions {
+  /**
+   * Rerun a turn on another model when it fails before any assistant text or tool call was
+   * streamed. Never on cancellation or a `ConfigurationError`. See {@link ModelFallbackOptions}.
+   */
+  modelFallback?: ModelFallbackOptions;
   /**
    * The model to run. SE8 — accepts a bare-string id shorthand
    * (`"openai/gpt-4o-mini"`, normalized to `{ id }`) OR a {@link ModelSelection}

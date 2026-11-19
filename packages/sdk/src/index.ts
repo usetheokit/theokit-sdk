@@ -96,6 +96,7 @@ export {
   isTransientError,
   MemoryAdapterError,
   type MemoryAdapterErrorCode,
+  ModelFallbackExhaustedError,
   NetworkError,
   RateLimitError,
   TaskNotFoundError,
@@ -429,6 +430,7 @@ export type {
   AgentSubagentDescription,
   AgentToolDescription,
   CustomTool,
+  ModelFallbackOptions,
   SDKAgent,
 } from "./types/agent.js";
 // SE7 — structured/multimodal tool-result content blocks (explicit for rollup-dts).
@@ -463,7 +465,12 @@ export type {
 // the bundled .d.ts (the `export type *` star does not reliably propagate — same
 // reason as `CustomTool` above).
 // SE34 — per-send completion check (`isTaskComplete`) public types.
-export type { CompletionCheck, CompletionCheckResult, MessageOrigin } from "./types/run.js";
+export type {
+  CompletionCheck,
+  CompletionCheckResult,
+  MessageOrigin,
+  ModelAttempt,
+} from "./types/run.js";
 export type {
   RunCompactBoundaryEvent,
   RunCompletionCheckEvent,
