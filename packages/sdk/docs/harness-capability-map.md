@@ -1703,12 +1703,12 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | Symbol | Kind | Summary |
 |---|---|---|
 | `compareSkillVersions` | function | SemVer 2.0 precedence (build metadata ignored).  |
-| `downloadSkill` | function |  |
-| `installSkill` | function |  |
+| `downloadSkill` | function | Resolves `name` or `name@version` against a registry and returns the verified package. |
+| `installSkill` | function | Atomically installs a verified package into `<skillsDir>/<name>`, restoring the previous version on failure. |
 | `MAX_PACKAGE_BYTES` | const | Largest package body accepted, in bytes (1 MiB). |
-| `SkillPackage` | interface |  |
-| `SkillsRegistryError` | class |  |
-| `SkillsRegistryErrorCode` | type |  |
-| `VerifiedSkillPackage` | interface |  |
-| `verifySkillPackage` | function |  |
+| `SkillPackage` | interface | The JSON package as published: base64 file contents. |
+| `SkillsRegistryError` | class | Typed error thrown by every registry operation; branch on `code`. |
+| `SkillsRegistryErrorCode` | type | Stable, machine-readable reason a registry operation failed. |
+| `VerifiedSkillPackage` | interface | A package whose digest, name, version, paths and SKILL.md were checked. |
+| `verifySkillPackage` | function | Checks size, sha256, identity, paths and SKILL.md of a package body; throws `SkillsRegistryError`. |
 
