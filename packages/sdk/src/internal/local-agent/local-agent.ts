@@ -16,6 +16,7 @@ import type { AgentOperation } from "../../types/sdk-agent.js";
 import type { SessionStore } from "../../types/session-store.js";
 import { diagFailure } from "../diagnostics.js";
 import { generateLocalAgentId } from "../ids.js";
+import type { MemoryMirror } from "../memory/mirror.js";
 import { withCwdMutex } from "../persistence/cwd-mutex.js";
 import { FsSessionStore } from "../persistence/fs-session-store.js";
 import { resolveSessionDir } from "../persistence/session-dir.js";
@@ -48,7 +49,7 @@ import {
 } from "../runtime/system-prompt/local-assembly.js";
 import { SystemPromptPipeline } from "../runtime/system-prompt/pipeline.js";
 import { resolveSystemPromptForSend } from "../runtime/system-prompt/system-prompt.js";
-import { validateToolCatalog } from "../runtime/validation/validate-agent-options.js";
+import { validateSendOptions } from "../runtime/validation/validate-agent-options.js";
 import { hydrateSession } from "../session/index.js";
 import { SPAN_NAMES } from "../telemetry/span-names.js";
 import { createTelemetry, type OTelSpan, type TelemetryHandle } from "../telemetry/tracer.js";
@@ -62,7 +63,7 @@ import {
   releaseLeaseIfPossible,
   reloadLocalAgent,
 } from "./local-agent-lifecycle.js";
-import { buildAgentMemory } from "./local-agent-memory-direct.js";
+import { wireAgentMemory } from "./local-agent-memory-direct.js";
 import { createLocalAgentMemoryProvider } from "./local-agent-memory-provider.js";
 import {
   applyPersonalityOverlay,
@@ -168,6 +169,8 @@ export class LocalAgent implements SDKAgent {
   private readonly defaultMemoryProviderForLoop: ReturnType<typeof createLocalAgentMemoryProvider>;
   /** T4.1 — PluginManager for code plugins (kind: general/model-provider/memory). @internal */
   private readonly pluginManagerCode: PluginManager = new PluginManager();
+  /** `memory.mirror` wiring; undefined when mirroring is not configured. @internal */
+  private readonly memoryMirror: MemoryMirror | undefined;
   /** Personality presets — lazy-loaded on first `usePersonality` call (ADRs D160-D164). @internal */
   // Not private: `local-agent-personality-extensions.ts` reads both through
   // `LocalAgentPersonalityTarget`, the same way `local-agent-lifecycle.ts` reads `sessionStore` and
@@ -200,9 +203,8 @@ export class LocalAgent implements SDKAgent {
     });
     if (sub.context !== undefined) this.context = sub.context;
     if (sub.providers !== undefined) this.providers = sub.providers;
-    this.skillsManager = sub.skillsManager;
+    ({ skillsManager: this.skillsManager, pluginsManager: this.pluginsManager } = sub);
     if (sub.skills !== undefined) this.skills = sub.skills;
-    this.pluginsManager = sub.pluginsManager;
     if (sub.plugins !== undefined) this.plugins = sub.plugins;
 
     // #526 — an unrecognised key here used to be accepted in silence, so a typo and an SDK too old
@@ -223,10 +225,10 @@ export class LocalAgent implements SDKAgent {
     // ADR D141 / D142: `agent.memory.*` direct API over plugin-aggregated adapters.
     // Built unconditionally; `requireAdapters` throws ConfigurationError when called
     // without any registered memory plugin.
-    this.memory = buildAgentMemory(
+    [this.memory, this.memoryMirror] = wireAgentMemory(
       this.pluginManagerCode,
       this.workspaceCwd,
-      this.options.memoryContext,
+      this.options,
     );
 
     registerLocalAgent({
@@ -309,14 +311,9 @@ export class LocalAgent implements SDKAgent {
   }
 
   async send(message: string | SDKUserMessage, options: SendOptions = {}): Promise<Run> {
-    // Per-call tools: run the same name/schema/dedupe checks as creation.
-    // (Cloud agents reject per-call tools in CloudAgent.send.)
-    if (options.tools !== undefined && options.tools.length > 0) {
-      // usetheokit/theokit-sdk#381 — with the agent's withhold list, so a per-send tool may claim a
-      // builtin name the agent withheld. Omitting it here would make the same catalog legal at
-      // create-time and rejected at send-time.
-      validateToolCatalog(options.tools, this.options.withheldBuiltinTools);
-    }
+    // Per-call tools get the creation-time checks (cloud agents reject them in CloudAgent.send);
+    // #381 — with the agent's withhold list. Also validates `doomLoop.window` (#1031).
+    validateSendOptions(options, this.options.withheldBuiltinTools);
     // T0.1: `agent.send` parent span spans the FULL lifecycle (mutex acquire +
     // dispatch + post-run). Child step spans (`agent.send.<step>`) land in T1.7.
     const sendSpan = this._telemetry.startSpan(SPAN_NAMES.AGENT_SEND, {
@@ -483,6 +480,7 @@ export class LocalAgent implements SDKAgent {
         pluginManagerCode: this.pluginManagerCode,
         defaultMemoryProviderForLoop: this.defaultMemoryProviderForLoop,
         workspaceCwd: this.workspaceCwd,
+        ...(this.memoryMirror !== undefined ? { memoryMirror: this.memoryMirror } : {}),
         telemetry: this._telemetry,
         lifecycleAbortController: this.lifecycleAbortController,
         runPreHook: (ut) => this.runPreHook(ut),
@@ -602,7 +600,7 @@ export class LocalAgent implements SDKAgent {
   close(): void {
     this.closed = true;
     // A closed handle refuses work, so it must not be served by the next getOrCreate.
-    liveAgentRegistry.forget(this.agentId);
+    liveAgentRegistry.forget(this.agentId, this);
   }
 
   async reload(): Promise<void> {

@@ -117,6 +117,27 @@ const removed = await removeMemoryFact(process.cwd(), facts[0].id); // true, or 
 
 `listMemoryFacts` covers per-memory files and legacy `## Facts` bullets, in the order the agent reads them. `removeMemoryFact` deletes the file and its `MEMORY.md` index line (or one legacy bullet), serialized with the SDK's writes. Entries from another tool's store (for example the Claude Code CLI's) have `removable: false`, and removing one rejects with `MemoryFactNotRemovableError`. Removal also drops the entry's rows from the sqlite memory search index, so recall does not return it; a Lance index is not part of the built-in store and is not touched. Two identical legacy bullets in one root share an id, and removal takes the first. An id found in more than one root (the same file name in the write root and the Claude Code store) rejects with `MemoryFactAmbiguousError` naming every root, and removes nothing.
 
+
+### Mirroring facts to a memory adapter
+
+Set `memory.mirror` to link the built-in fact store to the agent's `kind: "memory"` plugins (Mem0, Honcho, Supermemory). Every fact the built-in store saves is also written to each adapter, with the agent's `memoryContext` and `userId` defaulting to `memory.userId`. A failed adapter write is reported on the diagnostics channel with the adapter id and never fails the local save or the run.
+
+```ts
+import { mem0Memory } from "@theokit/memory-mem0";
+
+const agent = await Agent.create({
+  memory: {
+    enabled: true,
+    userId: "alice",
+    // write: true is the default; "adapters-first" reads the <memory> block from the
+    // adapters (list() when available, else recall()) and falls back to local facts on
+    // an error or an empty result.
+    mirror: { recall: "adapters-first" },
+  },
+  plugins: [mem0Memory({ apiKey: process.env.MEM0_API_KEY! })],
+});
+```
+
 ## Builtin tool names
 
 `BUILTIN_TOOL_NAMES` (`"shell"`, `"memory_search"`, `"memory_get"`) lists the tools the SDK declares itself; these are the names `withheldBuiltinTools` accepts and a custom tool may not claim. `isBuiltinToolName(name)` tests one, so an app that takes tool names from configuration can refuse a collision at load time. Withholding a builtin via `withheldBuiltinTools` releases its name, so a custom tool may then use it.
@@ -133,6 +154,11 @@ import { listWorkspacePlugins } from "@theokit/sdk";
 
 const plugins = await listWorkspacePlugins(process.cwd(), { compatSources: ["claude-code"] });
 ```
+
+A `pre_tool_call` plugin sees which conversation the run belongs to in `ctx.conversation`, a
+`ConversationRef` (`platform`, `channelId`, `sessionKey`) the caller declares with
+`Agent.create({ conversation })` or `agent.send(prompt, { conversation })`; the send value wins. The
+key is absent when none was declared. It is threaded on the local runtime.
 
 ## Explain skills
 
@@ -174,6 +200,16 @@ await Cron.create({
 await Cron.start();   // required for local jobs to fire
 ```
 
+To reject a bad schedule when you read config, call the synchronous validators from `@theokit/sdk/cron`. They apply the same rules as `Cron.create`:
+
+```typescript
+import { validateCron, validateCronTimezone } from "@theokit/sdk/cron";
+
+validateCron("0 9 * * 1-5");             // ok
+validateCron("61 * * * *");              // throws ConfigurationError (code "invalid_cron")
+validateCronTimezone("America/Sao_Paulo"); // ok; "Mars/Base" throws "invalid_timezone"
+```
+
 Two runtimes: **local** (in-process scheduler — fires while the host process is alive) and **cloud** (Theo PaaS schedules server-side). See the exported `Cron` types for the full contract.
 
 ## Hook allowlists
@@ -202,6 +238,21 @@ if (r.truncated.stdout) console.error("stdout was cut at maxOutputBytes");
 
 `runBounded` spawns the child in its own process group (POSIX) and sends `SIGKILL` to the whole group on timeout or when `signal` aborts, so pipelines and background jobs die with it. Each of stdout and stderr is capped at `maxOutputBytes` (default 5 MiB) and `truncated` says which was cut. `timeoutMs <= 0` throws `ConfigurationError`. On Windows process groups do not apply: only the child itself is killed. The `shell` tool and command hooks use this runner; a truncated stream gets a trailing `[output truncated]` note.
 
+## `@theokit/sdk/sandbox`: DockerSandbox options
+
+```ts
+import { DockerSandbox, defaultDockerRunner } from "@theokit/sdk/sandbox";
+
+const sandbox = new DockerSandbox({
+  workDir: "/srv/ws",
+  readOnlyWorkspace: true, // mounts the workspace `:ro` (default false, `:rw`)
+  labels: { "theoclaw.session": "s1" }, // `--label k=v` on every container
+  runner: defaultDockerRunner("docker"), // the default runner, to wrap in a custom one
+});
+```
+
+`readOnlyWorkspace: true` changes only the workspace mount; the root filesystem is already read-only with a `/tmp` tmpfs. Because the workspace is then not writable, `uploadFile` fails. Label keys must match `[a-z0-9]([a-z0-9._-]*[a-z0-9])?` and values must not contain newlines; otherwise the constructor throws `ConfigurationError` with code `invalid_docker_label`.
+
 ## `@theokit/sdk/persistence`: single instance lock
 
 `acquireInstanceLock(dir, { path? })` takes `<dir>.instance.lock` for the life of the process, so two processes never run against the same state directory. A second holder rejects with `InstanceLockedError` (`lockPath`, `holderPid`); the message names the lock and the pid, and says to stop that process or remove the lock if the pid is not running. A lock left by a pid that is no longer running is taken over, and only one of several contenders wins a given stale lock. `release()` removes the lock only while this holder still owns it, and is idempotent.
@@ -227,6 +278,25 @@ Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must
 - **List patterns.** A `DiscoverySpec` with `scope: "cwd-only"` or `"git-root-walk"` may set `pattern: ["THEO.md", "AGENTS.md", "CLAUDE.md"]`. Each directory contributes only the first name that exists. A list on a `"globbed"` spec throws `ConfigurationError` naming the spec id.
 - **`wrapImport(name, content)`.** Wraps each inlined `@import` at every depth, e.g. `(n, c) => \`--- import: ${n} ---\n${c}\n--- end import ---\``. Refusal and not-found placeholders are never wrapped. Default: content unchanged.
 - **Already loaded.** A file discovery emits is not inlined again by an import; the import line becomes `[@import already loaded: <path>]`.
+
+## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
+
+`AgentLike` (`agentId`, `send`, optional `dispose`) and `RunLike` (`status`, `stream`, `wait`, `cancel`) are the small ports `SDKAgent` and `Run` satisfy with no cast. Type a wrapper, failover decorator or test double against them instead of the full `SDKAgent`, or re-declaring a port that drifts. `RunLike.wait()` resolves the real `RunResult`, so `status` is `RunStatus` and a misspelled status such as `"completed"` fails to compile.
+
+## Live-agent registry: `Agent.lease`
+
+`Agent.getOrCreate` caches agents in `Agent.registry`, which disposes them on LRU, idle or explicit eviction, even mid-turn. Use `Agent.lease` for work in flight: the registry never disposes a held agent.
+
+```ts
+const lease = await Agent.lease(conversationId, options);
+try {
+  await lease.agent.send("hello");
+} finally {
+  lease.release(); // idempotent
+}
+```
+
+LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
 
 ## Status
 
@@ -288,3 +358,13 @@ const doc = readManagedSettingsDocument(undefined, { onWarn: (m) => console.warn
 - An absent file returns `null` and warns nothing. An unreadable, invalid or non-object file returns `null` and warns through `onWarn` (default: the SDK failure diagnostic).
 - Nothing is validated: the caller owns the schema for its keys.
 - `managedSettingsPathFor(root?)` is the one path resolver. It picks a single path by `process.platform`; it does not consult all three platform paths.
+
+## Doom-loop guard: sliding-window repeat limit
+
+The built-in doom-loop guard counts consecutive identical tool calls, so an alternating loop (read A, read B, read A, read B) never trips it. Opt in to a sliding window with `SendOptions.doomLoop`:
+
+```ts
+await agent.send("...", { doomLoop: { window: 20, windowRepeatLimit: 3 } });
+```
+
+Once a call (same tool, same arguments; key order does not matter) already occurs `windowRepeatLimit` times in the last `window` calls, the next identical call is not executed. The model receives a blocked tool result naming the tool so it can change course. Blocked attempts count toward the window. `window` and `windowRepeatLimit` must be positive integers set together, otherwise `send` rejects with `ConfigurationError` code `invalid_doom_loop`. The consecutive `softThreshold`/`hardThreshold` keep working.
