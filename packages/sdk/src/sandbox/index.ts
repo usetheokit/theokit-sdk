@@ -22,6 +22,7 @@ export {
   type DockerRunResult,
   DockerSandbox,
   type DockerSandboxConfig,
+  defaultDockerRunner,
 } from "./docker-sandbox.js";
 export {
   E2B_CA_BUNDLE,
