@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1460 export(s) across 57 entry point(s).
+1461 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -188,6 +188,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `evaluateBlastRadius` | function | Decide one declared action against the scopes the operator granted.  |
 | `EventBus` | class | A typed publish/subscribe bus, parameterised by a map of event name to payload type.  |
 | `EvictReason` | type | Live-agent cache for production deploys (Production-Readiness #2, ADRs D307-D310).  |
+| `ExactValueMask` | interface | Exact-value masker returned by {@link Security.createMask } .  |
 | `extractRawId` | function | Extract the raw provider id from a `MemoryId`, enforcing that the prefix matches `expectedAdapterId`.  |
 | `fingerprintHookGate` | function | A gate that approves only hooks whose fingerprint is listed.  |
 | `fn` | function | Build a `FnStep`.  |
@@ -407,7 +408,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SDKUser` | interface | Owner: `internal/catalog/` (2 of 3 importers).  |
 | `SDKUserMessage` | interface | Structured form of `agent.send()`'s message argument.  |
 | `SDKUserMessageEvent` | interface | Echo of the user prompt for this run. |
-| `Security` | class | Public security namespace (T2.1, ADR D68).  |
+| `Security` | class | Secret masking at consumer output boundaries: pattern-based `redact` / `addPattern` and exact-value `createMask`. |
 | `SecurityFloorInput` | interface | The vocabulary, the layer names, and the values to resolve.  |
 | `SendOptions` | interface | Per-send overrides and callbacks.  |
 | `SessionLifecycleContext` | interface | #65 — context for the `on_session_start` / `on_session_end` hooks.  |
@@ -771,7 +772,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | Symbol | Kind | Summary |
 |---|---|---|
 | `clampYield` | function | Bound the yield window to [ {@link YIELD_MIN_MS } , {@link YIELD_MAX_MS } ]. |
+| `ConfinedPtyBackendOptions` | interface | Options for {@link createConfinedPtyBackend } . |
+| `ConfinementProbeResult` | type | Outcome of {@link probeConfinement } : confined, or the reason it could not be proven. |
+| `createConfinedPtyBackend` | function | An {@link InteractiveBackend } whose every session starts in `root`, runs under `interactiveWrapCommand({ mode })` and sees only the allowlisted environment (plus `HOME=root`).  |
 | `MaxSessionsError` | class | M77 — the {@link PtyInteractiveBackendOptions.maxSessions } ceiling was reached.  |
+| `probeConfinement` | function | Starts a real session that touches `paths.inside` (inside the root) and `paths.outside` (beside it), and reports whether the confinement held.  |
 | `PtyInteractiveBackend` | class | `InteractiveBackend` backed by a real pty, for programs that only behave correctly on a terminal.  |
 | `PtyInteractiveBackendOptions` | interface | Constructor options for {@link PtyInteractiveBackend } .  |
 | `YIELD_MAX_MS` | const | Ceiling for `StartInteractiveOptions.yieldMs`, clamped down.  |
@@ -869,8 +874,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `RepoMapOptions` | interface | Repo-map / env-context builders for orienting an LLM coding agent (M3-3).  |
 | `resolveAndScreen` | function | Resolve `host` to ALL its addresses and screen each.  |
 | `ResolveAndScreenOptions` | interface | Options for {@link resolveAndScreen } . |
-| `ResolvedWebSearch` | interface | Outcome of {@link resolveWebSearchAdapter } : the adapter, or why search is off. |
-| `resolveWebSearchAdapter` | function | Choose a web search adapter from `env`.  |
 | `screenedFetch` | function | Fetch `url` with SSRF screening: screens the host (unless `allowPrivateHosts`), sets `redirect:"manual"`, and re-screens every redirect hop (rejecting a hop to a blocked host or a non-http(s) targe... |
 | `ScreenedFetchOptions` | interface | Options for {@link screenedFetch } . |
 | `SessionArtifactStore` | interface | A generic, id-keyed, atomic artifact store.  |
@@ -889,7 +892,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `TruncationResult` | interface | What {@link truncateOutput } returns.  |
 | `VitestSummary` | interface | The fields lifted from vitest's JSON report.  |
 | `WebSearchCallback` | type | The search provider {@link createWebSearchTool } calls.  |
-| `WebSearchProvider` | type | Which web search adapter {@link resolveWebSearchAdapter } chose. |
 | `WebSearchResult` | interface | `web_search` — built-in tool for coding agents.  |
 | `withDefaultGuidance` | function | `withToolResultGuidance` pre-bound to {@link DEFAULT_TOOL_GUIDANCE } . |
 | `withDescription` | function | Return a new `CustomTool` with `description` replaced.  |
@@ -1384,6 +1386,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `addPattern` | function | Register an extra pattern for `redactSecrets` to mask, on top of the built-in vendor set.  |
 | `assertNoSymlinkEscape` | function | Assert that `path` — including every directory component in the chain — stays under `base` after symlink resolution.  |
+| `createExactMask` | function | Build an exact-value masker; `makeError` builds the error thrown for an already-wrapped stream. |
+| `ExactMaskOptions` | interface | Exact-value masking: replaces known secret values (not patterns) in text, structured values and Node writable streams.  |
+| `ExactValueMaskImpl` | interface | Shape returned by {@link createExactMask } ; the public `ExactValueMask` mirrors it. |
 | `ForbiddenPathError` | class | Thrown when an agent tool is asked to read or write a sensitive path that the blocklist forbids (`.env`, `.git/`, `node_modules/`, `.theo/`, lock files).  |
 | `isForbiddenPath` | function | Decide whether a project-relative path points to a known-sensitive file that a coding agent must not read or write.  |
 | `maskToken` | function | Mask one string, keeping enough of it to be recognizable in a log.  |
@@ -1577,11 +1582,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `interactiveWrapCommand` | function | The composition the interactive path needs — the counterpart of `createSandboxBackend`.  |
 | `InteractiveWrapOptions` | interface | Options for `interactiveWrapCommand`, the PTY counterpart of `createSandboxBackend`.  |
 | `LinuxSandbox` | class | Kernel-confined backend for Linux hosts: a `LocalSandbox` whose commands are rewritten as `bwrap <policy flags> -- /bin/sh -c '<command>'` before they are spawned.  |
+| `listSandboxContainers` | function | Lists containers (running or not) that carry every one of `labels`. |
 | `LocalSandbox` | class | Runs a command with `/bin/sh -c` on the host.  |
 | `provisionRepo` | function | Clone `repoUrl` into `<sandbox workdir>/<instanceId>` and check out `ref`.  |
 | `ProvisionRepoOptions` | interface | Options for {@link provisionRepo } . |
 | `realProbeCount` | function | How many real probes ran.  |
 | `realProbes` | const | Real probes used in production. |
+| `removeSandboxContainers` | function | Removes containers carrying every one of `labels`.  |
 | `RepoProvisionError` | class | Raised when cloning or checking out a repo fails.  |
 | `resetBwrapMemo` | function | Clears the `detectBwrapMemoized` memo.  |
 | `resetInteractiveWarnLatch` | function | Reset for tests — the latch is module state and tests need isolation.  |
@@ -1591,6 +1598,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `restrictedSeccompPath` | function | M57 — the memoized x64-gated seccomp program, written once per process to a temp file. |
 | `SandboxBackend` | class | The execution capability handed to an agent tool, and the extension point for new environments.  |
 | `SandboxConfig` | interface | Construction-time settings shared by every {@link SandboxBackend } .  |
+| `SandboxContainer` | interface | A container started by a `DockerSandbox`, as `docker ps -a` reports it. |
+| `SandboxDockerError` | class | A `docker` subcommand failed or timed out. |
 | `SandboxMode` | type | Codex's three canonical sandbox modes; lives in this leaf module so bwrap.ts and deny-read.ts need not import each other. |
 | `SandboxNetworkPolicy` | interface | What a {@link SandboxBackend } states about its outbound network.  |
 | `SandboxNotAvailableError` | class | A backend cannot be used at all: its runtime is missing or unusable.  |
