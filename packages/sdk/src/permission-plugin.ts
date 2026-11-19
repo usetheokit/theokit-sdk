@@ -73,21 +73,6 @@ export interface PermissionPluginOptions {
   readonly onAsk?: (toolName: string) => PreToolCallDecision | undefined;
 }
 
-/** Map a gate decision to the veto contract: allow passes, defer defers, anything else blocks. */
-function gateDecisionToVeto(
-  decision: PermissionGateDecision | undefined,
-  name: string,
-): PreToolCallDecision | undefined {
-  if (decision?.behavior === "allow") return undefined;
-  if (decision?.behavior === "defer") {
-    return { defer: true, ...(decision.reason !== undefined ? { reason: decision.reason } : {}) };
-  }
-  return {
-    block: true,
-    message: (decision as { message?: string } | undefined)?.message ?? `denied: ${name}`,
-  };
-}
-
 /**
  * Resolve an `"ask"` verdict via the gate (fail-closed). Extracted from the
  * register handler to keep its cognitive complexity in budget. Prefers
@@ -95,12 +80,9 @@ function gateDecisionToVeto(
  */
 async function resolveAsk(
   opts: PermissionPluginOptions,
-  call: { name: string; args: Record<string, unknown>; mode: PermissionMode; approved: boolean },
+  call: { name: string; args: Record<string, unknown>; mode: PermissionMode },
 ): Promise<PreToolCallDecision | undefined> {
-  const { name, args, mode, approved } = call;
-  // A call the host approved on resume was already asked. The floor and the deny rules ran again on
-  // the stored input before this point, and those are all an approval does not override.
-  if (approved) return undefined;
+  const { name, args, mode } = call;
   if (opts.canUseTool !== undefined) {
     let decision: PermissionGateDecision;
     try {
@@ -112,7 +94,12 @@ async function resolveAsk(
     // Fail-CLOSED (allow-list): only an explicit `allow` passes. Any other value
     // — `deny`, a malformed/undefined return from a JS consumer, a wrong-cased
     // behavior — blocks, so the gate can never silently allow on a bad decision.
-    return gateDecisionToVeto(decision, name);
+    if (decision?.behavior === "allow") return undefined;
+    if (decision?.behavior === "defer") return { defer: true, reason: decision.reason };
+    return {
+      block: true,
+      message: (decision as { message?: string })?.message ?? `denied: ${name}`,
+    };
   }
   // Deprecated back-compat: honor onAsk (undefined = allow). Fail-closed (block)
   // only when NEITHER a gate nor onAsk was supplied.
@@ -134,11 +121,10 @@ function createPermissionPlugin(
     kind: "general",
     register(ctx) {
       ctx.on("pre_tool_call", async (rawCtx) => {
-        const { name, args, permissionMode, approved } = rawCtx as {
+        const { name, args, permissionMode } = rawCtx as {
           name: string;
           args: Record<string, unknown>;
           permissionMode?: PermissionMode;
-          approved?: boolean;
         };
         // SE1 — precedence: the RUN's mode (threaded from `SendOptions`/`AgentOptions`
         // via the pre_tool_call context) wins over the plugin's construction-time
@@ -163,8 +149,7 @@ function createPermissionPlugin(
         if (action === "deny") {
           return { block: true, message: `denied by permission engine: ${name}` };
         }
-        if (action === "ask")
-          return resolveAsk(opts, { name, args, mode, approved: approved === true });
+        if (action === "ask") return resolveAsk(opts, { name, args, mode });
         return undefined;
       });
     },

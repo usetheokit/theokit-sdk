@@ -191,6 +191,33 @@ export function persistTurnToTranscript(
 }
 
 /**
+ * Persists a turn like {@link persistTurnToTranscript} but returns the write, so the caller can wait
+ * for it and see its failure. Chained on the same per-transcript queue, so on-disk order is kept.
+ *
+ * @internal
+ */
+export function persistTurnDurably(
+  store: SessionStore,
+  loc: TranscriptLocation,
+  sessionId: string,
+  turn: PersistTurnInput,
+): Promise<void> {
+  const key = transcriptKey(loc.cwd, loc.agentId);
+  const written = (pendingWrites.get(key) ?? Promise.resolve()).then(async () => {
+    await persistTurn(store, loc, sessionId, turn);
+    recordCounts.set(key, (recordCounts.get(key) ?? 0) + 1);
+  });
+  pendingWrites.set(
+    key,
+    written.then(
+      () => undefined,
+      () => undefined,
+    ),
+  );
+  return written;
+}
+
+/**
  * Load the persisted transcript into the in-memory cache. Idempotent per
  * (baseDir, cwd, agentId). Call once per agent lifecycle before the first read.
  *

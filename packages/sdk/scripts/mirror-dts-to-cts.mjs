@@ -46,6 +46,8 @@ const targets = [
   join(DIST, "messages.d.ts"),
   // M2-1: compaction sub-path.
   join(DIST, "compaction.d.ts"),
+  // #1053: hook allowlist sub-path.
+  join(DIST, "hooks-approval.d.ts"),
   // M2-4: models sub-path.
   join(DIST, "models.d.ts"),
   // #326: the provider registry as public API.

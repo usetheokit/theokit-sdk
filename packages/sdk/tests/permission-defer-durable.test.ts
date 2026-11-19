@@ -1,12 +1,13 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Agent, ConfigurationError, ToolDecisionMismatchError } from "../src/index.js";
+import { Agent, ConfigurationError, DeferredTranscriptWriteError } from "../src/index.js";
+import { FsSessionStore } from "../src/internal/persistence/fs-session-store.js";
 import { PermissionEngine } from "../src/permission-engine.js";
 import { type PermissionGate, PermissionPlugin } from "../src/permission-plugin.js";
 import { useTempCwd } from "./helpers/temp-workspace.js";
 
-useTempCwd("theokit-defer-resume-");
+useTempCwd("theokit-defer-durable-");
 
 const STUB_KEY = `sk-test-${"0".repeat(40)}`;
 
@@ -76,12 +77,17 @@ function build(
   sessionDir: string,
   ran: string[],
   rules: ConstructorParameters<typeof PermissionEngine>[0],
+  sessionStore?: import("../src/types/session-store.js").SessionStore,
 ) {
   return {
     apiKey: STUB_KEY,
     model: { id: "gpt-4o-mini" },
     providers: { routes: [{ capability: "chat" as const, provider: "openai" as const }] },
-    local: { cwd: process.cwd(), sessionDir },
+    local: {
+      cwd: process.cwd(),
+      sessionDir,
+      ...(sessionStore !== undefined ? { sessionStore } : {}),
+    },
     plugins: [PermissionPlugin.create(new PermissionEngine(rules), { canUseTool: defer })],
     tools: [
       {
@@ -103,100 +109,106 @@ async function deferRun(sessionDir: string, ran: string[]) {
   return { agent, result };
 }
 
-describe("resuming deferred tool calls", () => {
-  it("resumes_a_deferred_call_after_a_restart", async () => {
-    const { bodies } = stubModel();
+async function findTranscript(root: string, agentId: string): Promise<string> {
+  const walk = async (d: string): Promise<string[]> => {
+    const out: string[] = [];
+    for (const e of await readdir(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) out.push(...(await walk(p)));
+      else if (e.name.endsWith(".jsonl")) out.push(p);
+    }
+    return out;
+  };
+  for (const f of await walk(root)) {
+    if ((await readFile(f, "utf8")).includes(`"sessionId":"${agentId}"`)) return f;
+  }
+  throw new Error("no transcript");
+}
+
+describe("a deferred run is durable before it resolves", () => {
+  it("has the unanswered tool_use on disk when wait() resolves as deferred", async () => {
+    stubModel();
     const dir = join(process.cwd(), "sessions");
     const ran: string[] = [];
     const { agent, result } = await deferRun(dir, ran);
     expect(result.status).toBe("deferred");
-    expect(result.deferredToolCalls).toHaveLength(1);
-    expect(result.deferredToolCalls?.[0]).toMatchObject({
-      toolName: "risky",
-      toolUseId: "call_1",
-      input: { path: "a.txt" },
-    });
     expect(ran).toEqual([]);
+    // No flush: the file must already hold the call when the result is exposed.
+    const text = await readFile(await findTranscript(dir, agent.agentId), "utf8");
+    expect(text).toContain('"id":"call_1"');
+    expect(text).toContain('"deferred_tool_calls"');
+    await agent.dispose();
+  });
+
+  it("does not resolve as deferred while the transcript write is still pending", async () => {
+    stubModel();
+    const dir = join(process.cwd(), "sessions");
+    const inner = new FsSessionStore({ baseDir: dir, cwd: process.cwd() });
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    let held = false;
+    const store = {
+      readRecords: (id: string) => inner.readRecords(id),
+      appendRecords: async (id: string, recs: Parameters<typeof inner.appendRecords>[1]) => {
+        held = true;
+        await gate;
+        await inner.appendRecords(id, recs);
+      },
+    };
+    const agent = await Agent.create(build(dir, [], [{ tool: "risky", action: "ask" }], store));
+    const run = await agent.send("do it");
+    let resolved = false;
+    const waiting = run.wait().then((r) => {
+      resolved = true;
+      return r;
+    });
+    await vi.waitFor(() => expect(held).toBe(true));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(resolved).toBe(false);
+    release();
+    expect((await waiting).status).toBe("deferred");
+    await agent.dispose();
+  });
+
+  it("rejects with a typed error when the transcript write fails", async () => {
+    stubModel();
+    const dir = join(process.cwd(), "sessions");
+    const inner = new FsSessionStore({ baseDir: dir, cwd: process.cwd() });
+    const store = {
+      readRecords: (id: string) => inner.readRecords(id),
+      appendRecords: async () => {
+        throw new Error("disk full");
+      },
+    };
+    const agent = await Agent.create(build(dir, [], [{ tool: "risky", action: "ask" }], store));
+    const run = await agent.send("do it");
+    await expect(run.wait()).rejects.toBeInstanceOf(DeferredTranscriptWriteError);
+    await expect(run.wait()).rejects.toMatchObject({ code: "deferred_transcript_write_failed" });
+    await agent.dispose();
+  });
+});
+
+describe("a session that ends on deferred calls", () => {
+  it("refuses a plain send, on the same agent and after a restart", async () => {
+    stubModel();
+    const dir = join(process.cwd(), "sessions");
+    const ran: string[] = [];
+    const { agent } = await deferRun(dir, ran);
+    await expect(agent.send("hello")).rejects.toMatchObject({ code: "tool_decision_mismatch" });
     const agentId = agent.agentId;
     await agent.dispose();
-
     const resumed = await Agent.resume(
       agentId,
       build(dir, ran, [{ tool: "risky", action: "ask" }]),
     );
-    const out = await (
-      await resumed.send(undefined, { toolDecisions: [{ toolUseId: "call_1", behavior: "allow" }] })
-    ).wait();
-    expect(out.status).toBe("finished");
-    expect(ran).toEqual(["risky"]);
-    const last = bodies.at(-1)?.messages ?? [];
-    expect(JSON.stringify(last)).toContain("risky-done");
-    // The pending call is answered: a plain send no longer throws.
-    const next = await (await resumed.send("thanks")).wait();
-    expect(next.status).toBe("finished");
-    await resumed.dispose();
-  });
-
-  it("a_deny_rule_added_after_the_pause_wins_over_allow", async () => {
-    const { bodies } = stubModel();
-    const dir = join(process.cwd(), "sessions");
-    const ran: string[] = [];
-    const { agent } = await deferRun(dir, ran);
-    const agentId = agent.agentId;
-    await agent.dispose();
-
-    const resumed = await Agent.resume(
-      agentId,
-      build(dir, ran, [{ tool: "risky", action: "deny" }]),
-    );
-    const out = await (
-      await resumed.send(undefined, { toolDecisions: [{ toolUseId: "call_1", behavior: "allow" }] })
-    ).wait();
-    expect(out.status).toBe("finished");
-    expect(ran).toEqual([]);
-    expect(JSON.stringify(bodies.at(-1))).toContain("denied by permission engine");
-    await resumed.dispose();
-  });
-
-  it("writes the host's message for a denied call", async () => {
-    const { bodies } = stubModel();
-    const dir = join(process.cwd(), "sessions");
-    const ran: string[] = [];
-    const { agent } = await deferRun(dir, ran);
-    const out = await (
-      await agent.send(undefined, {
-        toolDecisions: [{ toolUseId: "call_1", behavior: "deny", message: "not today" }],
-      })
-    ).wait();
-    expect(out.status).toBe("finished");
-    expect(ran).toEqual([]);
-    expect(JSON.stringify(bodies.at(-1))).toContain("not today");
-    await agent.dispose();
-  });
-
-  it("decision_for_unknown_tool_use_is_refused", async () => {
-    stubModel();
-    const dir = join(process.cwd(), "sessions");
-    const { agent } = await deferRun(dir, []);
-    const attempt = agent.send(undefined, {
-      toolDecisions: [{ toolUseId: "nope-9", behavior: "allow" }],
-    });
-    await expect(attempt).rejects.toBeInstanceOf(ToolDecisionMismatchError);
-    await expect(
-      agent.send(undefined, { toolDecisions: [{ toolUseId: "nope-9", behavior: "allow" }] }),
-    ).rejects.toMatchObject({
+    await expect(resumed.send("hello")).rejects.toMatchObject({
       code: "tool_decision_mismatch",
-      message: expect.stringContaining("nope-9"),
+      message: expect.stringContaining("call_1"),
     });
-    await agent.dispose();
-  });
-
-  it("a plain send on a deferred session is refused, not dropped", async () => {
-    stubModel();
-    const dir = join(process.cwd(), "sessions");
-    const { agent } = await deferRun(dir, []);
-    await expect(agent.send("hello")).rejects.toMatchObject({ code: "tool_decision_mismatch" });
-    await agent.dispose();
+    expect(ran).toEqual([]);
+    await resumed.dispose();
   });
 
   it("unknown_deferred_schema_version_is_refused", async () => {
@@ -214,34 +226,11 @@ describe("resuming deferred tool calls", () => {
       agentId,
       build(dir, ran, [{ tool: "risky", action: "ask" }]),
     );
-    const decisions = [{ toolUseId: "call_1", behavior: "allow" as const }];
-    await expect(resumed.send(undefined, { toolDecisions: decisions })).rejects.toBeInstanceOf(
-      ConfigurationError,
-    );
-    await expect(resumed.send(undefined, { toolDecisions: decisions })).rejects.toMatchObject({
+    await expect(resumed.send("hello")).rejects.toBeInstanceOf(ConfigurationError);
+    await expect(resumed.send("hello")).rejects.toMatchObject({
       code: "deferred_schema_unsupported",
     });
     expect(ran).toEqual([]);
     await resumed.dispose();
   });
 });
-
-async function findTranscript(root: string, agentId: string): Promise<string> {
-  const { readdir } = await import("node:fs/promises");
-  const walk = async (d: string): Promise<string[]> => {
-    const out: string[] = [];
-    for (const e of await readdir(d, { withFileTypes: true })) {
-      const p = join(d, e.name);
-      if (e.isDirectory()) out.push(...(await walk(p)));
-      else if (e.name.endsWith(".jsonl")) out.push(p);
-    }
-    return out;
-  };
-  const all = await walk(root);
-  let hit: string | undefined;
-  for (const f of all) {
-    if ((await readFile(f, "utf8")).includes(`"sessionId":"${agentId}"`)) hit = f;
-  }
-  if (hit === undefined) throw new Error("no transcript");
-  return hit;
-}

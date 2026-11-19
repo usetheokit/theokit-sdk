@@ -89,6 +89,7 @@ export {
   AuthenticationError,
   BudgetExceededError,
   ConfigurationError,
+  DeferredTranscriptWriteError,
   type ErrorCode,
   type ErrorMetadata,
   IntegrationNotConnectedError,
@@ -121,6 +122,8 @@ export {
   type GenerateObjectResult,
 } from "./generate-object.js";
 export { GOAL_CONTINUATION_MARKER, type GoalLoopAgent, runGoalLoop } from "./goal-loop.js";
+export type { ProjectHook } from "./hooks-approval.js";
+export { fingerprintHookGate, hookFingerprint, listProjectHooks } from "./hooks-approval.js";
 // B-564 — aged tool-result pruning options (SendOptions.pruneToolResults).
 export type { PruneToolResultsOptions } from "./internal/agent-loop/prune-tool-results.js";
 // #57 — tool-result content guard options (SendOptions.toolResultGuard).
@@ -219,8 +222,11 @@ export type {
  */
 export {
   type ManagedSettings,
+  type ManagedSettingsDocument,
   managedSettingsPathFor,
+  type ReadManagedSettingsDocumentOptions,
   readManagedSettings,
+  readManagedSettingsDocument,
 } from "./internal/runtime/compat/managed-settings.js";
 // M42 — auth subsystem (credential store + OAuth engine) is exposed at the dedicated `@theokit/sdk/auth`
 // sub-entry (DTS built via tsc), NOT on this barrel: rollup-plugin-dts cannot bundle those modules into the
@@ -463,7 +469,6 @@ export type {
   CompletionCheckResult,
   DeferredToolCall,
   MessageOrigin,
-  ToolCallDecision,
 } from "./types/run.js";
 export type {
   RunCompactBoundaryEvent,

@@ -30,6 +30,11 @@ import { reportUndeclaredSources } from "../runtime/compat/foreign-config-source
 import type { ProvidersManagerImpl } from "../runtime/config/providers-manager.js";
 import type { FileContextManager } from "../runtime/context/context-manager.js";
 import { HooksExecutor } from "../runtime/hooks/hooks-executor.js";
+import {
+  createDeferredDurability,
+  settleAfter,
+  withDeferredDurability,
+} from "../runtime/lifecycle/deferred-durability.js";
 import { runPostRunLifecycle } from "../runtime/lifecycle/post-run-lifecycle.js";
 import { wrapRunWithThrowOnError } from "../runtime/lifecycle/throw-on-error-run.js";
 import type { MemoryFact } from "../runtime/memory-glue/memory-store.js";
@@ -308,11 +313,7 @@ export class LocalAgent implements SDKAgent {
     return agentGenerate(this, this.model, apiKey, local, message, options);
   }
 
-  // `send(undefined, { toolDecisions })` answers deferred calls and carries no text of its own.
-  async send(
-    message: string | SDKUserMessage | undefined = "",
-    options: SendOptions = {},
-  ): Promise<Run> {
+  async send(message: string | SDKUserMessage, options: SendOptions = {}): Promise<Run> {
     // Per-call tools: run the same name/schema/dedupe checks as creation.
     // (Cloud agents reject per-call tools in CloudAgent.send.)
     if (options.tools !== undefined && options.tools.length > 0) {
@@ -342,9 +343,7 @@ export class LocalAgent implements SDKAgent {
     options: SendOptions,
     sendSpan: OTelSpan,
   ): Promise<Run> {
-    // Decisions answer the session's pending calls: never steered into a running turn or batched.
-    const mode =
-      options.toolDecisions !== undefined ? "followup" : (options.queueMode ?? "followup");
+    const mode = options.queueMode ?? "followup";
     const text = typeof message === "string" ? message : message.text;
     const active = this.activeTurn;
     // steer: only text can be injected, and only while the running turn still accepts it.
@@ -443,32 +442,34 @@ export class LocalAgent implements SDKAgent {
     }
     // T3.2: opt-in Task wrapping (ADRs D363/D374).
     if (options.task !== undefined) registerRunAsTask(run, this.agentId, options.task, userText);
-    const view = callerView(run, this.options.throwOnError);
+    const durability = createDeferredDurability();
+    const view = withDeferredDurability(callerView(run, this.options.throwOnError), durability);
     res(view);
     resolve(view);
     try {
-      await runPostRunLifecycle({
-        run,
-        userText,
-        // Decisions were matched against the pending calls in `sendLocked`, or the send threw.
-        resumedToolCalls: options.toolDecisions !== undefined,
-        agentId: this.agentId,
-        workspaceCwd: this.workspaceCwd,
-        sessionStore: this.sessionStore,
-        model: this.model?.id ?? "unknown",
-        ...this.#declaredWindow(),
-        // M50 — the auto-compaction summarizer resolves credentials like the run itself.
-        ...(this.options.apiKey !== undefined ? { apiKey: this.options.apiKey } : {}),
-        ...(options.onRunEvent !== undefined ? { onRunEvent: options.onRunEvent } : {}),
-        hooksExecutor: this.hooksExecutor,
-        // usetheokit/theokit-sdk#382 — the transcript write reads this and nothing else.
-        memory: this.options.memory,
-        // A consumer-supplied provider wins; otherwise the auto-installed adapter over
-        // `LocalAgentMemory`. Since the kernel flip there is no third case, so this is passed
-        // unconditionally — the `!== undefined` spread that used to guard it could not be false,
-        // and `recordSessionSummary` is now always reached through the port.
-        memoryProvider: this.options.memoryProvider ?? this.defaultMemoryProviderForLoop,
-      });
+      await settleAfter(durability, () =>
+        runPostRunLifecycle({
+          run,
+          deferredDurability: durability,
+          userText,
+          agentId: this.agentId,
+          workspaceCwd: this.workspaceCwd,
+          sessionStore: this.sessionStore,
+          model: this.model?.id ?? "unknown",
+          ...this.#declaredWindow(),
+          // M50 — the auto-compaction summarizer resolves credentials like the run itself.
+          ...(this.options.apiKey !== undefined ? { apiKey: this.options.apiKey } : {}),
+          ...(options.onRunEvent !== undefined ? { onRunEvent: options.onRunEvent } : {}),
+          hooksExecutor: this.hooksExecutor,
+          // usetheokit/theokit-sdk#382 — the transcript write reads this and nothing else.
+          memory: this.options.memory,
+          // A consumer-supplied provider wins; otherwise the auto-installed adapter over
+          // `LocalAgentMemory`. Since the kernel flip there is no third case, so this is passed
+          // unconditionally — the `!== undefined` spread that used to guard it could not be false,
+          // and `recordSessionSummary` is now always reached through the port.
+          memoryProvider: this.options.memoryProvider ?? this.defaultMemoryProviderForLoop,
+        }),
+      );
     } finally {
       sendSpan.end();
       this.activeTurn = undefined;
@@ -574,7 +575,6 @@ export class LocalAgent implements SDKAgent {
     priorMessages,
     memoryTools,
     memoryProviderOverride,
-    resume,
   }: DispatchRunArgs): Promise<Run> {
     // SDK 2.0 Phase 1 physical Stage 2b — iter 23 KERNEL FLIP:
     // When `memoryProviderOverride` is supplied (env-flag path), inject
@@ -604,7 +604,6 @@ export class LocalAgent implements SDKAgent {
       memoryFacts,
       priorMessages,
       memoryTools,
-      ...(resume !== undefined ? { resume } : {}),
       activePreset: this.activePreset(),
       ...(this.activeTurn !== undefined ? { steerQueue: this.activeTurn.steer } : {}),
     });

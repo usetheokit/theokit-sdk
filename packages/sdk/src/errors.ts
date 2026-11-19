@@ -153,8 +153,8 @@ export class ConfigurationError extends TheokitAgentError {
 }
 
 /**
- * Thrown when `toolDecisions` do not match the tool calls a session is waiting on: a decision for an
- * id that is not pending, or a pending id with no decision. The message names the ids.
+ * Thrown by a send on a session that ends on deferred tool calls: the pending calls are never
+ * dropped silently. The message names the pending ids.
  *
  * @public
  */
@@ -163,6 +163,21 @@ export class ToolDecisionMismatchError extends TheokitAgentError {
 
   constructor(message: string, options: { cause?: unknown; metadata?: ErrorMetadata } = {}) {
     super(message, { ...options, code: "tool_decision_mismatch", isRetryable: false });
+  }
+}
+
+/**
+ * Thrown by `run.wait()` when a run ended on deferred tool calls but the transcript holding the
+ * unanswered `tool_use` could not be written: the deferral would not survive a restart, so the run
+ * does not resolve as `deferred`.
+ *
+ * @public
+ */
+export class DeferredTranscriptWriteError extends TheokitAgentError {
+  override readonly name: string = "DeferredTranscriptWriteError";
+
+  constructor(message: string, options: { cause?: unknown; metadata?: ErrorMetadata } = {}) {
+    super(message, { ...options, code: "deferred_transcript_write_failed", isRetryable: false });
   }
 }
 

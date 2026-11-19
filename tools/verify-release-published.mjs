@@ -153,12 +153,15 @@ if (packages.length === 0) {
  * IT COSTS NOTHING ON A FAST RELEASE. Each step returns the moment the version appears, so the
  * extra rungs are only reached by a release that would otherwise have been reported as failed.
  *
+ * 2026-11-19 (#1241): run 44432134014 published @theokit/sdk@5.26.0 but the six-rung window (~6.3 min)
+ * ended before npm showed it. `128000` adds a seventh rung, roughly doubling the window to ~11 min.
+ *
  * WHAT WAS DELIBERATELY NOT DONE: softening the verdict to a warning. The reason this script exists
  * is #537 — a publish that silently did not happen, reported green. What was wrong here is the
  * budget, not the strictness, and a warning would trade a false failure for a false success.
  */
 const RETRY_DELAYS_MS = (
-  process.env.THEOKIT_RELEASE_VERIFY_DELAYS_MS ?? "2000,4000,8000,16000,32000,64000"
+  process.env.THEOKIT_RELEASE_VERIFY_DELAYS_MS ?? "2000,4000,8000,16000,32000,64000,128000"
 )
   .split(",")
   .map((n) => Number(n.trim()))

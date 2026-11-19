@@ -203,6 +203,17 @@ function applyRepairAndExtractCall(
   const registryMap = buildRepairRegistry(tools);
   const repaired = repairToolCall({ name: call.name, args: call.input, id: call.id }, registryMap);
   if (repaired.repairs.length === 0) return { call, repairs: repaired.repairs };
+  // Sanitization can yield names that differ only in case. When a case-insensitive match is
+  // ambiguous, or the name is an `mcp_` name (never case-repaired: a filtered-out tool's name may
+  // differ from an offered one only in case), the case repair would silently swap it for a
+  // different offered tool (e.g. a filtered-out `mcp_a_Foo` -> offered `mcp_a_foo`).
+  // Keep the original name so it is refused as unknown.
+  if (repaired.call.name !== call.name && !isSafeNameRepair(tools, call.name)) {
+    return {
+      call: { ...call, input: (repaired.call.args ?? {}) as Record<string, unknown> },
+      repairs: repaired.repairs.filter((r) => !r.startsWith("name:")),
+    };
+  }
   return {
     call: {
       ...call,
@@ -211,6 +222,12 @@ function applyRepairAndExtractCall(
     },
     repairs: repaired.repairs,
   };
+}
+
+function isSafeNameRepair(tools: ResolvedTool[], name: string): boolean {
+  const lower = name.toLowerCase();
+  const matches = tools.filter((t) => t.name.toLowerCase() === lower);
+  return matches.length === 1 && matches[0]?.origin !== "mcp" && !lower.startsWith("mcp_");
 }
 
 /**
@@ -282,19 +299,10 @@ async function vetoFromPluginPreHook(dc: DispatchContext): Promise<LlmContentPar
     agentId: inputs.agentId,
     runId: inputs.runId,
     toolUseId: call.id,
-    ...(inputs.approvedToolUseIds?.has(call.id) === true ? { approved: true } : {}),
     // SE1 — thread the run's permission mode so a PermissionPlugin gates per-run.
     ...(inputs.permissionMode !== undefined ? { permissionMode: inputs.permissionMode } : {}),
   });
   if (pluginVeto === undefined) return undefined;
-  if ("defer" in pluginVeto && dc.deferredSink === undefined) {
-    // A resumed call cannot be deferred again: it is answered here, as a block.
-    return {
-      type: "tool_result",
-      toolUseId: call.id,
-      content: `Plugin blocked this tool call: deferred again on resume${pluginVeto.reason !== undefined ? ` (${pluginVeto.reason})` : ""}`,
-    };
-  }
   if ("defer" in pluginVeto) {
     // Not dispatched, no result: the run ends on this unanswered `tool_use`. The placeholder only
     // holds the slot; the loop drops it because the id is in the sink.

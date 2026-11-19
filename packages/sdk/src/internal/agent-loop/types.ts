@@ -223,16 +223,6 @@ export interface AgentLoopInputs {
    */
   priorMessages?: ReadonlyArray<SessionMessage>;
   /**
-   * Resuming a deferred run: the stored calls and the host's decisions for them. The loop answers
-   * the calls first (no new user message is added), then continues as usual.
-   */
-  toolResume?: {
-    readonly calls: ReadonlyArray<import("../../types/run.js").DeferredToolCall>;
-    readonly decisions: ReadonlyArray<import("../../types/run.js").ToolCallDecision>;
-  };
-  /** Ids of calls the host approved on resume; the permission plugin skips its `ask` for them. */
-  approvedToolUseIds?: ReadonlySet<string>;
-  /**
    * Memory tools (`memory_search`, `memory_get`) to register with the LLM
    * when `AgentOptions.memory.enabled === true`. Appended to the shell + MCP
    * tool catalog in `collectTools`.

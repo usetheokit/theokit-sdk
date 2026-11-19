@@ -1,6 +1,6 @@
 {
   "name": "@theokit/sdk",
-  "version": "5.23.0",
+  "version": "5.26.0",
   "description": "TypeScript SDK for the Theo agent harness — same surface, local or cloud.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/usetheokit/theokit-sdk#readme",
@@ -66,6 +66,16 @@
       "require": {
         "types": "./dist/context/index.d.cts",
         "default": "./dist/context/index.cjs"
+      }
+    },
+    "./hooks-approval": {
+      "import": {
+        "types": "./dist/hooks-approval.d.ts",
+        "default": "./dist/hooks-approval.js"
+      },
+      "require": {
+        "types": "./dist/hooks-approval.d.cts",
+        "default": "./dist/hooks-approval.cjs"
       }
     },
     "./messages": {

@@ -41,8 +41,6 @@ function seedTranscript(
 export interface PersistTurnInput {
   userText: string;
   conversation: readonly ConversationTurn[];
-  /** Resuming deferred tool calls: no new user message is written. */
-  skipUserTurn?: boolean;
   /** Calls the run ended on; recorded after the turn so a later session can find them pending. */
   deferredToolCalls?: readonly DeferredToolCall[];
   /**
@@ -245,7 +243,7 @@ export async function persistTurn(
 ): Promise<void> {
   const prior = await store.readRecords(loc.agentId);
   const transcript = seedTranscript(prior, { cwd: loc.cwd, sessionId, model: loc.model });
-  if (turn.skipUserTurn !== true) transcript.appendUserTurn(turn.userText);
+  transcript.appendUserTurn(turn.userText);
   appendConversation(transcript, turn.conversation);
   if (turn.deferredToolCalls !== undefined && turn.deferredToolCalls.length > 0) {
     transcript.appendDeferredToolCalls(turn.deferredToolCalls);

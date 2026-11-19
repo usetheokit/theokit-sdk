@@ -167,7 +167,6 @@ function buildLoopInputs(
         }
       : {}),
     ...(options.priorMessages !== undefined ? { priorMessages: options.priorMessages } : {}),
-    ...(options.toolResume !== undefined ? { toolResume: options.toolResume } : {}),
     ...(options.memoryTools !== undefined && options.memoryTools.length > 0
       ? { memoryTools: options.memoryTools }
       : {}),

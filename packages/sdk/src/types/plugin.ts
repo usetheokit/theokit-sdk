@@ -87,11 +87,6 @@ export interface PreToolCallContext {
   /** The model's `tool_use` id for this call; the same id appears on the resulting `tool_result`. */
   toolUseId?: string;
   /**
-   * Set when a host already approved this call on resume (`SendOptions.toolDecisions`). A permission
-   * plugin then skips its `ask` step but still applies the floor and its deny rules.
-   */
-  approved?: boolean;
-  /**
    * SE1 — the run's resolved `PermissionMode` (from `SendOptions.permissionMode`
    * ?? `AgentOptions.permissionMode`), threaded so a permission-style plugin can
    * gate per-run rather than at construction time. Absent ⇒ the plugin's own
@@ -125,7 +120,7 @@ export interface PreToolCallBlock {
  */
 export interface PreToolCallDefer {
   defer: true;
-  reason?: string;
+  reason?: string | undefined;
   /** Never set; lets code that reads `block`/`message` off a decision compile against the union. */
   block?: undefined;
   message?: undefined;
