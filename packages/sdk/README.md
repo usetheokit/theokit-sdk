@@ -54,6 +54,25 @@ specifier, or the call fails on a private field.
 
 Agents that consume documentation should prefer the machine-readable corpora on the docs site ([llmstxt.org](https://llmstxt.org) convention): [`llms.txt`](https://docs.usetheo.dev/llms.txt) (curated index) and [`llms-full.txt`](https://docs.usetheo.dev/llms-full.txt) (every page inlined).
 
+## Masking secrets: `Security.redact` and `Security.createMask`
+
+`Security.redact(text)` masks known credential *shapes* (API keys, `Bearer`, `key=value`).
+When the app knows the exact values it loaded, `Security.createMask(values)` masks those values:
+
+```ts
+import { Security } from "@theokit/sdk";
+
+const mask = Security.createMask([botToken, apiKey]); // { placeholder = "[redacted]", minLength = 4 }
+mask.text("token " + botToken); // longest value first
+mask.deep({ args: ["k " + apiKey], n: 1 }); // structural copy, strings masked
+const s = mask.stream(); // push(delta) releases what is safe, flush() the rest
+const uninstall = mask.wrapStreams([process.stdout, process.stderr]); // write and end(chunk)
+```
+
+Values shorter than `minLength` (default 4) are ignored. A value split across stream chunks is held
+back until it is known not to match. `wrapStreams` throws `ConfigurationError` for a stream that is
+already wrapped; a write held back whole calls its callback before its bytes reach the stream.
+
 ## Install
 
 ```bash
