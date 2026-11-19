@@ -270,7 +270,9 @@ export class MessageBus {
             await transport.send(message);
           } catch (cause) {
             const reason = cause instanceof Error ? cause.message : String(cause);
-            diag(`[theokit-sdk] a2a: requeue for "${agentId}" failed, will retry on next pump: ${reason}\n`);
+            diag(
+              `[theokit-sdk] a2a: requeue for "${agentId}" failed, will retry on next pump: ${reason}\n`,
+            );
             kept.push(message);
           }
         }

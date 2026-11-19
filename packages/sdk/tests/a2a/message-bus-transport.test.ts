@@ -126,7 +126,13 @@ describe("MessageBus transport", () => {
       failSends = true;
     });
     for (const n of [1, 2, 3, 4]) {
-      await inner.send({ type: "t", payload: n, from: "x", to: "worker", timestamp: 0 } as A2AMessage);
+      await inner.send({
+        type: "t",
+        payload: n,
+        from: "x",
+        to: "worker",
+        timestamp: 0,
+      } as A2AMessage);
     }
     expect(await b.pump()).toBe(1);
     expect(await inner.poll("worker")).toHaveLength(0);
