@@ -493,6 +493,51 @@ export class MemoryAdapterError extends TheokitAgentError {
 }
 
 /**
+ * Thrown by `removeMemoryFact` when the entry exists but lives outside the write root, for example
+ * in the Claude Code CLI's store. The SDK does not delete another tool's memory.
+ *
+ * @public
+ */
+export class MemoryFactNotRemovableError extends TheokitAgentError {
+  override readonly name: string = "MemoryFactNotRemovableError";
+  readonly factId: string;
+  readonly root: string;
+
+  constructor(factId: string, root: string) {
+    super(`Memory fact "${factId}" is in ${root}, outside the write root, so it is not removed.`, {
+      isRetryable: false,
+      code: "memory_fact_not_removable",
+    });
+    this.factId = factId;
+    this.root = root;
+  }
+}
+
+/**
+ * Thrown by `removeMemoryFact` when the id names entries in more than one memory root (the same
+ * per-memory file name in the write root and the Claude Code CLI's store). Nothing is removed.
+ *
+ * @public
+ */
+export class MemoryFactAmbiguousError extends TheokitAgentError {
+  override readonly name: string = "MemoryFactAmbiguousError";
+  readonly factId: string;
+  readonly roots: readonly string[];
+
+  constructor(factId: string, roots: readonly string[]) {
+    super(
+      `Memory fact id "${factId}" is in more than one root (${roots.join(", ")}); nothing removed.`,
+      {
+        isRetryable: false,
+        code: "memory_fact_ambiguous",
+      },
+    );
+    this.factId = factId;
+    this.roots = roots;
+  }
+}
+
+/**
  * Thrown by `Budget` enforcement (ADR D386) when a `mode: "block"`
  * budget would be exceeded by the upcoming LLM call. The caller catches a
  * typed error to retry after the window resets, or surfaces it to the user.

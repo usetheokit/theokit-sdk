@@ -1,0 +1,192 @@
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import {
+  listMemoryFacts,
+  MemoryFactAmbiguousError,
+  MemoryFactNotRemovableError,
+  removeMemoryFact,
+} from "../../src/index.js";
+import {
+  appendFactToMarkdown,
+  readFactsFromMarkdown,
+} from "../../src/internal/memory/storage/markdown-store.js";
+import { claudeProjectMemoryDir } from "../../src/internal/memory/storage/memory-root.js";
+import { removeTempDirRobustSync } from "../helpers/temp-workspace.js";
+
+describe("listMemoryFacts / removeMemoryFact", () => {
+  let cwd: string;
+  let claudeHome: string;
+  const saved = process.env.CLAUDE_CONFIG_DIR;
+  const md = () => join(cwd, ".theokit", "memory", "MEMORY.md");
+
+  beforeEach(async () => {
+    cwd = mkdtempSync(join(tmpdir(), "mf-cwd-"));
+    claudeHome = mkdtempSync(join(tmpdir(), "mf-home-"));
+    onTestFinished(() => {
+      removeTempDirRobustSync(cwd);
+      removeTempDirRobustSync(claudeHome);
+    });
+    process.env.CLAUDE_CONFIG_DIR = claudeHome;
+    await appendFactToMarkdown(cwd, { text: "alpha fact" });
+    await appendFactToMarkdown(cwd, { text: "beta fact" });
+    writeFileSync(md(), `${readFileSync(md(), "utf8")}\n## Facts\n- legacy one\n- alpha fact\n`);
+  });
+
+  afterEach(() => {
+    if (saved === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+    else process.env.CLAUDE_CONFIG_DIR = saved;
+  });
+
+  it("lists in readFactsFromMarkdown order, all removable", async () => {
+    const facts = await listMemoryFacts(cwd);
+    const raw = await readFactsFromMarkdown(cwd);
+    expect(facts.map((f) => f.text)).toEqual(raw.map((f) => f.text));
+    expect(facts.map((f) => f.modified)).toEqual(raw.map((f) => f.modified));
+    expect(new Set(facts.map((f) => f.id)).size).toBe(4);
+    expect(facts).toHaveLength(4);
+    expect(facts.every((f) => f.removable)).toBe(true);
+  });
+
+  it("removes a per-memory file and its index line", async () => {
+    const [first] = await listMemoryFacts(cwd);
+    const file = join(cwd, ".theokit", "memory", first?.id as string);
+    expect(await removeMemoryFact(cwd, first?.id as string)).toBe(true);
+    expect(existsSync(file)).toBe(false);
+    expect(readFileSync(md(), "utf8")).not.toContain(`](${first?.id})`);
+    expect(await listMemoryFacts(cwd)).toHaveLength(3);
+  });
+
+  it("removes one legacy bullet only, not the same text elsewhere", async () => {
+    writeFileSync(md(), `${readFileSync(md(), "utf8")}\n## Other\n- alpha fact\n`);
+    const legacy = (await listMemoryFacts(cwd)).filter((f) => f.id.startsWith("legacy-"));
+    expect(legacy.filter((f) => f.text === "alpha fact")).toHaveLength(1);
+    const target = legacy.find((f) => f.text === "alpha fact");
+    expect(await removeMemoryFact(cwd, target?.id as string)).toBe(true);
+    const after = readFileSync(md(), "utf8");
+    expect(after).toContain("- legacy one");
+    const [facts = "", other = ""] = after.split("## Other");
+    expect(facts).not.toMatch(/^- alpha fact$/m);
+    expect(other).toMatch(/^- alpha fact$/m);
+    expect(after).toContain("](alpha-fact.md)");
+    expect((await listMemoryFacts(cwd)).filter((f) => f.text === "alpha fact")).toHaveLength(1);
+  });
+
+  it("finishes a removal whose index line is already gone (retry after a partial failure)", async () => {
+    const [first] = await listMemoryFacts(cwd);
+    const id = first?.id as string;
+    const file = join(cwd, ".theokit", "memory", id);
+    writeFileSync(
+      md(),
+      readFileSync(md(), "utf8")
+        .split("\n")
+        .filter((l) => !l.includes(`](${id})`))
+        .join("\n"),
+    );
+    expect(existsSync(file)).toBe(true);
+    expect(await removeMemoryFact(cwd, id)).toBe(true);
+    expect(existsSync(file)).toBe(false);
+    expect(await removeMemoryFact(cwd, id)).toBe(false);
+  });
+
+  it("resolves false for an unknown id and changes nothing", async () => {
+    const before = readFileSync(md(), "utf8");
+    expect(await removeMemoryFact(cwd, "no-such-id")).toBe(false);
+    expect(readFileSync(md(), "utf8")).toBe(before);
+  });
+
+  it("refuses to remove an entry from another root", async () => {
+    const dir = claudeProjectMemoryDir(cwd);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "cli-note.md"),
+      "---\nname: cli-note\ndescription: cli-note\nmetadata:\n  node_type: memory\n  type: project\n---\n\nThe CLI fact.\n",
+    );
+    const cli = (await listMemoryFacts(cwd)).find((f) => f.text === "The CLI fact.");
+    expect(cli?.removable).toBe(false);
+    const err = await removeMemoryFact(cwd, "cli-note.md").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(MemoryFactNotRemovableError);
+    expect((err as MemoryFactNotRemovableError).factId).toBe("cli-note.md");
+    expect((err as MemoryFactNotRemovableError).root).toBe(dir);
+    expect(existsSync(join(dir, "cli-note.md"))).toBe(true);
+  });
+
+  it("refuses an id found in two roots and removes nothing", async () => {
+    const dir = claudeProjectMemoryDir(cwd);
+    mkdirSync(dir, { recursive: true });
+    const own = (await listMemoryFacts(cwd)).find(
+      (f) => f.text === "alpha fact" && f.id.endsWith(".md"),
+    );
+    const id = own?.id as string;
+    const mine = join(cwd, ".theokit", "memory", id);
+    writeFileSync(join(dir, id), readFileSync(mine, "utf8"));
+    const before = readFileSync(md(), "utf8");
+    const err = await removeMemoryFact(cwd, id).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(MemoryFactAmbiguousError);
+    expect((err as MemoryFactAmbiguousError).roots).toHaveLength(2);
+    expect(existsSync(mine)).toBe(true);
+    expect(existsSync(join(dir, id))).toBe(true);
+    expect(readFileSync(md(), "utf8")).toBe(before);
+  });
+
+  it("identical legacy bullets share an id; removal takes one", async () => {
+    writeFileSync(md(), `${readFileSync(md(), "utf8")}- legacy one\n`);
+    const dup = (await listMemoryFacts(cwd)).filter((f) => f.text === "legacy one");
+    expect(dup).toHaveLength(2);
+    expect(dup[0]?.id).toBe(dup[1]?.id);
+    expect(await removeMemoryFact(cwd, dup[0]?.id as string)).toBe(true);
+    expect((await listMemoryFacts(cwd)).filter((f) => f.text === "legacy one")).toHaveLength(1);
+  });
+
+  it("drops the removed entry's chunks from the sqlite index", async () => {
+    const { IndexManager } = await import("../../src/internal/memory/index-manager.js");
+    const index = await IndexManager.open({ cwd });
+    await index.sync();
+    expect((await index.search("alpha")).length).toBeGreaterThan(0);
+    index.close();
+    const target = (await listMemoryFacts(cwd)).find(
+      (f) => f.text === "alpha fact" && !f.id.startsWith("legacy-"),
+    );
+    await removeMemoryFact(cwd, target?.id as string);
+    const again = await IndexManager.open({ cwd });
+    onTestFinished(() => again.close());
+    expect((await again.search("beta")).length).toBeGreaterThan(0);
+    const hits = await again.search("alpha");
+    expect(hits.some((h) => h.snippet?.includes(`](${target?.id})`) === true)).toBe(false);
+    await again.sync();
+    expect(
+      (await again.search("alpha")).every((h) => !h.path?.endsWith(target?.id as string)),
+    ).toBe(true);
+  });
+
+  it("keeps an unrelated legacy fact recallable right after removing another", async () => {
+    writeFileSync(md(), `${readFileSync(md(), "utf8")}- gamma legacy zebra\n`);
+    const { IndexManager } = await import("../../src/internal/memory/index-manager.js");
+    const index = await IndexManager.open({ cwd });
+    await index.sync();
+    index.close();
+    const target = (await listMemoryFacts(cwd)).find((f) => f.text === "legacy one");
+    expect(await removeMemoryFact(cwd, target?.id as string)).toBe(true);
+    const again = await IndexManager.open({ cwd });
+    onTestFinished(() => again.close());
+    // No sync() here: the removal itself must have reindexed MEMORY.md.
+    expect((await again.search("zebra")).length).toBeGreaterThan(0);
+  });
+
+  it("removes only the generated index line, not a duplicate link elsewhere", async () => {
+    const [first] = await listMemoryFacts(cwd);
+    const id = first?.id as string;
+    const link = `- [${first?.text}](${id})`;
+    writeFileSync(
+      md(),
+      `${readFileSync(md(), "utf8")}\n## Notes\n${link}\n- see [it](${id}) for details\n`,
+    );
+    expect(await removeMemoryFact(cwd, id)).toBe(true);
+    const after = readFileSync(md(), "utf8");
+    const [head = "", notes = ""] = after.split("## Notes");
+    expect(head).not.toContain(`](${id})`);
+    expect(notes).toContain(link);
+    expect(notes).toContain(`- see [it](${id}) for details`);
+  });
+});
