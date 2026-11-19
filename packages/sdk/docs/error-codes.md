@@ -106,7 +106,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_filename_id` | domain | ConfigurationError | `packages/sdk/src/internal/security/path-guard.ts:486` |
 | `invalid_identifier` | domain | ConfigurationError | `packages/sdk/src/internal/security/path-guard.ts:434` +2 |
 | `invalid_input` | domain | MemoryAdapterError | `packages/memory-honcho/src/adapter.ts:98` +9 |
-| `invalid_mask_stream` | domain | ConfigurationError | `packages/sdk/src/security.ts:131` |
+| `invalid_mask_stream` | domain | ConfigurationError | `packages/sdk/src/security.ts:137` |
 | `invalid_max_iterations` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/real-local-run.ts:94` |
 | `invalid_mcp_tool_filter` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/tool-filter.ts:36` +1 |
 | `invalid_memory_backend` | domain | ConfigurationError | `packages/sdk/src/internal/memory/index-manager-dispatch.ts:24` |
@@ -117,7 +117,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_model_selection` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/model-selection.ts:25` |
 | `invalid_processor_options` | domain | ConfigurationError | `packages/sdk/src/built-in-processors.ts:86` |
 | `invalid_prune_tool_results` | domain | ConfigurationError | `packages/sdk/src/internal/agent-loop/prune-tool-results.ts:78` |
-| `invalid_redaction_pattern` | domain | ConfigurationError | `packages/sdk/src/security.ts:103` |
+| `invalid_redaction_pattern` | domain | ConfigurationError | `packages/sdk/src/security.ts:109` |
 | `invalid_request` | domain | — | `packages/sdk/src/internal/error-mappers/vertex.ts:53` +1 |
 | `invalid_retry_config` | domain | ConfigurationError | `packages/sdk/src/internal/retry/with-retry.ts:67` |
 | `invalid_skill_spec` | domain | ConfigurationError | `packages/sdk/src/create-skill.ts:44` +1 |

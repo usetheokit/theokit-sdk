@@ -397,7 +397,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SDKUser` | interface | Owner: `internal/catalog/` (2 of 3 importers).  |
 | `SDKUserMessage` | interface | Structured form of `agent.send()`'s message argument.  |
 | `SDKUserMessageEvent` | interface | Echo of the user prompt for this run. |
-| `Security` | class |  |
+| `Security` | class | Secret masking at consumer output boundaries: pattern-based `redact` / `addPattern` and exact-value `createMask`. |
 | `SecurityFloorInput` | interface | The vocabulary, the layer names, and the values to resolve.  |
 | `SendOptions` | interface | Per-send overrides and callbacks.  |
 | `SessionLifecycleContext` | interface | #65 — context for the `on_session_start` / `on_session_end` hooks.  |
@@ -1341,9 +1341,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `addPattern` | function | Register an extra pattern for `redactSecrets` to mask, on top of the built-in vendor set.  |
 | `assertNoSymlinkEscape` | function | Assert that `path` — including every directory component in the chain — stays under `base` after symlink resolution.  |
-| `createExactMask` | function |  |
+| `createExactMask` | function | Build an exact-value masker; `makeError` builds the error thrown for an already-wrapped stream. |
 | `ExactMaskOptions` | interface | Exact-value masking: replaces known secret values (not patterns) in text, structured values and Node writable streams.  |
-| `ExactValueMaskImpl` | interface |  |
+| `ExactValueMaskImpl` | interface | Shape returned by {@link createExactMask } ; the public `ExactValueMask` mirrors it. |
 | `ForbiddenPathError` | class | Thrown when an agent tool is asked to read or write a sensitive path that the blocklist forbids (`.env`, `.git/`, `node_modules/`, `.theo/`, lock files).  |
 | `isForbiddenPath` | function | Decide whether a project-relative path points to a known-sensitive file that a coding agent must not read or write.  |
 | `maskToken` | function | Mask one string, keeping enough of it to be recognizable in a log.  |
