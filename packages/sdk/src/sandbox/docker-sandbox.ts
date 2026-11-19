@@ -20,6 +20,8 @@ import { tmpdir } from "node:os";
 import { join, posix, resolve as resolveHost } from "node:path";
 
 import { ConfigurationError } from "../errors.js";
+import { diag } from "../internal/diagnostics.js";
+import { KEEP_LABEL, removeEarlierKept } from "./docker-containers.js";
 import {
   type ExecuteResult,
   SandboxBackend,
@@ -62,6 +64,8 @@ export interface DockerSandboxConfig extends SandboxConfig {
   readOnlyWorkspace?: boolean;
   /** Labels added to every container this sandbox starts (`--label k=v`). */
   labels?: Readonly<Record<string, string>>;
+  /** Keep the most recent container of this key after it exits (no --rm); earlier exited ones with the same key are removed. */
+  keepLast?: { key: string };
 }
 
 const LABEL_KEY = /^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/;
@@ -84,6 +88,27 @@ function validateLabels(labels: Readonly<Record<string, string>> | undefined): [
     out.push([key, value]);
   }
   return out;
+}
+
+/** Validates `keepLast`, appends its reserved label to `labels` and returns the key. */
+function applyKeepLast(
+  keepLast: { key: string } | undefined,
+  labels: [string, string][],
+): string | undefined {
+  if (keepLast === undefined) return undefined;
+  const key = keepLast.key;
+  if (typeof key !== "string" || key === "" || /[\r\n]/.test(key)) {
+    throw new ConfigurationError("keepLast.key must be a non-empty string without newlines", {
+      code: "invalid_docker_label",
+    });
+  }
+  if (labels.some(([k]) => k === KEEP_LABEL)) {
+    throw new ConfigurationError(`Label "${KEEP_LABEL}" is reserved for keepLast`, {
+      code: "invalid_docker_label",
+    });
+  }
+  labels.push([KEEP_LABEL, key]);
+  return key;
 }
 
 /** The runner {@link DockerSandbox} uses by default; exported so a custom runner can wrap it. */
@@ -130,6 +155,7 @@ export class DockerSandbox extends SandboxBackend {
   private readonly user: string | undefined;
   private readonly readOnlyWorkspace: boolean;
   private readonly labels: readonly [string, string][];
+  private readonly keepKey: string | undefined;
 
   constructor(config: DockerSandboxConfig = {}) {
     // No workDir ⇒ a fresh private directory, never the host /tmp.
@@ -137,7 +163,9 @@ export class DockerSandbox extends SandboxBackend {
       ...config,
       workDir: config.workDir ?? mkdtempSync(join(tmpdir(), "theokit-docker-ws-")),
     });
-    this.labels = validateLabels(config.labels);
+    const labels = validateLabels(config.labels);
+    this.keepKey = applyKeepLast(config.keepLast, labels);
+    this.labels = labels;
     this.readOnlyWorkspace = config.readOnlyWorkspace ?? false;
     this.image = config.image ?? "alpine:3";
     this.network = config.network ?? false;
@@ -155,7 +183,7 @@ export class DockerSandbox extends SandboxBackend {
   private runArgs(name: string, interactive: boolean, argv: readonly string[]): string[] {
     return [
       "run",
-      "--rm",
+      ...(this.keepKey === undefined ? ["--rm"] : []),
       ...(interactive ? ["-i"] : []),
       "--name",
       name,
@@ -207,6 +235,13 @@ export class DockerSandbox extends SandboxBackend {
       // Killing the CLI does not stop the container; remove it explicitly.
       await this.runner(["rm", "-f", name], { timeoutMs: 10_000, maxOutputBytes: 4096 }).catch(
         () => undefined,
+      );
+    }
+    if (this.keepKey !== undefined) {
+      await removeEarlierKept(this.runner, this.keepKey, name).catch((e) =>
+        diag(
+          `DockerSandbox keepLast cleanup failed for key "${this.keepKey}": ${e instanceof Error ? e.message : String(e)}\n`,
+        ),
       );
     }
     return r;
