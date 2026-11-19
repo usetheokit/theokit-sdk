@@ -137,6 +137,26 @@ export function assertSafePath(path: string): void {
   }
 }
 
+const FM_KEY_RE = /^([A-Za-z0-9_][A-Za-z0-9_.-]*)\s*:(?:\s+(.*?))?\s*$/;
+
+function badSkillMd(message: string): SkillsRegistryError {
+  return new SkillsRegistryError("invalid_skill_md", message);
+}
+
+/** True for blank, comment, nested or list-continuation lines, which carry no top-level key. */
+function isNestedFrontmatterLine(line: string): boolean {
+  return line.trim() === "" || /^\s/.test(line) || line.startsWith("#") || line.startsWith("- ");
+}
+
+function parseNameValue(raw: string): string {
+  const q = /^(["'])(.*)\1$/.exec(raw);
+  const name = q ? (q[2] as string) : raw;
+  if (/^["']|["']$/.test(name) || !NAME_RE.test(name)) {
+    throw badSkillMd(`SKILL.md name is malformed: ${JSON.stringify(raw)}`);
+  }
+  return name;
+}
+
 /**
  * Reads `name` from the leading `---` frontmatter block of a SKILL.md, checking the
  * whole block: every top-level key must be unique and well formed, and `name` must
@@ -144,41 +164,25 @@ export function assertSafePath(path: string): void {
  */
 export function parseSkillMdName(text: string): string {
   const m = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
-  if (!m) throw new SkillsRegistryError("invalid_skill_md", "SKILL.md has no frontmatter");
-  const keys = new Set<string>();
-  let name: string | undefined;
-  for (const line of (m[1] as string).split(/\r?\n/)) {
-    if (line.trim() === "" || /^\s/.test(line) || line.startsWith("#") || line.startsWith("- ")) {
-      continue; // blank, comment, or nested/continuation content
-    }
-    const kv = /^([A-Za-z0-9_][A-Za-z0-9_.-]*)\s*:(?:\s+(.*?))?\s*$/.exec(line);
-    if (!kv) {
-      throw new SkillsRegistryError(
-        "invalid_skill_md",
-        `SKILL.md frontmatter has a malformed line: ${JSON.stringify(line)}`,
-      );
-    }
+  if (!m) throw badSkillMd("SKILL.md has no frontmatter");
+  const entries = frontmatterEntries(m[1] as string);
+  const name = entries.get("name");
+  if (name === undefined) throw badSkillMd("SKILL.md frontmatter has no name");
+  return parseNameValue(name);
+}
+
+/** Top-level `key: value` pairs of a frontmatter block; rejects malformed lines and repeated keys. */
+function frontmatterEntries(block: string): Map<string, string> {
+  const entries = new Map<string, string>();
+  for (const line of block.split(/\r?\n/)) {
+    if (isNestedFrontmatterLine(line)) continue;
+    const kv = FM_KEY_RE.exec(line);
+    if (!kv) throw badSkillMd(`SKILL.md frontmatter has a malformed line: ${JSON.stringify(line)}`);
     const key = kv[1] as string;
-    if (keys.has(key)) {
-      throw new SkillsRegistryError("invalid_skill_md", `SKILL.md frontmatter repeats "${key}"`);
-    }
-    keys.add(key);
-    if (key === "name") {
-      const raw = kv[2] ?? "";
-      const q = /^(["'])(.*)\1$/.exec(raw);
-      name = q ? (q[2] as string) : raw;
-      if (/^["']|["']$/.test(name) || !NAME_RE.test(name)) {
-        throw new SkillsRegistryError(
-          "invalid_skill_md",
-          `SKILL.md name is malformed: ${JSON.stringify(raw)}`,
-        );
-      }
-    }
+    if (entries.has(key)) throw badSkillMd(`SKILL.md frontmatter repeats "${key}"`);
+    entries.set(key, kv[2] ?? "");
   }
-  if (name === undefined) {
-    throw new SkillsRegistryError("invalid_skill_md", "SKILL.md frontmatter has no name");
-  }
-  return name;
+  return entries;
 }
 
 /** Checks names, paths, duplicates and SKILL.md of an already-decoded package. */
