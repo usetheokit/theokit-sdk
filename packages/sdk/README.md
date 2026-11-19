@@ -218,7 +218,7 @@ const { removed, skippedRunning } = await removeSandboxContainers({ app: "x" });
 // a running container is skipped unless `includeRunning: true` (then `docker rm -f`)
 ```
 
-Both helpers take `{ runner }` and default to `defaultDockerRunner()`. A docker command that fails or times out rejects with `SandboxDockerError` (`subcommand`, `exitCode`, `stderr`). Docker renders labels as `k=v,k=v`, so a label value that itself contains a comma followed by `word=` is parsed ambiguously.
+Both helpers require at least one label (an empty set would match every container on the host) and take `{ runner }` and default to `defaultDockerRunner()`. A docker command that fails or times out rejects with `SandboxDockerError` (`subcommand`, `exitCode`, `stderr`). Docker renders labels as `k=v,k=v`, so a label value that itself contains a comma followed by `word=` is parsed ambiguously.
 
 ## `@theokit/sdk/persistence`: single instance lock
 

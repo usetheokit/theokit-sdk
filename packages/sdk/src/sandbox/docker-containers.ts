@@ -5,7 +5,7 @@
  * @public
  */
 
-import { TheokitAgentError } from "../errors.js";
+import { ConfigurationError, TheokitAgentError } from "../errors.js";
 import { type DockerRunner, defaultDockerRunner } from "./docker-runner.js";
 
 /** Label `keepLast` puts on a container; its value is the key. */
@@ -82,11 +82,21 @@ function parseContainers(stdout: string): SandboxContainer[] {
     });
 }
 
+/** An empty label set would match every container on the host, so it is refused. */
+function requireLabels(labels: Record<string, string>): void {
+  if (Object.keys(labels).length === 0) {
+    throw new ConfigurationError("At least one label is required to select sandbox containers", {
+      code: "invalid_docker_label",
+    });
+  }
+}
+
 /** Lists containers (running or not) that carry every one of `labels`. */
 export async function listSandboxContainers(
   labels: Record<string, string>,
   options: { runner?: DockerRunner } = {},
 ): Promise<SandboxContainer[]> {
+  requireLabels(labels);
   const runner = options.runner ?? defaultDockerRunner();
   const filters = Object.entries(labels).flatMap(([k, v]) => ["--filter", `label=${k}=${v}`]);
   return parseContainers(await docker(runner, ["ps", "-a", ...filters, "--format", FORMAT]));
@@ -100,6 +110,7 @@ export async function removeSandboxContainers(
   labels: Record<string, string>,
   options: { runner?: DockerRunner; includeRunning?: boolean } = {},
 ): Promise<{ removed: SandboxContainer[]; skippedRunning: SandboxContainer[] }> {
+  requireLabels(labels);
   const runner = options.runner ?? defaultDockerRunner();
   const all = await listSandboxContainers(labels, { runner });
   const running = all.filter((c) => c.state === "running");

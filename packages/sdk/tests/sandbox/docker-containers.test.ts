@@ -50,6 +50,34 @@ describe("sandbox containers", () => {
     expect(b.calls).toContainEqual(["rm", "-f", "bbb"]);
   });
 
+  it("refuses an empty label set before running any docker command", async () => {
+    const { calls, runner } = fake({ ps: { stdout: PS } });
+    await expect(listSandboxContainers({}, { runner })).rejects.toThrow(/label/);
+    await expect(removeSandboxContainers({}, { runner, includeRunning: true })).rejects.toThrow(
+      /label/,
+    );
+    expect(calls).toEqual([]);
+  });
+
+  it("rejects with SandboxDockerError on a timeout", async () => {
+    const runner: DockerRunner = async () => ({
+      stdout: "",
+      stderr: "",
+      code: null,
+      timedOut: true,
+    });
+    const e = await listSandboxContainers({ app: "x" }, { runner }).catch((x) => x);
+    expect(e).toBeInstanceOf(SandboxDockerError);
+    expect(e.message).toContain("timed out");
+  });
+
+  it("keeps a comma inside a label value when the next piece is not a key=value", async () => {
+    const { runner } = fake({ ps: { stdout: "a\tn\texited\ti\tapp=x,note=a,b=c\n" } });
+    const [c] = await listSandboxContainers({ app: "x" }, { runner });
+    // Documented limit: docker's rendering cannot tell `,b=c` from a second label.
+    expect(c?.labels).toEqual({ app: "x", note: "a", b: "c" });
+  });
+
   it("rejects with SandboxDockerError naming ps and stderr", async () => {
     const { runner } = fake({ ps: { code: 1, stderr: "daemon down" } });
     const e = await listSandboxContainers({ app: "x" }, { runner }).catch((x) => x);
@@ -68,6 +96,35 @@ describe("keepLast", () => {
     expect(run).not.toContain("--rm");
     expect(run).toContain("theokit.sandbox.keep=s1");
     expect(calls).toContainEqual(["rm", "aaa"]);
+  });
+
+  it("never removes the current container or a running one", async () => {
+    const calls: string[][] = [];
+    let current = "";
+    const runner: DockerRunner = async (args) => {
+      calls.push([...args]);
+      if (args[0] === "run") current = args[args.indexOf("--name") + 1] ?? "";
+      const stdout =
+        args[0] === "ps"
+          ? `cur\t${current}\texited\ti\t\nold\tn1\texited\ti\t\nrun\tn2\trunning\ti\t\n`
+          : "";
+      return { stdout, stderr: "", code: 0, timedOut: false };
+    };
+    await new DockerSandbox({ workDir: "/w", runner, keepLast: { key: "s1" } }).execute("echo");
+    expect(calls.filter((c) => c[0] === "rm")).toEqual([["rm", "old"]]);
+  });
+
+  it("rejects the reserved keepLast label and an empty key", () => {
+    const runner = fake({}).runner;
+    expect(
+      () =>
+        new DockerSandbox({
+          runner,
+          labels: { "theokit.sandbox.keep": "z" },
+          keepLast: { key: "a" },
+        }),
+    ).toThrow(/reserved/);
+    expect(() => new DockerSandbox({ runner, keepLast: { key: "" } })).toThrow(/keepLast/);
   });
 
   it("reports a failed cleanup on diagnostics and still returns the result", async () => {

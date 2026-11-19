@@ -100,7 +100,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_concurrency` | domain | ConfigurationError | `packages/sdk/src/internal/agent/batch.ts:58` +1 |
 | `invalid_context_window_margin` | domain | — | `packages/sdk/src/compaction.ts:278` +1 |
 | `invalid_cron` | domain | ConfigurationError | `packages/sdk/src/internal/cron/validate.ts:35` +3 |
-| `invalid_docker_label` | domain | ConfigurationError | `packages/sdk/src/sandbox/docker-sandbox.ts:67` +3 |
+| `invalid_docker_label` | domain | ConfigurationError | `packages/sdk/src/sandbox/docker-containers.ts:88` +4 |
 | `invalid_doom_loop_threshold` | domain | ConfigurationError | `packages/sdk/src/internal/agent-loop/doom-loop-tracker.ts:51` |
 | `invalid_filename_id` | domain | ConfigurationError | `packages/sdk/src/internal/security/path-guard.ts:486` |
 | `invalid_identifier` | domain | ConfigurationError | `packages/sdk/src/internal/security/path-guard.ts:434` +2 |
