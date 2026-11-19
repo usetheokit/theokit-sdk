@@ -20,6 +20,7 @@ import type {
   MemoryTurnMessage,
 } from "../../types/memory-adapter.js";
 import { diag } from "../diagnostics.js";
+import { forgetFactInOpenIndexes } from "../memory/lance-index.js";
 import type { PluginManager } from "../plugins/manager.js";
 
 interface ResolvedAdapters {
@@ -70,7 +71,7 @@ async function createAvailableAdapters(
  * memory adapters. Returns `null` when no `kind: "memory"` plugin
  * is registered — callers branch on `adapter() === null`.
  *
- * `forgetFromIndex`, when given, runs after the owning adapter deleted the fact and removes the
+ * `forgetFromIndex` (default: every open Lance index) runs after the owning adapter deleted the fact and removes the
  * fact's chunks from the Lance index (`LanceIndex.removeFactChunks`). Its failure propagates:
  * the fact is gone from the adapter but may still be searchable, and the caller must know.
  *
@@ -80,7 +81,7 @@ export function buildAgentMemory(
   pluginManager: PluginManager,
   workspaceCwd: string,
   defaultContext: MemoryContext | undefined,
-  forgetFromIndex?: (id: MemoryId) => Promise<void>,
+  forgetFromIndex: (id: MemoryId) => Promise<void> = forgetFactInOpenIndexes,
 ): AgentMemory {
   let resolved: ResolvedAdapters | undefined;
 
@@ -203,7 +204,7 @@ export function buildAgentMemory(
         );
       }
       await target.delete(id);
-      if (forgetFromIndex !== undefined) await forgetFromIndex(id);
+      await forgetFromIndex(id);
     },
 
     adapter(): MemoryAdapter | null {

@@ -16,7 +16,6 @@ import type { AgentOperation } from "../../types/sdk-agent.js";
 import type { SessionStore } from "../../types/session-store.js";
 import { diagFailure } from "../diagnostics.js";
 import { generateLocalAgentId } from "../ids.js";
-import { forgetFactInOpenIndexes } from "../memory/lance-index.js";
 import { withCwdMutex } from "../persistence/cwd-mutex.js";
 import { FsSessionStore } from "../persistence/fs-session-store.js";
 import { resolveSessionDir } from "../persistence/session-dir.js";
@@ -228,7 +227,6 @@ export class LocalAgent implements SDKAgent {
       this.pluginManagerCode,
       this.workspaceCwd,
       this.options.memoryContext,
-      forgetFactInOpenIndexes,
     );
 
     registerLocalAgent({
