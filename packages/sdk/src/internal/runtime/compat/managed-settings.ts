@@ -26,7 +26,7 @@
  *
  * @internal
  */
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { platform } from "node:process";
 
@@ -132,15 +132,49 @@ export function managedSettingsPathFor(root?: string): string {
  * exists to await a promise, and a once-per-agent read of one small file is the same class of work.
  */
 export function readManagedSettings(root?: string): ManagedSettings {
-  const path = managedSettingsPathFor(root);
-  const parsed = readPolicyDocument(path);
-  if (parsed === undefined) return {};
+  const document = readManagedSettingsDocument(root);
+  if (document === null) return {};
 
   const out: ManagedSettings = {};
-  for (const [key, value] of Object.entries(parsed)) {
-    applyPolicyKey(out, key, value, path);
+  for (const [key, value] of Object.entries(document.raw)) {
+    applyPolicyKey(out, key, value, document.path);
   }
   return out;
+}
+
+/** The managed-settings file as read: where it was, and every top-level key as written. */
+export interface ManagedSettingsDocument {
+  /** The file that was read. */
+  path: string;
+  /** The parsed top-level JSON object, every key as written. */
+  raw: Record<string, unknown>;
+}
+
+/** Options for `readManagedSettingsDocument`. */
+export interface ReadManagedSettingsDocumentOptions {
+  /** Receives the message for an unreadable, invalid or non-object file. Default: diagFailure. */
+  onWarn?: (message: string) => void;
+}
+
+/**
+ * Read the whole managed-settings file, for an app that defines its own keys (model, sandbox mode,
+ * approval policy) and lets an operator impose them through it.
+ *
+ * Returns `null` when there is no file (silently) or when it cannot be used (reported through
+ * `onWarn`, default `diagFailure`). Nothing is validated or applied: the caller owns the schema for
+ * its keys. The SDK enforces only the four keys `readManagedSettings` returns.
+ *
+ * The path comes from `managedSettingsPathFor`, the one path resolver: it selects ONE path by
+ * `process.platform`. An app that consults all three platform paths on every platform (for example
+ * to see the Windows path from WSL through `/mnt/c`) will see a difference.
+ */
+export function readManagedSettingsDocument(
+  root?: string,
+  options: ReadManagedSettingsDocumentOptions = {},
+): ManagedSettingsDocument | null {
+  const path = managedSettingsPathFor(root);
+  const raw = readPolicyDocument(path, options.onWarn ?? diagFailure);
+  return raw === undefined ? null : { path, raw };
 }
 
 /**
@@ -155,14 +189,19 @@ export function readManagedSettings(root?: string): ManagedSettings {
  * prerequisite for running at all. A file that exists and cannot be used is the opposite — an
  * organisation deployed a policy and it is not applying, which they must be told.
  */
-function readPolicyDocument(path: string): Record<string, unknown> | undefined {
-  if (!existsSync(path)) return undefined;
-
+function readPolicyDocument(
+  path: string,
+  warn: (message: string) => void,
+): Record<string, unknown> | undefined {
   let raw: string;
   try {
     raw = readFileSync(path, "utf8");
   } catch (cause) {
-    diagFailure(
+    // Read directly rather than probing with existsSync: that answers false for a file whose parent
+    // directory cannot be traversed, which would hide an unreadable policy as an absent one.
+    const code = (cause as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return undefined;
+    warn(
       `[theokit-sdk] ${path} exists and could not be read (${(cause as Error).message}) — ` +
         `NO operator policy is being applied. Fix the permissions or remove the file.\n`,
     );
@@ -173,7 +212,7 @@ function readPolicyDocument(path: string): Record<string, unknown> | undefined {
   try {
     parsed = JSON.parse(raw);
   } catch (cause) {
-    diagFailure(
+    warn(
       `[theokit-sdk] ${path} is not valid JSON (${(cause as Error).message}) — ` +
         `NO operator policy is being applied.\n`,
     );
@@ -181,9 +220,7 @@ function readPolicyDocument(path: string): Record<string, unknown> | undefined {
   }
 
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    diagFailure(
-      `[theokit-sdk] ${path} is not a JSON object — NO operator policy is being applied.\n`,
-    );
+    warn(`[theokit-sdk] ${path} is not a JSON object — NO operator policy is being applied.\n`);
     return undefined;
   }
   return parsed as Record<string, unknown>;

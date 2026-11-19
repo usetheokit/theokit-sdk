@@ -26,6 +26,15 @@
 
 For the full reference, see the [root README](https://github.com/usetheokit/theokit-sdk#readme). The exported TypeScript types are the canonical contract.
 
+## Squad cancellation and disposal
+
+`Squad.run(input, options?)` takes `SquadRunOptions`:
+
+- `signal` — aborting cancels the member run in flight; the run resolves with `status: "cancelled"`.
+- `timeoutMs` — shorthand for a timer signal; on expiry the run resolves with `status: "cancelled"` and `timedOut: true`.
+
+Members built from an `AgentDefinition` are always disposed after the run. Pass `ownsMembers: true` to `Squad.create` to also dispose the `SDKAgent` members you passed in (default `false`). A disposal failure never fails the run; it goes to `onDisposeError(error, memberIndex)` (default: a redacted diagnostic).
+
 ## Capability map
 
 New here? The exported TypeScript types are the discovery front-door and the canonical contract — every harness primitive with its import path, signature and JSDoc example (`compactTranscript`, `buildRepoMap`, `isTransientError`, `@theokit/sdk/persistence`, ...), surfaced by your editor.
@@ -167,6 +176,20 @@ await Cron.start();   // required for local jobs to fire
 
 Two runtimes: **local** (in-process scheduler — fires while the host process is alive) and **cloud** (Theo PaaS schedules server-side). See the exported `Cron` types for the full contract.
 
+## Hook allowlists
+
+Command hooks run shell commands, so an owner may want to approve each one. `listProjectHooks` returns every hook the agent would load for a directory (the same files, grouped by event, and 30 s timeout default as the runtime), `hookFingerprint` is the stable hex sha256 of `sourceEvent\ncommand\ntimeoutMs`, and `fingerprintHookGate` approves only listed fingerprints (an empty list refuses every hook; a malformed item throws `hook_fingerprint_invalid`).
+
+```ts
+import { fingerprintHookGate, listProjectHooks } from "@theokit/sdk";
+
+const hooks = await listProjectHooks(cwd, { compatSources });
+for (const h of hooks) console.log(h.event, h.sourcePath, h.fingerprint);
+
+const gate = fingerprintHookGate(hooks.filter(isApprovedByOwner).map((h) => h.fingerprint));
+// pass `gate` as the agent's hook approval gate
+```
+
 ## Bounded subprocesses
 
 ```ts
@@ -250,3 +273,18 @@ const agent = await Agent.create({
 ```
 
 A call to a filtered-out tool is refused in the client with a tool error naming the tool and the server; nothing is sent to the server. An `include` name the server does not list produces one diagnostics warning. A malformed filter makes `Agent.create` throw a `ConfigurationError` with code `invalid_mcp_tool_filter`.
+
+## Reading the managed settings document
+
+`readManagedSettings()` returns only the four keys the SDK enforces. An app with its own keys (model, sandbox mode, approval policy) that an operator imposes through `managed-settings.json` can read the whole file with `readManagedSettingsDocument()` from `@theokit/sdk`:
+
+```ts
+import { readManagedSettingsDocument } from "@theokit/sdk";
+
+const doc = readManagedSettingsDocument(undefined, { onWarn: (m) => console.warn(m) });
+// null when there is no file; otherwise { path, raw } with every top-level key as written
+```
+
+- An absent file returns `null` and warns nothing. An unreadable, invalid or non-object file returns `null` and warns through `onWarn` (default: the SDK failure diagnostic).
+- Nothing is validated: the caller owns the schema for its keys.
+- `managedSettingsPathFor(root?)` is the one path resolver. It picks a single path by `process.platform`; it does not consult all three platform paths.
