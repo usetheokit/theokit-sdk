@@ -31,10 +31,10 @@ describe("executeStreaming", () => {
   it("keeps multibyte characters whole and reports failure and stderr", async () => {
     const sb = new LocalSandbox({});
     const lines: string[] = [];
-    const r = await sb.executeStreaming?.("printf 'héllo\\n'; echo bad >&2; exit 3", {
+    const r = await sb.executeStreaming?.("printf 'naïve\\n'; echo bad >&2; exit 3", {
       onStdoutLine: (l) => lines.push(l),
     });
-    expect(lines).toEqual(["héllo"]);
+    expect(lines).toEqual(["naïve"]);
     expect(r).toMatchObject({ exitCode: 1, stderr: "bad\n" });
   });
 
