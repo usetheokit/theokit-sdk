@@ -17,6 +17,8 @@ import type { SessionStore } from "../../types/session-store.js";
 import { diagFailure } from "../diagnostics.js";
 import { generateLocalAgentId } from "../ids.js";
 import type { MemoryMirror } from "../memory/mirror.js";
+import type { TurnReviewQueue } from "../memory/review/turn-review.js";
+import { createAgentTurnReviews } from "../memory/review/turn-review.js";
 import { withCwdMutex } from "../persistence/cwd-mutex.js";
 import { FsSessionStore } from "../persistence/fs-session-store.js";
 import { resolveSessionDir } from "../persistence/session-dir.js";
@@ -49,11 +51,15 @@ import {
 } from "../runtime/system-prompt/local-assembly.js";
 import { SystemPromptPipeline } from "../runtime/system-prompt/pipeline.js";
 import { resolveSystemPromptForSend } from "../runtime/system-prompt/system-prompt.js";
-import { validateSendOptions } from "../runtime/validation/validate-agent-options.js";
 import { hydrateSession } from "../session/index.js";
 import { SPAN_NAMES } from "../telemetry/span-names.js";
 import { createTelemetry, type OTelSpan, type TelemetryHandle } from "../telemetry/tracer.js";
-import { bootstrapSubmanagers, registerLocalAgent } from "./local-agent-bootstrap.js";
+import {
+  bootstrapSubmanagers,
+  includesSetting,
+  registerLocalAgent,
+  resolveCwd,
+} from "./local-agent-bootstrap.js";
 import { localAgentCapabilities } from "./local-agent-capabilities.js";
 import { dispatchLocalRun } from "./local-agent-dispatch.js";
 import { invalidateCacheImpl } from "./local-agent-invalidate.js";
@@ -77,7 +83,12 @@ import {
   localAgentRunUntil,
   localAgentStreamToCompletion,
 } from "./local-agent-runtime-extensions.js";
-import { type DispatchRunArgs, executeSendLocked, resumedFlag } from "./local-agent-send.js";
+import {
+  type DispatchRunArgs,
+  executeSendLocked,
+  resolveSendOptions,
+  resumedFlag,
+} from "./local-agent-send.js";
 import { registerRunAsTask } from "./local-agent-task-wrap.js";
 import { reportUnknownLocalOptions } from "./local-option-keys.js";
 import {
@@ -171,6 +182,8 @@ export class LocalAgent implements SDKAgent {
   private readonly pluginManagerCode: PluginManager = new PluginManager();
   /** `memory.mirror` wiring; undefined when mirroring is not configured. @internal */
   private readonly memoryMirror: MemoryMirror | undefined;
+  /** `memory.review` queue; undefined when review is not configured. @internal */
+  readonly turnReviews: TurnReviewQueue | undefined;
   /** Personality presets — lazy-loaded on first `usePersonality` call (ADRs D160-D164). @internal */
   // Not private: `local-agent-personality-extensions.ts` reads both through
   // `LocalAgentPersonalityTarget`, the same way `local-agent-lifecycle.ts` reads `sessionStore` and
@@ -229,6 +242,12 @@ export class LocalAgent implements SDKAgent {
       this.pluginManagerCode,
       this.workspaceCwd,
       this.options,
+    );
+    this.turnReviews = createAgentTurnReviews(
+      this.agentId,
+      this.workspaceCwd,
+      options,
+      this.memory,
     );
 
     registerLocalAgent({
@@ -310,10 +329,10 @@ export class LocalAgent implements SDKAgent {
     return agentGenerate(this, this.model, apiKey, local, message, options);
   }
 
-  async send(message: string | SDKUserMessage, options: SendOptions = {}): Promise<Run> {
+  async send(message: string | SDKUserMessage, callOptions: SendOptions = {}): Promise<Run> {
     // Per-call tools get the creation-time checks (cloud agents reject them in CloudAgent.send);
     // #381 — with the agent's withhold list. Also validates `doomLoop.window` (#1031).
-    validateSendOptions(options, this.options.withheldBuiltinTools);
+    const options = resolveSendOptions(this.options, callOptions);
     // T0.1: `agent.send` parent span spans the FULL lifecycle (mutex acquire +
     // dispatch + post-run). Child step spans (`agent.send.<step>`) land in T1.7.
     const sendSpan = this._telemetry.startSpan(SPAN_NAMES.AGENT_SEND, {
@@ -483,6 +502,7 @@ export class LocalAgent implements SDKAgent {
         workspaceCwd: this.workspaceCwd,
         sessionStore: this.sessionStore,
         ...(this.memoryMirror !== undefined ? { memoryMirror: this.memoryMirror } : {}),
+        ...(this.turnReviews !== undefined ? { turnReviews: this.turnReviews } : {}),
         telemetry: this._telemetry,
         lifecycleAbortController: this.lifecycleAbortController,
         runPreHook: (ut) => this.runPreHook(ut),
@@ -710,15 +730,4 @@ export class LocalAgent implements SDKAgent {
  */
 function callerView(run: Run, throwOnError: boolean | undefined): Run {
   return throwOnError === true ? wrapRunWithThrowOnError(run) : run;
-}
-
-function resolveCwd(cwd: string | string[] | undefined): string {
-  return (Array.isArray(cwd) ? cwd[0] : cwd) ?? process.cwd();
-}
-
-function includesSetting(options: AgentOptions, source: string): boolean {
-  const sources = options.local?.settingSources;
-  return (
-    sources !== undefined && (sources.includes(source as never) || sources.includes("all" as never))
-  );
 }

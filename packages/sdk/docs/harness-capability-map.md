@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1507 export(s) across 58 entry point(s).
+1513 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -280,6 +280,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryProviderFactory` | type | Memory provider factory shape (ADR D141).  |
 | `MemoryProviderHandle` | interface | Opaque handle returned by `init()`.  |
 | `MemoryProviderInitOptions` | interface | Options for `MemoryProvider.init(...)`. |
+| `MemoryReviewOptions` | interface | Options for {@link MemorySettings.review } . |
 | `MemoryRevision` | interface | Versioned snapshot of a memory's history.  |
 | `MemorySettings` | interface | Memory configuration accepted by `Agent.create()` via {@link AgentOptions.memory } .  |
 | `MemoryToolSchema` | interface | OpenAI-format function-calling schema exposed to the LLM. |
@@ -991,16 +992,20 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
+| `A2AMailboxError` | class | A mailbox request failed: a non-2xx HTTP answer (`status` set), or a refused persisted file. |
 | `A2AMessage` | interface | One message as a handler receives it.  |
 | `A2APeerNotRegisteredError` | class | Thrown by {@link MessageBus.send } and {@link MessageBus.request } when `to` has no registered handler.  |
 | `A2ARemoteRequestUnsupportedError` | class | Thrown by {@link MessageBus.request } when `to` has no local handler and the bus has a transport.  |
 | `A2ARequestTimeoutError` | class | A peer did not answer a {@link MessageBus.request } within its timeout.  |
 | `A2ATransport` | interface | A2ATransport — the seam that lets a {@link MessageBus } reach agents in other processes.  |
 | `AgentMailbox` | class | One agent's endpoint on a {@link MessageBus } : registers `agentId` on construction and forwards inbound messages to the handler installed by `onMessage`.  |
+| `createHttpMailboxHandler` | function | Build a fetch-style handler serving `POST <prefix>/put` and `POST <prefix>/take`.  |
 | `DelegationCompleteContext` | interface | Context passed to {@link SubAgentSpec.onDelegationComplete } after the child settles. |
 | `DelegationCompleteDecision` | interface | Decision returned from {@link SubAgentSpec.onDelegationComplete } . |
 | `DelegationStartContext` | interface | Context passed to {@link SubAgentSpec.onDelegationStart } before the child runs. |
 | `DelegationStartDecision` | type | Decision returned from {@link SubAgentSpec.onDelegationStart } .  |
+| `HttpMailboxOptions` | interface | Options for {@link createHttpMailboxHandler } . |
+| `httpMailboxTransport` | function | An {@link A2ATransport } over an HTTP mailbox served by {@link createHttpMailboxHandler } .  |
 | `inMemoryTransport` | function | A transport backed by one shared in-memory queue per recipient.  |
 | `MaxDelegationDepthError` | class | Raised by `SubAgent.create(spec, parentDepth)` when `parentDepth + 1` exceeds `spec.maxDelegationDepth` (default 3).  |
 | `MessageBus` | class | In-process router that delivers A2A messages between agents keyed by string id.  |
@@ -1776,6 +1781,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WorkflowResumeWorkflowMismatchError` | class | Thrown by `Workflow.resume()` (and so by a `workflowResumeTool` tool) when the snapshot for the run id was written by a workflow of another name.  |
 | `WorkflowRun` | interface | The terminal record of one run — what `Workflow.run()` resolves to, what `Workflow.resume()` returns, and what the `result` promise of `Workflow.stream()` settles with.  |
 | `WorkflowRunOptions` | interface | Per-run options for `Workflow.run()` and `Workflow.stream()`.  |
+| `WorkflowSet` | interface | A fixed set of committed workflows that share one resume entry point.  |
 | `WorkflowSnapshot` | interface | The persisted state of a suspended run: written when a step calls `StepContext.suspend()`, read back by `Workflow.resume()`.  |
 | `WorkflowSnapshotNotFoundError` | class | Thrown by `Workflow.resume()` when no snapshot exists for the given run id.  |
 | `WorkflowStateError` | class | SE29 — `WorkflowOptions.stateSchema` rejected an `initialState` or a `setState(next)` call.  |

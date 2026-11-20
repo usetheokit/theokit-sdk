@@ -2,11 +2,13 @@ import { AgentDisposedError, ConfigurationError } from "../../errors.js";
 import type { AgentOptions, ModelSelection } from "../../types/agent.js";
 import type { DeferredToolCall, Run, SDKUserMessage, SendOptions } from "../../types/run.js";
 import type { SessionStore } from "../../types/session-store.js";
+import { validatePruneToolResults } from "../agent-loop/prune-tool-results.js";
 import type { MemoryToolSpec } from "../agent-loop/types.js";
 import { anySignal } from "../concurrency/abort-utils.js";
 import { diagFailure } from "../diagnostics.js";
 import { emitRunEvent } from "../emit-run-event.js";
 import type { MemoryMirror } from "../memory/mirror.js";
+import type { TurnReviewQueue } from "../memory/review/turn-review.js";
 import type { PluginManager } from "../plugins/manager.js";
 import {
   type CompletionCheckDeps,
@@ -24,6 +26,7 @@ import { runInputProcessors } from "../runtime/processors/run-processors.js";
 import { createTripwireRun } from "../runtime/processors/tripwire-run.js";
 import { wrapRunWithOutputProcessors } from "../runtime/processors/wrap-output-run.js";
 import { safeCall } from "../runtime/system-prompt/safe-call.js";
+import { validateSendOptions } from "../runtime/validation/validate-agent-options.js";
 import {
   appendSessionMessage,
   clearSession,
@@ -34,7 +37,11 @@ import {
 } from "../session/index.js";
 import type { TelemetryHandle } from "../telemetry/tracer.js";
 import { consumePending } from "./local-agent-invalidate.js";
-import { applyPreUserSendHook, wrapRunWithPostReplyHook } from "./local-agent-memory-hooks.js";
+import {
+  applyPreUserSendHook,
+  scheduleTurnReview,
+  wrapRunWithPostReplyHook,
+} from "./local-agent-memory-hooks.js";
 import { persistMemoryFactIfWritePrompt } from "./local-agent-runtime-extensions.js";
 import { runWithModelFallback } from "./model-fallback-run.js";
 
@@ -61,6 +68,8 @@ export interface SendLockedInputs {
   sessionStore?: SessionStore;
   /** Built-in memory ↔ adapter mirror, when `memory.mirror` is set. */
   memoryMirror?: MemoryMirror;
+  /** `memory.review` queue, when configured. */
+  turnReviews?: TurnReviewQueue;
   telemetry: TelemetryHandle;
   lifecycleAbortController: AbortController;
   runPreHook: (userText: string) => Promise<void>;
@@ -308,6 +317,7 @@ export async function executeSendLocked(
           onRunEvent: options.onRunEvent,
         })
       : run;
+  scheduleTurnReview({ queue: inputs.turnReviews, run: processedRun, userText });
   const hookedRun = wrapRunWithPostReplyHook({
     pluginManager: inputs.pluginManagerCode,
     agentId: inputs.agentId,
@@ -430,6 +440,30 @@ function readMemoryForSend(
     [],
     "memory read",
   );
+}
+
+const SEND_DEFAULT_KEYS = ["toolResultGuard", "pruneToolResults", "perToolTimeoutMs"] as const;
+
+/**
+ * #1020 — the effective options of one send: `AgentOptions.sendDefaults` merged under the call's
+ * options per key (a call key set to `undefined` does not remove the default), then the
+ * creation-time checks (with the agent's withhold list; also `doomLoop.window`) and the pruning
+ * check, so an invalid override fails before the run is queued.
+ */
+export function resolveSendOptions(
+  agentOptions: AgentOptions,
+  callOptions: SendOptions,
+): SendOptions {
+  const defaults = agentOptions.sendDefaults;
+  const options: SendOptions = { ...callOptions };
+  for (const key of SEND_DEFAULT_KEYS) {
+    if (options[key] === undefined && defaults?.[key] !== undefined) {
+      (options as Record<string, unknown>)[key] = defaults[key];
+    }
+  }
+  validatePruneToolResults(options.pruneToolResults);
+  validateSendOptions(options, agentOptions.withheldBuiltinTools);
+  return options;
 }
 
 /** `resumed: true` when the send answers deferred tool calls, so post-run writes no user message. */
