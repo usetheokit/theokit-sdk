@@ -472,7 +472,6 @@ export class LocalAgent implements SDKAgent {
     return executeSendLocked(
       {
         agentId: this.agentId,
-        sessionStore: this.sessionStore,
         disposed: this.disposed || this.closed,
         invalidationPending: this.invalidationPending,
         clearInvalidation: () => {

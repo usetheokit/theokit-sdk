@@ -153,20 +153,6 @@ export class ConfigurationError extends TheokitAgentError {
 }
 
 /**
- * Thrown by a send on a session that ends on deferred tool calls: the pending calls are never
- * dropped silently. The message names the pending ids.
- *
- * @public
- */
-export class ToolDecisionMismatchError extends TheokitAgentError {
-  override readonly name: string = "ToolDecisionMismatchError";
-
-  constructor(message: string, options: { cause?: unknown; metadata?: ErrorMetadata } = {}) {
-    super(message, { ...options, code: "tool_decision_mismatch", isRetryable: false });
-  }
-}
-
-/**
  * Thrown when creating a cloud agent for a repo whose SCM provider is not
  * connected. Use `helpUrl` to point the user at the right reconnect flow.
  *

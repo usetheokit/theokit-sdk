@@ -80,12 +80,6 @@ export interface SessionRecord {
   subtype?: string;
   compactMetadata?: { preTokens: number; trigger: string };
   /**
-   * On a `subtype: "deferred_tool_calls"` system record: the tool calls a permission gate deferred
-   * (one `DeferredToolCall` each, with its own `schemaVersion`). The calls stay pending until a
-   * `tool_result` record carries their ids.
-   */
-  deferredToolCalls?: readonly unknown[];
-  /**
    * The message body, in the shape the transcript writer actually writes.
    *
    * M94 — it was `Record<string, unknown>`, and the consumer recovered the type with a cast on every read.

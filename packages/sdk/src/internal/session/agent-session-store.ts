@@ -14,7 +14,6 @@
 
 import type { ToolResultContentBlock } from "../../types/content-blocks.js";
 import type { ConversationStep, ConversationTurn } from "../../types/conversation.js";
-import type { DeferredToolCall } from "../../types/run.js";
 import type { SessionStore } from "../../types/session-store.js";
 import {
   type AssistantTurn,
@@ -41,8 +40,6 @@ function seedTranscript(
 export interface PersistTurnInput {
   userText: string;
   conversation: readonly ConversationTurn[];
-  /** Calls the run ended on; recorded after the turn so a later session can find them pending. */
-  deferredToolCalls?: readonly DeferredToolCall[];
   /**
    * M50 — when supplied, size-driven auto-compaction runs in the SAME write chain after the turn
    * persists (usage real vs the model's context window; summarizer injected by the caller).
@@ -245,9 +242,6 @@ export async function persistTurn(
   const transcript = seedTranscript(prior, { cwd: loc.cwd, sessionId, model: loc.model });
   transcript.appendUserTurn(turn.userText);
   appendConversation(transcript, turn.conversation);
-  if (turn.deferredToolCalls !== undefined && turn.deferredToolCalls.length > 0) {
-    transcript.appendDeferredToolCalls(turn.deferredToolCalls);
-  }
   await store.appendRecords(loc.agentId, deltaRecords(transcript, prior.length));
 }
 

@@ -224,9 +224,9 @@ if (result.status === "deferred") {
 }
 ```
 
-The deferred call is not dispatched, the other calls of the step finish, and the transcript ends on the unanswered `tool_use` (plus a `deferred_tool_calls` record carrying each call with its `schemaVersion`).
+The deferred call is not dispatched, the other calls of the step finish, and the transcript ends on the unanswered `tool_use`.
 
-Answering a deferred call (resume) is not part of this release. Until then a `send` on a session that ends on deferred calls throws `ToolDecisionMismatchError` (code `tool_decision_mismatch`) rather than dropping them, and a stored record with an unknown `schemaVersion` throws `ConfigurationError` (code `deferred_schema_unsupported`).
+Answering a deferred call (resume) is not part of this release.
 
 ## `@theokit/sdk/context`
 

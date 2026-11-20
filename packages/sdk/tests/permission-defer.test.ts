@@ -2,7 +2,6 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ToolDecisionMismatchError } from "../src/index.js";
 import { runAgentLoop } from "../src/internal/agent-loop/loop.js";
 import type { AgentLoopInputs } from "../src/internal/agent-loop/types.js";
 import type { LlmClient, LlmEvent, LlmFinish, LlmToolCallPart } from "../src/internal/llm/types.js";
@@ -148,12 +147,6 @@ describe("deferring a tool call", () => {
     );
     expect(out.finalStatus).toBe("finished");
     expect(ran).toEqual(["risky"]);
-  });
-
-  it("exports ToolDecisionMismatchError with its code", () => {
-    const err = new ToolDecisionMismatchError("no pending call x");
-    expect(err.code).toBe("tool_decision_mismatch");
-    expect(err.name).toBe("ToolDecisionMismatchError");
   });
 });
 

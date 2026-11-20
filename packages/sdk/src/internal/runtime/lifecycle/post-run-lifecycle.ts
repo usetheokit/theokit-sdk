@@ -216,7 +216,6 @@ export async function runPostRunLifecycle(inputs: PostRunLifecycleInputs): Promi
   // multi-round agentic turns. Prefer the last request's breakdown when available.
   const lastRequestUsage = result.usage?.requests?.at(-1)?.totalTokens;
   const usageForTrigger = lastRequestUsage ?? result.usage?.totalTokens;
-  const deferred = result.status === "deferred";
   persistTurnToTranscript(
     sessionStore,
     { cwd: workspaceCwd, agentId, model },
@@ -224,21 +223,16 @@ export async function runPostRunLifecycle(inputs: PostRunLifecycleInputs): Promi
     {
       userText,
       conversation,
-      // A deferred turn keeps the unanswered `tool_use` last: no compaction, and the calls are recorded.
-      ...(deferred
-        ? { deferredToolCalls: result.deferredToolCalls ?? [] }
-        : {
-            autoCompact: {
-              usageTotal: usageForTrigger,
-              // The EFFECTIVE window (after override, clamp and margin) — not the declared one. Swapping for
-              // `contextWindow` here would budget against a number the clamp already rejected.
-              contextWindow: effectiveWindow,
-              summarize: buildDefaultSummarizer({
-                agentModel: model,
-                ...(inputs.apiKey !== undefined ? { apiKey: inputs.apiKey } : {}),
-              }),
-            },
-          }),
+      autoCompact: {
+        usageTotal: usageForTrigger,
+        // The EFFECTIVE window (after override, clamp and margin) — not the declared one. Swapping for
+        // `contextWindow` here would budget against a number the clamp already rejected.
+        contextWindow: effectiveWindow,
+        summarize: buildDefaultSummarizer({
+          agentModel: model,
+          ...(inputs.apiKey !== undefined ? { apiKey: inputs.apiKey } : {}),
+        }),
+      },
     },
     onRunEvent !== undefined
       ? () => emitRunEvent(onRunEvent, { type: "compact_boundary", trigger: "auto" })

@@ -1,7 +1,6 @@
 import { AgentDisposedError, ConfigurationError } from "../../errors.js";
 import type { AgentOptions, ModelSelection } from "../../types/agent.js";
 import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
-import type { SessionStore } from "../../types/session-store.js";
 import type { MemoryToolSpec } from "../agent-loop/types.js";
 import { anySignal } from "../concurrency/abort-utils.js";
 import { diagFailure } from "../diagnostics.js";
@@ -20,7 +19,6 @@ import { runInputProcessors } from "../runtime/processors/run-processors.js";
 import { createTripwireRun } from "../runtime/processors/tripwire-run.js";
 import { wrapRunWithOutputProcessors } from "../runtime/processors/wrap-output-run.js";
 import { safeCall } from "../runtime/system-prompt/safe-call.js";
-import { assertNoPendingDeferredCalls } from "../session/deferred-calls.js";
 import { appendSessionMessage, clearSession, getSessionMessages } from "../session/index.js";
 import type { TelemetryHandle } from "../telemetry/tracer.js";
 import { consumePending } from "./local-agent-invalidate.js";
@@ -33,8 +31,6 @@ import { persistMemoryFactIfWritePrompt } from "./local-agent-runtime-extensions
  */
 export interface SendLockedInputs {
   agentId: string;
-  /** Read for deferred tool calls a plain send would drop. */
-  sessionStore?: SessionStore;
   disposed: boolean;
   invalidationPending: { reason: string; at: number } | undefined;
   clearInvalidation: () => void;
@@ -157,9 +153,6 @@ export async function executeSendLocked(
   options: SendOptions,
 ): Promise<Run> {
   if (inputs.disposed) throw new AgentDisposedError(inputs.agentId);
-  if (inputs.sessionStore !== undefined) {
-    await assertNoPendingDeferredCalls(inputs.sessionStore, inputs.agentId);
-  }
   await consumePending(
     inputs.agentId,
     inputs.invalidationPending,

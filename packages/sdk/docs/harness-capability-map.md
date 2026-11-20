@@ -475,7 +475,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ToolCallSummary` | interface | M82 — one tool call of the turn, as seen by `transform_tool_result`.  |
 | `ToolContext` | interface | #65 — a 2nd argument passed to a tool handler, carrying the run's cancellation signal (ties into #58) so a cooperative tool can stop when the run is cancelled.  |
 | `ToolContextMessage` | interface | SE12 — a read-only, text-only projection of one turn of the run's conversation, exposed to a tool handler via `ctx.messages`.  |
-| `ToolDecisionMismatchError` | class | Thrown by a send on a session that ends on deferred tool calls: the pending calls are never dropped silently.  |
 | `ToolError` | class | Thrown from a tool `handler` to surface a failure to the model.  |
 | `ToolResult` | interface | Result of a tool invocation.  |
 | `ToolResultContentBlock` | type | SE7 — structured content a tool result may carry: text and/or images.  |
@@ -1097,7 +1096,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `StructuredOutputErrorCode` | type | Why a structured-output call failed.  |
 | `TaskNotFoundError` | class | Thrown when `Task.subscribe(id)` is called for a task that has been evicted, never submitted, or evicted after retention (D373). |
 | `TheokitAgentError` | class | Base class for all errors thrown by `@theokit/sdk`.  |
-| `ToolDecisionMismatchError` | class | Thrown by a send on a session that ends on deferred tool calls: the pending calls are never dropped silently.  |
 | `UnknownAgentError` | class | Catch-all for unclassified server or runtime errors. |
 | `UnsupportedBudgetOperationError` | class | Thrown when a budget operation is requested on a `CloudAgent` (D388).  |
 | `UnsupportedRunOperationError` | class | Thrown when a {@link Run } or agent operation is not available on the current runtime.  |

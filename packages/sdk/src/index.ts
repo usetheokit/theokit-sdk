@@ -100,7 +100,6 @@ export {
   RateLimitError,
   TaskNotFoundError,
   TheokitAgentError,
-  ToolDecisionMismatchError,
   UnknownAgentError,
   UnsupportedBudgetOperationError,
   UnsupportedRunOperationError,
