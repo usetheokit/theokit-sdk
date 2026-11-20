@@ -115,12 +115,20 @@ function deepEqual(a: unknown, b: unknown): boolean {
   return stringify(canonical(a)) === stringify(canonical(b));
 }
 
+function compareKeys(a: string, b: string): number {
+  // localeCompare orders readably; the code-unit tie-break keeps distinct keys totally ordered.
+  const c = a.localeCompare(b);
+  if (c !== 0) return c;
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
+}
+
 function canonical(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(canonical);
   if (isRecord(v)) {
     return Object.fromEntries(
       Object.keys(v)
-        .sort()
+        .sort(compareKeys)
         .map((k) => [k, canonical(v[k])]),
     );
   }

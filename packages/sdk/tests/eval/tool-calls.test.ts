@@ -110,6 +110,15 @@ describe("Scorers.toolCallAccuracy", () => {
     expect(r).toEqual({ score: 0, reason: "unexpected_tool_call:delete" });
   });
 
+  it("matchInput exact ignores nested key insertion order", () => {
+    const want = { toolCalls: [{ name: "a", input: { b: { y: 1, x: 2 }, a: 1, B: 3 } }] };
+    const calls = ctx([["a", { B: 3, a: 1, b: { x: 2, y: 1 } }]]);
+    const r = Scorers.toolCallAccuracy({ matchInput: "exact" }).score("", want, calls) as {
+      score: number;
+    };
+    expect(r.score).toBe(1);
+  });
+
   it("matchInput exact vs ignore and metadata fallback", () => {
     const want = { toolCalls: [{ name: "a", input: { x: 1 } }] };
     const calls = ctx([["a", { x: 1, y: 2 }]]);

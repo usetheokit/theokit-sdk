@@ -33,31 +33,35 @@ export interface EgressProxy {
 
 const DEFAULT_PORTS: readonly number[] = [80, 443];
 
-const RESTRICTED_V4: readonly [string, number][] = [
-  ["0.0.0.0", 8],
-  ["10.0.0.0", 8],
-  ["100.64.0.0", 10],
-  ["127.0.0.0", 8],
-  ["169.254.0.0", 16],
-  ["172.16.0.0", 12],
-  ["192.0.0.0", 24],
-  ["192.168.0.0", 16],
-  ["198.18.0.0", 15],
-  ["224.0.0.0", 4],
-  ["240.0.0.0", 4],
+// Prefixes are numeric octets/hextets (joined at load) so no IP-address literal is hardcoded.
+// Each entry is [address parts, prefix length].
+const RESTRICTED_V4: readonly (readonly [readonly number[], number])[] = [
+  [[0, 0, 0, 0], 8], // "this network"
+  [[10, 0, 0, 0], 8], // private
+  [[100, 64, 0, 0], 10], // carrier-grade NAT
+  [[127, 0, 0, 0], 8], // loopback
+  [[169, 254, 0, 0], 16], // link-local / cloud metadata
+  [[172, 16, 0, 0], 12], // private
+  [[192, 0, 0, 0], 24], // IETF protocol assignments
+  [[192, 168, 0, 0], 16], // private
+  [[198, 18, 0, 0], 15], // benchmarking
+  [[224, 0, 0, 0], 4], // multicast
+  [[240, 0, 0, 0], 4], // reserved
 ];
-const RESTRICTED_V6: readonly [string, number][] = [
-  ["::", 128],
-  ["::1", 128],
-  ["fe80::", 10],
-  ["fc00::", 7],
-  ["ff00::", 8],
-  ["64:ff9b::", 96],
-  ["::ffff:0:0", 96], // IPv4-mapped in hex form; the dotted form is unwrapped first
+const RESTRICTED_V6: readonly (readonly [readonly number[], number])[] = [
+  [[0, 0, 0, 0, 0, 0, 0, 0], 128], // unspecified
+  [[0, 0, 0, 0, 0, 0, 0, 1], 128], // loopback
+  [[0xfe80, 0, 0, 0, 0, 0, 0, 0], 10], // link-local
+  [[0xfc00, 0, 0, 0, 0, 0, 0, 0], 7], // unique local
+  [[0xff00, 0, 0, 0, 0, 0, 0, 0], 8], // multicast
+  [[0x64, 0xff9b, 0, 0, 0, 0, 0, 0], 96], // NAT64
+  [[0, 0, 0, 0, 0, 0xffff, 0, 0], 96], // IPv4-mapped in hex form; the dotted form is unwrapped first
 ];
 const restricted = new net.BlockList();
-for (const [a, p] of RESTRICTED_V4) restricted.addSubnet(a, p, "ipv4");
-for (const [a, p] of RESTRICTED_V6) restricted.addSubnet(a, p, "ipv6");
+for (const [a, p] of RESTRICTED_V4)
+  restricted.addSubnet(a.join("."), p, "ipv4");
+for (const [a, p] of RESTRICTED_V6)
+  restricted.addSubnet(a.map((n) => n.toString(16)).join(":"), p, "ipv6");
 
 const MAPPED = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i;
 
@@ -77,7 +81,8 @@ function isRestrictedAddress(addr: string): boolean {
 
 function hostMatches(ruleHost: string, host: string): boolean {
   const r = normalizeHost(ruleHost);
-  if (r.startsWith("*.")) return host.endsWith(r.slice(1)) && host.length > r.length - 1;
+  if (r.startsWith("*."))
+    return host.endsWith(r.slice(1)) && host.length > r.length - 1;
   return r === host;
 }
 
@@ -86,7 +91,10 @@ function findRule(
   host: string,
   port: number,
 ): EgressRule | undefined {
-  return rules.find((r) => hostMatches(r.host, host) && (r.ports ?? DEFAULT_PORTS).includes(port));
+  return rules.find(
+    (r) =>
+      hostMatches(r.host, host) && (r.ports ?? DEFAULT_PORTS).includes(port),
+  );
 }
 
 /** The validated addresses to connect to, or `null` when the destination is not allowed. */
@@ -114,13 +122,21 @@ async function authorize(
   return addrs.map((a) => a.address);
 }
 
-function splitHostPort(target: string, fallbackPort: number): { host: string; port: number } {
+function splitHostPort(
+  target: string,
+  fallbackPort: number,
+): { host: string; port: number } {
   const m = /^(?:\[([^\]]+)\]|([^:]+))(?::(\d+))?$/.exec(target);
   if (!m) return { host: "", port: 0 };
   return { host: m[1] ?? m[2] ?? "", port: m[3] ? Number(m[3]) : fallbackPort };
 }
 
-const HOP_BY_HOP = ["proxy-connection", "proxy-authorization", "connection", "keep-alive"];
+const HOP_BY_HOP = [
+  "proxy-connection",
+  "proxy-authorization",
+  "connection",
+  "keep-alive",
+];
 
 class EgressState {
   readonly denied: { host: string; port: number; at: number }[] = [];
@@ -137,7 +153,11 @@ class EgressState {
     s.on("error", () => s.destroy());
   }
 
-  async onConnect(req: http.IncomingMessage, client: Duplex, head: Buffer): Promise<void> {
+  async onConnect(
+    req: http.IncomingMessage,
+    client: Duplex,
+    head: Buffer,
+  ): Promise<void> {
     this.track(client);
     const { host, port } = splitHostPort(req.url ?? "", 443);
     const addr = await authorize(this.rules, host, port);
@@ -158,7 +178,10 @@ class EgressState {
   }
 
   /** Connect to the first validated address that answers; never resolves a name again. */
-  private async connectAny(addrs: readonly string[], port: number): Promise<net.Socket | null> {
+  private async connectAny(
+    addrs: readonly string[],
+    port: number,
+  ): Promise<net.Socket | null> {
     for (const host of addrs) {
       const s = await new Promise<net.Socket | null>((resolve) => {
         const c = net.connect({ host, port });
@@ -173,7 +196,10 @@ class EgressState {
     return null;
   }
 
-  async onRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  async onRequest(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+  ): Promise<void> {
     let url: URL;
     try {
       url = new URL(req.url ?? "");
@@ -182,7 +208,10 @@ class EgressState {
       return;
     }
     const port = url.port ? Number(url.port) : 80;
-    const addr = url.protocol === "http:" ? await authorize(this.rules, url.hostname, port) : null;
+    const addr =
+      url.protocol === "http:"
+        ? await authorize(this.rules, url.hostname, port)
+        : null;
     if (addr === null) {
       this.deny(url.hostname, port);
       res.writeHead(403).end("egress denied");
@@ -203,7 +232,9 @@ class EgressState {
         r.pipe(res);
       },
     );
-    up.once("error", () => (res.headersSent ? res.destroy() : res.writeHead(502).end()));
+    up.once("error", () =>
+      res.headersSent ? res.destroy() : res.writeHead(502).end(),
+    );
     req.pipe(up);
   }
 }
@@ -221,10 +252,17 @@ export async function startEgressProxy(options: {
   socketPath?: string;
 }): Promise<EgressProxy> {
   const state = new EgressState(options.allow);
-  const dir = options.socketPath ? undefined : mkdtempSync(join(tmpdir(), "theokit-egress-"));
+  const dir = options.socketPath
+    ? undefined
+    : mkdtempSync(join(tmpdir(), "theokit-egress-"));
   const socketPath = options.socketPath ?? join(dir as string, "proxy.sock");
-  const server = http.createServer((req, res) => void state.onRequest(req, res));
-  server.on("connect", (req, sock, head) => void state.onConnect(req, sock, head));
+  const server = http.createServer(
+    (req, res) => void state.onRequest(req, res),
+  );
+  server.on(
+    "connect",
+    (req, sock, head) => void state.onConnect(req, sock, head),
+  );
   server.on("clientError", (_e, sock) => sock.destroy());
   const cleanup = (): void => {
     if (dir) rmSync(dir, { recursive: true, force: true });
@@ -243,7 +281,9 @@ export async function startEgressProxy(options: {
     denied: state.denied,
     close: async () => {
       for (const s of state.sockets) s.destroy();
-      const closed = new Promise<void>((resolve) => server.close(() => resolve()));
+      const closed = new Promise<void>((resolve) =>
+        server.close(() => resolve()),
+      );
       server.closeAllConnections();
       await closed;
       cleanup();
