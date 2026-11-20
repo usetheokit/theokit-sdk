@@ -36,16 +36,6 @@ import { DEFAULT_NAMESPACE, type LanceIndex } from "./lance-index.js";
 import { type MemoryIndex, parseSearchOptions, type SyncResult } from "./memory-index.js";
 
 /**
- * Default namespace used when consumers call `search()` without specifying
- * one. The SQLite `IndexManager` does not surface namespace in its public
- * `search()` signature either — both backends therefore behave consistently
- * under the "single-workspace, single-namespace" assumption that v1.4 ships.
- *
- * v1.5 candidate: surface `namespace` in `SearchOptions` (additive — no
- * breaking change) so multi-tenant Lance consumers can scope queries.
- */
-
-/**
  * Lance has no corpus to walk, and the result now SAYS so.
  *
  * The counts stay zero — inventing numbers would trade one false claim for another. What changed is
