@@ -5,7 +5,6 @@ import { createOpenAiCompatibleRuntime } from "./openai-compatible.js";
  * OpenAI embedding adapter (ADR D3) — built on the shared OpenAI-compatible
  * factory. Native fetch only.
  *
- * @internal
  */
 
 export const DEFAULT_OPENAI_EMBEDDING_MODEL = "text-embedding-3-small";
@@ -27,6 +26,7 @@ export const OPENAI_EMBEDDING_DIMENSIONS: Readonly<Record<string, number>> = {
 
 const DIMENSION_BY_MODEL: Record<string, number> = { ...OPENAI_EMBEDDING_DIMENSIONS };
 
+/** Embedding provider adapter `openAi`: an OpenAI-compatible runtime factory with its default model and priority. */
 export const openAiMemoryEmbeddingProviderAdapter: MemoryEmbeddingProviderAdapter = {
   id: "openai",
   defaultModel: DEFAULT_OPENAI_EMBEDDING_MODEL,

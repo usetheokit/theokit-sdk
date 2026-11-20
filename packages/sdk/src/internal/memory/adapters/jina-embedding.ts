@@ -5,7 +5,6 @@ import { createOpenAiCompatibleRuntime } from "./openai-compatible.js";
  * T4.10 — Jina AI embedding adapter. Jina's embedding API is
  * OpenAI-compatible at `https://api.jina.ai/v1/embeddings`.
  *
- * @internal
  */
 
 export const DEFAULT_JINA_EMBEDDING_MODEL = "jina-embeddings-v3";
@@ -16,6 +15,7 @@ const DIMENSION_BY_MODEL: Record<string, number> = {
   "jina-embeddings-v2-small-en": 512,
 };
 
+/** Embedding provider adapter `jina`: an OpenAI-compatible runtime factory with its default model and priority. */
 export const jinaMemoryEmbeddingProviderAdapter: MemoryEmbeddingProviderAdapter = {
   id: "jina",
   defaultModel: DEFAULT_JINA_EMBEDDING_MODEL,
