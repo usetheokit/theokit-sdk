@@ -1,5 +1,15 @@
 import { NetworkError } from "../../errors.js";
-import type { McpTool, McpToolCallResult } from "./client.js";
+
+export interface McpTool {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
+export interface McpToolCallResult {
+  content: Array<{ type: "text"; text: string }>;
+  isError?: boolean;
+}
 
 type RpcRequester = (method: string, params: Record<string, unknown>) => Promise<unknown>;
 

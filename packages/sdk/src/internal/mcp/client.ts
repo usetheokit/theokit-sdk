@@ -18,6 +18,8 @@ import {
   reconnectDelay,
   rpcCallTool,
   rpcListTools,
+  type McpTool,
+  type McpToolCallResult,
 } from "./rpc-helpers.js";
 import { withToolFilter } from "./tool-filter.js";
 
@@ -33,17 +35,7 @@ import { withToolFilter } from "./tool-filter.js";
  * @internal
  */
 
-export interface McpTool {
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-}
-
-export interface McpToolCallResult {
-  content: Array<{ type: "text"; text: string }>;
-  isError?: boolean;
-}
-
+export type { McpTool, McpToolCallResult };
 export type { McpProtocolVersion };
 export { SUPPORTED_MCP_PROTOCOL_VERSIONS };
 
