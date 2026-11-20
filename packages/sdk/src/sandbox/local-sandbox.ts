@@ -15,9 +15,11 @@
  * @public
  */
 
-import { execFile } from "node:child_process";
+import { type ChildProcessByStdio, execFile, spawn } from "node:child_process";
 import { writeFile as fsWriteFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
+import type { Readable } from "node:stream";
+import { StringDecoder } from "node:string_decoder";
 
 import { resolveChildEnv } from "../internal/runtime/lifecycle/env-policy.js";
 import {
@@ -95,6 +97,43 @@ export class LocalSandbox extends SandboxBackend {
     });
   }
 
+  /** Streaming `execute`: see {@link SandboxBackend.executeStreaming}. */
+  override async executeStreaming(
+    command: string,
+    opts?: { timeoutMs?: number; onStdoutLine?: (line: string) => void; signal?: AbortSignal },
+  ): Promise<ExecuteResult> {
+    const timeout = opts?.timeoutMs ?? this.config.timeoutMs ?? 30_000;
+    const max = this.config.maxOutputBytes ?? 5 * 1024 * 1024;
+    const child = spawn("/bin/sh", ["-c", command], {
+      cwd: this.config.workDir,
+      env: resolveChildEnv({ policy: this.config.env }),
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: true,
+    });
+    const run = new StreamingRun(child, max, opts?.onStdoutLine);
+    const timer = setTimeout(() => run.stop("timeout"), timeout);
+    const onAbort = (): void => run.stop("cancel");
+    if (opts?.signal?.aborted) onAbort();
+    else opts?.signal?.addEventListener("abort", onAbort, { once: true });
+    try {
+      const done = await run.done;
+      return {
+        stdout: this.streamedText(done.out, max),
+        stderr: this.streamedText(done.err, max),
+        exitCode: done.exitCode,
+        timedOut: done.timedOut,
+      };
+    } finally {
+      clearTimeout(timer);
+      opts?.signal?.removeEventListener("abort", onAbort);
+    }
+  }
+
+  private streamedText(sink: Sink, max: number): string {
+    const text = this.truncateOutput(Buffer.concat(sink.chunks).toString("utf-8"));
+    return sink.bytes > max && !text.endsWith("...(truncated)") ? `${text}\n...(truncated)` : text;
+  }
+
   private buildResult(error: Error | null, stdout: string, stderr: string): ExecuteResult {
     const timedOut = error !== null && "killed" in error && (error as { killed: boolean }).killed;
     // #363 — the ONLY reliable signal that output was lost. Node caps the buffer AT `maxBuffer`, so
@@ -130,5 +169,103 @@ export class LocalSandbox extends SandboxBackend {
     const fullPath = path.startsWith("/") ? path : `${this.config.workDir}/${path}`;
     await mkdir(dirname(fullPath), { recursive: true });
     await fsWriteFile(fullPath, content, "utf-8");
+  }
+}
+
+interface Sink {
+  chunks: Buffer[];
+  bytes: number;
+}
+
+interface StreamingDone {
+  out: Sink;
+  err: Sink;
+  exitCode: number;
+  timedOut: boolean;
+}
+
+/** One streaming child: collects capped output, frames stdout lines, and settles `done` once. */
+class StreamingRun {
+  readonly done: Promise<StreamingDone>;
+  private readonly out: Sink = { chunks: [], bytes: 0 };
+  private readonly err: Sink = { chunks: [], bytes: 0 };
+  private readonly decoder = new StringDecoder("utf8");
+  private pending = "";
+  private reason: "timeout" | "cancel" | "overflow" | undefined;
+  private failure: { error: unknown } | undefined;
+
+  constructor(
+    private readonly child: ChildProcessByStdio<null, Readable, Readable>,
+    private readonly max: number,
+    private readonly onLine: ((line: string) => void) | undefined,
+  ) {
+    this.done = new Promise((resolve, reject) => {
+      child.stdout.on("data", (chunk: Buffer) => {
+        this.collect(this.out, chunk);
+        this.feed(this.decoder.write(chunk));
+      });
+      child.stderr.on("data", (chunk: Buffer) => this.collect(this.err, chunk));
+      child.on("error", () => {
+        resolve({
+          out: { chunks: [], bytes: 0 },
+          err: { chunks: [Buffer.from("spawn error")], bytes: 11 },
+          exitCode: 1,
+          timedOut: false,
+        });
+      });
+      child.on("close", (code) => {
+        this.feed(this.decoder.end());
+        if (this.pending !== "") this.emit(this.pending);
+        if (this.failure) return reject(this.failure.error);
+        resolve({
+          out: this.out,
+          err: this.err,
+          exitCode: this.exitCode(code),
+          timedOut: this.reason === "timeout",
+        });
+      });
+    });
+  }
+
+  /** Kills the child's process group; the first reason given is the one reported. */
+  stop(reason: "timeout" | "cancel" | "overflow"): void {
+    this.reason ??= reason;
+    try {
+      if (this.child.pid !== undefined) process.kill(-this.child.pid, "SIGKILL");
+    } catch {
+      this.child.kill("SIGKILL");
+    }
+  }
+
+  private exitCode(code: number | null): number {
+    if (this.reason === "timeout") return 124;
+    return code === 0 && this.reason === undefined ? 0 : 1;
+  }
+
+  private collect(sink: Sink, chunk: Buffer): void {
+    if (sink.bytes < this.max) sink.chunks.push(chunk.subarray(0, this.max - sink.bytes));
+    sink.bytes += chunk.length;
+    if (sink.bytes > this.max) this.stop("overflow");
+  }
+
+  private emit(line: string): void {
+    if (this.failure) return;
+    try {
+      this.onLine?.(line.endsWith("\r") ? line.slice(0, -1) : line);
+    } catch (error) {
+      this.failure = { error };
+      this.stop("cancel");
+    }
+  }
+
+  private feed(text: string): void {
+    this.pending += text;
+    let i = this.pending.indexOf("\n");
+    while (i >= 0) {
+      const line = this.pending.slice(0, i);
+      this.pending = this.pending.slice(i + 1);
+      this.emit(line);
+      i = this.pending.indexOf("\n");
+    }
   }
 }

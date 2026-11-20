@@ -162,6 +162,23 @@ export abstract class SandboxBackend {
 
   abstract execute(command: string, opts?: { timeoutMs?: number }): Promise<ExecuteResult>;
 
+  /**
+   * Optional capability: like `execute`, but calls `onStdoutLine` for each stdout line as it
+   * arrives, in order, without the line terminator (`\n` or `\r\n`; empty lines are delivered, and
+   * an unterminated final fragment is delivered when the command ends). The returned
+   * {@link ExecuteResult} is the same as `execute`'s and still carries all output.
+   *
+   * Aborting `signal` (also when already aborted) kills the command and resolves with `exitCode` 1
+   * and `timedOut: false`, keeping the output collected so far. If `onStdoutLine` throws, the
+   * command is killed and the returned promise rejects with that error.
+   *
+   * A backend that cannot stream leaves this undefined; test for it and fall back to `execute`.
+   */
+  executeStreaming?(
+    command: string,
+    opts?: { timeoutMs?: number; onStdoutLine?: (line: string) => void; signal?: AbortSignal },
+  ): Promise<ExecuteResult>;
+
   abstract uploadFile(path: string, content: string | Buffer): Promise<void>;
 
   /**

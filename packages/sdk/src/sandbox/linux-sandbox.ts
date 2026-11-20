@@ -315,6 +315,19 @@ export class LinuxSandbox extends LocalSandbox {
     return super.execute(wrapped, opts);
   }
 
+  override async executeStreaming(
+    command: string,
+    opts?: { timeoutMs?: number; onStdoutLine?: (line: string) => void; signal?: AbortSignal },
+  ): Promise<ExecuteResult> {
+    const wrapped = this.wrapCommand(command);
+    if (wrapped === null) return super.executeStreaming(command, opts);
+    if (this.egress) {
+      const failure = await this.egressFailure();
+      if (failure) return { stdout: "", stderr: failure, exitCode: 1, timedOut: false };
+    }
+    return super.executeStreaming(wrapped, opts);
+  }
+
   /** Why a command must not run under the allowlist, or `undefined` once the proxy is listening. */
   private async egressFailure(): Promise<string | undefined> {
     if (this.disposed) return "sandbox disposed: egress proxy is closed";
