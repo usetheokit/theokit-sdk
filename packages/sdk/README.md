@@ -73,6 +73,28 @@ Values shorter than `minLength` (default 4) are ignored. A value split across st
 back until it is known not to match. `wrapStreams` throws `ConfigurationError` for a stream that is
 already wrapped; a write held back whole calls its callback before its bytes reach the stream.
 
+## `modelFallback`: rerun a turn on another model
+
+```ts
+const agent = await Agent.create({
+  model: "openai/gpt-4o",
+  modelFallback: { models: ["anthropic/claude-3.5-sonnet"] },
+});
+```
+
+When the primary model fails before it streams any assistant text or tool call (a provider or
+network error), the same turn is rerun on the next model of `models`, in order. The retry runs on
+the same agent, so the user message appears once in the transcript. The `Run` you hold stays the
+same object; its `stream()`/`events()` carry the answering model's items. `RunResult.modelFallbackAttempts`
+lists each failed attempt (`model`, `errorCode`).
+
+It never falls over on `cancelled`, on a `ConfigurationError`, or after output has started.
+When every model fails the run ends `error` and `RunResult.error.cause` is a
+`ModelFallbackExhaustedError` naming each model and its code; its own `cause` is the primary's error.
+
+This differs from `providers.fallback`, which only picks another provider when a route has none
+available. It does not resend a run that failed.
+
 ## Install
 
 ```bash
