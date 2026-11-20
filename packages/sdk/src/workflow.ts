@@ -510,7 +510,7 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
    * `WorkflowSnapshotNotFoundError` when the run has none.
    */
   async history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>> {
-    const { workflowHistory } = await import("./internal/workflow/executor.js");
+    const { workflowHistory } = await import("./internal/workflow/executor-rerun.js");
     return workflowHistory(this._options, runId);
   }
 
@@ -522,7 +522,7 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
    * `WorkflowResumeStepNotFoundError` when `stepId` is not a top-level step. Needs `keepHistory: true`.
    */
   async rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>> {
-    const { rerunWorkflow } = await import("./internal/workflow/executor.js");
+    const { rerunWorkflow } = await import("./internal/workflow/executor-rerun.js");
     return rerunWorkflow<TOutput>(this._options, this._steps, opts);
   }
 
