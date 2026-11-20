@@ -13,18 +13,24 @@
  * (usetheodev/theokit-sdk#283 records the same trap on a declaration).
  */
 
+import type { ZodType } from "zod";
+
 import type { ModelSelection } from "../../types/agent.js";
 import type { Score } from "../../types/eval.js";
 import type { ProviderRoutingSettings } from "../../types/providers.js";
 import { getAgentFacade } from "../runtime/registry/agent-factory-registry.js";
 
-export interface LlmJudgeOptions {
+/** The judge transport shared by `llmJudge`, `faithfulness`, `rubric` and `judgedTrajectory`. */
+export interface LlmJudgeTransportOptions {
   readonly model: ModelSelection;
   readonly apiKey: string;
+  readonly providers?: ProviderRoutingSettings;
+}
+
+export interface LlmJudgeOptions extends LlmJudgeTransportOptions {
   readonly criteria: string;
   /** "continuous" → [0, 1] real number. "discrete" → 0 or 1 only. Default: continuous. */
   readonly rubric?: "continuous" | "discrete";
-  readonly providers?: ProviderRoutingSettings;
 }
 
 function buildPrompt(
@@ -60,9 +66,9 @@ function buildPrompt(
  */
 const SCORE_REGEX = /\{\s*"score"\s*:\s*([0-9]*\.?[0-9]+)\s*,\s*"reason"\s*:\s*"([^"]*)"\s*\}/;
 
-async function callJudge(
+export async function callJudge(
   message: string,
-  options: LlmJudgeOptions,
+  options: LlmJudgeTransportOptions,
 ): Promise<{ ok: true; text: string } | { ok: false; reason: string }> {
   try {
     const result = await getAgentFacade().prompt(message, {
@@ -128,4 +134,32 @@ export async function llmJudgeScore(
   const judgement = await callJudge(message, options);
   if (!judgement.ok) return { score: 0, reason: judgement.reason };
   return parseScore(judgement.text, rubric);
+}
+
+/** Pull the first JSON object out of a reply, tolerating markdown fences and surrounding prose. */
+function extractJson(text: string): unknown {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) return undefined;
+  try {
+    return JSON.parse(text.slice(start, end + 1));
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * One judge call whose reply must be a JSON object accepted by `schema`. A transport failure keeps
+ * its reason; a reply that is not JSON or does not fit the schema is `judge_unparseable`.
+ */
+export async function judgeJson<T>(
+  message: string,
+  options: LlmJudgeTransportOptions,
+  schema: ZodType<T>,
+): Promise<{ ok: true; value: T } | { ok: false; score: Score }> {
+  const judgement = await callJudge(message, options);
+  if (!judgement.ok) return { ok: false, score: { score: 0, reason: judgement.reason } };
+  const parsed = schema.safeParse(extractJson(judgement.text));
+  if (!parsed.success) return { ok: false, score: { score: 0, reason: "judge_unparseable" } };
+  return { ok: true, value: parsed.data };
 }

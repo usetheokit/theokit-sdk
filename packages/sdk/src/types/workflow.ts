@@ -52,14 +52,15 @@ export interface FnStep {
   readonly outputSchema?: ZodType;
   readonly retry?: RetryPolicy;
   /**
-   * @deprecated NOT IMPLEMENTED. Setting this does not enable saga rollback — it arms
-   * `WorkflowCompensateNotImplementedError`, so the step FAILS at run time and the message tells you
-   * to remove it. A field whose only effect is to make the step fail is worse than an absent field,
-   * because the type invites it and the cost is discovered in production.
+   * Saga rollback. When a LATER top-level step fails (after its retries), the executor calls this
+   * for every earlier completed top-level `fn` step that declares one, in reverse completion order,
+   * with that step's input, its output and the error that failed the run. A throwing `compensate`
+   * is recorded in `WorkflowRun.compensation` as `"failed"` and the pass continues. The failing
+   * step does not compensate itself, and a cancelled run does not compensate.
    *
-   * Kept rather than removed because `FnStep` is published and dropping a member is a major-version
-   * decision. The deprecation is the part that reaches a caller at the point of use: an editor
-   * strikes it through, which the D238 comment that stood here ("slot reserved") did not.
+   * Only top-level steps are supported: on a step nested in `parallel`, `branch`, `foreach` or
+   * `dowhile` the step fails with `WorkflowCompensateNotImplementedError`. After a `resume()`, only
+   * steps completed since the resume are compensated.
    */
   readonly compensate?: (input: unknown, output: unknown, error: Error) => Promise<void> | void;
 }
@@ -224,7 +225,7 @@ export interface StepContext {
  *
  * `attempts` means different things per kind. For `fn` and `agent` it counts execution attempts: 1
  * without a `retry` policy, and 0 when the step failed before its body ran — an `inputSchema`
- * rejection, a prompt template that threw, a `compensate` v1 refuses, or a cloud agent. For `dowhile`
+ * rejection, a prompt template that threw, a nested `compensate`, or a cloud agent. For `dowhile`
  * it counts loop iterations instead.
  */
 export interface StepResult {
@@ -259,6 +260,15 @@ export interface WorkflowRun<TOutput = unknown> {
   readonly startedAt: number;
   readonly endedAt?: number;
   readonly stepResults: ReadonlyArray<StepResult>;
+  /** Outcome of each `compensate` call, in call order. Absent when no compensation ran. */
+  readonly compensation?: ReadonlyArray<CompensationResult>;
+}
+
+/** The outcome of one `compensate` call. @public */
+export interface CompensationResult {
+  readonly stepId: string;
+  readonly status: "compensated" | "failed";
+  readonly error?: { name: string; message: string };
 }
 
 /**
@@ -281,8 +291,13 @@ export interface WorkflowRun<TOutput = unknown> {
  * intend (the id moved).
  */
 export interface WorkflowSnapshot {
-  /** v1 = pre-SE29 (no `state`); v2 = SE29 (carries `state`). Resume reads both. */
-  readonly _schemaVersion: 1 | 2;
+  /** v1 = pre-SE29 (no `state`); v2 = SE29 (carries `state`); v3 adds `status`. Resume reads all. */
+  readonly _schemaVersion: 1 | 2 | 3;
+  /**
+   * v3 — `"suspended"` (a step called `suspend()`) or `"running"` (a `durability: "step"` checkpoint;
+   * `currentStepId` is the last COMPLETED step). Absent on v1/v2 and read as `"suspended"`.
+   */
+  readonly status?: "suspended" | "running";
   readonly runId: string;
   readonly workflowName: string;
   readonly currentStepId: string;
@@ -309,6 +324,12 @@ export type WorkflowEvent =
   | { readonly type: "step_completed"; readonly stepId: string; readonly output: unknown }
   | {
       readonly type: "step_failed";
+      readonly stepId: string;
+      readonly error: { readonly name: string; readonly message: string };
+    }
+  | { readonly type: "step_compensated"; readonly stepId: string }
+  | {
+      readonly type: "step_compensation_failed";
       readonly stepId: string;
       readonly error: { readonly name: string; readonly message: string };
     }
@@ -346,6 +367,14 @@ export interface WorkflowPersistenceOptions {
   readonly backend: "memory" | "json";
   /** Required for `backend: "json"`. */
   readonly dir?: string;
+  /**
+   * `"suspend"` (default) writes a snapshot only when a step suspends. `"step"` also checkpoints after
+   * every completed top-level step (not children of `parallel`, `branch` or `foreach`) and deletes the
+   * checkpoint when the run completes; a failed or cancelled run keeps its last checkpoint so
+   * `Workflow.resume({ runId })` can continue it. With `backend: "memory"` it is allowed but does not
+   * survive a process restart. The run lock stays per process.
+   */
+  readonly durability?: "suspend" | "step";
 }
 
 /**

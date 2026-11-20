@@ -33,19 +33,30 @@ const SEALED_TYPE = "theokit-a2a-sealed";
 const SPKI_PREFIX = Buffer.from("302a300506032b656e032100", "hex");
 const PKCS8_PREFIX = Buffer.from("302e020100300506032b656e04220420", "hex");
 
-/** An X25519 identity as base64url raw 32-byte keys. @public */
+/**
+ * An X25519 identity as base64url raw 32-byte keys.
+ *
+ * @experimental
+ * @public
+ */
 export interface A2AIdentity {
   publicKey: string;
   privateKey: string;
 }
 
-/** Trusted peers: name to base64url raw X25519 public key. @public */
+/**
+ * Trusted peers: name to base64url raw X25519 public key.
+ *
+ * @experimental
+ * @public
+ */
 export type TrustedPeers = ReadonlyMap<string, string>;
 
 /**
  * Per-peer sequence counters. `acceptReceived` returns false when `seq` is not above the last
  * accepted one (replay).
  *
+ * @experimental
  * @public
  */
 export interface SequenceStore {
@@ -56,6 +67,7 @@ export interface SequenceStore {
 /**
  * Sealing to a peer name that is not in `trustedPeers`.
  *
+ * @experimental
  * @public
  */
 export class A2AUntrustedPeerError extends TheokitAgentError {
@@ -73,7 +85,12 @@ export class A2AUntrustedPeerError extends TheokitAgentError {
   }
 }
 
-/** Why an inbound sealed message was dropped. @public */
+/**
+ * Why an inbound sealed message was dropped.
+ *
+ * @experimental
+ * @public
+ */
 export type SealedDropReason =
   | "malformed"
   | "wrong_recipient"
@@ -97,7 +114,12 @@ interface Envelope {
   ct: string;
 }
 
-/** Generates a fresh X25519 identity. @public */
+/**
+ * Generates a fresh X25519 identity.
+ *
+ * @experimental
+ * @public
+ */
 export function generateA2AIdentity(): A2AIdentity {
   const { publicKey, privateKey } = generateKeyPairSync("x25519");
   return {
@@ -261,7 +283,12 @@ function counterStore(persist: (c: Counters) => Promise<void>, initial: Counters
   };
 }
 
-/** Sequence counters held in memory only. @public */
+/**
+ * Sequence counters held in memory only.
+ *
+ * @experimental
+ * @public
+ */
 export function memorySequenceStore(): SequenceStore {
   return counterStore(async () => undefined, { sent: {}, received: {} });
 }
@@ -284,6 +311,7 @@ function loadCounters(file: string): Counters {
  * Sequence counters persisted to a JSON file (atomic write, mode 0600). Operations are serialized
  * within one instance; separate processes sharing one file are not coordinated.
  *
+ * @experimental
  * @public
  */
 export function jsonSequenceStore(file: string): SequenceStore {
@@ -330,6 +358,7 @@ async function openMessage(
  * diagnostics with its reason (never the plaintext). Sequence numbers must rise, so out-of-order
  * delivery drops the older message; keep `sequences` persistent across restarts.
  *
+ * @experimental
  * @public
  */
 export function sealedTransport(

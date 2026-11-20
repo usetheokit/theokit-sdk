@@ -29,6 +29,7 @@ import {
 } from "../../workflow-errors.js";
 import { combineSignals, makeStepContext, WorkflowSuspendedSentinel } from "./ctx.js";
 import { errToShape } from "./error-shape.js";
+import { type Compensable, settleStep } from "./executor-compensation.js";
 import {
   abortRun,
   assembleRun,
@@ -135,12 +136,16 @@ async function runOneStep<T>(args: {
   });
   let result: StepResult;
   try {
-    result = await dispatchStep(args.step, args.acc, {
-      ctx: args.ctx,
-      options: args.options,
-      prevStepResults: args.stepResults,
-      dispatch: dispatchStep,
-    });
+    // Top-level fn steps may declare `compensate`; nested ones still go through dispatchStep.
+    result =
+      args.step.kind === "fn"
+        ? await runFnStep(args.step, args.acc, args.ctx, true)
+        : await dispatchStep(args.step, args.acc, {
+            ctx: args.ctx,
+            options: args.options,
+            prevStepResults: args.stepResults,
+            dispatch: dispatchStep,
+          });
   } catch (err) {
     if (err instanceof WorkflowSuspendedSentinel) {
       const outcome = await handleSuspend<T>(err, { ...args, stepSpan, stepCtx: args.ctx });
@@ -225,12 +230,83 @@ function handleStepOutcome<TO>(
   return { acc: outcome.result.output };
 }
 
+/** `durability: "step"` — write a v3 "running" snapshot after a completed top-level step. */
+async function checkpointStep<TO>(
+  params: LoopParams,
+  step: Step,
+  stepResults: StepResult[],
+  acc: unknown,
+): Promise<WorkflowRun<TO> | undefined> {
+  const { options, runId, startedAt } = params;
+  if (options.persistence?.durability !== "step") return undefined;
+  try {
+    await saveSnapshot({
+      runId,
+      workflowName: options.name,
+      currentStepId: step.id,
+      stepResults,
+      accumulatedInput: acc,
+      state: params.ctx.state,
+      options,
+      status: "running",
+    });
+    return undefined;
+  } catch (snapErr) {
+    return assembleRun<TO>({
+      runId,
+      name: options.name,
+      status: "failed",
+      stepResults,
+      startedAt,
+      error: errToShape(snapErr),
+    });
+  }
+}
+
+/** A completed run leaves no checkpoint behind. */
+async function clearCheckpoint(options: WorkflowOptions, runId: string): Promise<void> {
+  if (options.persistence?.durability !== "step") return;
+  await getSnapshotStoreFor(options).delete(runId);
+}
+
+/** Terminal path: validate the output schema, clear the checkpoint, assemble the run. */
+async function finishRun<TO>(
+  params: LoopParams,
+  stepResults: StepResult[],
+  acc: unknown,
+): Promise<WorkflowRun<TO>> {
+  const { options, runId, startedAt, onStepEvent } = params;
+  // SE27 — validate the whole-workflow output only on the terminal completed path.
+  const outputIssues = validateWorkflowSchema(options.outputSchema, acc);
+  if (outputIssues !== undefined) {
+    return assembleRun<TO>({
+      runId,
+      name: options.name,
+      status: "failed",
+      stepResults,
+      startedAt,
+      error: errToShape(new WorkflowOutputError(options.name, outputIssues)),
+    });
+  }
+  await clearCheckpoint(options, runId);
+  onStepEvent?.({ type: "workflow_completed" });
+  return assembleRun<TO>({
+    runId,
+    name: options.name,
+    status: "completed",
+    output: acc as TO,
+    stepResults,
+    startedAt,
+  });
+}
+
 async function runStepsLoop<TO>(params: LoopParams): Promise<WorkflowRun<TO>> {
   const { options, steps, ctx, runId, startedAt, signal, onStepEvent } = params;
   // M3 #62 — seed with prior step outputs so a resumed workflow is not lossy.
   const stepResults: StepResult[] = [...(params.initialStepResults ?? [])];
   const loop = { stepResults, runId, name: options.name, startedAt };
   let acc: unknown = params.input;
+  const done: Compensable[] = [];
   for (const step of steps) {
     if (signal.aborted) return abortRun<TO>(options.name, runId, startedAt, stepResults, signal);
     onStepEvent?.({ type: "step_started", stepId: step.id });
@@ -244,31 +320,20 @@ async function runStepsLoop<TO>(params: LoopParams): Promise<WorkflowRun<TO>> {
       name: options.name,
       startedAt,
     });
-    const handled = handleStepOutcome<TO>(outcome, step, loop, onStepEvent);
+    const handled = await settleStep<TO>(handleStepOutcome<TO>(outcome, step, loop, onStepEvent), {
+      outcome,
+      step,
+      input: acc,
+      done,
+      signal,
+      ...(onStepEvent !== undefined ? { onStepEvent } : {}),
+    });
     if ("terminal" in handled) return handled.terminal;
     acc = handled.acc;
+    const failed = await checkpointStep<TO>(params, step, stepResults, acc);
+    if (failed !== undefined) return failed;
   }
-  // SE27 — validate the whole-workflow output only on the terminal completed path.
-  const outputIssues = validateWorkflowSchema(options.outputSchema, acc);
-  if (outputIssues !== undefined) {
-    return assembleRun<TO>({
-      runId,
-      name: options.name,
-      status: "failed",
-      stepResults,
-      startedAt,
-      error: errToShape(new WorkflowOutputError(options.name, outputIssues)),
-    });
-  }
-  onStepEvent?.({ type: "workflow_completed" });
-  return assembleRun<TO>({
-    runId,
-    name: options.name,
-    status: "completed",
-    output: acc as TO,
-    stepResults,
-    startedAt,
-  });
+  return finishRun<TO>(params, stepResults, acc);
 }
 
 /** M3 #62 — internal-only resume seam: prior step outputs are NOT on the public
@@ -399,11 +464,14 @@ interface SnapshotParams {
   /** SE29 — shared state captured at suspend. */
   state: unknown;
   options: WorkflowOptions;
+  /** Set for a `durability: "step"` checkpoint; omitted for a suspend snapshot. */
+  status?: "running";
 }
 
 async function saveSnapshot(p: SnapshotParams): Promise<void> {
   const snapshot: WorkflowSnapshot = {
-    _schemaVersion: 2, // SE29 — carries `state`
+    _schemaVersion: p.status === "running" ? 3 : 2, // SE29 — carries `state`; v3 adds `status`
+    ...(p.status !== undefined ? { status: p.status } : {}),
     runId: p.runId,
     workflowName: p.workflowName,
     currentStepId: p.currentStepId,
@@ -418,6 +486,10 @@ async function saveSnapshot(p: SnapshotParams): Promise<void> {
 }
 
 /* ─── Resume ─── */
+
+function keepsCheckpoint(snapshot: WorkflowSnapshot, options: WorkflowOptions): boolean {
+  return snapshot.status === "running" && options.persistence?.durability === "step";
+}
 
 export async function resumeWorkflow<TO>(opts: WorkflowResumeOptions): Promise<WorkflowRun<TO>> {
   // We need access to the workflow's internal options/steps. The public
@@ -470,8 +542,10 @@ export async function resumeWorkflow<TO>(opts: WorkflowResumeOptions): Promise<W
   const resumeInput = opts.payload !== undefined ? opts.payload : snapshot.accumulatedInput;
   const remainingSteps = steps.slice(stepIdx + 1);
 
-  // Drop snapshot once we begin (single-shot semantics).
-  await store.delete(opts.runId);
+  // Drop snapshot once we begin (single-shot semantics). A "running" checkpoint under step
+  // durability stays: it is the crash record until the run completes, and a resume of a run that is
+  // live here must not delete it before the single-flight lock rejects the call.
+  if (!keepsCheckpoint(snapshot, options)) await store.delete(opts.runId);
 
   return executeWorkflow<unknown, TO>(options, remainingSteps, resumeInput, {
     signal: opts.signal,

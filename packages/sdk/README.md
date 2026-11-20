@@ -54,6 +54,21 @@ specifier, or the call fails on a private field.
 
 Agents that consume documentation should prefer the machine-readable corpora on the docs site ([llmstxt.org](https://llmstxt.org) convention): [`llms.txt`](https://docs.usetheo.dev/llms.txt) (curated index) and [`llms-full.txt`](https://docs.usetheo.dev/llms-full.txt) (every page inlined).
 
+## Diagnostics: `setDiagnosticsSink`, `diag` and `diagFailure`
+
+A host (for example a TUI) calls `setDiagnosticsSink(fn)` to keep library output off its screen or route it to its logs. A library built on the SDK emits through the same sink:
+
+```ts
+import { diag, diagFailure, Security, setDiagnosticsSink } from "@theokit/sdk";
+
+setDiagnosticsSink((message) => statusPanel.append(message)); // host side
+
+diag("[my-adapter] reconnecting"); // progress and degraded-mode notes; dropped when no sink is installed
+diagFailure(`[my-adapter] handler threw: ${Security.redact(err.message)}`); // sink, or stderr without one
+```
+
+The SDK does not redact the message. A caller passing provider or platform text must redact it first, for example with `Security.redact`.
+
 ## Masking secrets: `Security.redact` and `Security.createMask`
 
 `Security.redact(text)` masks known credential *shapes* (API keys, `Bearer`, `key=value`).
@@ -95,6 +110,23 @@ When every model fails the run ends `error` and `RunResult.error.cause` is a
 This differs from `providers.fallback`, which only picks another provider when a route has none
 available. It does not resend a run that failed.
 
+## Budgets: reserving in-flight spend
+
+`Budget.reserve` holds an estimate so concurrent calls cannot all pass a preflight that none has paid for:
+
+```ts
+const hold = Budget.reserve("copilot", 0.6); // throws BudgetExceededError in block mode if it would not fit
+try {
+  const actualUsd = await runCall();
+  await hold.settle(actualUsd); // charges the ledger, fires threshold callbacks, drops the hold
+} catch (err) {
+  hold.release(); // drops the hold without charging; no-op after settle
+  throw err;
+}
+```
+
+Open holds count in `preflightCheck` and show as `heldUsd` in `Budget.snapshot()`.
+
 ## Install
 
 ```bash
@@ -108,7 +140,7 @@ import { Agent } from "@theokit/sdk";
 
 const agent = await Agent.create({
   apiKey: process.env.THEOKIT_API_KEY!,
-  model: { id: "composer-2" },
+  model: { id: "openai/gpt-4o-mini" },
   local: { cwd: process.cwd() },
 });
 
@@ -149,6 +181,35 @@ const agent = await Agent.create({
 ```
 
 Use a fresh `InMemorySessionStore` per agent; resume works only while you keep the same instance. `registry: false` keeps the agent out of `<cwd>/.theokit/agents/registry.json`, but it stays visible to `Agent.list` in the current process. Tools, plugins and other features you enable can still write files of their own.
+
+## Writing your own SessionStore
+
+A `SessionStore` (Postgres, Redis, a KV store) must follow a few rules: a never-written agent reads as `[]`, a failed read throws instead of returning `[]`, appends keep order, and `SessionBusyError` from `acquire` propagates. `@theokit/sdk/testing` exports the rules as plain named cases that any test runner can loop over:
+
+```ts
+import { sessionStoreConformanceCases } from "@theokit/sdk/testing";
+import { describe, it } from "vitest";
+import { MyPostgresSessionStore } from "./my-store.js";
+
+const cases = sessionStoreConformanceCases({
+  // A fresh, empty store per case (use a new schema or key prefix each time).
+  create: async () => new MyPostgresSessionStore(await freshSchema()),
+  // Optional: a store pointed at a dead backend, to check that reads throw.
+  createUnreachable: async () => new MyPostgresSessionStore("postgres://127.0.0.1:1/none"),
+  // Set when every create() opens the same backend: enables the "survives a second create()"
+  // and lease-contention cases.
+  sharesBackend: true,
+});
+
+describe("MyPostgresSessionStore", () => {
+  for (const c of cases) {
+    if (c.skipReason) it.skip(`${c.name} (${c.skipReason})`, () => {});
+    else it(c.name, () => c.run());
+  }
+});
+```
+
+Each case throws an `Error` naming the violated rule. Set `exclusiveLeases: false` if your store lets two instances hold one session's lease at once.
 
 ## Memory
 
@@ -221,6 +282,8 @@ await agent.memory.reviewsIdle?.(); // wait for queued reviews, e.g. in tests or
 ## Builtin tool names
 
 `BUILTIN_TOOL_NAMES` (`"shell"`, `"memory_search"`, `"memory_get"`) lists the tools the SDK declares itself; these are the names `withheldBuiltinTools` accepts and a custom tool may not claim. `isBuiltinToolName(name)` tests one, so an app that takes tool names from configuration can refuse a collision at load time. Withholding a builtin via `withheldBuiltinTools` releases its name, so a custom tool may then use it.
+
+`checkToolName(name, { withheldBuiltins })` applies the SDK's tool-name rules without throwing and returns `{ ok: true }` or `{ ok: false, code, message }`, where `code` is `tool_missing_name`, `tool_invalid_name` or `tool_reserved_name` (`ToolNameProblem`). A framework that compiles tools from configuration can reject a bad name with its own error before it constructs an `Agent`; `Agent.create` throws a `ConfigurationError` with the same code. Duplicate names are only detected across the whole tool list, by `Agent.create`.
 
 ## Plugins
 
@@ -308,7 +371,7 @@ await agent.send("raw", { toolResultGuard: { redactPii: true } }); // this call'
 
 ```ts
 const factory = AgentFactory.create({
-  defaults: { model: { id: "claude-sonnet-4-6" } },
+  defaults: { model: { id: "anthropic/claude-sonnet-4-6" } },
   pinned: {
     withheldBuiltinTools: ["shell"],
     memory: { enabled: false },
@@ -352,7 +415,7 @@ await Cron.create({
   message: "Summarize yesterday's commits",
   agent: {
     apiKey: process.env.THEOKIT_API_KEY!,
-    model: { id: "composer-2" },
+    model: { id: "openai/gpt-4o-mini" },
     local: { cwd: process.cwd() },
   },
 });
@@ -428,6 +491,27 @@ const { removed, skippedRunning } = await removeSandboxContainers({ app: "x" });
 
 Both helpers require at least one label (an empty set would match every container on the host) and take `{ runner }` and default to `defaultDockerRunner()`. A docker command that fails or times out rejects with `SandboxDockerError` (`subcommand`, `exitCode`, `stderr`). Docker renders labels as `k=v,k=v`, so a label value that itself contains a comma followed by `word=` is parsed ambiguously.
 
+## `@theokit/sdk/sandbox`: network allowlist for `LinuxSandbox`
+
+`network` on `LinuxSandbox` and `createSandboxBackend` is `false` (no network), `true` (the host network) or `{ allow }`: only the listed destinations.
+
+```ts
+import { createSandboxBackend } from "@theokit/sdk/sandbox";
+
+const sandbox = createSandboxBackend({
+  mode: "workspace-write",
+  network: { allow: [{ host: "registry.npmjs.org" }, { host: "*.github.com", ports: [443] }] },
+});
+sandbox.networkPolicy; // { mode: "allowlist", allow: ["registry.npmjs.org", "*.github.com"] }
+await sandbox.dispose(); // closes the proxy
+```
+
+How it works: the command keeps an empty network namespace (loopback only). A forwarder, run with the Node binary the host already runs, listens on `127.0.0.1:3128` inside the namespace and pipes to a host-side proxy over a Unix socket (bound read-only into the sandbox). `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy`, `https_proxy` and an empty `NO_PROXY` are set. The proxy handles `CONNECT host:port` and absolute-URI `http://` requests; a host matching no rule, or a port not in `ports` (default `[80, 443]`), gets `403`. `*.example.com` matches subdomains, not `example.com`; IP literals must be listed exactly. The proxy resolves names itself after the rule check, connects to the address it validated, and refuses a name that resolves to a loopback, private, link-local or otherwise non-public address unless that address is also listed.
+
+What it blocks: a process that ignores the proxy variables and opens its own socket has no route out, and raw TCP, SSH git remotes and other non-HTTP protocols stay blocked. What it does not do: HTTPS is tunnelled without inspection, so the proxy sees the host and port but not the traffic, and an allowed host can receive anything the command sends it. Under an allowlist the seccomp network-syscall filter is not installed (the command must open a socket to the forwarder); the namespace is what blocks egress.
+
+Bubblewrap is required. Without it, or under `danger-full-access`, `network: { allow }` throws `SandboxNotAvailableError` rather than falling back to an unconfined `LocalSandbox`. `startEgressProxy({ allow })` is exported for use on its own and returns `{ socketPath, denied, close() }`. `DockerSandbox`, `E2BSandbox` and macOS are not covered.
+
 ## `@theokit/sdk/persistence`: single instance lock
 
 `acquireInstanceLock(dir, { path? })` takes `<dir>.instance.lock` for the life of the process, so two processes never run against the same state directory. A second holder rejects with `InstanceLockedError` (`lockPath`, `holderPid`); the message names the lock and the pid, and says to stop that process or remove the lock if the pid is not running. A lock left by a pid that is no longer running is taken over, and only one of several contenders wins a given stale lock. `release()` removes the lock only while this holder still owns it, and is idempotent.
@@ -477,6 +561,26 @@ await run.wait(); // the model continues with the results
 ```
 
 `allow` dispatches the stored call after the permission rules, floors and hooks run again on its input: an approval answers an `ask` and never overrides a current `deny`, a permission floor or another plugin's veto (the call then gets an error result). `deny` writes an error result with your `message` and runs nothing. An unknown or repeated `toolUseId`, a missing decision, nothing pending, or a stored call with an unsupported `schemaVersion` rejects with `ConfigurationError` (`tool_decision_unknown`, `tool_decision_duplicate`, `tool_decision_missing`, `no_deferred_tool_calls`, `deferred_schema_unsupported`) and leaves the session unchanged. A normal send while calls are pending abandons them; the unanswered calls are left out of the history so the session is not blocked. Local runtime only.
+
+## `@theokit/sdk/server/auth`: sign-in with Web `Request` / `Response`
+
+`Auth.create({ session, providers, onSignIn })` also drives a sign-in for apps that handle Web requests. The SDK writes, reads and clears the encrypted OAuth transaction cookie (`__Host-theo_oauth_tx`, HttpOnly, Secure, SameSite=Lax, Max-Age 600); the app writes no cookie code.
+
+```ts
+// GET /auth/google: 302 to the provider, with the transaction cookie set
+export const start = (request: Request) =>
+  auth.startSignInWeb("google", request, { returnTo: "/dashboard" });
+
+// GET /auth/google/callback
+export async function callback(request: Request) {
+  const headers = new Headers();
+  const { returnTo } = await auth.finishSignInWeb("google", request, headers);
+  headers.set("Location", returnTo ?? "/");
+  return new Response(null, { status: 302, headers });
+}
+```
+
+`finishSignInWeb` checks the provider error and `state` (constant time), calls the provider with the `Request`, runs `onSignIn`, then appends the session cookie and a clearing transaction cookie to `headers`. It rejects with `AuthCancelledError` (`access_denied`) or `AuthCallbackError` (`oauth_provider_error`, `oauth_transaction_expired`, `oauth_state_mismatch`). The provider's `handleCallback` must accept a `Request`. The session manager needs `createSessionWeb(headers, data)`, which must issue a fresh session; without it `finishSignInWeb` rejects with `AuthConfigError` (`session_web_unsupported`). The Node methods (`startSignIn`, `finishSignIn`) are unchanged. `writeTransactionCookie`, `readTransactionCookie` (`null` when absent, expired or not decryptable) and `clearTransactionCookie` are exported for custom flows.
 
 ## `@theokit/sdk/auth`: choosing a provider credential
 
@@ -575,6 +679,56 @@ await bus.send("me", "bob", { type: "note", payload: "hi" }); // `to` is the tru
 - Sequence numbers must rise: a replay, or an older message arriving after a newer one, is dropped. Keep the store across restarts (`jsonSequenceStore`); the default `memorySequenceStore` forgets them. Processes sharing one JSON file are not coordinated.
 - One identity is one agent: every poll reads the queue addressed to the identity's public key. Key distribution is yours. There is no forward secrecy: a leaked recipient private key exposes the messages sealed to it.
 
+## Evals: scoring tool calls
+
+A scorer is `(output, expected?, context?)`. The runner passes a `ScoreContext` as the third argument:
+`{ input, metadata?, toolCalls }`, where `toolCalls` is every tool call the run made, in call order, as
+`{ name, input, output?, isError }`. Two-argument scorers keep working unchanged.
+
+```ts
+import { Eval, Scorers } from "@theokit/sdk/eval";
+
+Eval.create({
+  name: "tools",
+  dataset: [
+    {
+      input: "Find the file and read it",
+      expected: {
+        toolCalls: [{ name: "search", input: { q: "readme" } }, { name: "read" }],
+        trajectory: ["search", "read"],
+      },
+    },
+  ],
+  scorers: [Scorers.toolCallAccuracy(), Scorers.trajectory()],
+  agent: { /* AgentOptions */ },
+});
+```
+
+- `Scorers.toolCallAccuracy({ matchInput?, allowExtra? })` scores the fraction of expected calls that
+  happened. `expected` is `{ toolCalls: [{ name, input? }] }`, or `metadata.expectedToolCalls`.
+  `matchInput` is `"subset"` (default), `"exact"` or `"ignore"`. With `allowExtra: false`, an unexpected
+  call scores 0 with reason `unexpected_tool_call:<name>`.
+- `Scorers.trajectory({ order? })` scores 1 or 0 on `expected.trajectory` (tool names). `order` is
+  `"subsequence"` (default), `"strict"` or `"any"`; the reason names the first divergent position.
+- A missing or malformed expected value scores 0 with reason `expected_tool_calls_missing` or
+  `expected_trajectory_missing`. Both scorers are deterministic and make no network calls.
+
+### Judge scorers
+
+Three judge scorers take the same `model`, `apiKey` and `providers` as `Scorers.llmJudge`. Use a key
+other than the evaluated agent's, so a model does not judge its own output. Each row costs judge calls
+that `aggregate.tokensInTotal` does not count.
+
+- `Scorers.faithfulness({ contextKey? })` scores supported claims over total claims. The context comes
+  from `metadata[contextKey ?? "context"]` (string or string[]). The reason lists unsupported claims.
+  **2 judge calls per row** (extract claims, judge claims). Missing context scores 0 with
+  `context_missing` and makes no call; an answer with no claims scores 1 with `no_claims` after 1 call.
+- `Scorers.rubric({ items: [{ id, description, weight? }] })` scores the weighted pass ratio; the reason
+  names the failed item ids. **1 judge call per row.**
+- `Scorers.judgedTrajectory({ goal? })` shows the judge the input, the ordered tool calls
+  (`name`, `input`, `isError`) and the output, and returns a score in [0, 1]. **1 judge call per row.**
+- A judge reply that is not the expected JSON scores 0 with reason `judge_unparseable`.
+
 ## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
 
 `AgentLike` (`agentId`, `send`, optional `dispose`) and `RunLike` (`status`, `stream`, `wait`, `cancel`) are the small ports `SDKAgent` and `Run` satisfy with no cast. Type a wrapper, failover decorator or test double against them instead of the full `SDKAgent`, or re-declaring a port that drifts. `RunLike.wait()` resolves the real `RunResult`, so `status` is `RunStatus` and a misspelled status such as `"completed"` fails to compile.
@@ -594,6 +748,28 @@ try {
 
 LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
 
+## Workflow compensation (saga rollback)
+
+A top-level `fn` step can declare `compensate(input, output, error)`. When a later top-level step fails (after its retries), the executor calls `compensate` on every earlier completed step that declares one, in reverse completion order. Each call gets that step's own input and output and the error that failed the run.
+
+```ts
+Workflow.create({ name: "checkout" })
+  .then(fn("book", bookRoom, { compensate: (_in, booking) => cancelBooking(booking) }))
+  .then(fn("charge", chargeCard, { compensate: (_in, receipt) => refund(receipt) }))
+  .then(fn("notify", sendEmail)) // if this throws, `charge` then `book` are compensated
+  .commit();
+```
+
+- A `compensate` that throws is recorded as `"failed"` and the pass continues. The run stays `status: "failed"` with the original step error.
+- `run.compensation` lists `{ stepId, status: "compensated" | "failed", error? }` in call order; it is absent when nothing was compensated.
+- `Workflow.stream()` emits `step_compensated` or `step_compensation_failed` for each call.
+- The failing step does not compensate itself, and a cancelled run (abort signal) does not compensate.
+- Limits: `compensate` on a step nested in `parallel`, `branch`, `foreach` or `dowhile` fails with `WorkflowCompensateNotImplementedError`; `agent` steps cannot compensate; after `resume()` only steps completed since the resume are compensated; a compensation pass is not persisted across a crash.
+
+## Crash recovery: `durability: "step"` and `listRuns()`
+
+By default a workflow writes a snapshot only when a step calls `suspend()`. Set `persistence: { backend: "json", dir, durability: "step" }` and the run is also checkpointed after every completed top-level step (not the children of `parallel`, `branch` or `foreach`). A completed run deletes its checkpoint; a failed or cancelled run keeps it. After a crash, `Workflow.resume({ workflow, runId })` continues from the step after the last checkpoint, and `workflow.listRuns()` returns `{ runId, status: "suspended" | "running", currentStepId, updatedAt }` for the snapshots the store holds for that workflow name. `durability: "step"` with `backend: "memory"` is allowed (useful in tests) but does not survive a restart. A crash between a step's side effect and its checkpoint can repeat that step. The run lock is still per process: it does not stop a second process from resuming the same run.
+
 ## Resuming a workflow run by id: `WorkflowSet`
 
 When an app runs several workflows that suspend, the run id is the only token you hand out. `WorkflowSet.of([...]).resume(runId, payload)` finds the workflow that owns it:
@@ -607,13 +783,50 @@ const { name, run } = await set.resume(runId, { approved: true });
 
 A member with no snapshot for the id, or whose snapshot belongs to another workflow, is skipped. Any other error (a payload that fails validation, an I/O error) is rethrown at once and the remaining members are not tried. If no member owns the run, it throws `WorkflowSnapshotNotFoundError`. `WorkflowSet.of` throws `ConfigurationError` when two members share a name.
 
+## `@theokit/sdk/testing`: a fake model server
+
+`startFakeModelServer` starts a server on a free loopback port that speaks a provider's chat wire and answers with scripted text, so an agent runs end to end with no real model. It imports no test runner.
+
+```ts
+import { Agent } from "@theokit/sdk";
+import { startFakeModelServer } from "@theokit/sdk/testing";
+
+const server = await startFakeModelServer({ reply: "pong" }); // wire: "openai" (default) | "ollama"
+const agent = await Agent.create({
+  apiKey: "local", // any non-empty placeholder: it selects the real runtime and is never checked
+  model: server.model, // { id: "lmstudio/fake-model", url } (or "ollama/..." for wire "ollama")
+  local: { cwd: process.cwd() },
+});
+await (await agent.send("hi")).wait();
+console.log(server.requests); // every request body received
+await server.close();
+```
+
+`reply` may also be `(request) => string`. A body that is not JSON gets HTTP 400 and is recorded with `messages: []` and an `error` string. `host` accepts loopback addresses only. Scripted tool calls are not supported yet.
+
+## Experimental exports
+
+Every export is stable unless its declaration carries `@experimental`; experimental names may change in any release. The list below is checked against the committed surface baseline (`tools/api-surface/sdk.json`).
+
+### `@theokit/sdk/a2a`
+
+- `A2AIdentity`
+- `A2AUntrustedPeerError`
+- `SealedDropReason`
+- `SequenceStore`
+- `TrustedPeers`
+- `generateA2AIdentity`
+- `jsonSequenceStore`
+- `memorySequenceStore`
+- `sealedTransport`
+
 ## Status
 
 The full contract is defined by the exported TypeScript types; see [`CHANGELOG.md`](./CHANGELOG.md) for the release history.
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+Apache-2.0 — see [LICENSE](./LICENSE).
 
 ## Loading a project `.env` safely
 
@@ -640,7 +853,7 @@ Many MCP servers list a risky tool next to the useful ones. Set `tools` on a ser
 
 ```ts
 const agent = await Agent.create({
-  model: { id: "claude-sonnet-5-5" },
+  model: { id: "anthropic/claude-sonnet-4-6" },
   mcpServers: {
     playwright: {
       command: "npx",

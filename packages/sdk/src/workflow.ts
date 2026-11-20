@@ -69,9 +69,13 @@ const RetryPolicySchema = z.object({
   nonRetryableErrors: z.array(z.string()).optional(),
 });
 
+const DurabilitySchema = z.enum(["suspend", "step"]).optional();
+
 const WorkflowOptionsSchema = z.object({
   name: z.string().min(1).max(128),
   persistence: PersistenceSchema,
+  // `durability` is workflow-only, so it is validated here rather than in the shared PersistenceSchema.
+  // (PersistenceSchema strips unknown keys on parse; `create()` keeps the original options.)
   // SE27 — declared so a future `new WorkflowBuilder(parsed)` refactor cannot
   // silently drop them (create() passes the ORIGINAL options today, but the
   // schema is also the documentation of the shape).
@@ -368,7 +372,32 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
    */
   static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO> {
     WorkflowOptionsSchema.parse(options);
+    DurabilitySchema.parse(options.persistence?.durability);
     return new WorkflowBuilder<TI, TO>(options);
+  }
+
+  /**
+   * List the snapshots the persistence store holds for this workflow's name: suspended runs and, with
+   * `durability: "step"`, runs with a checkpoint. `currentStepId` is the suspending step, or the last
+   * completed step for a `"running"` run. The run lock is still per process, so a `"running"` entry may
+   * belong to a run live in another process.
+   */
+  async listRuns(): Promise<
+    ReadonlyArray<{
+      runId: string;
+      status: "suspended" | "running";
+      currentStepId: string;
+      updatedAt: number;
+    }>
+  > {
+    const { getSnapshotStoreFor } = await import("./internal/workflow/snapshot-store.js");
+    const entries = await getSnapshotStoreFor(this._options).list(this._options.name);
+    return entries.map((e) => ({
+      runId: e.runId,
+      status: e.status,
+      currentStepId: e.currentStepId,
+      updatedAt: e.suspendedAt,
+    }));
   }
 
   /**
@@ -432,7 +461,7 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
   /**
    * SE28 — run the workflow and STREAM step-level events as they happen. Returns
    * an async iterator of {@link WorkflowEvent}s (`step_started` / `step_completed`
-   * / `step_failed` / `workflow_suspended` / `workflow_completed`, top-level
+   * / `step_failed` / `step_compensated` / `step_compensation_failed` / `workflow_suspended` / `workflow_completed`, top-level
    * steps) plus a `result` promise resolving to the same terminal
    * {@link WorkflowRun} `run()` returns. Iterate for progress; await `result` for
    * the outcome. The stream ends when the run terminates.
@@ -461,7 +490,7 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
   }
 
   /**
-   * Resume a suspended workflow from its snapshot. Throws
+   * Resume a suspended workflow, or a `durability: "step"` run that crashed, from its snapshot. Throws
    * `WorkflowSnapshotNotFoundError` if `runId` is unknown. The input type `TI` is inferred from
    * `workflow`; a typed committed workflow needs no cast. `TO` (first) types the output.
    *
@@ -490,7 +519,12 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
 export function fn<I = unknown, O = unknown>(
   id: string,
   step: (input: I, ctx: StepContext) => Promise<O> | O,
-  opts?: { inputSchema?: ZodType; outputSchema?: ZodType; retry?: RetryPolicy },
+  opts?: {
+    inputSchema?: ZodType;
+    outputSchema?: ZodType;
+    retry?: RetryPolicy;
+    compensate?: FnStep["compensate"];
+  },
 ): FnStep {
   validateStepId(id);
   if (opts?.retry !== undefined) RetryPolicySchema.parse(opts.retry);
@@ -501,6 +535,7 @@ export function fn<I = unknown, O = unknown>(
     ...(opts?.inputSchema !== undefined ? { inputSchema: opts.inputSchema } : {}),
     ...(opts?.outputSchema !== undefined ? { outputSchema: opts.outputSchema } : {}),
     ...(opts?.retry !== undefined ? { retry: opts.retry } : {}),
+    ...(opts?.compensate !== undefined ? { compensate: opts.compensate } : {}),
   };
 }
 
@@ -571,10 +606,6 @@ export function cloneWorkflow<TI = unknown, TO = unknown>(
     [...wf.__steps],
   );
 }
-
-/* ─── Test seam re-export ─── */
-
-export { __resetSnapshotStoresForTests } from "./internal/workflow/snapshot-store.js";
 
 /* ─── Re-exports for ergonomics (errors + all public types). After the
        sub-path extraction `@theokit/sdk/workflow` is the single import site,

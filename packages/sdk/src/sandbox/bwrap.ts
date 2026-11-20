@@ -97,6 +97,11 @@ export interface BwrapArgvOptions {
    * path, one that contains the workspace, `/tmp` or `/`, and any list under `danger-full-access`.
    */
   denyReadPaths?: readonly string[];
+  /**
+   * Absolute host paths bound read-only at the same path, after the writable binds so a writable
+   * parent (`/tmp`) cannot be used to replace them. Used for the egress proxy's socket directory.
+   */
+  roBinds?: readonly string[];
 }
 
 /**
@@ -141,6 +146,7 @@ export function buildBwrapArgv(mode: SandboxMode, opts: BwrapArgvOptions): strin
 
   if (mode === "workspace-write") pushWorkspaceBinds(argv, cwd, hasGit, gitDir);
   // read-only: zero writable roots (protocol.rs:1176) — nothing to add
+  for (const p of opts.roBinds ?? []) argv.push("--ro-bind", p, p);
   argv.push(...denyFlags); // after the writable binds so a mask inside the workspace or /tmp wins
 
   argv.push("--chdir", cwd, "--");
