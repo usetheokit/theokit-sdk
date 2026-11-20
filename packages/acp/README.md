@@ -53,6 +53,33 @@ await serveAcp({
 });
 ```
 
+## Client: drive another ACP agent
+
+`@theokit/acp/client` (a separate entry, so server-only code never loads it) spawns an ACP agent and talks to it through the ACP SDK's `ClientSideConnection`.
+
+```ts
+import { connectAcpAgent, AcpAgentSpawnError } from "@theokit/acp/client";
+
+const agent = await connectAcpAgent({
+  command: "/usr/local/bin/my-agent", // absolute, or a bare name resolved on absolute PATH entries of `env.PATH`
+  args: ["--stdio"],
+  cwd: process.cwd(),
+  env: { PATH: "/usr/local/bin:/usr/bin", HOME: "/tmp/agent-home" }, // passed as is; nothing is inherited
+  onPermission: async (req) => ({ outcome: { outcome: "selected", optionId: req.options[0].optionId } }),
+});
+
+const ac = new AbortController(); // abort => ACP `session/cancel`
+for await (const note of agent.prompt("hi", ac.signal)) {
+  console.log(note.update);
+}
+await agent.close(); // kills the child (its process group on POSIX)
+```
+
+- A bare `command` whose `env.PATH` has a relative or empty entry is refused before anything is spawned.
+- One prompt at a time per connection; an overlapping `prompt()` throws.
+- `AcpAgentSpawnError` (`exitCode`, `stderrTail`) covers a missing or refused command, a child that exits during `initialize`, and a child that exits mid-prompt (the iterator ends with it).
+- `initializeTimeoutMs` (default 10 000) bounds `initialize` and `session/new`.
+
 ## Architecture
 
 | ACP concept       | SDK mapping                                                    |
