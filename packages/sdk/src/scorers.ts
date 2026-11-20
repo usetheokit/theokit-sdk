@@ -19,6 +19,7 @@ import { openRouterMemoryEmbeddingProviderAdapter } from "./internal/memory/adap
 import type { EmbeddingRuntime } from "./internal/memory/embedding-adapter.js";
 import { LEVENSHTEIN_MAX_LEN, levenshteinDistance } from "./internal/scorers/levenshtein.js";
 import { type LlmJudgeOptions, llmJudgeScore } from "./internal/scorers/llm-judge.js";
+import { scoreToolCallAccuracy, scoreTrajectory } from "./internal/scorers/tool-calls.js";
 import { LocalSandbox } from "./sandbox/local-sandbox.js";
 import { shellEscapePosix } from "./sandbox/shell-escape.js";
 import type { NamedScorer, Score, VerifyGateOptions } from "./types/eval.js";
@@ -208,7 +209,8 @@ function makeStringScorer(
  * `{ score: 0, reason: "<why>" }` — `expected_not_string`, `expected_empty`,
  * `mismatch`, `not_found`, `regex_no_match`, `input_too_large`,
  * `output_not_numeric`, `expected_not_numeric`, `invalid_json`, `schema_invalid`,
- * `output_too_large`, `embed_failed`, `verify_gate_empty_command`. When a run
+ * `output_too_large`, `embed_failed`, `verify_gate_empty_command`,
+ * `expected_tool_calls_missing`, `expected_trajectory_missing`, `unexpected_tool_call:<name>`. When a run
  * scores 0 across the board, `reason` usually says the dataset is wrong rather
  * than the model.
  *
@@ -216,7 +218,7 @@ function makeStringScorer(
  * each make one network call PER ROW and need their own credentials, and
  * `verifyGate` runs a shell command through a `SandboxBackend` — defaulting to
  * `LocalSandbox`, which is not an isolation boundary. The rest — `exactMatch`,
- * `containsExpected`, `regex`, `levenshtein`, `numericDiff`, `jsonShape` — are
+ * `containsExpected`, `regex`, `levenshtein`, `numericDiff`, `jsonShape`, `toolCallAccuracy`, `trajectory` — are
  * deterministic, offline, and safe in CI.
  *
  * Trap: the default case-sensitivity is NOT uniform. `exactMatch` defaults to
@@ -407,6 +409,41 @@ export const Scorers = {
         }
         return { score: 0, reason: "schema_invalid" };
       },
+    };
+  },
+  /**
+   * Fraction of the expected tool calls that happened. `expected` is
+   * `{ toolCalls: [{ name, input? }] }` (or `metadata.expectedToolCalls`). `matchInput`
+   * defaults to `"subset"` (expected input keys must match, extra keys are fine); `allowExtra`
+   * defaults to `true` — with `false`, an unexpected call scores 0 with
+   * `unexpected_tool_call:<name>`. A missing or malformed expected value scores 0 with
+   * `expected_tool_calls_missing`. Deterministic, offline.
+   */
+  toolCallAccuracy(
+    opts: { matchInput?: "exact" | "subset" | "ignore"; allowExtra?: boolean } = {},
+  ): NamedScorer {
+    const resolved = {
+      matchInput: opts.matchInput ?? "subset",
+      allowExtra: opts.allowExtra ?? true,
+    };
+    return {
+      name: "tool-call-accuracy",
+      score: (_output, expected, context): Score =>
+        scoreToolCallAccuracy(resolved, expected, context),
+    };
+  },
+
+  /**
+   * 1 or 0: did the run's tool names follow `expected.trajectory` (`string[]`)? `order`
+   * defaults to `"subsequence"` (expected names in order, extras allowed); `"strict"` is an
+   * exact sequence; `"any"` ignores order. The reason names the first divergence position.
+   * A missing or malformed expected value scores 0 with `expected_trajectory_missing`.
+   */
+  trajectory(opts: { order?: "strict" | "subsequence" | "any" } = {}): NamedScorer {
+    const order = opts.order ?? "subsequence";
+    return {
+      name: "trajectory",
+      score: (_output, expected, context): Score => scoreTrajectory(order, expected, context),
     };
   },
 };

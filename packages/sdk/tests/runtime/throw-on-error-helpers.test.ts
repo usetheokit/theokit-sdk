@@ -73,7 +73,7 @@ describe("helpers on a throwOnError agent whose provider answers 401", () => {
     clearAllSessions();
     invalidateRegistryHydration();
     await Agent.registry.evictAll();
-    await rm(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });

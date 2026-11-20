@@ -142,6 +142,19 @@ function maskPemBlocks(s: string): string {
   return out + s.slice(cursor);
 }
 
+// `://user:password@`. Neither component may contain `/`, `?`, `#`, `@` or whitespace (the user also
+// excludes `:`), so a match cannot span another `://` and the scan stays linear on long input.
+const URL_USERINFO = /(:\/\/[^\s/?#@:]+:)[^\s/?#@]+(?=@)/g;
+
+/**
+ * Mask the password in `scheme://user:password@host`, keeping scheme, user and host readable.
+ * `https://example.com/path@v2` and `user@example.com` have no `://user:password@` shape, so they
+ * are left alone.
+ */
+function maskUrlPasswords(s: string): string {
+  return s.replace(URL_USERINFO, "$1***");
+}
+
 /**
  * Built-in credential maskers. Order matters — more specific prefixes
  * must come before generic ones (e.g., `sk-ant-` before `sk-`). The JWT
@@ -185,8 +198,14 @@ const BUILTIN_PATTERNS: readonly BuiltinMasker[] = [
   /pcsk_[A-Za-z0-9_-]{20,}/g, //     Pinecone
   /pplx-[A-Za-z0-9_-]{20,}/g, //     Perplexity
   /r8_[A-Za-z0-9_-]{20,}/g, //       Replicate
+  // Stripe: secret and restricted keys (live and test) and webhook signing secrets are masked.
+  // Publishable keys (`pk_live_`, `pk_test_`) are deliberately NOT masked: they are meant to be
+  // public, and masking them would hide useful context.
   /rk_live_[A-Za-z0-9]{20,}/g, //    Stripe restricted
+  /rk_test_[A-Za-z0-9]{20,}/g, //    Stripe restricted (test mode)
   /sk_live_[A-Za-z0-9]{20,}/g, //    Stripe secret
+  /sk_test_[A-Za-z0-9]{20,}/g, //    Stripe secret (test mode)
+  /whsec_[A-Za-z0-9]{20,}/g, //      Stripe webhook signing secret
   /sntrys_[A-Za-z0-9]{40,}/g, //     Sentry user auth
   /xai-[A-Za-z0-9_-]{20,}/g, //      xAI (Grok)
   /xox[bpasr]-[A-Za-z0-9-]{10,}/g, //Slack tokens
@@ -197,6 +216,7 @@ const BUILTIN_PATTERNS: readonly BuiltinMasker[] = [
   /\bkey-[a-f0-9]{32}\b/g, //        Mailgun (hex-only narrows false positives)
   /MT[A-Za-z0-9_-]{23}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27}/g, // Discord bot
   /\b(?:sdk|mob)-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\b/g, // LaunchDarkly
+  maskUrlPasswords,
 ];
 
 // `Bearer <token>` matched as its own first-class pattern so PARAM_PATTERN
