@@ -54,6 +54,21 @@ specifier, or the call fails on a private field.
 
 Agents that consume documentation should prefer the machine-readable corpora on the docs site ([llmstxt.org](https://llmstxt.org) convention): [`llms.txt`](https://docs.usetheo.dev/llms.txt) (curated index) and [`llms-full.txt`](https://docs.usetheo.dev/llms-full.txt) (every page inlined).
 
+## Diagnostics: `setDiagnosticsSink`, `diag` and `diagFailure`
+
+A host (for example a TUI) calls `setDiagnosticsSink(fn)` to keep library output off its screen or route it to its logs. A library built on the SDK emits through the same sink:
+
+```ts
+import { diag, diagFailure, Security, setDiagnosticsSink } from "@theokit/sdk";
+
+setDiagnosticsSink((message) => statusPanel.append(message)); // host side
+
+diag("[my-adapter] reconnecting"); // progress and degraded-mode notes; dropped when no sink is installed
+diagFailure(`[my-adapter] handler threw: ${Security.redact(err.message)}`); // sink, or stderr without one
+```
+
+The SDK does not redact the message. A caller passing provider or platform text must redact it first, for example with `Security.redact`.
+
 ## Masking secrets: `Security.redact` and `Security.createMask`
 
 `Security.redact(text)` masks known credential *shapes* (API keys, `Bearer`, `key=value`).
