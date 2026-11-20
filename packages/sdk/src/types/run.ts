@@ -44,11 +44,36 @@ export interface PruneToolResultsOptions {
 }
 
 /**
+ * A person's answer to one deferred tool call, keyed by `toolUseId`.
+ * Resuming a deferred call with it is not wired into `send` yet.
+ */
+export interface ToolCallDecision {
+  readonly toolUseId: string;
+  readonly behavior: "allow" | "deny";
+  readonly message?: string;
+}
+
+/**
+ * A tool call a permission gate deferred. The run ended without dispatching it.
+ *
+ * @public
+ */
+export interface DeferredToolCall {
+  readonly schemaVersion: 1;
+  readonly toolUseId: string;
+  readonly toolName: string;
+  readonly input: Record<string, unknown>;
+  /** Epoch milliseconds. */
+  readonly deferredAt: number;
+  readonly reason?: string;
+}
+
+/**
  * Lifecycle status of a {@link Run}.
  *
  * @public
  */
-export type RunStatus = "running" | "finished" | "error" | "cancelled";
+export type RunStatus = "running" | "finished" | "error" | "cancelled" | "deferred";
 
 /**
  * Git metadata attached to cloud runs.
@@ -103,7 +128,9 @@ export type MessageOrigin =
  */
 export interface RunResult {
   id: string;
-  status: "finished" | "error" | "cancelled";
+  status: "finished" | "error" | "cancelled" | "deferred";
+  /** Set only when `status` is `"deferred"`: the tool calls a gate deferred. */
+  deferredToolCalls?: readonly DeferredToolCall[];
   result?: string;
   /**
    * SE24 — set when a guardrail processor called `abort()`. The run stops
@@ -139,6 +166,13 @@ export interface RunResult {
    * @public
    */
   error?: RunErrorDetail;
+  /**
+   * Attempts that failed before this result under `AgentOptions.modelFallback`, in order
+   * (model and error code). Absent when no attempt failed.
+   *
+   * @public
+   */
+  modelFallbackAttempts?: import("../errors.js").ModelFallbackAttempt[];
   /**
    * Token usage observed for this run (ADR D376). Populated in every
    * status where ≥1 LLM call COMPLETED — including partial-failure
