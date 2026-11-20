@@ -13,7 +13,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { compactTranscript } from "../src/compaction.js";
-import { setDiagnosticsSink } from "../src/index.js";
+import { diag, diagFailure, setDiagnosticsSink } from "../src/index.js";
 
 afterEach(() => {
   setDiagnosticsSink(undefined);
@@ -83,5 +83,31 @@ describe("theokit#147 — the diagnostics sink is reachable from the public entr
     await provokeADiagnostic();
 
     expect(received.join("")).toContain("summarizer failed");
+  });
+});
+
+describe("#1084 — diag and diagFailure are exported for libraries above the SDK", () => {
+  it("both reach an installed sink", () => {
+    const received: string[] = [];
+    setDiagnosticsSink((message) => received.push(message));
+    diag("a");
+    diagFailure("b");
+    expect(received).toEqual(["a", "b"]);
+  });
+
+  it("with no sink, diag is silent and diagFailure writes to stderr", () => {
+    setDiagnosticsSink(undefined);
+    const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    diag("a");
+    expect(stderr).not.toHaveBeenCalled();
+    diagFailure("b");
+    expect(stderr).toHaveBeenCalledWith("b\n");
+  });
+
+  it("a throwing sink does not make diag throw", () => {
+    setDiagnosticsSink(() => {
+      throw new Error("sink down");
+    });
+    expect(() => diag("a")).not.toThrow();
   });
 });

@@ -59,8 +59,10 @@ export interface SandboxConfig {
 
 /**
  * What a {@link SandboxBackend} states about its outbound network. It is a statement the backend
- * makes about itself, for a caller that wants to ask before it trusts: this package enforces nothing
- * from it, and a custom backend is responsible for the claim being true.
+ * makes about itself, for a caller that wants to ask before it trusts: this package does not read it
+ * back, and a custom backend is responsible for the claim being true. `LinuxSandbox` is the one
+ * backend here that enforces what it states: `network: { allow }` yields `"allowlist"` backed by an
+ * egress proxy (see `startEgressProxy`).
  *
  * `"unrestricted"` means a command can reach whatever the host can. `"none"` means it cannot reach
  * the network at all. `"allowlist"` means it can reach only the destinations in `allow`, written as
@@ -98,10 +100,10 @@ export class SandboxSecurityError extends TheokitAgentError {
  * {@link SandboxSecurityError} is which side failed — there the sandbox worked and denied the
  * command, here there is no sandbox. Carries `code: "sandbox_not_available"`.
  *
- * Nothing in this package throws it either, and that is a position rather than an oversight:
  * `createSandboxBackend` treats a missing bubblewrap as a degradation, warns once, and hands back an
- * unconfined `LocalSandbox`. Throw this instead from a backend that must never silently run outside
- * its isolation.
+ * unconfined `LocalSandbox`, with one exception: `network: { allow }` is a promise that must not be
+ * quietly dropped, so it throws this instead. Throw it too from a backend that must never silently
+ * run outside its isolation.
  */
 export class SandboxNotAvailableError extends TheokitAgentError {
   override readonly name = "SandboxNotAvailableError";
@@ -129,9 +131,9 @@ export class SandboxNotAvailableError extends TheokitAgentError {
  *
  * Two optional members let a backend say more about itself. {@link SandboxBackend.networkPolicy}
  * states its egress: `LocalSandbox` declares `"unrestricted"`, `LinuxSandbox` declares `"none"` when
- * bubblewrap unshares the network, and a backend that does not override it states nothing. Nothing in
- * this package enforces an allowlist, so `"allowlist"` is only ever a claim a custom backend makes
- * for itself. {@link SandboxBackend.dispose} releases what the backend holds, and the owner of the
+ * bubblewrap unshares the network, `"allowlist"` when `LinuxSandbox` is given `network: { allow }`
+ * (enforced through an egress proxy), and a backend that does not override it states nothing. Any
+ * other `"allowlist"` is a claim a custom backend makes for itself. {@link SandboxBackend.dispose} releases what the backend holds, and the owner of the
  * backend calls it.
  *
  * Because the derived helpers assemble shell command lines (arguments escaped for POSIX `sh`), a
@@ -161,6 +163,17 @@ export abstract class SandboxBackend {
   abstract execute(command: string, opts?: { timeoutMs?: number }): Promise<ExecuteResult>;
 
   abstract uploadFile(path: string, content: string | Buffer): Promise<void>;
+
+  /**
+   * Writes several files. The default awaits `uploadFile` for each entry in order and stops at the
+   * first failure, leaving earlier writes in place. A remote backend overrides it to send the batch
+   * in one request.
+   */
+  async uploadFiles(files: { path: string; content: string | Buffer }[]): Promise<void> {
+    for (const file of files) {
+      await this.uploadFile(file.path, file.content);
+    }
+  }
 
   /**
    * Releases whatever the backend holds, such as a VM or a container. The default does nothing,

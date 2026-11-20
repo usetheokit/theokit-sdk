@@ -2,7 +2,7 @@
 // `BwrapSandbox` to `LinuxSandbox`: bwrap is the IMPLEMENTATION, Linux is the contract — swapping the
 // mechanism (landlock, for example) should not change the name the consumer imports.
 
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -10,6 +10,7 @@ import { redactSecrets } from "../internal/security/redact.js";
 import type { BwrapDetection, SandboxMode } from "./bwrap.js";
 import { buildBwrapArgv, detectBwrapMemoized } from "./bwrap.js";
 import { denyReadFlags, refuseUnhonourableDenyRead } from "./deny-read.js";
+import { type EgressProxy, type EgressRule, startEgressProxy } from "./egress-proxy.js";
 import { LocalSandbox } from "./local-sandbox.js";
 import { buildSeccompFilter } from "./seccomp.js";
 import {
@@ -21,7 +22,13 @@ import {
   wrapWithSeccompProgram,
 } from "./seccomp-delivery.js";
 import { shellEscapePosix } from "./shell-escape.js";
-import type { SandboxBackend, SandboxConfig, SandboxNetworkPolicy } from "./types.js";
+import type {
+  ExecuteResult,
+  SandboxBackend,
+  SandboxConfig,
+  SandboxNetworkPolicy,
+} from "./types.js";
+import { SandboxNotAvailableError } from "./types.js";
 
 /*
  * M53 — kernel-enforced sandbox backend, injected into `createShellTool({ sandbox })`.
@@ -60,11 +67,21 @@ export function wrapCommandForSandbox(
     seccompProgram?: Uint8Array;
     /** See `BwrapArgvOptions.denyReadPaths`. */
     denyReadPaths?: readonly string[];
+    /**
+     * Route the command through an egress proxy: its socket directory is bound read-only and the
+     * command runs under an in-namespace forwarder on `127.0.0.1:<EGRESS_PORT>`. `network` must be
+     * false (the namespace stays unshared).
+     */
+    egress?: { socketPath: string };
   },
   command: string,
 ): string | null {
-  const argv = buildBwrapArgv(mode, opts);
+  const argv = buildBwrapArgv(
+    mode,
+    opts.egress ? { ...opts, roBinds: [dirname(opts.egress.socketPath)] } : opts,
+  );
   if (argv === null) return null; // danger-full-access: bwrap skipped
+  if (opts.egress) command = forwarderCommand(opts.egress.socketPath, command);
   const bin = opts.bin ?? "bwrap";
   if (opts.seccompProgram !== undefined) {
     return wrapWithSeccompProgram([bin, ...argv.slice(0, -1)], command, opts.seccompProgram);
@@ -73,6 +90,43 @@ export function wrapCommandForSandbox(
     return `${[bin, ...argv].map(shellEscapePosix).join(" ")} /bin/sh -c ${shellEscapePosix(command)}`;
   }
   return wrapWithSeccompPath([bin, ...argv], { mode, cwd: opts.cwd }, command, opts.seccompPath);
+}
+
+/** Loopback port the in-namespace forwarder listens on; a fresh network namespace has it free. */
+const EGRESS_PORT = 3128;
+
+/**
+ * The in-namespace forwarder is the Node binary the host already runs. It listens on
+ * `127.0.0.1:EGRESS_PORT`, pipes each connection to the proxy's Unix socket, and only once it is
+ * listening spawns the real command, so the proxy is reachable from the command's first instruction.
+ * It exits with the command's status. If it cannot listen it exits 126 without running the command.
+ */
+const FORWARDER_SOURCE = `
+const net = require("net");
+const { spawn } = require("child_process");
+const [sock, port, cmd] = process.argv.slice(1);
+const srv = net.createServer((c) => {
+  const u = net.connect(sock);
+  c.pipe(u); u.pipe(c);
+  c.on("error", () => u.destroy()); u.on("error", () => c.destroy());
+  c.on("close", () => u.destroy()); u.on("close", () => c.destroy());
+});
+srv.on("error", (e) => { console.error("egress forwarder: " + e.message); process.exit(126); });
+srv.listen(Number(port), "127.0.0.1", () => {
+  const ch = spawn("/bin/sh", ["-c", cmd], { stdio: "inherit" });
+  ch.on("exit", (code, sig) => process.exit(code === null ? (sig ? 128 : 1) : code));
+});
+`;
+
+function forwarderCommand(socketPath: string, command: string): string {
+  const words = [process.execPath, "-e", FORWARDER_SOURCE, "--", socketPath, String(EGRESS_PORT)];
+  return `exec ${[...words, command].map(shellEscapePosix).join(" ")}`;
+}
+
+/** The proxy variables a confined command gets under an allowlist. */
+function proxyEnv(): Record<string, string> {
+  const url = `http://127.0.0.1:${EGRESS_PORT}`;
+  return { HTTP_PROXY: url, HTTPS_PROXY: url, http_proxy: url, https_proxy: url, NO_PROXY: "" };
 }
 
 /**
@@ -143,6 +197,11 @@ export function allowlistedEnv(source: NodeJS.ProcessEnv = process.env): Record<
 export class LinuxSandbox extends LocalSandbox {
   private readonly mode: SandboxMode;
   private readonly network: boolean;
+  /** Set under `network: { allow }`: the proxy's socket path, started once per backend. */
+  private readonly egress:
+    | { socketPath: string; dir: string; ready: Promise<EgressProxy> }
+    | undefined;
+  private disposed = false;
   private readonly cwd: string;
   private readonly bin: string;
   private readonly env: Record<string, string>;
@@ -163,7 +222,7 @@ export class LinuxSandbox extends LocalSandbox {
     config: SandboxConfig,
     opts: {
       mode: SandboxMode;
-      network?: boolean;
+      network?: boolean | { allow: readonly EgressRule[] };
       bin?: string;
       env?: Record<string, string>;
       denyReadPaths?: readonly string[];
@@ -171,17 +230,19 @@ export class LinuxSandbox extends LocalSandbox {
   ) {
     super(config);
     this.mode = opts.mode;
-    this.network = opts.network ?? false;
-    this.networkPolicy =
-      this.network || this.mode === "danger-full-access"
-        ? { mode: "unrestricted" }
-        : { mode: "none" };
+    const allow = typeof opts.network === "object" ? opts.network.allow : undefined;
+    if (allow) refuseUnenforceableAllowlist(opts.mode, opts.bin);
+    this.network = typeof opts.network === "boolean" && opts.network;
+    this.networkPolicy = policyFor(opts.mode, this.network, allow);
+    this.egress = allow ? startProxyFor(allow) : undefined;
     this.cwd = config.workDir ?? process.cwd();
     // MEDIUM-1: run the VALIDATED absolute binary from detection (anti-hijack), never bare `bwrap`
     // which the outer shell would re-resolve via $PATH at spawn time (TOCTOU / hijack window).
     this.bin = opts.bin ?? "bwrap";
-    this.env = opts.env ?? allowlistedEnv();
-    this.seccompProgram = seccompProgramForNetwork(this.network);
+    this.env = { ...(opts.env ?? allowlistedEnv()), ...(allow ? proxyEnv() : {}) };
+    // Under an allowlist the command must open AF_INET sockets (to the forwarder on loopback), so
+    // only the network-independent half of the filter applies; the namespace is what blocks egress.
+    this.seccompProgram = allow ? baseSeccompProgram() : seccompProgramForNetwork(this.network);
     this.denyReadPaths = opts.denyReadPaths;
     denyReadFlags(this.denyReadPaths, { mode: this.mode, cwd: this.cwd }); // fail fast, not per command
   }
@@ -197,9 +258,21 @@ export class LinuxSandbox extends LocalSandbox {
         bin: this.bin,
         seccompProgram: this.seccompProgram,
         denyReadPaths: this.denyReadPaths,
+        egress: this.egress,
       },
       command,
     );
+  }
+
+  /** Releases the egress proxy, if any. Idempotent; a later `execute` under an allowlist fails. */
+  override async dispose(): Promise<void> {
+    if (this.disposed) return;
+    this.disposed = true;
+    const egress = this.egress;
+    if (!egress) return;
+    const proxy = await egress.ready.catch(() => undefined);
+    await proxy?.close();
+    rmSync(egress.dir, { recursive: true, force: true });
   }
 
   /**
@@ -232,11 +305,83 @@ export class LinuxSandbox extends LocalSandbox {
     }
   }
 
-  override execute(command: string, opts?: { timeoutMs?: number }) {
+  override async execute(command: string, opts?: { timeoutMs?: number }): Promise<ExecuteResult> {
     const wrapped = this.wrapCommand(command);
     if (wrapped === null) return super.execute(command, opts); // danger-full-access: plain local
+    if (this.egress) {
+      const failure = await this.egressFailure();
+      if (failure) return { stdout: "", stderr: failure, exitCode: 1, timedOut: false };
+    }
     return super.execute(wrapped, opts);
   }
+
+  /** Why a command must not run under the allowlist, or `undefined` once the proxy is listening. */
+  private async egressFailure(): Promise<string | undefined> {
+    if (this.disposed) return "sandbox disposed: egress proxy is closed";
+    try {
+      await this.egress?.ready;
+      return this.disposed ? "sandbox disposed: egress proxy is closed" : undefined;
+    } catch (err) {
+      return `egress proxy failed to start: ${err instanceof Error ? err.message : String(err)}`;
+    }
+  }
+}
+
+function policyFor(
+  mode: SandboxMode,
+  network: boolean,
+  allow: readonly EgressRule[] | undefined,
+): SandboxNetworkPolicy {
+  if (allow) return { mode: "allowlist", allow: allow.map((r) => r.host) };
+  return network || mode === "danger-full-access" ? { mode: "unrestricted" } : { mode: "none" };
+}
+
+function refuseUnenforceableAllowlistFor(opts: CreateSandboxBackendOptions): void {
+  if (typeof opts.network !== "object") return;
+  const known =
+    opts.mode === "danger-full-access" ? undefined : (opts.detect ?? detectBwrapMemoized)();
+  refuseUnenforceableAllowlist(opts.mode, undefined, known);
+}
+
+/** Fail closed: an allowlist is only ever enforced by bubblewrap, never by a fallback. */
+function refuseUnenforceableAllowlist(
+  mode: SandboxMode,
+  bin: string | undefined,
+  known?: BwrapDetection,
+): void {
+  if (mode === "danger-full-access") {
+    throw new SandboxNotAvailableError(
+      "network: { allow } cannot be enforced under danger-full-access: nothing is confined",
+    );
+  }
+  if (bin !== undefined) return;
+  const detection = known ?? detectBwrapMemoized();
+  if (!detection.ok) {
+    throw new SandboxNotAvailableError(
+      `network: { allow } needs bubblewrap and will not fall back to an unconfined sandbox (${detection.reason})`,
+    );
+  }
+}
+
+/** Create the socket directory now (so the wrap is synchronous) and start the proxy in it. */
+function startProxyFor(allow: readonly EgressRule[]): {
+  socketPath: string;
+  dir: string;
+  ready: Promise<EgressProxy>;
+} {
+  const dir = mkdtempSync(join(tmpdir(), "theokit-egress-"));
+  const socketPath = join(dir, "proxy.sock");
+  const ready = startEgressProxy({ allow, socketPath });
+  ready.catch(() => undefined); // surfaced by `execute`, not as an unhandled rejection
+  return { socketPath, dir, ready };
+}
+
+let baseProgram: Buffer | null | undefined;
+/** The network-independent seccomp program (ptrace, io_uring and friends), x86_64 only. */
+function baseSeccompProgram(): Uint8Array | undefined {
+  if (process.arch !== "x64") return undefined;
+  baseProgram ??= buildSeccompFilter({ networkRestricted: false });
+  return baseProgram;
 }
 
 let warnedNonX64 = false;
@@ -356,7 +501,12 @@ export function resolveSandboxPosture(opts: {
 export interface CreateSandboxBackendOptions {
   mode: SandboxMode;
   workDir?: string;
-  network?: boolean;
+  /**
+   * `true` keeps the host network, `false` (default) removes it, `{ allow }` allows only the listed
+   * destinations through a host-side proxy (needs bubblewrap: throws `SandboxNotAvailableError`
+   * instead of falling back, and is refused under `danger-full-access`).
+   */
+  network?: boolean | { allow: readonly EgressRule[] };
   timeoutMs?: number;
   /** Paths the shell cannot read. Never degrades to unconfined: throws `TypeError` or `SandboxNotAvailableError`. */
   denyReadPaths?: readonly string[];
@@ -376,6 +526,7 @@ export interface CreateSandboxBackendOptions {
 export function createSandboxBackend(opts: CreateSandboxBackendOptions): SandboxBackend {
   const config: SandboxConfig = { workDir: opts.workDir, timeoutMs: opts.timeoutMs };
   refuseUnhonourableDenyRead(opts.denyReadPaths, opts.mode, opts.detect ?? detectBwrapMemoized);
+  refuseUnenforceableAllowlistFor(opts);
   if (opts.mode === "danger-full-access") return new LocalSandbox(config);
 
   const detection = (opts.detect ?? detectBwrapMemoized)();

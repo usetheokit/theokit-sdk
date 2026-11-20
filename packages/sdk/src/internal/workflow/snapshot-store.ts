@@ -14,13 +14,29 @@ import type { WorkflowOptions, WorkflowSnapshot } from "../../types/workflow.js"
 import { WorkflowNotSerializableError } from "../../workflow-errors.js";
 import { atomicWriteText } from "../persistence/atomic-write.js";
 
+export interface WorkflowSnapshotListing {
+  runId: string;
+  workflowName: string;
+  suspendedAt: number;
+  status: "suspended" | "running";
+  currentStepId: string;
+}
+
+function toListing(s: WorkflowSnapshot): WorkflowSnapshotListing {
+  return {
+    runId: s.runId,
+    workflowName: s.workflowName,
+    suspendedAt: s.suspendedAt,
+    status: s.status ?? "suspended",
+    currentStepId: s.currentStepId,
+  };
+}
+
 export interface WorkflowSnapshotStore {
   save(snapshot: WorkflowSnapshot): Promise<void>;
   load(runId: string): Promise<WorkflowSnapshot | undefined>;
   delete(runId: string): Promise<void>;
-  list(
-    workflowName?: string,
-  ): Promise<ReadonlyArray<{ runId: string; workflowName: string; suspendedAt: number }>>;
+  list(workflowName?: string): Promise<ReadonlyArray<WorkflowSnapshotListing>>;
 }
 
 /* ─── InMemory backend (default) ─── */
@@ -46,16 +62,10 @@ class InMemoryWorkflowSnapshotStore implements WorkflowSnapshotStore {
   async delete(runId: string): Promise<void> {
     this.map.delete(runId);
   }
-  async list(
-    workflowName?: string,
-  ): Promise<ReadonlyArray<{ runId: string; workflowName: string; suspendedAt: number }>> {
+  async list(workflowName?: string): Promise<ReadonlyArray<WorkflowSnapshotListing>> {
     return [...this.map.values()]
       .filter((s) => workflowName === undefined || s.workflowName === workflowName)
-      .map((s) => ({
-        runId: s.runId,
-        workflowName: s.workflowName,
-        suspendedAt: s.suspendedAt,
-      }));
+      .map(toListing);
   }
 }
 
@@ -118,21 +128,15 @@ class JsonFileWorkflowSnapshotStore implements WorkflowSnapshotStore {
     }
   }
 
-  async list(
-    workflowName?: string,
-  ): Promise<ReadonlyArray<{ runId: string; workflowName: string; suspendedAt: number }>> {
+  async list(workflowName?: string): Promise<ReadonlyArray<WorkflowSnapshotListing>> {
     const entries = await this.readEntriesOrEmpty();
-    const results: Array<{ runId: string; workflowName: string; suspendedAt: number }> = [];
+    const results: WorkflowSnapshotListing[] = [];
     for (const file of entries) {
       if (!file.endsWith(".json")) continue;
       const snap = await this.readSnapshotSafe(file);
       if (snap === undefined) continue;
       if (workflowName !== undefined && snap.workflowName !== workflowName) continue;
-      results.push({
-        runId: snap.runId,
-        workflowName: snap.workflowName,
-        suspendedAt: snap.suspendedAt,
-      });
+      results.push(toListing(snap));
     }
     return results;
   }
