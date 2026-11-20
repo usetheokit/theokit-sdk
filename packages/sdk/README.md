@@ -611,6 +611,7 @@ await applyProfile(profile, process.env);
 
 `runDiscovery` finds context files (`AGENTS.md`, `CLAUDE.md`, ...) and inlines their `@path` imports.
 
+- **Frontmatter.** `splitFrontmatter(raw)` splits a `---` fenced markdown file into `{ yaml, body }` (CRLF-safe; the closing fence may be the last line; `yaml` is `undefined` without an opening fence; an unclosed fence throws `ConfigurationError` `frontmatter_unterminated`). `parseFrontmatterYaml(yaml)` parses the `key: scalar`, `key: [a, b]` and `- item` subset into `Record<string, FrontmatterScalar>`, throwing `frontmatter_invalid` with the line number.
 - **List patterns.** A `DiscoverySpec` with `scope: "cwd-only"` or `"git-root-walk"` may set `pattern: ["THEO.md", "AGENTS.md", "CLAUDE.md"]`. Each directory contributes only the first name that exists. A list on a `"globbed"` spec throws `ConfigurationError` naming the spec id.
 - **`wrapImport(name, content)`.** Wraps each inlined `@import` at every depth, e.g. `(n, c) => \`--- import: ${n} ---\n${c}\n--- end import ---\``. Refusal and not-found placeholders are never wrapped. Default: content unchanged.
 - **Already loaded.** A file discovery emits is not inlined again by an import; the import line becomes `[@import already loaded: <path>]`.

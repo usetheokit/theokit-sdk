@@ -19,25 +19,26 @@
  * @internal
  */
 
-const FRONTMATTER_RE = /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/;
+import { ConfigurationError } from "../../../errors.js";
+import { type FrontmatterSplit, splitFrontmatter as splitFences } from "./frontmatter.js";
 
-export interface FrontmatterSplit {
-  /** Raw YAML block between the `---` fences, or undefined when absent. */
-  readonly yaml: string | undefined;
-  /** The markdown body after the frontmatter (or the whole content). */
-  readonly body: string;
-}
+export type { FrontmatterSplit };
 
 /**
- * Split `---`-fenced frontmatter from the body. When no frontmatter fence is
- * present, `yaml` is undefined and `body` is the whole content.
+ * Split `---`-fenced frontmatter from the body. When no frontmatter fence is present, or the fence
+ * is never closed, `yaml` is undefined and `body` is the whole content.
  *
  * @internal
  */
 export function splitFrontmatter(content: string): FrontmatterSplit {
-  const m = FRONTMATTER_RE.exec(content);
-  if (m === null) return { yaml: undefined, body: content };
-  return { yaml: m[1] ?? "", body: m[2] ?? "" };
+  try {
+    return splitFences(content);
+  } catch (error) {
+    if (error instanceof ConfigurationError && error.code === "frontmatter_unterminated") {
+      return { yaml: undefined, body: content };
+    }
+    throw error;
+  }
 }
 
 /**
