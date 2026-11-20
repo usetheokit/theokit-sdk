@@ -705,6 +705,13 @@ export interface AgentOptions {
   /** Provider routing configuration. See `agent.providers`. */
   providers?: ProviderRoutingSettings;
   /**
+   * Rerun a turn on another model when it fails before any output. Unlike `providers.fallback`
+   * (which picks a provider when none is available), this resends a run that failed. The retry
+   * stays on this agent, so the user message appears once in the transcript. See
+   * {@link ModelFallbackOptions}.
+   */
+  modelFallback?: ModelFallbackOptions;
+  /**
    * Plugins for this agent, in one of two forms:
    *
    * - **Named-enable settings** — `{ enabled: ["name", ...] }`. Selects which
@@ -1185,4 +1192,17 @@ export interface AgentOperationOptions {
 export interface ListResult<T> {
   items: T[];
   nextCursor?: string;
+}
+
+/**
+ * `AgentOptions.modelFallback` — models to retry a turn on when the primary fails before output.
+ * Never on cancellation or `ConfigurationError`, never after assistant text or a tool call.
+ *
+ * @public
+ */
+export interface ModelFallbackOptions {
+  /** Tried in order after the primary model. */
+  models: string[];
+  /** Only "no-output" for now: fall over only while the failed run has streamed no assistant output. */
+  when?: "no-output";
 }
