@@ -13,6 +13,9 @@
       "project": ["src/**/*.ts", "tests/**/*.ts"],
       "ignoreDependencies": ["jsonrepair"]
     },
+    "packages/acp": {
+      "entry": ["tests/fixtures/*.mjs"]
+    },
     "packages/cli": {
       "entry": ["tests/**/*.test.ts"],
       "project": ["src/**/*.ts", "tests/**/*.ts"]
