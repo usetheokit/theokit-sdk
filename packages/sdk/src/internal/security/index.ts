@@ -16,6 +16,7 @@
  * `exports`, so every name below must survive into the published declarations.
  */
 
+export { createExactMask, type ExactMaskOptions, type ExactValueMaskImpl } from "./exact-mask.js";
 export {
   assertNoSymlinkEscape,
   ForbiddenPathError,

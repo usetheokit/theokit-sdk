@@ -1,11 +1,14 @@
 import { AgentDisposedError, ConfigurationError } from "../../errors.js";
 import type { AgentOptions, ModelSelection } from "../../types/agent.js";
-import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
+import type { DeferredToolCall, Run, SDKUserMessage, SendOptions } from "../../types/run.js";
+import type { SessionStore } from "../../types/session-store.js";
+import { validatePruneToolResults } from "../agent-loop/prune-tool-results.js";
 import type { MemoryToolSpec } from "../agent-loop/types.js";
 import { anySignal } from "../concurrency/abort-utils.js";
 import { diagFailure } from "../diagnostics.js";
 import { emitRunEvent } from "../emit-run-event.js";
 import type { MemoryMirror } from "../memory/mirror.js";
+import type { TurnReviewQueue } from "../memory/review/turn-review.js";
 import type { PluginManager } from "../plugins/manager.js";
 import {
   type CompletionCheckDeps,
@@ -23,11 +26,24 @@ import { runInputProcessors } from "../runtime/processors/run-processors.js";
 import { createTripwireRun } from "../runtime/processors/tripwire-run.js";
 import { wrapRunWithOutputProcessors } from "../runtime/processors/wrap-output-run.js";
 import { safeCall } from "../runtime/system-prompt/safe-call.js";
-import { appendSessionMessage, clearSession, getSessionMessages } from "../session/index.js";
+import { validateSendOptions } from "../runtime/validation/validate-agent-options.js";
+import {
+  appendSessionMessage,
+  clearSession,
+  getSessionMessages,
+  matchToolDecisions,
+  readPendingToolCalls,
+  readSessionMessages,
+} from "../session/index.js";
 import type { TelemetryHandle } from "../telemetry/tracer.js";
 import { consumePending } from "./local-agent-invalidate.js";
-import { applyPreUserSendHook, wrapRunWithPostReplyHook } from "./local-agent-memory-hooks.js";
+import {
+  applyPreUserSendHook,
+  scheduleTurnReview,
+  wrapRunWithPostReplyHook,
+} from "./local-agent-memory-hooks.js";
 import { persistMemoryFactIfWritePrompt } from "./local-agent-runtime-extensions.js";
+import { runWithModelFallback } from "./model-fallback-run.js";
 
 /**
  * Inputs for the `executeSendLocked` helper extracted from LocalAgent.sendLocked.
@@ -48,8 +64,12 @@ export interface SendLockedInputs {
     typeof import("./local-agent-memory-provider.js").createLocalAgentMemoryProvider
   >;
   workspaceCwd: string;
+  /** Where the transcript lives; a resume reads its pending tool calls from it. */
+  sessionStore?: SessionStore;
   /** Built-in memory ↔ adapter mirror, when `memory.mirror` is set. */
   memoryMirror?: MemoryMirror;
+  /** `memory.review` queue, when configured. */
+  turnReviews?: TurnReviewQueue;
   telemetry: TelemetryHandle;
   lifecycleAbortController: AbortController;
   runPreHook: (userText: string) => Promise<void>;
@@ -60,6 +80,8 @@ export interface SendLockedInputs {
   ) => Promise<string | undefined>;
   assembleSystemPromptForSend: (request: SendAssemblyRequest) => Promise<string | undefined>;
   dispatchRun: (args: DispatchRunArgs) => Promise<Run>;
+  /** The agent's model after this send's override, for naming the primary fallback attempt. */
+  currentModel?: () => ModelSelection | undefined;
 }
 
 /**
@@ -97,6 +119,10 @@ export interface DispatchRunArgs {
   readonly priorMessages: ReadonlyArray<{ role: "user" | "assistant"; text: string }>;
   readonly memoryTools: ReadonlyArray<MemoryToolSpec> | undefined;
   readonly memoryProviderOverride?: MemoryProvider | undefined;
+  /** Model for this one dispatch (`modelFallback` attempts); the agent's own model when absent. */
+  readonly model?: ModelSelection | undefined;
+  /** The deferred calls this dispatch resumes; the decisions are in `options.toolDecisions`. */
+  readonly resumeCalls?: ReadonlyArray<DeferredToolCall> | undefined;
 }
 
 /**
@@ -135,6 +161,28 @@ async function applyInputProcessors(
   return { userText: res.value, effectiveMessage };
 }
 
+/**
+ * Read and match the pending tool calls of a `toolDecisions` send. `undefined` when the send does not
+ * resume anything.
+ */
+async function prepareResume(
+  inputs: SendLockedInputs,
+  options: SendOptions,
+): Promise<readonly DeferredToolCall[] | undefined> {
+  if (options.toolDecisions === undefined) return undefined;
+  if (inputs.sessionStore === undefined) {
+    throw new ConfigurationError(
+      "toolDecisions needs a session store to read the deferred calls.",
+      {
+        code: "tool_decision_unsupported",
+      },
+    );
+  }
+  const pending = await readPendingToolCalls(inputs.sessionStore, inputs.agentId);
+  matchToolDecisions(pending, options.toolDecisions);
+  return pending;
+}
+
 const lastSendAt = new Map<string, number>();
 
 /** Clears the agent's conversation when it has been idle longer than `minutes`. */
@@ -165,6 +213,9 @@ export async function executeSendLocked(
     inputs.clearInvalidation,
     inputs.reload,
   );
+  // A resume is validated against the stored transcript before any side effect, so a bad one
+  // leaves the session untouched.
+  const resume = await prepareResume(inputs, options);
   // SE8 — normalize a bare-string send-model override to `{ id }`.
   const sendModel = normalizeModel(options.model);
   inputs.applyModelOverride(sendModel);
@@ -195,8 +246,15 @@ export async function executeSendLocked(
     sendOptions: options,
   });
 
-  const priorMessages = [...getSessionMessages(inputs.agentId)];
-  appendSessionMessage(inputs.agentId, { role: "user", text: userText });
+  // A resume replays the stored transcript, which ends on the unanswered tool calls; the in-memory
+  // cache holds text only. It adds no user message: the results of the calls are the new turn.
+  const priorMessages =
+    resume !== undefined
+      ? await readSessionMessages(inputs.sessionStore as SessionStore, inputs.agentId, {
+          keepDeferred: true,
+        })
+      : [...getSessionMessages(inputs.agentId)];
+  if (resume === undefined) appendSessionMessage(inputs.agentId, { role: "user", text: userText });
 
   // Where memory lives is `memory.directory`'s answer and nobody else's. It used to be
   // `local.sessionDir`'s — the option that names the TRANSCRIPT home — so one option answered two
@@ -236,7 +294,7 @@ export async function executeSendLocked(
     ...options,
     signal: anySignal([options.signal, inputs.lifecycleAbortController.signal]),
   };
-  const run = await inputs.dispatchRun({
+  const dispatchArgs: DispatchRunArgs = {
     message: adaptedMessage,
     options: composedOptions,
     systemPrompt: assembledSystemPrompt,
@@ -244,7 +302,9 @@ export async function executeSendLocked(
     priorMessages,
     memoryTools,
     memoryProviderOverride: effectiveMemoryProvider,
-  });
+    ...(resume !== undefined ? { resumeCalls: resume } : {}),
+  };
+  const run = await dispatchWithFallback(inputs, dispatchArgs);
   // SE24 — output processors wrap INNER (they redact/block the model text) so the
   // post_assistant_reply memory hook observes the FINAL (processed) reply.
   const outputProcessors = inputs.options.outputProcessors;
@@ -257,6 +317,7 @@ export async function executeSendLocked(
           onRunEvent: options.onRunEvent,
         })
       : run;
+  scheduleTurnReview({ queue: inputs.turnReviews, run: processedRun, userText });
   const hookedRun = wrapRunWithPostReplyHook({
     pluginManager: inputs.pluginManagerCode,
     agentId: inputs.agentId,
@@ -271,6 +332,22 @@ export async function executeSendLocked(
     completionCheck: options.completionCheck,
     onRunEvent: options.onRunEvent,
     deps: buildCompletionCheckDeps(),
+  });
+}
+
+/**
+ * One dispatch, or — when `AgentOptions.modelFallback` lists models — a single run that reruns the
+ * same prepared turn (same user message, same prior messages) on the next model after a failure
+ * before output. Each attempt's model is per-dispatch, so the agent's own model is untouched.
+ */
+function dispatchWithFallback(inputs: SendLockedInputs, args: DispatchRunArgs): Promise<Run> {
+  const models = inputs.options.modelFallback?.models ?? [];
+  if (models.length === 0) return inputs.dispatchRun(args);
+  return runWithModelFallback({
+    primaryModel: inputs.currentModel?.()?.id ?? "primary",
+    models,
+    signal: args.options.signal,
+    dispatch: (model) => inputs.dispatchRun(model === undefined ? args : { ...args, model }),
   });
 }
 
@@ -363,4 +440,33 @@ function readMemoryForSend(
     [],
     "memory read",
   );
+}
+
+const SEND_DEFAULT_KEYS = ["toolResultGuard", "pruneToolResults", "perToolTimeoutMs"] as const;
+
+/**
+ * #1020 — the effective options of one send: `AgentOptions.sendDefaults` merged under the call's
+ * options per key (a call key set to `undefined` does not remove the default), then the
+ * creation-time checks (with the agent's withhold list; also `doomLoop.window`) and the pruning
+ * check, so an invalid override fails before the run is queued.
+ */
+export function resolveSendOptions(
+  agentOptions: AgentOptions,
+  callOptions: SendOptions,
+): SendOptions {
+  const defaults = agentOptions.sendDefaults;
+  const options: SendOptions = { ...callOptions };
+  for (const key of SEND_DEFAULT_KEYS) {
+    if (options[key] === undefined && defaults?.[key] !== undefined) {
+      (options as Record<string, unknown>)[key] = defaults[key];
+    }
+  }
+  validatePruneToolResults(options.pruneToolResults);
+  validateSendOptions(options, agentOptions.withheldBuiltinTools);
+  return options;
+}
+
+/** `resumed: true` when the send answers deferred tool calls, so post-run writes no user message. */
+export function resumedFlag(options: SendOptions): { resumed?: true } {
+  return options.toolDecisions !== undefined ? { resumed: true } : {};
 }

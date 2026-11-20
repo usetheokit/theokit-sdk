@@ -12,6 +12,7 @@ export { Agent, type AgentLease, type AgentPromptResult } from "./agent.js";
 export type { AgentBuilderDeps } from "./agent-builder.js";
 // DX helpers — agent construction patterns (ADR D22-D26)
 export { AgentBuilder } from "./agent-builder.js";
+export type { AgentFactoryConfig } from "./agent-factory.js";
 export { AgentFactory } from "./agent-factory.js";
 // SE9 — integrated structured output on `agent.generate(input, { output })`.
 export type { GenerateOptions, GenerateRunResult } from "./agent-generate.js";
@@ -96,10 +97,15 @@ export {
   isTransientError,
   MemoryAdapterError,
   type MemoryAdapterErrorCode,
+  MemoryFactAmbiguousError,
+  MemoryFactNotRemovableError,
+  type ModelFallbackAttempt,
+  ModelFallbackExhaustedError,
   NetworkError,
   RateLimitError,
   TaskNotFoundError,
   TheokitAgentError,
+  ToolCallBlockedError,
   UnknownAgentError,
   UnsupportedBudgetOperationError,
   UnsupportedRunOperationError,
@@ -170,6 +176,7 @@ export { JudgeCredentialError } from "./internal/judge/judge-call.js";
 // without racing. Stability guarantee: signature stable until sdk-core
 // v3.0.
 export { withCwdMutex } from "./internal/persistence/cwd-mutex.js";
+export { InMemorySessionStore } from "./internal/persistence/in-memory-session-store.js";
 export {
   SqliteSessionStore,
   type SqliteSessionStoreOptions,
@@ -180,7 +187,11 @@ export {
 // .asPlugin() factories without reaching into ./internal/plugins sub-path.
 export {
   type ConversationRef,
+  type GeneralPlugin,
+  type HookContextMap,
+  type HookHandler,
   type HookName,
+  type HookResultMap,
   // #335 — named here because the PUBLIC `Plugin` union references it in the
   // `createProvider` position. The DTS rollup emits an exported type's body but
   // treeshakes a non-exported type that body names, so leaving this out of the
@@ -201,6 +212,7 @@ export {
   type ToolCallSummary,
   type ToolResultTransformContext,
   type TransformContext,
+  type TypedHookHandler,
 } from "./internal/plugins/types.js";
 export type {
   ProviderProfile,
@@ -297,6 +309,7 @@ export {
 } from "./memory.js";
 // Memory adapter helpers (ADR D141)
 export { extractRawId, mkMemoryId } from "./memory-adapter-helpers.js";
+export { listMemoryFacts, removeMemoryFact, type StoredMemoryFact } from "./memory-facts.js";
 // Migration helper (ADR D44) — re-exported for use by the bin CLI.
 export {
   type MigrateOptions,
@@ -367,7 +380,7 @@ export { type NormalizedJsonSchema, normalizeSchema } from "./schema-normalizer.
 // `internal/` because it owns filesystem I/O — public access is via the
 // `Agent.usePersonality(...)` method, not direct construction.
 // Security namespace (secret redaction; ADR D68)
-export { Security } from "./security.js";
+export { type ExactValueMask, Security } from "./security.js";
 export { applySecurityFloor, type SecurityFloorInput } from "./security-floor.js";
 export {
   guardSessionDestruction,
@@ -409,6 +422,7 @@ export {
 } from "./tool-blast-radius.js";
 // SE7 — ToolError (thrown from a tool handler; own module for the G8 LoC budget).
 export { ToolError } from "./tool-error.js";
+export { type GuardToolsContext, guardTools, runPreToolCall } from "./tool-guard.js";
 // Trajectory export (ADR D139) — opt-in ShareGPT converter
 export { toShareGptTrajectory } from "./trajectory-helpers.js";
 export {
@@ -430,7 +444,9 @@ export type {
   AgentToolDescription,
   CustomTool,
   MemoryMirrorOptions,
+  MemoryReviewOptions,
   MemorySettings,
+  ModelFallbackOptions,
   SDKAgent,
 } from "./types/agent.js";
 export type { AgentLike, RunLike } from "./types/agent-like.js";
@@ -466,7 +482,13 @@ export type {
 // the bundled .d.ts (the `export type *` star does not reliably propagate — same
 // reason as `CustomTool` above).
 // SE34 — per-send completion check (`isTaskComplete`) public types.
-export type { CompletionCheck, CompletionCheckResult, MessageOrigin } from "./types/run.js";
+export type {
+  CompletionCheck,
+  CompletionCheckResult,
+  DeferredToolCall,
+  MessageOrigin,
+  ToolCallDecision,
+} from "./types/run.js";
 export type {
   RunCompactBoundaryEvent,
   RunCompletionCheckEvent,

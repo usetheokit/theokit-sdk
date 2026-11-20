@@ -1,9 +1,9 @@
-import type { ToolContextMessage } from "../../types/agent-prims.js";
 import type { BudgetTracker, BudgetUsageEvent } from "../../types/budget-tracker.js";
 import type { SDKMessage } from "../../types/messages.js";
+import type { DeferredToolCall } from "../../types/run.js";
 import { IterationBudget } from "../budget/tracker/budget.js";
 import { diagFailure } from "../diagnostics.js";
-import type { LlmContentPart, LlmMessage, LlmThinkingPart, LlmToolCallPart } from "../llm/types.js";
+import type { LlmContentPart, LlmThinkingPart, LlmToolCallPart } from "../llm/types.js";
 import { safeCall } from "../runtime/system-prompt/safe-call.js";
 import { validateResponse } from "../runtime/validation/validate-response.js";
 import { evaluateBudgetGate } from "./budget-gate.js";
@@ -11,29 +11,18 @@ import { firstDoomLoopVerdict } from "./doom-loop-tracker.js";
 import { initLoopContext, type LoopContext } from "./loop-context-init.js";
 import { finalizeLoopOutput } from "./loop-finalize.js";
 import { type LlmTurnOutput, streamLlmTurn } from "./loop-llm-stream.js";
+import { applyResume } from "./loop-resume.js";
 import { recordThinkingOnSilentToolRound, thinkingStep } from "./loop-thinking-steps.js";
+import {
+  buildToolSteps,
+  endRunOnDeferredCalls,
+  guardAndTransformToolResults,
+  projectToolContextMessages,
+} from "./loop-tool-steps.js";
 import { buildAssistantEvent, buildAssistantTurn } from "./message-builders.js";
 import { dispatchTools, type ResolvedTool } from "./tool-dispatch.js";
-import { applyToolResultGuard } from "./tool-result-guard.js";
 import type { AgentLoopInputs, AgentLoopOutput } from "./types.js";
 import { accumulateUsage } from "./usage-and-cost.js";
-
-/**
- * SE12 — flatten the running transcript to the read-only text projection tool
- * handlers receive on `ctx.messages`. Non-text parts (tool calls / results) are
- * dropped so a tool never sees raw wire parts or nested tool args.
- */
-function projectToolContextMessages(messages: readonly LlmMessage[]): ToolContextMessage[] {
-  const projected: ToolContextMessage[] = [];
-  for (const m of messages) {
-    const content = m.content.flatMap((p) => (p.type === "text" ? [p.text] : [])).join("");
-    // Skip turns that project to empty text (a tool-only assistant turn or a
-    // tool-result-only user turn) — the text projection has nothing to forward,
-    // so a messageFilter never sees zero-content noise.
-    if (content !== "") projected.push({ role: m.role, content });
-  }
-  return projected;
-}
 
 /**
  * The real agent loop. Given an LLM client, MCP clients, hooks, and a shell
@@ -73,6 +62,7 @@ export async function runAgentLoop(inputs: AgentLoopInputs): Promise<AgentLoopOu
       agentId: inputs.agentId,
       runId: inputs.runId,
     });
+    await applyResume(inputs, ctx);
     const budget =
       inputs.budget ?? new IterationBudget({ maxIterations: inputs.maxIterations ?? 8 });
     // M1-2 (T2.2): track the last turn's decision so we can tell a clean
@@ -196,40 +186,6 @@ async function emitAssistantTextStep(
     undefined,
     "SendOptions.onStep",
   );
-}
-
-/**
- * Build the ordered `toolCall` (+ paired `toolResult`) steps for a tool-using turn. Shared by the
- * live `onStep` emission and the `Run.conversation()` accumulation so the two surfaces never drift
- * (#SE39 — onStep previously emitted `toolCall` but dropped `toolResult`; both now use this).
- */
-function buildToolSteps(
-  calls: LlmToolCallPart[],
-  results: LlmContentPart[],
-): import("../../types/conversation.js").ConversationStep[] {
-  const steps: import("../../types/conversation.js").ConversationStep[] = [];
-  for (let i = 0; i < calls.length; i++) {
-    const call = calls[i];
-    if (call === undefined) continue;
-    steps.push({
-      type: "toolCall",
-      message: { callId: call.id, name: call.name, args: call.input },
-    });
-    const result = results[i];
-    if (result?.type === "tool_result") {
-      steps.push({
-        type: "toolResult",
-        message: {
-          callId: result.toolUseId ?? call.id,
-          name: call.name,
-          result:
-            typeof result.content === "string" ? result.content : JSON.stringify(result.content),
-          isError: result.isError === true,
-        },
-      });
-    }
-  }
-  return steps;
 }
 
 function pushToolConversationSteps(
@@ -396,45 +352,25 @@ async function transformLlmOutputText(
     : text;
 }
 
-/**
- * #57/#65 — built-in tool-result guard then the transform_tool_result hook fold.
- *
- * M82 — `toolCalls` is threaded into the hook context. The data was already in the caller's scope
- * (`llmOutput.toolCalls`) and was simply dropped, which left this seam — the ONLY tool-stage channel
- * whose return value the SDK applies — unable to say which tool produced which result. A scoped
- * policy therefore had to sit on `post_tool_call`, whose return is discarded, and silently degraded
- * to observation. Plural because the seam is batch-shaped; correlate by `toolUseId === id`.
- */
-async function guardAndTransformToolResults(
-  inputs: AgentLoopInputs,
-  raw: LlmContentPart[],
-  ctx: { agentId: string; runId: string },
-  toolCalls: readonly LlmToolCallPart[],
-): Promise<LlmContentPart[]> {
-  const guarded =
-    inputs.toolResultGuard !== undefined ? applyToolResultGuard(raw, inputs.toolResultGuard) : raw;
-  return inputs.pluginManager !== undefined
-    ? inputs.pluginManager.runTransformToolResultHooks(guarded, {
-        ...ctx,
-        toolCalls: toolCalls.map((c) => ({ id: c.id, name: c.name, args: c.input })),
-      })
-    : guarded;
-}
-
 /** Sliding-window doom-loop guard: calls the window denies are not executed and get a blocked
  *  tool result (decided in model order, before dispatch); the rest dispatch as usual. */
 async function dispatchWithWindowGuard(
   ctx: LoopContext,
   inputs: AgentLoopInputs,
   calls: LlmToolCallPart[],
-  dispatchArgs: [ResolvedTool[], SDKMessage[], Parameters<typeof dispatchTools>[4]],
+  dispatchArgs: [
+    ResolvedTool[],
+    SDKMessage[],
+    Parameters<typeof dispatchTools>[4],
+    DeferredToolCall[],
+  ],
 ): Promise<LlmContentPart[]> {
-  const [tools, events, span] = dispatchArgs;
+  const [tools, events, span, deferredSink] = dispatchArgs;
   const blocks = calls.map((c) => ctx.doomLoop?.checkWindow(c));
   if (blocks.every((b) => b === undefined))
-    return dispatchTools(inputs, tools, calls, events, span);
+    return dispatchTools(inputs, tools, calls, events, span, deferredSink);
   const allowed = calls.filter((_, i) => blocks[i] === undefined);
-  const ran = await dispatchTools(inputs, tools, allowed, events, span);
+  const ran = await dispatchTools(inputs, tools, allowed, events, span, deferredSink);
   let next = 0;
   return calls.map((c, i): LlmContentPart => {
     const message = blocks[i];
@@ -471,6 +407,7 @@ export async function continueOrTerminate(
   // theokit#122 — and the REPLAY must carry it too: Anthropic verifies the signed block on the next
   // request, so an assistant turn that reaches the provider without it is rejected outright.
   ctx.messages.push(buildAssistantTurn(text, llmOutput.toolCalls, thinking));
+  const deferredSink: DeferredToolCall[] = [];
   const rawResults = await dispatchWithWindowGuard(
     ctx,
     // SE12 — forward a read-only text projection of the transcript-so-far to tool
@@ -478,8 +415,17 @@ export async function continueOrTerminate(
     { ...inputs, messages: projectToolContextMessages(ctx.messages) },
     llmOutput.toolCalls,
     // M3 #64 — nest tool.call spans under agent.send
-    [ctx.tools, ctx.events, ctx.sendSpan],
+    [ctx.tools, ctx.events, ctx.sendSpan, deferredSink],
   );
+  if (deferredSink.length > 0) {
+    return endRunOnDeferredCalls({
+      inputs,
+      ctx,
+      calls: llmOutput.toolCalls,
+      rawResults,
+      deferred: deferredSink,
+    });
+  }
   const toolResults = await guardAndTransformToolResults(
     inputs,
     rawResults,

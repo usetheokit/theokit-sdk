@@ -21,7 +21,9 @@ import type {
   MemoryTurnMessage,
 } from "../../types/memory-adapter.js";
 import { diag } from "../diagnostics.js";
+import { DEFAULT_NAMESPACE, forgetFactInOpenIndexes } from "../memory/lance-index.js";
 import { createMemoryMirror, type MemoryMirror } from "../memory/mirror.js";
+import { resolveMemoryRoot } from "../memory/storage/memory-root.js";
 import type { PluginManager } from "../plugins/manager.js";
 
 export interface ResolvedAdapters {
@@ -236,6 +238,11 @@ export function buildAgentMemory(
         );
       }
       await target.delete(id);
+      // Drop the fact's Lance rows (source "memory", the agent's namespace) from the index under
+      // THIS agent's memory root only. Ordering: the adapter delete is the source of truth and goes
+      // first; if this cleanup throws, the fact is already gone from the adapter, and calling
+      // `delete` again re-runs both steps (adapter deletes are idempotent), so the retry cleans up.
+      await forgetFactInOpenIndexes(resolveMemoryRoot(workspaceCwd), id, DEFAULT_NAMESPACE);
     },
 
     adapter(): MemoryAdapter | null {
@@ -246,6 +253,9 @@ export function buildAgentMemory(
       if (resolved === undefined) return null;
       return resolved.adapters[0] ?? null;
     },
+
+    // Replaced by `LocalAgent` when `memory.review` is configured.
+    reviewsIdle: () => Promise.resolve(),
   };
 }
 

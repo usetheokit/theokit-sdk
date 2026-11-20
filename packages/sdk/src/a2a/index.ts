@@ -7,11 +7,29 @@
 export type { ToolContextMessage } from "../types/agent-prims.js";
 export { AgentMailbox } from "./agent-mailbox.js";
 export {
+  A2AMailboxError,
+  createHttpMailboxHandler,
+  type HttpMailboxOptions,
+  httpMailboxTransport,
+} from "./http-mailbox.js";
+export {
   A2APeerNotRegisteredError,
+  A2ARemoteRequestUnsupportedError,
   A2ARequestTimeoutError,
   MessageBus,
   type RequestOptions,
 } from "./message-bus.js";
+export {
+  type A2AIdentity,
+  A2AUntrustedPeerError,
+  generateA2AIdentity,
+  jsonSequenceStore,
+  memorySequenceStore,
+  type SealedDropReason,
+  type SequenceStore,
+  sealedTransport,
+  type TrustedPeers,
+} from "./sealed-transport.js";
 export {
   type DelegationCompleteContext,
   type DelegationCompleteDecision,
@@ -22,4 +40,5 @@ export {
   SubAgent,
   type SubAgentSpec,
 } from "./subagent.js";
+export { type A2ATransport, inMemoryTransport } from "./transport.js";
 export type { A2AMessage, MessageHandler } from "./types.js";

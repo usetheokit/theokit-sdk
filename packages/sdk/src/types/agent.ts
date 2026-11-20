@@ -257,6 +257,12 @@ export interface LocalOptions {
    * so `--continue` interop is preserved (a store may also mirror to `~/.claude`).
    */
   sessionStore?: import("./session-store.js").SessionStore;
+  /**
+   * When `false`, this agent is not written to `<cwd>/.theokit/agents/registry.json`, neither by its
+   * own registration nor by a save another agent triggers. It stays in this process's in-memory
+   * registry, so `Agent.list` and `Agent.get` still see it until the process ends. Default `true`.
+   */
+  registry?: boolean;
 }
 
 /**
@@ -479,6 +485,20 @@ export interface MemoryMirrorOptions {
 }
 
 /**
+ * Options for {@link MemorySettings.review}.
+ *
+ * @public
+ */
+export interface MemoryReviewOptions {
+  /** Review each finished turn. */
+  after: "turn";
+  /** Model for the reviewer. Default: the agent's model. */
+  model?: string;
+  /** Replaces the default review instructions. */
+  instructions?: string;
+}
+
+/**
  * Memory configuration accepted by `Agent.create()` via {@link AgentOptions.memory}.
  *
  * Persists durable facts as markdown files under `<cwd>/.theokit/memory/` (or `directory`), with the
@@ -498,6 +518,18 @@ export interface MemoryMirrorOptions {
  */
 export interface MemorySettings {
   enabled: boolean;
+  /**
+   * Save durable facts from each finished turn with a small reviewer agent. Absent means no review.
+   *
+   * After a run ends `finished` with a reply, one review is queued. Reviews of one agent run one at
+   * a time. The reviewer is an internal agent with no plugins and one tool, `save_memory({ fact })`,
+   * which writes to this agent's own memory (same directory and `userId`); facts over 500
+   * characters are refused with a tool error. A failing review is reported on the diagnostics
+   * channel and never rejects the user's `wait()`. `agent.dispose()` waits up to 5 seconds for
+   * queued reviews, then drops the rest and says how many on diagnostics. Await
+   * `agent.memory.reviewsIdle()` to wait for the queue.
+   */
+  review?: MemoryReviewOptions;
   /**
    * Link the built-in fact store to the agent's `kind: "memory"` plugins (Mem0, Honcho,
    * Supermemory). Absent means no mirroring. The `MemoryContext` passed to adapters is the agent's
@@ -676,6 +708,13 @@ export interface AgentOptions {
    * Subagents do NOT inherit this — they use {@link AgentDefinition.prompt}.
    */
   systemPrompt?: string | SystemPromptResolver;
+  /**
+   * Applied to every local send of this agent, including sends made by `fork()`, `generate()`,
+   * `runUntil()` and the `*ToCompletion` helpers. Merged per key: a key the send passes itself
+   * wins. Passing a key as `undefined` explicitly does NOT remove the default.
+   * `pruneToolResults` is validated at `Agent.create` (`invalid_prune_tool_results`).
+   */
+  sendDefaults?: Pick<SendOptions, "toolResultGuard" | "pruneToolResults" | "perToolTimeoutMs">;
   local?: LocalOptions;
   cloud?: CloudOptions;
   mcpServers?: Record<string, McpServerConfig>;
@@ -698,6 +737,13 @@ export interface AgentOptions {
   context?: ContextSettings;
   /** Provider routing configuration. See `agent.providers`. */
   providers?: ProviderRoutingSettings;
+  /**
+   * Rerun a turn on another model when it fails before any output. Unlike `providers.fallback`
+   * (which picks a provider when none is available), this resends a run that failed. The retry
+   * stays on this agent, so the user message appears once in the transcript. See
+   * {@link ModelFallbackOptions}.
+   */
+  modelFallback?: ModelFallbackOptions;
   /**
    * Plugins for this agent, in one of two forms:
    *
@@ -1179,4 +1225,17 @@ export interface AgentOperationOptions {
 export interface ListResult<T> {
   items: T[];
   nextCursor?: string;
+}
+
+/**
+ * `AgentOptions.modelFallback` — models to retry a turn on when the primary fails before output.
+ * Never on cancellation or `ConfigurationError`, never after assistant text or a tool call.
+ *
+ * @public
+ */
+export interface ModelFallbackOptions {
+  /** Tried in order after the primary model. */
+  models: string[];
+  /** Only "no-output" for now: fall over only while the failed run has streamed no assistant output. */
+  when?: "no-output";
 }

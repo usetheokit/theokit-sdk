@@ -30,6 +30,7 @@ export {
   type SessionArtifactStore,
   type SessionArtifactStoreOptions,
 } from "./artifact-store.js";
+export { type CreateComputerToolOptions, createComputerTool } from "./computer-tool.js";
 export {
   type CreateCurrentTimeToolOptions,
   createCurrentTimeTool,
@@ -148,6 +149,11 @@ export {
   type CreateBraveWebSearchAdapterOptions,
   createBraveWebSearchAdapter,
 } from "./web-search-brave.js";
+export {
+  type ResolvedWebSearch,
+  resolveWebSearchAdapter,
+  type WebSearchProvider,
+} from "./web-search-from-env.js";
 export {
   type CreateGenericHttpSearchAdapterOptions,
   createGenericHttpSearchAdapter,

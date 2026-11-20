@@ -493,6 +493,51 @@ export class MemoryAdapterError extends TheokitAgentError {
 }
 
 /**
+ * Thrown by `removeMemoryFact` when the entry exists but lives outside the write root, for example
+ * in the Claude Code CLI's store. The SDK does not delete another tool's memory.
+ *
+ * @public
+ */
+export class MemoryFactNotRemovableError extends TheokitAgentError {
+  override readonly name: string = "MemoryFactNotRemovableError";
+  readonly factId: string;
+  readonly root: string;
+
+  constructor(factId: string, root: string) {
+    super(`Memory fact "${factId}" is in ${root}, outside the write root, so it is not removed.`, {
+      isRetryable: false,
+      code: "memory_fact_not_removable",
+    });
+    this.factId = factId;
+    this.root = root;
+  }
+}
+
+/**
+ * Thrown by `removeMemoryFact` when the id names entries in more than one memory root (the same
+ * per-memory file name in the write root and the Claude Code CLI's store). Nothing is removed.
+ *
+ * @public
+ */
+export class MemoryFactAmbiguousError extends TheokitAgentError {
+  override readonly name: string = "MemoryFactAmbiguousError";
+  readonly factId: string;
+  readonly roots: readonly string[];
+
+  constructor(factId: string, roots: readonly string[]) {
+    super(
+      `Memory fact id "${factId}" is in more than one root (${roots.join(", ")}); nothing removed.`,
+      {
+        isRetryable: false,
+        code: "memory_fact_ambiguous",
+      },
+    );
+    this.factId = factId;
+    this.roots = roots;
+  }
+}
+
+/**
  * Thrown by `Budget` enforcement (ADR D386) when a `mode: "block"`
  * budget would be exceeded by the upcoming LLM call. The caller catches a
  * typed error to retry after the window resets, or surfaces it to the user.
@@ -549,6 +594,42 @@ export class AgentDisposedError extends TheokitAgentError {
       code: "agent_disposed",
     });
     this.agentId = agentId;
+  }
+}
+
+/**
+ * One failed attempt of a turn run under {@link AgentOptions.modelFallback}.
+ *
+ * @public
+ */
+export interface ModelFallbackAttempt {
+  /** The model id the attempt ran on. */
+  model: string;
+  /** The error code the attempt ended with, when it had one. */
+  errorCode?: string;
+  /** The attempt's error message. */
+  message?: string;
+}
+
+/**
+ * Raised (as `RunResult.error.cause`) when the primary model and every
+ * {@link AgentOptions.modelFallback} model failed before any output. `cause` is the primary
+ * model's error; `attempts` lists each model with its error code.
+ *
+ * @public
+ */
+export class ModelFallbackExhaustedError extends TheokitAgentError {
+  override readonly name: string = "ModelFallbackExhaustedError";
+  readonly attempts: readonly ModelFallbackAttempt[];
+
+  constructor(attempts: readonly ModelFallbackAttempt[], cause?: unknown) {
+    const list = attempts.map((a) => `${a.model} (${a.errorCode ?? "unknown"})`).join(", ");
+    super(`Every model failed before producing output: ${list}`, {
+      isRetryable: false,
+      code: "model_fallback_exhausted",
+      ...(cause !== undefined ? { cause } : {}),
+    });
+    this.attempts = attempts;
   }
 }
 
@@ -701,5 +782,43 @@ export class CompressionFailedError extends TheokitAgentError {
     // Retryable: both throw sites are about ONE LLM call that failed or came back empty, which is
     // the transient shape the SDK's retry layer exists for.
     super(message, { ...options, code: "compression_failed", isRetryable: true });
+  }
+}
+
+/**
+ * Thrown by a tool wrapped with `guardTools` when a `pre_tool_call` plugin vetoes the call. The
+ * handler did not run. `pluginMessage` is the veto's message; `message` uses the agent loop's
+ * `Plugin blocked this tool call: <message>` wording. Not retryable.
+ *
+ * @public
+ */
+export class ToolCallBlockedError extends TheokitAgentError {
+  override readonly name: string = "ToolCallBlockedError";
+  readonly toolName: string;
+  readonly pluginMessage: string;
+
+  constructor(toolName: string, pluginMessage: string) {
+    super(`Plugin blocked this tool call: ${pluginMessage}`, { isRetryable: false });
+    this.toolName = toolName;
+    this.pluginMessage = pluginMessage;
+  }
+}
+
+/**
+ * Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a
+ * variable the profile owns. Lists variable NAMES only, never their values.
+ *
+ * @public
+ */
+export class ProfileConflictError extends ConfigurationError {
+  override readonly name: string = "ProfileConflictError";
+  readonly variables: readonly string[];
+
+  constructor(variables: readonly string[]) {
+    super(
+      `Profile conflicts with variables already set: ${variables.join(", ")}. Unset them or drop the profile.`,
+      { code: "profile_conflict" },
+    );
+    this.variables = [...variables];
   }
 }

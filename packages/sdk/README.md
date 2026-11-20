@@ -54,6 +54,47 @@ specifier, or the call fails on a private field.
 
 Agents that consume documentation should prefer the machine-readable corpora on the docs site ([llmstxt.org](https://llmstxt.org) convention): [`llms.txt`](https://docs.usetheo.dev/llms.txt) (curated index) and [`llms-full.txt`](https://docs.usetheo.dev/llms-full.txt) (every page inlined).
 
+## Masking secrets: `Security.redact` and `Security.createMask`
+
+`Security.redact(text)` masks known credential *shapes* (API keys, `Bearer`, `key=value`).
+When the app knows the exact values it loaded, `Security.createMask(values)` masks those values:
+
+```ts
+import { Security } from "@theokit/sdk";
+
+const mask = Security.createMask([botToken, apiKey]); // { placeholder = "[redacted]", minLength = 4 }
+mask.text("token " + botToken); // longest value first
+mask.deep({ args: ["k " + apiKey], n: 1 }); // structural copy, strings masked
+const s = mask.stream(); // push(delta) releases what is safe, flush() the rest
+const uninstall = mask.wrapStreams([process.stdout, process.stderr]); // write and end(chunk)
+```
+
+Values shorter than `minLength` (default 4) are ignored. A value split across stream chunks is held
+back until it is known not to match. `wrapStreams` throws `ConfigurationError` for a stream that is
+already wrapped; a write held back whole calls its callback before its bytes reach the stream.
+
+## `modelFallback`: rerun a turn on another model
+
+```ts
+const agent = await Agent.create({
+  model: "openai/gpt-4o",
+  modelFallback: { models: ["anthropic/claude-3.5-sonnet"] },
+});
+```
+
+When the primary model fails before it streams any assistant text or tool call (a provider or
+network error), the same turn is rerun on the next model of `models`, in order. The retry runs on
+the same agent, so the user message appears once in the transcript. The `Run` you hold stays the
+same object; its `stream()`/`events()` carry the answering model's items. `RunResult.modelFallbackAttempts`
+lists each failed attempt (`model`, `errorCode`).
+
+It never falls over on `cancelled`, on a `ConfigurationError`, or after output has started.
+When every model fails the run ends `error` and `RunResult.error.cause` is a
+`ModelFallbackExhaustedError` naming each model and its code; its own `cause` is the primary's error.
+
+This differs from `providers.fallback`, which only picks another provider when a route has none
+available. It does not resend a run that failed.
+
 ## Install
 
 ```bash
@@ -93,6 +134,22 @@ const agent = await Agent.create({
 
 Extended-thinking `--continue` is out of scope for now (thinking signatures are written but dropped on read — issue #122). See the exported session-persistence types for the full contract.
 
+## Incognito agents
+
+To leave nothing on disk, keep the transcript in memory, keep the agent out of the persisted registry, and turn memory off:
+
+```ts
+import { Agent, InMemorySessionStore } from "@theokit/sdk";
+
+const agent = await Agent.create({
+  model: { id: "openai/gpt-4o-mini" },
+  memory: { enabled: false },
+  local: { sessionStore: new InMemorySessionStore(), registry: false },
+});
+```
+
+Use a fresh `InMemorySessionStore` per agent; resume works only while you keep the same instance. `registry: false` keeps the agent out of `<cwd>/.theokit/agents/registry.json`, but it stays visible to `Agent.list` in the current process. Tools, plugins and other features you enable can still write files of their own.
+
 ## Memory
 
 Durable facts live under `<cwd>/.theokit/memory/`. To keep several users of one agent app apart, give each agent a `userId`; each user then gets their own partition (`.theokit/memory/users/<userId>/`) for facts, index and session summaries:
@@ -104,6 +161,19 @@ const bob = await Agent.create({ memory: { enabled: true, userId: "bob" } });
 ```
 
 `userId` must match `[a-z0-9][a-z0-9-_]*`; other values (such as `../x`) are rejected.
+
+### List and remove memory facts
+
+```ts
+import { listMemoryFacts, removeMemoryFact } from "@theokit/sdk";
+
+const facts = await listMemoryFacts(process.cwd());
+// [{ id, text, modified?, root, removable }, ...]
+const removed = await removeMemoryFact(process.cwd(), facts[0].id); // true, or false for an unknown id
+```
+
+`listMemoryFacts` covers per-memory files and legacy `## Facts` bullets, in the order the agent reads them. `removeMemoryFact` deletes the file and its `MEMORY.md` index line (or one legacy bullet), serialized with the SDK's writes. Entries from another tool's store (for example the Claude Code CLI's) have `removable: false`, and removing one rejects with `MemoryFactNotRemovableError`. Removal also drops the entry's rows from the sqlite memory search index, so recall does not return it; a Lance index is not part of the built-in store and is not touched. Two identical legacy bullets in one root share an id, and removal takes the first. An id found in more than one root (the same file name in the write root and the Claude Code store) rejects with `MemoryFactAmbiguousError` naming every root, and removes nothing.
+
 
 ### Mirroring facts to a memory adapter
 
@@ -125,6 +195,29 @@ const agent = await Agent.create({
 });
 ```
 
+### Saving facts from each turn with `memory.review`
+
+Set `memory.review` and a small reviewer reads each finished turn and saves the durable facts in it ("I work in UTC-3"), so the main model spends no tool calls on it:
+
+```ts
+const agent = await Agent.create({
+  memory: {
+    enabled: true,
+    userId: "alice",
+    // model: the reviewer's model (default: the agent's model); instructions: replace the defaults.
+    review: { after: "turn" },
+  },
+});
+await agent.memory.reviewsIdle?.(); // wait for queued reviews, e.g. in tests or at shutdown
+```
+
+- A review is queued after each run that ends `finished` with a reply; runs that end `error` or `cancelled` queue none. The turn is passed to the reviewer inside `<turn>` tags, and the default instructions say to treat it as data.
+- Reviews of one agent run one at a time; a new review waits for the previous one.
+- The reviewer is an internal agent with no plugins and exactly one tool, `save_memory({ fact })`, which writes to the same memory directory and `userId` partition as the reviewed agent. A fact longer than 500 characters is refused with a tool error and nothing is stored.
+- A failing review is reported on the diagnostics channel with the agent id. It never rejects the user's `wait()` and never blocks the next turn.
+- `agent.dispose()` waits up to 5 seconds for queued reviews, then cancels the active one, drops the rest and reports how many on the diagnostics channel.
+- Reviews are not mirrored to `memory.mirror` adapters.
+
 ## Builtin tool names
 
 `BUILTIN_TOOL_NAMES` (`"shell"`, `"memory_search"`, `"memory_get"`) lists the tools the SDK declares itself; these are the names `withheldBuiltinTools` accepts and a custom tool may not claim. `isBuiltinToolName(name)` tests one, so an app that takes tool names from configuration can refuse a collision at load time. Withholding a builtin via `withheldBuiltinTools` releases its name, so a custom tool may then use it.
@@ -142,10 +235,90 @@ import { listWorkspacePlugins } from "@theokit/sdk";
 const plugins = await listWorkspacePlugins(process.cwd(), { compatSources: ["claude-code"] });
 ```
 
+A `"general"` plugin registers hooks through `ctx.on`. The handler is typed by hook name, so the
+context needs no cast and a `pre_tool_call` veto is checked (`block` is the literal `true`):
+
+```ts
+import { Plugin } from "@theokit/sdk";
+
+const guard = Plugin.create({
+  kind: "general",
+  name: "guard",
+  version: "1.0.0",
+  register(ctx) {
+    // `c` is inferred as `PreToolCallContext`.
+    ctx.on("pre_tool_call", (c) =>
+      c.name === "Bash" ? { block: true, message: "Bash is disabled here." } : undefined,
+    );
+    // Transform hooks get the chained value first, then their context.
+    ctx.on("transform_llm_output", (text, c) => `${String(text)} [${c.runId}]`);
+  },
+});
+```
+
+`HookContextMap`, `HookResultMap`, `TypedHookHandler` and `GeneralPlugin` are exported for plugin
+authors; handlers typed as `HookHandler` keep compiling.
+
 A `pre_tool_call` plugin sees which conversation the run belongs to in `ctx.conversation`, a
 `ConversationRef` (`platform`, `channelId`, `sessionKey`) the caller declares with
 `Agent.create({ conversation })` or `agent.send(prompt, { conversation })`; the send value wins. The
 key is absent when none was declared. It is threaded on the local runtime.
+
+## Guarding tools that run outside the agent loop
+
+A tool called from a code-mode script, an MCP endpoint or a relay skips the agent's `pre_tool_call`
+plugins. `guardTools` wraps each tool so its handler runs the plugin chain first; a veto rejects
+with `ToolCallBlockedError` (`toolName`, `pluginMessage`) and the handler is not called.
+`runPreToolCall(plugins, ctx)` runs the same chain for one call and returns the first
+`{ block: true, message }` decision, or `undefined`.
+
+```ts
+import { guardTools, runPreToolCall } from "@theokit/sdk";
+
+const safe = guardTools(tools, plugins, { agentId: "my-agent", permissionMode: "default" });
+const decision = await runPreToolCall(plugins, { name, args, agentId, runId });
+```
+
+A plugin handler that throws is not turned into a veto: the exception propagates, as it does in the
+agent loop. `guardTools` passes no `conversation`; use `runPreToolCall` to supply one.
+
+## Tool-result guard and `sendDefaults`
+
+`SendOptions.toolResultGuard` (`{ delimit, redactPii }`) wraps or redacts tool output before the model sees it, and `SendOptions.pruneToolResults` stubs results older than `olderThanRounds` rounds. Both are read per send, so a missed call site runs unguarded. Set them once on the agent instead:
+
+```ts
+const agent = await Agent.create({
+  model: "anthropic/claude-sonnet-4-6",
+  local: { cwd: process.cwd() },
+  sendDefaults: {
+    toolResultGuard: { delimit: true }, // tool output arrives inside <untrusted-tool-output>
+    pruneToolResults: { olderThanRounds: 3 },
+  },
+});
+
+await agent.send("summarise the page"); // guarded
+await agent.send("raw", { toolResultGuard: { redactPii: true } }); // this call's guard replaces the default
+```
+
+`sendDefaults` accepts `toolResultGuard`, `pruneToolResults` and `perToolTimeoutMs`, applies to local agents, and also covers `fork()`, `generate()`, `runUntil()` and the `*ToCompletion` helpers. It merges per key: a key the send passes wins. Passing a key as `undefined` explicitly does **not** remove the default. An invalid `pruneToolResults` fails at `Agent.create` (and `Agent.resume`) with `ConfigurationError` code `invalid_prune_tool_results`. The defaults are persisted, so a disk-backed `Agent.resume` keeps them.
+
+## Pinned `AgentFactory` options
+
+`AgentFactory.create({ defaults, pinned })` builds every agent from `defaults`, then the per-session overrides, then `pinned`. An override cannot change a pinned key. `local`, `memory`, `cloud` and `sendDefaults` merge key by key with pinned keys winning; `withheldBuiltinTools` is a union, so an override can withhold more tools, never fewer. A config that mixes `defaults`/`pinned` with other top-level `AgentOptions` keys throws `ConfigurationError`. Per-send options can still override `sendDefaults` at send time.
+
+```ts
+const factory = AgentFactory.create({
+  defaults: { model: { id: "claude-sonnet-4-6" } },
+  pinned: {
+    withheldBuiltinTools: ["shell"],
+    memory: { enabled: false },
+    local: { hooks: approvalGate },
+    sendDefaults: { toolResultGuard: guard },
+  },
+});
+// cwd is kept; hooks, memory and shell stay pinned.
+const agent = await factory.forSession("s1", { local: { cwd }, memory: { enabled: true } });
+```
 
 ## Explain skills
 
@@ -240,6 +413,21 @@ const sandbox = new DockerSandbox({
 
 `readOnlyWorkspace: true` changes only the workspace mount; the root filesystem is already read-only with a `/tmp` tmpfs. Because the workspace is then not writable, `uploadFile` fails. Label keys must match `[a-z0-9]([a-z0-9._-]*[a-z0-9])?` and values must not contain newlines; otherwise the constructor throws `ConfigurationError` with code `invalid_docker_label`.
 
+### Keeping and cleaning containers
+
+By default every container is removed on exit (`--rm`). With `keepLast: { key }` the sandbox runs without `--rm`, labels the container `theokit.sandbox.keep=<key>`, and after each command removes earlier exited containers with the same key, so the last one stays for `docker inspect`. A failed cleanup is written to the diagnostics channel (`setDiagnosticsSink`); the command's result is unchanged. The label name is reserved and cannot be set in `labels`.
+
+```ts
+import { listSandboxContainers, removeSandboxContainers } from "@theokit/sdk/sandbox";
+
+const sandbox = new DockerSandbox({ labels: { app: "x" }, keepLast: { key: "s1" } });
+const found = await listSandboxContainers({ app: "x" }); // [{ id, name, state, image, labels }]
+const { removed, skippedRunning } = await removeSandboxContainers({ app: "x" });
+// a running container is skipped unless `includeRunning: true` (then `docker rm -f`)
+```
+
+Both helpers require at least one label (an empty set would match every container on the host) and take `{ runner }` and default to `defaultDockerRunner()`. A docker command that fails or times out rejects with `SandboxDockerError` (`subcommand`, `exitCode`, `stderr`). Docker renders labels as `k=v,k=v`, so a label value that itself contains a comma followed by `word=` is parsed ambiguously.
+
 ## `@theokit/sdk/persistence`: single instance lock
 
 `acquireInstanceLock(dir, { path? })` takes `<dir>.instance.lock` for the life of the process, so two processes never run against the same state directory. A second holder rejects with `InstanceLockedError` (`lockPath`, `holderPid`); the message names the lock and the pid, and says to stop that process or remove the lock if the pid is not running. A lock left by a pid that is no longer running is taken over, and only one of several contenders wins a given stale lock. `release()` removes the lock only while this holder still owns it, and is idempotent.
@@ -258,6 +446,63 @@ process.once("SIGTERM", async () => {
 
 Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must share one pid namespace (not containers or hosts sharing a volume). The lock needs a filesystem with hard links; without one the call rejects with `InstanceLockedError`.
 
+## Defer a tool call for approval
+
+A permission gate can hand a call to a person instead of waiting on a live Promise. Return `defer` from `canUseTool` (or `{ defer: true, reason }` from a `pre_tool_call` handler, which also receives `toolUseId`):
+
+```ts
+const plugin = createPermissionPlugin(engine, {
+  canUseTool: () => ({ behavior: "defer", reason: "needs a person" }),
+});
+const result = await (await agent.send("deploy")).wait();
+if (result.status === "deferred") {
+  for (const call of result.deferredToolCalls ?? []) {
+    // { toolUseId, toolName, input, deferredAt, reason, schemaVersion: 1 }
+  }
+}
+```
+
+The deferred call is not dispatched, the other calls of the step finish, and the transcript ends on the unanswered `tool_use`. The run releases the session, so the process can exit.
+
+### Resume after a restart
+
+Restore the agent (`Agent.resume(agentId, options)`, passing the plugins and tools again) and answer every pending call with `toolDecisions`, exactly one per `toolUseId`. The pending calls are read from the stored transcript; the `message` is ignored.
+
+```ts
+const agent = await Agent.resume(agentId, { plugins: [plugin], tools });
+const run = await agent.send("", {
+  toolDecisions: [{ toolUseId: "call_1", behavior: "allow" }], // or { behavior: "deny", message }
+});
+await run.wait(); // the model continues with the results
+```
+
+`allow` dispatches the stored call after the permission rules, floors and hooks run again on its input: an approval answers an `ask` and never overrides a current `deny`, a permission floor or another plugin's veto (the call then gets an error result). `deny` writes an error result with your `message` and runs nothing. An unknown or repeated `toolUseId`, a missing decision, nothing pending, or a stored call with an unsupported `schemaVersion` rejects with `ConfigurationError` (`tool_decision_unknown`, `tool_decision_duplicate`, `tool_decision_missing`, `no_deferred_tool_calls`, `deferred_schema_unsupported`) and leaves the session unchanged. A normal send while calls are pending abandons them; the unanswered calls are left out of the history so the session is not blocked. Local runtime only.
+
+## `@theokit/sdk/auth`: choosing a provider credential
+
+`resolveProviderCredential({ env, model?, store?, providers?, pinnedEnvVar? })` returns
+`{ provider, apiKey, origin, baseUrl }`. Rules, in order:
+
+1. `pinnedEnvVar` set: that variable is used; empty or missing throws `pinned_credential_missing`.
+2. The model names a provider (`openai/gpt-4o-mini`): that provider's credential (env, then `store`) is used. None throws `model_provider_without_credential` and never falls back to another provider.
+3. A bare model id or no model: the first candidate by `priority` with a credential. None throws `no_provider_credential`, listing the variables checked.
+4. A key whose prefix names a different vendor than the provider it was found for throws `credential_provider_mismatch`.
+
+`DEFAULT_PROVIDER_CANDIDATES` is the one default order: `openrouter` (`OPENROUTER_API_KEY`), `anthropic` (`ANTHROPIC_API_KEY`), `openai` (`OPENAI_API_KEY`). It matches the chain `@theokit/agents` already uses. Errors are `ProviderCredentialError`; messages name variables, never values.
+
+## `@theokit/sdk/persistence`: named profiles
+
+`resolveProfile(name, { profilesRoot?, appDirectories? })` maps a profile name to `<profilesRoot>/<name>` (default `getProfilesRoot()`, `~/.theokit/profiles`) and returns `directory`, `directories` and `env` (`THEOKIT_HOME` and `THEOKIT_AUTH_HOME` set to the profile directory, plus one entry per `appDirectories` item, joined under the profile). Names must match `^[a-z0-9][a-z0-9-]{0,15}$`, otherwise `ConfigurationError` code `profile_name_invalid` (the name is not echoed). App directory values must be relative and free of `..`. It touches no disk.
+
+`applyProfile(profile, env)` throws `ProfileConflictError` (`variables`: names only, never values) when any variable the profile owns is already set to a non-blank value in `env`. It then creates each directory at 0700, tightens an existing one to 0700 without reading or removing its contents, and only then writes the overrides into `env`. A filesystem failure throws `ConfigurationError` code `profile_directory_failed` naming the path and errno code and leaves `env` unchanged (directories made before the failure remain).
+
+```ts
+import { applyProfile, resolveProfile } from "@theokit/sdk/persistence";
+
+const profile = resolveProfile("work", { appDirectories: { APP_WORKSPACE: "workspace" } });
+await applyProfile(profile, process.env);
+```
+
 ## `@theokit/sdk/context`
 
 `runDiscovery` finds context files (`AGENTS.md`, `CLAUDE.md`, ...) and inlines their `@path` imports.
@@ -265,6 +510,70 @@ Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must
 - **List patterns.** A `DiscoverySpec` with `scope: "cwd-only"` or `"git-root-walk"` may set `pattern: ["THEO.md", "AGENTS.md", "CLAUDE.md"]`. Each directory contributes only the first name that exists. A list on a `"globbed"` spec throws `ConfigurationError` naming the spec id.
 - **`wrapImport(name, content)`.** Wraps each inlined `@import` at every depth, e.g. `(n, c) => \`--- import: ${n} ---\n${c}\n--- end import ---\``. Refusal and not-found placeholders are never wrapped. Default: content unchanged.
 - **Already loaded.** A file discovery emits is not inlined again by an import; the import line becomes `[@import already loaded: <path>]`.
+
+## `@theokit/sdk/a2a`: reaching agents in other processes
+
+`MessageBus` routes in-process. Pass an `A2ATransport` to let `send` reach peers elsewhere:
+
+```ts
+import { MessageBus, inMemoryTransport } from "@theokit/sdk/a2a";
+
+const transport = inMemoryTransport(); // shared object, for tests and same-process use
+const a = new MessageBus({ transport });
+const b = new MessageBus({ transport });
+b.register("worker", (m) => console.log(m.payload));
+await a.send("boss", "worker", { type: "job", payload: 1 }); // no local handler: goes to transport.send
+await b.pump(); // polls for every locally registered agent, delivers in order, returns 1
+```
+
+- A local handler always wins; the transport is used only when there is none. Without a transport an unknown peer still rejects with `A2APeerNotRegisteredError`.
+- `request` stays local only. With a transport and no local handler it rejects with `A2ARemoteRequestUnsupportedError` (`a2a_remote_request_unsupported`).
+- `pump()` is not automatic: call it when you want waiting messages delivered. A handler failure is reported on diagnostics and does not stop the others.
+- `from` is self-asserted. The transport does not authenticate it; that is the job of a sealed transport.
+
+### HTTP store-and-forward mailbox
+
+For peers that are offline or behind NAT, serve a mailbox from any fetch-style server and point `httpMailboxTransport` at it:
+
+```ts
+import { MessageBus, createHttpMailboxHandler, httpMailboxTransport } from "@theokit/sdk/a2a";
+
+// server: handles POST <prefix>/put and POST <prefix>/take
+const handler = createHttpMailboxHandler({ token: process.env.MAILBOX_TOKEN!, persistPath: "./mailbox.json" });
+
+// client
+const bus = new MessageBus({
+  transport: httpMailboxTransport({ baseUrl: "https://host.example/mailbox", token: process.env.MAILBOX_TOKEN! }),
+});
+```
+
+- Defaults: 100 messages per recipient (a full queue answers 507), 256 KiB body cap (413). Non-POST answers 405 with `allow: POST`; a wrong token answers 401 before the body is read. The token is compared in constant time.
+- `persistPath` writes atomically with mode 0600. A file that fails its shape check is refused at start with `A2AMailboxError` and never overwritten. Handlers sharing one file are not coordinated.
+- `baseUrl` must be `https:`, or `http:` on `localhost`, `127.0.0.1` or `[::1]`; otherwise `ConfigurationError` (`a2a_mailbox_insecure_url`). A non-2xx answer rejects with `A2AMailboxError` carrying `status`.
+- **Shared-token limit:** one token guards the whole mailbox. Any holder can `take` any recipient's queue, draining other peers' messages, and `from` is self-asserted. Share the token only between peers that trust each other.
+
+### Sealed transport: encrypted, sender-authenticated messages
+
+`sealedTransport(inner, { identity, trustedPeers, sequences? })` wraps any `A2ATransport` (in-memory, HTTP mailbox) so a relay or mailbox sees only public keys, a sequence number and ciphertext.
+
+```ts
+import { generateA2AIdentity, jsonSequenceStore, MessageBus, sealedTransport } from "@theokit/sdk/a2a";
+
+const me = generateA2AIdentity(); // base64url raw X25519 keys; share only publicKey
+const transport = sealedTransport(inner, {
+  identity: me,
+  trustedPeers: new Map([["bob", bobPublicKey]]), // name -> public key, distributed out of band
+  sequences: jsonSequenceStore("./a2a-seq.json"), // atomic write, mode 0600
+});
+const bus = new MessageBus({ transport });
+await bus.send("me", "bob", { type: "note", payload: "hi" }); // `to` is the trusted NAME
+```
+
+- Envelope: ephemeral and static X25519, HKDF-SHA256 (info binds version `theokit-a2a-v1`, sender, recipient and ephemeral keys), AES-256-GCM with a random 12-byte nonce; the AAD binds the same values and the sequence number.
+- Trust model: only peers in `trustedPeers` can be sent to or received from. On receipt `from` is the trusted name for the verified sender key, not a claim. Sending to an unknown name rejects with `A2AUntrustedPeerError` (`a2a_untrusted_peer`).
+- Dropped messages (malformed, `wrong_recipient`, `untrusted_peer`, `authentication_failed`, `replay`) never reach a handler; the reason is reported on diagnostics, never the plaintext.
+- Sequence numbers must rise: a replay, or an older message arriving after a newer one, is dropped. Keep the store across restarts (`jsonSequenceStore`); the default `memorySequenceStore` forgets them. Processes sharing one JSON file are not coordinated.
+- One identity is one agent: every poll reads the queue addressed to the identity's public key. Key distribution is yours. There is no forward secrecy: a leaked recipient private key exposes the messages sealed to it.
 
 ## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
 
@@ -284,6 +593,19 @@ try {
 ```
 
 LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
+
+## Resuming a workflow run by id: `WorkflowSet`
+
+When an app runs several workflows that suspend, the run id is the only token you hand out. `WorkflowSet.of([...]).resume(runId, payload)` finds the workflow that owns it:
+
+```ts
+import { WorkflowSet } from "@theokit/sdk/workflow";
+
+const set = WorkflowSet.of([refunds, invoices]);
+const { name, run } = await set.resume(runId, { approved: true });
+```
+
+A member with no snapshot for the id, or whose snapshot belongs to another workflow, is skipped. Any other error (a payload that fails validation, an I/O error) is rethrown at once and the remaining members are not tried. If no member owns the run, it throws `WorkflowSnapshotNotFoundError`. `WorkflowSet.of` throws `ConfigurationError` when two members share a name.
 
 ## Status
 

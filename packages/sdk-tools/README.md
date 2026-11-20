@@ -113,6 +113,31 @@ at most 33,554,432 pixels) before any pixel buffer is allocated. A refusal is an
 naming the file, the field and its value; a file shorter than its header or pixel data raises
 `XwdNotWrittenError` (a subclass), which is safe to retry. `readXwdHeader` returns just the parsed header.
 
+## `createComputerTool`
+
+A computer-use tool for an X11 desktop: `screenshot`, `mouse_move`, `left_click` and `type`.
+
+```ts
+import { createComputerTool } from "@theokit/sdk-tools";
+
+const computer = createComputerTool({
+  display: ":99",
+  framebuffer: "/tmp/xvfb-fb/Xvfb_screen0",
+  // Turn the PNG into text for the model; wire a vision model here.
+  describe: async (png, { width, height, question, signal }) => myVision(png, question, signal),
+});
+```
+
+Host requirements: Xvfb started with `-fbdir <dir>` (the XWD file it keeps there is `framebuffer`)
+and `xdotool` on `PATH` (or pass `xdotool`). `describeTimeoutMs` (default 60000) bounds `describe`,
+whose `signal` is aborted at the limit.
+
+Guards: `xdotool` runs by argument vector with no shell, a 5 s timeout, the run's abort signal and an
+environment of only `DISPLAY`, `PATH` and `XAUTHORITY`. `type` text is 1 to 500 characters with no
+control character. Coordinates must lie inside the screen size read from the framebuffer header.
+Pointer and typing actions run one at a time. A failure is thrown as an error naming the action and
+the cause, which the SDK returns to the model as a tool error.
+
 ## API reference
 
 Every symbol this package exports, with the exact specifier to import it from, is in the generated
@@ -129,3 +154,16 @@ rather than the version someone wrote a page about.
 ## License
 
 Apache-2.0.
+
+## Choosing a web search adapter from the environment
+
+`resolveWebSearchAdapter(env, { fetchImpl? })` picks one adapter from the `env` you pass (it never reads `process.env`) and returns `{ adapter, provider, secrets, offReason }`. Pass `secrets` to your output mask; wrap `adapter` with `createWebSearchTool({ search: adapter })`.
+
+Precedence (blank values count as unset):
+
+1. `THEOKIT_SEARCH` — `brave`, `tavily`, `searxng:<http(s) url>`, `generic` or `off`. Wins over everything below.
+2. `BRAVE_API_KEY` → Brave.
+3. `TAVILY_API_KEY` → Tavily.
+4. `THEOKIT_SEARCH_API_URL` + `THEOKIT_SEARCH_API_KEY` → generic HTTP.
+
+With none set, `adapter` is undefined and `offReason` names the variables that would turn search on. A half-configured generic pair, an explicit choice missing its key, an invalid `searxng:` URL or an unknown `THEOKIT_SEARCH` value throws `ConfigurationError` naming the variable, never its value.

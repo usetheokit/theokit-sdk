@@ -14,6 +14,7 @@
 import type { AgentDefinition, AgentOptions } from "../../types/agent.js";
 import type { SessionStore } from "../../types/session-store.js";
 import { diag } from "../diagnostics.js";
+import type { TurnReviewQueue } from "../memory/review/turn-review.js";
 import { withCwdMutex } from "../persistence/cwd-mutex.js";
 import type { FileContextManager } from "../runtime/context/context-manager.js";
 import type { PluginsManager } from "../runtime/plugin-loader/plugins-manager.js";
@@ -90,6 +91,8 @@ export interface LocalAgentDisposeTarget {
   readonly workspaceCwd: string;
   readonly lifecycleAbortController: AbortController;
   readonly sessionStore: SessionStore;
+  /** `memory.review` queue, drained (bounded) before the session is torn down. */
+  readonly turnReviews?: TurnReviewQueue | undefined;
 }
 
 /**
@@ -116,6 +119,9 @@ export async function disposeLocalAgentSession(agent: LocalAgentDisposeTarget): 
   // outlives the run by design; without this it would outlive the AGENT too, leaving an orphan
   // child process per server for the life of the host. No-op for the default `'run'` lifecycle,
   // which never puts anything in the pool.
+  // `memory.review`: let queued reviews finish (bounded), drop the rest. The lifecycle abort above
+  // cancels the sends, not the reviewer, which has its own signal.
+  await agent.turnReviews?.drain();
   disposeSessionMcpClients(agent.agentId);
   // Now flush any remaining disk writes so the on-disk state matches the in-memory state
   // before the caller proceeds (ADR D17 + D18).

@@ -9,6 +9,7 @@ import type {
 } from "../../../types/agent.js";
 import type { McpServerConfig } from "../../../types/mcp.js";
 import { assertValidDoomLoopWindow } from "../../agent-loop/doom-loop-tracker.js";
+import { validatePruneToolResults } from "../../agent-loop/prune-tool-results.js";
 import { validateMcpToolFilter } from "../../mcp/tool-filter.js";
 import { resolveMaxFacts } from "../../memory/storage/fact-ceiling.js";
 
@@ -36,6 +37,7 @@ export function validateAgentOptions(options: AgentOptions): void {
   rejectProgrammaticHooks(options);
   ensureRuntimeShape(options);
   if (options.local !== undefined) {
+    validateLocalRegistry(options.local);
     if (options.model === undefined) {
       throw new ConfigurationError("Local agents require a model selection", {
         code: "missing_model",
@@ -51,6 +53,16 @@ export function validateAgentOptions(options: AgentOptions): void {
   validatePlugins(options);
   validateCustomTools(options);
   validateCredentialPoolShape(options);
+  validatePruneToolResults(options.sendDefaults?.pruneToolResults);
+}
+
+function validateLocalRegistry(local: NonNullable<AgentOptions["local"]>): void {
+  const registry: unknown = local.registry;
+  if (registry !== undefined && typeof registry !== "boolean") {
+    throw new ConfigurationError("`local.registry` must be a boolean", {
+      code: "invalid_local_registry",
+    });
+  }
 }
 
 /**
