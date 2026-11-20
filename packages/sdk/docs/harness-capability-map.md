@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1549 export(s) across 58 entry point(s).
+1552 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1524,6 +1524,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `isCorruptionError` | function | True when an open error indicates an unreadable / corrupt database file. |
 | `JsonlParseError` | class | Raised when a JSONL line is not valid JSON or is not a JSON object.  |
 | `legacyTranscriptPath` | function | The path this session used BEFORE #400 made transcript filenames UUIDs.  |
+| `listProjects` | function | Every project folder under `<baseDir>/projects/`, with its cwd read from the transcripts inside.  |
+| `ListProjectsOptions` | interface | Options for {@link listProjects } . |
 | `listSessions` | function | Every session transcript under `<baseDir>/projects/<encoded-cwd>/`, with the id read from inside each file.  |
 | `ListSessionsOptions` | interface | Options for {@link listSessions } . |
 | `LiveSessionError` | class | M81 — the target is a protected session (live pointer / most-recent transcript / active entry).  |
@@ -1533,6 +1535,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `OpenSqliteResilientOptions` | interface | Input to {@link openSqliteResilient } .  |
 | `PersistenceSchema` | const | `persistence?` opt-in JSON disk backend with `dir` required when chosen.  |
 | `ProfileConflictError` | class | Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a variable the profile owns.  |
+| `ProjectListing` | interface | One `projects/<encoded>/` folder found on disk. |
 | `readJsonlIds` | function | Read the set of keys from an existing JSONL file for which `keyFn(parsed)` returns a non-empty string.  |
 | `readJsonlTail` | function | Read the LAST records of a JSONL file without loading the whole thing.  |
 | `ReadJsonlTailOptions` | interface | Options for {@link readJsonlTail } . |
