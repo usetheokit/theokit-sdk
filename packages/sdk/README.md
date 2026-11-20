@@ -607,6 +607,27 @@ const { name, run } = await set.resume(runId, { approved: true });
 
 A member with no snapshot for the id, or whose snapshot belongs to another workflow, is skipped. Any other error (a payload that fails validation, an I/O error) is rethrown at once and the remaining members are not tried. If no member owns the run, it throws `WorkflowSnapshotNotFoundError`. `WorkflowSet.of` throws `ConfigurationError` when two members share a name.
 
+## `@theokit/sdk/testing`: a fake model server
+
+`startFakeModelServer` starts a server on a free loopback port that speaks a provider's chat wire and answers with scripted text, so an agent runs end to end with no real model. It imports no test runner.
+
+```ts
+import { Agent } from "@theokit/sdk";
+import { startFakeModelServer } from "@theokit/sdk/testing";
+
+const server = await startFakeModelServer({ reply: "pong" }); // wire: "openai" (default) | "ollama"
+const agent = await Agent.create({
+  apiKey: "local", // any non-empty placeholder: it selects the real runtime and is never checked
+  model: server.model, // { id: "lmstudio/fake-model", url } (or "ollama/..." for wire "ollama")
+  local: { cwd: process.cwd() },
+});
+await (await agent.send("hi")).wait();
+console.log(server.requests); // every request body received
+await server.close();
+```
+
+`reply` may also be `(request) => string`. A body that is not JSON gets HTTP 400 and is recorded with `messages: []` and an `error` string. `host` accepts loopback addresses only. Scripted tool calls are not supported yet.
+
 ## Status
 
 The full contract is defined by the exported TypeScript types; see [`CHANGELOG.md`](./CHANGELOG.md) for the release history.
