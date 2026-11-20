@@ -281,8 +281,13 @@ export interface WorkflowRun<TOutput = unknown> {
  * intend (the id moved).
  */
 export interface WorkflowSnapshot {
-  /** v1 = pre-SE29 (no `state`); v2 = SE29 (carries `state`). Resume reads both. */
-  readonly _schemaVersion: 1 | 2;
+  /** v1 = pre-SE29 (no `state`); v2 = SE29 (carries `state`); v3 adds `status`. Resume reads all. */
+  readonly _schemaVersion: 1 | 2 | 3;
+  /**
+   * v3 — `"suspended"` (a step called `suspend()`) or `"running"` (a `durability: "step"` checkpoint;
+   * `currentStepId` is the last COMPLETED step). Absent on v1/v2 and read as `"suspended"`.
+   */
+  readonly status?: "suspended" | "running";
   readonly runId: string;
   readonly workflowName: string;
   readonly currentStepId: string;
@@ -346,6 +351,14 @@ export interface WorkflowPersistenceOptions {
   readonly backend: "memory" | "json";
   /** Required for `backend: "json"`. */
   readonly dir?: string;
+  /**
+   * `"suspend"` (default) writes a snapshot only when a step suspends. `"step"` also checkpoints after
+   * every completed top-level step (not children of `parallel`, `branch` or `foreach`) and deletes the
+   * checkpoint when the run completes; a failed or cancelled run keeps its last checkpoint so
+   * `Workflow.resume({ runId })` can continue it. With `backend: "memory"` it is allowed but does not
+   * survive a process restart. The run lock stays per process.
+   */
+  readonly durability?: "suspend" | "step";
 }
 
 /**
