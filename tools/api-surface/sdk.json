@@ -2646,7 +2646,7 @@
       },
       "SandboxBackend": {
         "tier": "stable",
-        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
+        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
       },
       "SandboxConfig": {
         "tier": "stable",
@@ -2858,7 +2858,7 @@
       },
       "SandboxBackend": {
         "tier": "stable",
-        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
+        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
       },
       "SandboxConfig": {
         "tier": "stable",
@@ -3484,6 +3484,10 @@
         "tier": "stable",
         "declaration": "interface BranchStep {\n    readonly kind: \"branch\";\n    readonly id: string;\n    readonly predicates: ReadonlyArray<readonly [\n        (input: unknown) => boolean | Promise<boolean>,\n        ReadonlyArray<Step>\n    ]>;\n    readonly fallback?: ReadonlyArray<Step>;\n}"
       },
+      "CompensationResult": {
+        "tier": "stable",
+        "declaration": "interface CompensationResult {\n    readonly stepId: string;\n    readonly status: \"compensated\" | \"failed\";\n    readonly error?: {\n        name: string;\n        message: string;\n    };\n}"
+      },
       "DowhileStep": {
         "tier": "stable",
         "declaration": "interface DowhileStep {\n    readonly kind: \"dowhile\";\n    readonly id: string;\n    readonly step: Step;\n    readonly condFn: (output: unknown, iteration: number) => boolean | Promise<boolean>;\n    readonly maxIterations?: number;\n}"
@@ -3554,7 +3558,7 @@
       },
       "WorkflowEvent": {
         "tier": "stable",
-        "declaration": "type WorkflowEvent = {\n    readonly type: \"step_started\";\n    readonly stepId: string;\n} | {\n    readonly type: \"step_completed\";\n    readonly stepId: string;\n    readonly output: unknown;\n} | {\n    readonly type: \"step_failed\";\n    readonly stepId: string;\n    readonly error: {\n        readonly name: string;\n        readonly message: string;\n    };\n} | {\n    readonly type: \"workflow_suspended\";\n    readonly stepId: string;\n} | {\n    readonly type: \"workflow_completed\";\n};"
+        "declaration": "type WorkflowEvent = {\n    readonly type: \"step_started\";\n    readonly stepId: string;\n} | {\n    readonly type: \"step_completed\";\n    readonly stepId: string;\n    readonly output: unknown;\n} | {\n    readonly type: \"step_failed\";\n    readonly stepId: string;\n    readonly error: {\n        readonly name: string;\n        readonly message: string;\n    };\n} | {\n    readonly type: \"step_compensated\";\n    readonly stepId: string;\n} | {\n    readonly type: \"step_compensation_failed\";\n    readonly stepId: string;\n    readonly error: {\n        readonly name: string;\n        readonly message: string;\n    };\n} | {\n    readonly type: \"workflow_suspended\";\n    readonly stepId: string;\n} | {\n    readonly type: \"workflow_completed\";\n};"
       },
       "WorkflowInputError": {
         "tier": "stable",
@@ -3606,7 +3610,7 @@
       },
       "WorkflowRun": {
         "tier": "stable",
-        "declaration": "interface WorkflowRun<TOutput = unknown> {\n    readonly id: string;\n    readonly name: string;\n    readonly status: \"running\" | \"completed\" | \"failed\" | \"suspended\" | \"cancelled\";\n    readonly output?: TOutput;\n    readonly error?: {\n        name: string;\n        message: string;\n    };\n    readonly startedAt: number;\n    readonly endedAt?: number;\n    readonly stepResults: ReadonlyArray<StepResult>;\n}"
+        "declaration": "interface WorkflowRun<TOutput = unknown> {\n    readonly id: string;\n    readonly name: string;\n    readonly status: \"running\" | \"completed\" | \"failed\" | \"suspended\" | \"cancelled\";\n    readonly output?: TOutput;\n    readonly error?: {\n        name: string;\n        message: string;\n    };\n    readonly startedAt: number;\n    readonly endedAt?: number;\n    readonly stepResults: ReadonlyArray<StepResult>;\n    readonly compensation?: ReadonlyArray<CompensationResult>;\n}"
       },
       "WorkflowRunOptions": {
         "tier": "stable",
@@ -3654,7 +3658,7 @@
       },
       "fn": {
         "tier": "stable",
-        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n}): FnStep;"
+        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n    compensate?: FnStep[\"compensate\"];\n}): FnStep;"
       },
       "workflowAsTool": {
         "tier": "stable",
@@ -3678,6 +3682,10 @@
         "tier": "stable",
         "declaration": "interface BranchStep {\n    readonly kind: \"branch\";\n    readonly id: string;\n    readonly predicates: ReadonlyArray<readonly [\n        (input: unknown) => boolean | Promise<boolean>,\n        ReadonlyArray<Step>\n    ]>;\n    readonly fallback?: ReadonlyArray<Step>;\n}"
       },
+      "CompensationResult": {
+        "tier": "stable",
+        "declaration": "interface CompensationResult {\n    readonly stepId: string;\n    readonly status: \"compensated\" | \"failed\";\n    readonly error?: {\n        name: string;\n        message: string;\n    };\n}"
+      },
       "DowhileStep": {
         "tier": "stable",
         "declaration": "interface DowhileStep {\n    readonly kind: \"dowhile\";\n    readonly id: string;\n    readonly step: Step;\n    readonly condFn: (output: unknown, iteration: number) => boolean | Promise<boolean>;\n    readonly maxIterations?: number;\n}"
@@ -3748,7 +3756,7 @@
       },
       "WorkflowEvent": {
         "tier": "stable",
-        "declaration": "type WorkflowEvent = {\n    readonly type: \"step_started\";\n    readonly stepId: string;\n} | {\n    readonly type: \"step_completed\";\n    readonly stepId: string;\n    readonly output: unknown;\n} | {\n    readonly type: \"step_failed\";\n    readonly stepId: string;\n    readonly error: {\n        readonly name: string;\n        readonly message: string;\n    };\n} | {\n    readonly type: \"workflow_suspended\";\n    readonly stepId: string;\n} | {\n    readonly type: \"workflow_completed\";\n};"
+        "declaration": "type WorkflowEvent = {\n    readonly type: \"step_started\";\n    readonly stepId: string;\n} | {\n    readonly type: \"step_completed\";\n    readonly stepId: string;\n    readonly output: unknown;\n} | {\n    readonly type: \"step_failed\";\n    readonly stepId: string;\n    readonly error: {\n        readonly name: string;\n        readonly message: string;\n    };\n} | {\n    readonly type: \"step_compensated\";\n    readonly stepId: string;\n} | {\n    readonly type: \"step_compensation_failed\";\n    readonly stepId: string;\n    readonly error: {\n        readonly name: string;\n        readonly message: string;\n    };\n} | {\n    readonly type: \"workflow_suspended\";\n    readonly stepId: string;\n} | {\n    readonly type: \"workflow_completed\";\n};"
       },
       "WorkflowInputError": {
         "tier": "stable",
@@ -3800,7 +3808,7 @@
       },
       "WorkflowRun": {
         "tier": "stable",
-        "declaration": "interface WorkflowRun<TOutput = unknown> {\n    readonly id: string;\n    readonly name: string;\n    readonly status: \"running\" | \"completed\" | \"failed\" | \"suspended\" | \"cancelled\";\n    readonly output?: TOutput;\n    readonly error?: {\n        name: string;\n        message: string;\n    };\n    readonly startedAt: number;\n    readonly endedAt?: number;\n    readonly stepResults: ReadonlyArray<StepResult>;\n}"
+        "declaration": "interface WorkflowRun<TOutput = unknown> {\n    readonly id: string;\n    readonly name: string;\n    readonly status: \"running\" | \"completed\" | \"failed\" | \"suspended\" | \"cancelled\";\n    readonly output?: TOutput;\n    readonly error?: {\n        name: string;\n        message: string;\n    };\n    readonly startedAt: number;\n    readonly endedAt?: number;\n    readonly stepResults: ReadonlyArray<StepResult>;\n    readonly compensation?: ReadonlyArray<CompensationResult>;\n}"
       },
       "WorkflowRunOptions": {
         "tier": "stable",
@@ -3848,7 +3856,7 @@
       },
       "fn": {
         "tier": "stable",
-        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n}): FnStep;"
+        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n    compensate?: FnStep[\"compensate\"];\n}): FnStep;"
       },
       "workflowAsTool": {
         "tier": "stable",
@@ -5631,7 +5639,7 @@
       },
       "fn": {
         "tier": "stable",
-        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n}): FnStep;"
+        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n    compensate?: FnStep[\"compensate\"];\n}): FnStep;"
       },
       "foldLayers": {
         "tier": "stable",
@@ -7558,7 +7566,7 @@
       },
       "fn": {
         "tier": "stable",
-        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n}): FnStep;"
+        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n    compensate?: FnStep[\"compensate\"];\n}): FnStep;"
       },
       "foldLayers": {
         "tier": "stable",
