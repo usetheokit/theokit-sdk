@@ -1,9 +1,10 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 import pkg from "../../package.json" with { type: "json" };
 import { NetworkError } from "../../src/errors.js";
 import { createMcpClient, type McpClient } from "../../src/internal/mcp/client.js";
+import { removeTempDirRobustSync } from "../helpers/temp-workspace.js";
 
 const opened: McpClient[] = [];
 const servers: Server[] = [];
@@ -38,7 +39,9 @@ async function stdioClient(answer: string, extra: Record<string, unknown> = {}) 
   const { mkdtempSync, readFileSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
-  const seenFile = join(mkdtempSync(join(tmpdir(), "mcp-pv-")), "seen.json");
+  const dir = mkdtempSync(join(tmpdir(), "mcp-pv-"));
+  onTestFinished(() => removeTempDirRobustSync(dir));
+  const seenFile = join(dir, "seen.json");
   const client = createMcpClient("fake", {
     command: process.execPath,
     args: ["-e", stdioScript(answer)],
@@ -46,7 +49,14 @@ async function stdioClient(answer: string, extra: Record<string, unknown> = {}) 
     ...extra,
   });
   opened.push(client);
-  return { client, seen: () => JSON.parse(readFileSync(seenFile, "utf8")) as Record<string, any> };
+  return {
+    client,
+    seen: () =>
+      JSON.parse(readFileSync(seenFile, "utf8")) as {
+        protocolVersion: string;
+        clientInfo: { version: string };
+      },
+  };
 }
 
 describe("mcp protocol version negotiation", () => {

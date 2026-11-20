@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1527 export(s) across 58 entry point(s).
+1528 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -264,6 +264,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `McpAuthConfig` | interface | OAuth-style auth bundle for HTTP/SSE MCP servers. |
 | `McpHttpServerConfig` | type | HTTP or SSE MCP server. |
 | `McpOAuthConfig` | interface | OAuth 2.1 PKCE flow descriptor.  |
+| `McpProtocolVersion` | type | MCP protocol revisions the SDK client speaks. |
 | `McpServerConfig` | type | Union of MCP server configs. |
 | `McpStdioServerConfig` | type | MCP server configuration accepted by `Agent.create()` and `agent.send()`. |
 | `Memory` | const | Memory operations that run OUTSIDE an agent turn.  |

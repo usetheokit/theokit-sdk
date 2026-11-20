@@ -1,6 +1,5 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { isAbsolute } from "node:path";
-import pkg from "../../../package.json" with { type: "json" };
 import { ConfigurationError, NetworkError } from "../../errors.js";
 import type {
   McpHttpServerConfig,
@@ -12,6 +11,7 @@ import { resolveChildEnv } from "../runtime/lifecycle/env-policy.js";
 import { safePathJoin } from "../security/path-guard.js";
 import { DEFAULT_MCP_TIMEOUT_MS, handshakeAwareTimeout } from "./handshake-timeout.js";
 import { resolveBearer } from "./oauth-bearer.js";
+import { rpcInitialize, SUPPORTED_MCP_PROTOCOL_VERSIONS } from "./protocol-version.js";
 import { withToolFilter } from "./tool-filter.js";
 
 /**
@@ -37,13 +37,8 @@ export interface McpToolCallResult {
   isError?: boolean;
 }
 
-/** MCP revisions this client speaks, newest first. */
-export const SUPPORTED_MCP_PROTOCOL_VERSIONS = [
-  "2025-06-18",
-  "2025-03-26",
-  "2024-11-05",
-] as const satisfies readonly McpProtocolVersion[];
 export type { McpProtocolVersion };
+export { SUPPORTED_MCP_PROTOCOL_VERSIONS };
 
 export interface McpClient {
   readonly name: string;
@@ -105,32 +100,6 @@ function isAbortLike(cause: unknown): boolean {
 }
 
 type RpcRequester = (method: string, params: Record<string, unknown>) => Promise<unknown>;
-
-/**
- * Run the `initialize` handshake and return the version the server agreed to.
- * A server that answers a version outside the supported list is refused. A reply that names no
- * version at all (a non-conforming server) is tolerated and yields `undefined`.
- */
-async function rpcInitialize(
-  request: RpcRequester,
-  offered: McpProtocolVersion,
-): Promise<McpProtocolVersion | undefined> {
-  const response = await request("initialize", {
-    protocolVersion: offered,
-    capabilities: { tools: {} },
-    clientInfo: { name: "theokit-sdk", version: pkg.version },
-  });
-  const answered = (response as { result?: { protocolVersion?: unknown } } | undefined)?.result
-    ?.protocolVersion;
-  if (answered === undefined) return undefined;
-  if (SUPPORTED_MCP_PROTOCOL_VERSIONS.includes(answered as McpProtocolVersion)) {
-    return answered as McpProtocolVersion;
-  }
-  throw new NetworkError(
-    `MCP server answered protocol version ${String(answered)}, which this client does not support (offered ${offered}; supported: ${SUPPORTED_MCP_PROTOCOL_VERSIONS.join(", ")})`,
-    { code: "mcp_protocol_unsupported" },
-  );
-}
 
 async function rpcListTools(request: RpcRequester): Promise<McpTool[]> {
   const response = await request("tools/list", {});
