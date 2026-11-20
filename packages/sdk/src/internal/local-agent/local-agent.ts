@@ -77,7 +77,7 @@ import {
   localAgentRunUntil,
   localAgentStreamToCompletion,
 } from "./local-agent-runtime-extensions.js";
-import { type DispatchRunArgs, executeSendLocked } from "./local-agent-send.js";
+import { type DispatchRunArgs, executeSendLocked, resumedFlag } from "./local-agent-send.js";
 import { registerRunAsTask } from "./local-agent-task-wrap.js";
 import { reportUnknownLocalOptions } from "./local-option-keys.js";
 import {
@@ -721,9 +721,4 @@ function includesSetting(options: AgentOptions, source: string): boolean {
   return (
     sources !== undefined && (sources.includes(source as never) || sources.includes("all" as never))
   );
-}
-
-/** `resumed: true` when the send answers deferred tool calls, so post-run writes no user message. */
-function resumedFlag(options: SendOptions): { resumed?: true } {
-  return options.toolDecisions !== undefined ? { resumed: true } : {};
 }

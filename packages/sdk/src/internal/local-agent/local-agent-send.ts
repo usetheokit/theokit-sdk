@@ -431,3 +431,8 @@ function readMemoryForSend(
     "memory read",
   );
 }
+
+/** `resumed: true` when the send answers deferred tool calls, so post-run writes no user message. */
+export function resumedFlag(options: SendOptions): { resumed?: true } {
+  return options.toolDecisions !== undefined ? { resumed: true } : {};
+}
