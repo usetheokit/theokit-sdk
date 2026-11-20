@@ -2,7 +2,6 @@ import pkg from "../../../package.json" with { type: "json" };
 import { NetworkError } from "../../errors.js";
 import type { McpProtocolVersion } from "../../types/mcp.js";
 
-/** @internal */
 /** MCP revisions this client speaks, newest first. */
 export const SUPPORTED_MCP_PROTOCOL_VERSIONS = [
   "2025-06-18",
