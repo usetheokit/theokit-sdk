@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1488 export(s) across 57 entry point(s).
+1493 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -289,6 +289,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MigrateResult` | interface | Outcome of {@link migrateSqliteToLance } . |
 | `migrateSqliteToLance` | function | Migrate the Memory index from SQLite to LanceDB.  |
 | `mkMemoryId` | function | Construct a branded `MemoryId` for an adapter.  |
+| `ModelFallbackAttempt` | interface | One failed attempt of a turn run under {@link AgentOptions.modelFallback } . |
+| `ModelFallbackExhaustedError` | class | Raised (as `RunResult.error.cause`) when the primary model and every {@link AgentOptions.modelFallback } model failed before any output.  |
+| `ModelFallbackOptions` | interface | `AgentOptions.modelFallback` — models to retry a turn on when the primary fails before output.  |
 | `ModelListItem` | interface | Single model entry in the catalog. |
 | `ModelParameterDefinition` | interface | Per-model parameter definition discovered from `Theokit.models.list()`. |
 | `ModelParameterValue` | interface | One slot in a {@link ModelSelection.params } array.  |
@@ -1144,6 +1147,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryAdapterErrorCode` | type | Finite error codes specific to memory adapter operations (ADR D141). |
 | `MemoryFactAmbiguousError` | class | Thrown by `removeMemoryFact` when the id names entries in more than one memory root (the same per-memory file name in the write root and the Claude Code CLI's store).  |
 | `MemoryFactNotRemovableError` | class | Thrown by `removeMemoryFact` when the entry exists but lives outside the write root, for example in the Claude Code CLI's store.  |
+| `ModelFallbackAttempt` | interface | One failed attempt of a turn run under {@link AgentOptions.modelFallback } . |
+| `ModelFallbackExhaustedError` | class | Raised (as `RunResult.error.cause`) when the primary model and every {@link AgentOptions.modelFallback } model failed before any output.  |
 | `NetworkError` | class | Service unavailable, timeout, transport-level failure. |
 | `PluginManifestError` | class | A workspace plugin's `PLUGIN.md` is not a valid manifest (`parsePluginManifest`, `installWorkspacePlugin`).  |
 | `ProfileConflictError` | class | Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a variable the profile owns.  |
