@@ -140,6 +140,13 @@ export interface RunResult {
    */
   error?: RunErrorDetail;
   /**
+   * Attempts that failed before this result under `AgentOptions.modelFallback`, in order
+   * (model and error code). Absent when no attempt failed.
+   *
+   * @public
+   */
+  modelFallbackAttempts?: import("../errors.js").ModelFallbackAttempt[];
+  /**
    * Token usage observed for this run (ADR D376). Populated in every
    * status where ≥1 LLM call COMPLETED — including partial-failure
    * runs (EC-5). `undefined` when zero LLM calls executed (e.g. an
