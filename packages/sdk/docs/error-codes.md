@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-296 distinct code(s).
+298 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -277,6 +277,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `tool_reserved_name` | domain | — | `packages/sdk/src/tool-name.ts:37` |
 | `transport_failure` | domain | NetworkError | `packages/sdk/src/internal/llm/transport-error.ts:48` |
 | `transport_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:614` +1 |
+| `unconsumed_model_steps` | domain | — | `packages/sdk/src/testing/scripted-model-server.ts:56` |
+| `unexpected_model_call` | domain | — | `packages/sdk/src/testing/scripted-model-server.ts:45` |
 | `unimplemented_budget_scope` | domain | ConfigurationError | `packages/sdk/src/internal/budget/registry.ts:58` +1 |
 | `unknown` | domain | AgentRunError, MemoryAdapterError, TheokitAgentError | `packages/memory-honcho/src/adapter.ts:264` +5 |
 | `unknown_agent` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:224` +1 |

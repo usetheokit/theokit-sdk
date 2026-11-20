@@ -38,7 +38,20 @@ export interface FakeModelServerOptions {
   host?: string;
 }
 
-// Scripted tool calls are not supported yet.
+/** What a server answers to one request; used by the fake and the scripted server. */
+export interface ModelAnswer {
+  readonly text?: string;
+  readonly toolCalls?: ReadonlyArray<{
+    readonly name: string;
+    readonly input: Record<string, unknown>;
+    readonly id?: string;
+  }>;
+  readonly error?: {
+    readonly status: number;
+    readonly body?: unknown;
+    readonly retryAfterSeconds?: number;
+  };
+}
 
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
 
@@ -73,38 +86,71 @@ function parseRequest(raw: string): FakeModelRequest | { error: string } {
   }
 }
 
-function writeOpenAi(res: ServerResponse, model: string, text: string, stream: boolean): void {
+const USAGE = { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 };
+
+function openAiToolCalls(answer: ModelAnswer) {
+  return (answer.toolCalls ?? []).map((c, index) => ({
+    index,
+    id: c.id ?? `call_${index + 1}`,
+    type: "function",
+    function: { name: c.name, arguments: JSON.stringify(c.input) },
+  }));
+}
+
+function writeOpenAi(
+  res: ServerResponse,
+  model: string,
+  answer: ModelAnswer,
+  stream: boolean,
+): void {
   const base = { id: "chatcmpl-fake", object: "chat.completion.chunk", created: 0, model };
+  const toolCalls = openAiToolCalls(answer);
+  const finish = toolCalls.length > 0 ? "tool_calls" : "stop";
+  const text = answer.text ?? "";
   if (!stream) {
     res.writeHead(200, { "content-type": "application/json" });
+    const message = {
+      role: "assistant",
+      content: text,
+      ...(toolCalls.length > 0 ? { tool_calls: toolCalls.map(({ index: _i, ...c }) => c) } : {}),
+    };
     res.end(
       JSON.stringify({
         ...base,
         object: "chat.completion",
-        choices: [
-          { index: 0, message: { role: "assistant", content: text }, finish_reason: "stop" },
-        ],
-        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        choices: [{ index: 0, message, finish_reason: finish }],
+        usage: USAGE,
       }),
     );
     return;
   }
   res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
-  const frame = (delta: unknown, finish: string | null, extra?: object) =>
-    `data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta, finish_reason: finish }], ...extra })}\n\n`;
+  const frame = (delta: unknown, fin: string | null, extra?: object) =>
+    `data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta, finish_reason: fin }], ...extra })}\n\n`;
   res.write(frame({ role: "assistant", content: "" }, null));
-  res.write(frame({ content: text }, null));
-  res.write(
-    frame({}, "stop", { usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }),
-  );
+  if (text !== "") res.write(frame({ content: text }, null));
+  if (toolCalls.length > 0) res.write(frame({ tool_calls: toolCalls }, null));
+  res.write(frame({}, finish, { usage: USAGE }));
   res.end("data: [DONE]\n\n");
 }
 
-function writeOllama(res: ServerResponse, model: string, text: string): void {
+function writeOllama(res: ServerResponse, model: string, answer: ModelAnswer): void {
   res.writeHead(200, { "content-type": "application/x-ndjson" });
   const at = "1970-01-01T00:00:00Z";
+  const toolCalls = (answer.toolCalls ?? []).map((c) => ({
+    function: { name: c.name, arguments: c.input },
+  }));
   res.write(
-    `${JSON.stringify({ model, created_at: at, message: { role: "assistant", content: text }, done: false })}\n`,
+    `${JSON.stringify({
+      model,
+      created_at: at,
+      message: {
+        role: "assistant",
+        content: answer.text ?? "",
+        ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+      },
+      done: false,
+    })}\n`,
   );
   res.end(
     `${JSON.stringify({
@@ -117,6 +163,27 @@ function writeOllama(res: ServerResponse, model: string, text: string): void {
       eval_count: 1,
     })}\n`,
   );
+}
+
+function writeError(res: ServerResponse, error: NonNullable<ModelAnswer["error"]>): void {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (error.retryAfterSeconds !== undefined) {
+    headers["retry-after"] = String(error.retryAfterSeconds);
+  }
+  res.writeHead(error.status, headers);
+  res.end(JSON.stringify(error.body ?? { error: { message: `scripted error ${error.status}` } }));
+}
+
+function writeAnswer(
+  res: ServerResponse,
+  wire: "openai" | "ollama",
+  request: FakeModelRequest,
+  answered: ModelAnswer,
+): void {
+  const model = request.model ?? "fake";
+  if (answered.error !== undefined) writeError(res, answered.error);
+  else if (wire === "openai") writeOpenAi(res, model, answered, request.stream === true);
+  else writeOllama(res, model, answered);
 }
 
 function resolveReply(reply: FakeModelServerOptions["reply"], request: FakeModelRequest): string {
@@ -139,10 +206,21 @@ function resolveReply(reply: FakeModelServerOptions["reply"], request: FakeModel
 export async function startFakeModelServer(
   options: FakeModelServerOptions = {},
 ): Promise<FakeModelServer> {
+  return startModelServer("startFakeModelServer", options, (request) => ({
+    text: resolveReply(options.reply, request),
+  }));
+}
+
+/** @internal Shared loopback server: `answer` picks the response for each valid model request. */
+export async function startModelServer(
+  caller: string,
+  options: { wire?: "openai" | "ollama"; host?: string },
+  answer: (request: FakeModelRequest) => ModelAnswer,
+): Promise<FakeModelServer> {
   const wire = options.wire ?? "openai";
   const host = options.host ?? "127.0.0.1";
   if (!isLoopback(host)) {
-    throw new Error(`startFakeModelServer: host must be a loopback address, got "${host}"`);
+    throw new Error(`${caller}: host must be a loopback address, got "${host}"`);
   }
   const path = wire === "openai" ? "/v1/chat/completions" : "/api/chat";
   const requests: FakeModelRequest[] = [];
@@ -161,10 +239,7 @@ export async function startFakeModelServer(
       return;
     }
     requests.push(parsed);
-    const text = resolveReply(options.reply, parsed);
-    const model = parsed.model ?? "fake";
-    if (wire === "openai") writeOpenAi(res, model, text, parsed.stream === true);
-    else writeOllama(res, model, text);
+    writeAnswer(res, wire, parsed, answer(parsed));
   };
 
   const server = createServer((req, res) => {

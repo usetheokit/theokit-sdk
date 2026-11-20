@@ -722,7 +722,40 @@ console.log(server.requests); // every request body received
 await server.close();
 ```
 
-`reply` may also be `(request) => string`. A body that is not JSON gets HTTP 400 and is recorded with `messages: []` and an `error` string. `host` accepts loopback addresses only. Scripted tool calls are not supported yet.
+`reply` may also be `(request) => string`. A body that is not JSON gets HTTP 400 and is recorded with `messages: []` and an `error` string. `host` accepts loopback addresses only.
+
+### Scripted steps: `startScriptedModelServer`
+
+To test an agent loop, give the server ordered steps. Each model request consumes the next step: `text`, `toolCalls` (with optional `text`), or an `error` (`status`, `body`, `retryAfterSeconds`). `wire` is `"openai"` (default) or `"ollama"`. A request after the last step gets HTTP 500 and is recorded; `assertConsumed()` throws `UnexpectedModelCallError` for it, or `UnconsumedModelStepsError` when steps remain. `close()` never throws.
+
+```ts
+import { Agent } from "@theokit/sdk";
+import { startScriptedModelServer } from "@theokit/sdk/testing";
+
+const server = await startScriptedModelServer({
+  steps: [{ toolCalls: [{ name: "add", input: { a: 1, b: 2 } }] }, { text: "3" }],
+});
+try {
+  const agent = await Agent.create({
+    apiKey: "local",
+    model: server.model,
+    local: { cwd: process.cwd() },
+    tools: [
+      {
+        name: "add",
+        description: "Add two numbers",
+        inputSchema: { type: "object", properties: { a: { type: "number" }, b: { type: "number" } } },
+        handler: ({ a, b }) => String(Number(a) + Number(b)),
+      },
+    ],
+  });
+  await (await agent.send("add 1 and 2")).wait();
+  // server.requests[1] carries the tool result "3"
+  server.assertConsumed(); // throws when the loop made more or fewer model calls
+} finally {
+  await server.close();
+}
+```
 
 ## Experimental exports
 

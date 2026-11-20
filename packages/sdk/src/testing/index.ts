@@ -9,3 +9,13 @@ export type {
   FakeModelServerOptions,
 } from "./fake-model-server.js";
 export { startFakeModelServer } from "./fake-model-server.js";
+export type {
+  ScriptedModelServer,
+  ScriptedModelServerOptions,
+  ScriptedStep,
+} from "./scripted-model-server.js";
+export {
+  startScriptedModelServer,
+  UnconsumedModelStepsError,
+  UnexpectedModelCallError,
+} from "./scripted-model-server.js";

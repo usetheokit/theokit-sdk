@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1506 export(s) across 58 entry point(s).
+1512 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1727,7 +1727,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `FakeModelRequest` | interface | One request body the fake server received. |
 | `FakeModelServer` | interface | A running fake model server; see {@link startFakeModelServer } . |
 | `FakeModelServerOptions` | interface | Options for {@link startFakeModelServer } . |
+| `ScriptedModelServer` | interface | A fake model server that answers a fixed sequence of steps; see {@link startScriptedModelServer } . |
+| `ScriptedModelServerOptions` | interface | Options for {@link startScriptedModelServer } . |
+| `ScriptedStep` | type | One scripted model turn: text, tool calls (with optional text), or an HTTP error. |
 | `startFakeModelServer` | function | Start a local server that speaks a provider's chat wire protocol and answers with scripted text, so an agent can run end to end with no credential and no real model.  |
+| `startScriptedModelServer` | function | Start a fake model server that answers each model request with the next scripted step, so a test fails when the agent loop makes more or fewer model calls than expected. |
+| `UnconsumedModelStepsError` | class | The run ended with scripted steps still unused. |
+| `UnexpectedModelCallError` | class | The loop made a model call when no scripted step was left. |
 
 ## `@theokit/sdk/workflow`
 
