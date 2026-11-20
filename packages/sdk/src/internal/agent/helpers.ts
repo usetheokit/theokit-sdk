@@ -1,6 +1,7 @@
 import { stat } from "node:fs/promises";
 
 import { AuthenticationError, ConfigurationError, UnknownAgentError } from "../../errors.js";
+import { validatePruneToolResults } from "../../internal/agent-loop/prune-tool-results.js";
 import { validateApiKeyShape } from "../../internal/auth/api-key-validator.js";
 import { CloudAgent, validateCloudToolParity } from "../../internal/cloud-agent/index.js";
 import { API_KEY_ENV_VAR, resolveApiKey } from "../../internal/env.js";
@@ -320,6 +321,7 @@ export async function rehydrateExistingAgent(
   // Agent.resume never reaches validateAgentOptions, so a ceiling passed here is checked here,
   // before the agent exists (B-380).
   resolveMaxFacts(mergedOptions.memory?.maxFacts);
+  validatePruneToolResults(mergedOptions.sendDefaults?.pruneToolResults);
   if (existing.runtime === "cloud") {
     return new CloudAgent(mergedOptions, agentId);
   }
