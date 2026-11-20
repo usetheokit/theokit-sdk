@@ -11,6 +11,7 @@ import { firstDoomLoopVerdict } from "./doom-loop-tracker.js";
 import { initLoopContext, type LoopContext } from "./loop-context-init.js";
 import { finalizeLoopOutput } from "./loop-finalize.js";
 import { type LlmTurnOutput, streamLlmTurn } from "./loop-llm-stream.js";
+import { applyResume } from "./loop-resume.js";
 import { recordThinkingOnSilentToolRound, thinkingStep } from "./loop-thinking-steps.js";
 import {
   buildToolSteps,
@@ -61,6 +62,7 @@ export async function runAgentLoop(inputs: AgentLoopInputs): Promise<AgentLoopOu
       agentId: inputs.agentId,
       runId: inputs.runId,
     });
+    await applyResume(inputs, ctx);
     const budget =
       inputs.budget ?? new IterationBudget({ maxIterations: inputs.maxIterations ?? 8 });
     // M1-2 (T2.2): track the last turn's decision so we can tell a clean

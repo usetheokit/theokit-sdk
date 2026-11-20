@@ -44,8 +44,10 @@ export interface PruneToolResultsOptions {
 }
 
 /**
- * A person's answer to one deferred tool call, keyed by `toolUseId`.
- * Resuming a deferred call with it is not wired into `send` yet.
+ * A person's answer to one deferred tool call, keyed by `toolUseId`. Pass the answers to
+ * `agent.send(message, { toolDecisions })` to resume the deferred calls.
+ *
+ * @public
  */
 export interface ToolCallDecision {
   readonly toolUseId: string;
@@ -376,7 +378,7 @@ export interface SDKUserMessage {
  * | rendering a live UI | `onDelta`, `onStep`, `onRunEvent` |
  * | applying a policy | `permissionMode`, `conversation`, `activeTools`, `toolChoice`, `toolResultGuard`, `pruneToolResults`, `perToolTimeoutMs` |
  * | running an eval or a harness | `maxIterations`, `completionCheck`, `doomLoop`, `signal` |
- * | orchestrating agents | `origin`, `task`, `context`, `queueMode` |
+ * | orchestrating agents | `origin`, `task`, `context`, `queueMode`, `toolDecisions` |
  * | overriding this one send | `model`, `systemPrompt`, `tools`, `mcpServers`, `contextPaths`, `local` |
  *
  * Every field appears in exactly one row, and
@@ -477,6 +479,17 @@ export interface SendOptions {
    * forces a tool call; `"auto"` (or omitted) is the default. Local runtime; OpenAI-compat providers.
    */
   toolChoice?: "auto" | "none" | "required";
+  /**
+   * Resume the tool calls a previous run deferred (`status: "deferred"`), including after a process
+   * restart: the pending calls are read from the stored transcript. Exactly one decision per pending
+   * call is required. `allow` dispatches the call with its stored input after the current permission
+   * rules, floors and hooks run again (an approval never overrides a deny); `deny` answers the call
+   * with an error result and does not run it. The `message` argument is ignored on a resume.
+   * Local runtime only. A decision for an unknown or repeated `toolUseId`, a missing decision, or a
+   * stored call with an unsupported `schemaVersion` rejects the send with `ConfigurationError` and
+   * leaves the session unchanged.
+   */
+  toolDecisions?: readonly ToolCallDecision[];
   /**
    * SE18 — per-send runtime tool subset (**local runtime only**; cloud agents
    * ignore it). When set, only tools whose name is in this list may be called for

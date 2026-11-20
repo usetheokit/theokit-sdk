@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1497 export(s) across 57 entry point(s).
+1503 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -991,20 +991,16 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
-| `A2AMailboxError` | class | A mailbox request failed: a non-2xx HTTP answer (`status` set), or a refused persisted file. |
 | `A2AMessage` | interface | One message as a handler receives it.  |
 | `A2APeerNotRegisteredError` | class | Thrown by {@link MessageBus.send } and {@link MessageBus.request } when `to` has no registered handler.  |
 | `A2ARemoteRequestUnsupportedError` | class | Thrown by {@link MessageBus.request } when `to` has no local handler and the bus has a transport.  |
 | `A2ARequestTimeoutError` | class | A peer did not answer a {@link MessageBus.request } within its timeout.  |
 | `A2ATransport` | interface | A2ATransport — the seam that lets a {@link MessageBus } reach agents in other processes.  |
 | `AgentMailbox` | class | One agent's endpoint on a {@link MessageBus } : registers `agentId` on construction and forwards inbound messages to the handler installed by `onMessage`.  |
-| `createHttpMailboxHandler` | function | Build a fetch-style handler serving `POST <prefix>/put` and `POST <prefix>/take`.  |
 | `DelegationCompleteContext` | interface | Context passed to {@link SubAgentSpec.onDelegationComplete } after the child settles. |
 | `DelegationCompleteDecision` | interface | Decision returned from {@link SubAgentSpec.onDelegationComplete } . |
 | `DelegationStartContext` | interface | Context passed to {@link SubAgentSpec.onDelegationStart } before the child runs. |
 | `DelegationStartDecision` | type | Decision returned from {@link SubAgentSpec.onDelegationStart } .  |
-| `HttpMailboxOptions` | interface | Options for {@link createHttpMailboxHandler } . |
-| `httpMailboxTransport` | function | An {@link A2ATransport } over an HTTP mailbox served by {@link createHttpMailboxHandler } .  |
 | `inMemoryTransport` | function | A transport backed by one shared in-memory queue per recipient.  |
 | `MaxDelegationDepthError` | class | Raised by `SubAgent.create(spec, parentDepth)` when `parentDepth + 1` exceeds `spec.maxDelegationDepth` (default 3).  |
 | `MessageBus` | class | In-process router that delivers A2A messages between agents keyed by string id.  |
@@ -1787,4 +1783,19 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WorkflowStepDescription` | interface | theokit#161 — one step of a workflow, as a reflection surface sees it.  |
 | `WorkflowStream` | type | SE28 — the async iterator returned by `Workflow.stream()`.  |
 | `WorkflowToolError` | class | Raised by a {@link workflowAsTool } or {@link workflowResumeTool } tool when the run does not reach `status: "completed"` (a step failed, the run was cancelled, or it suspended without `reportSuspe... |
+
+## `@theokit/skills-registry`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `compareSkillVersions` | function | SemVer 2.0.0 precedence (build metadata ignored).  |
+| `DownloadOptions` | interface | Options for `downloadSkill`: an injectable `fetch` and a timeout in milliseconds (default 30000). |
+| `downloadSkill` | function | Downloads `name` or `name@version` from a registry and verifies it.  |
+| `installSkill` | function | Installs a verified package at `<skillsDir>/<name>`.  |
+| `MAX_PACKAGE_BYTES` | const | Maximum size of a serialized skill package: 1 MiB. |
+| `SkillPackage` | interface | Wire format of a skill package: JSON with base64 file contents. |
+| `SkillsRegistryError` | class | Typed error of this package; branch on `code`, not on the message. |
+| `SkillsRegistryErrorCode` | type | Machine-readable reason carried by every `SkillsRegistryError`. |
+| `VerifiedSkillPackage` | interface | A package whose digest, paths and `SKILL.md` identity were checked; safe to install. |
+| `verifySkillPackage` | function | Checks size, sha256, name, version, paths and `SKILL.md` of serialized package bytes.  |
 
