@@ -1,10 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import http from "node:http";
+import https from "node:https";
 import type net from "node:net";
 import { networkInterfaces } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { EgressCa } from "../../src/sandbox/egress-ca.js";
 import {
   createSandboxBackend,
   LinuxSandbox,
@@ -121,6 +123,54 @@ describe("LinuxSandbox network allowlist", () => {
       }
     } finally {
       await srv.close();
+    }
+  });
+
+  live("real_value_never_reaches_the_sandbox", async () => {
+    const REAL = "real-secret-value-4c1d";
+    const upstreamCa = new EgressCa();
+    const leaf = upstreamCa.issue("127.0.0.1");
+    const seen: (string | undefined)[] = [];
+    const server = https.createServer({ key: leaf.key, cert: leaf.cert }, (req, res) => {
+      seen.push(req.headers.authorization);
+      res.end("authed");
+    });
+    await new Promise<void>((r) => server.listen(0, "0.0.0.0", r));
+    const port = (server.address() as net.AddressInfo).port;
+    try {
+      const bin = execFileSync("which", ["bwrap"], { encoding: "utf8" }).trim();
+      const sb = new LinuxSandbox(
+        { workDir: "/tmp" },
+        {
+          mode: "workspace-write",
+          bin,
+          network: {
+            allow: [{ host: "127.0.0.1", ports: [port] }],
+            upstreamCa: upstreamCa.certPem,
+            credentials: [
+              {
+                host: "127.0.0.1",
+                header: "authorization",
+                value: () => `Bearer ${REAL}`,
+                placeholder: "THEOKIT_PLACEHOLDER_TEST",
+                envVar: "TEST_TOKEN",
+              },
+            ],
+          },
+        },
+      );
+      open.push(sb);
+      const env = await sb.execute("env");
+      expect(env.stdout).toContain("TEST_TOKEN=THEOKIT_PLACEHOLDER_TEST");
+      expect(env.stdout).not.toContain(REAL);
+      const r = await sb.execute(
+        `curl -sS --max-time 10 -H "authorization: $TEST_TOKEN" https://127.0.0.1:${port}/`,
+      );
+      expect(r.stdout).toBe("authed");
+      expect(seen[0]).toBe(`Bearer ${REAL}`);
+      expect(r.stdout + r.stderr).not.toContain(REAL);
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()));
     }
   });
 });

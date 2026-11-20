@@ -1,7 +1,10 @@
 import http from "node:http";
+import https from "node:https";
 import net from "node:net";
+import tls from "node:tls";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { EgressCa } from "../../src/sandbox/egress-ca.js";
 import { type EgressProxy, startEgressProxy } from "../../src/sandbox/index.js";
 
 const cleanups: (() => Promise<void>)[] = [];
@@ -103,5 +106,194 @@ describe("egress proxy", () => {
     const p = await startEgressProxy({ allow: [] });
     await p.close();
     await expect(connectVia(p, "x:1")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+});
+
+describe("egress proxy credential injection", () => {
+  const REAL = "real-secret-value-9f3a";
+  const PLACEHOLDER = "THEOKIT_PLACEHOLDER_GITHUB";
+  const upstreamCa = new EgressCa();
+
+  async function httpsServer(seen: http.IncomingHttpHeaders[]): Promise<number> {
+    const leaf = upstreamCa.issue("127.0.0.1");
+    const server = https.createServer({ key: leaf.key, cert: leaf.cert }, (req, res) => {
+      seen.push(req.headers);
+      res.end("secure-hello");
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    cleanups.push(() => new Promise<void>((r) => server.close(() => r())));
+    return (server.address() as net.AddressInfo).port;
+  }
+
+  async function credProxy(port: number, otherPort: number, lines: string[]): Promise<EgressProxy> {
+    const p = await startEgressProxy({
+      allow: [
+        { host: "127.0.0.1", ports: [port] },
+        { host: "localhost", ports: [otherPort] },
+      ],
+      credentials: [
+        {
+          host: "127.0.0.1",
+          header: "authorization",
+          value: async () => REAL,
+          placeholder: PLACEHOLDER,
+        },
+      ],
+      upstreamCa: upstreamCa.certPem,
+      log: (l) => lines.push(l),
+    });
+    cleanups.push(() => p.close());
+    return p;
+  }
+
+  /** HTTPS GET to `host:port` through the proxy, trusting the proxy's CA. */
+  function getVia(
+    p: EgressProxy,
+    host: string,
+    port: number,
+    headers: Record<string, string>,
+  ): Promise<{ status: number; body: string }> {
+    return new Promise((resolve, reject) => {
+      const s = net.connect(p.socketPath);
+      s.once("error", reject);
+      s.once("connect", () =>
+        s.write(`CONNECT ${host}:${port} HTTP/1.1\r\nHost: ${host}:${port}\r\n\r\n`),
+      );
+      s.once("data", () => {
+        const req = https.request(
+          {
+            createConnection: () =>
+              tls.connect({
+                socket: s,
+                host,
+                servername: net.isIP(host) ? undefined : host,
+                ca: p.caCertPem,
+              }),
+            host,
+            port,
+            path: "/",
+            headers,
+          },
+          (res) => {
+            let body = "";
+            res.on("data", (d) => {
+              body += d;
+            });
+            res.on("end", () => resolve({ status: res.statusCode ?? 0, body }));
+          },
+        );
+        req.once("error", reject);
+        req.end();
+      });
+    });
+  }
+
+  it("proxy_injects_credential_for_its_host", async () => {
+    const seen: http.IncomingHttpHeaders[] = [];
+    const port = await httpsServer(seen);
+    const p = await credProxy(port, port + 1, []);
+    const r = await getVia(p, "127.0.0.1", port, { authorization: `Bearer ${PLACEHOLDER}` });
+    expect(r).toEqual({ status: 200, body: "secure-hello" });
+    expect(seen[0]?.authorization).toBe(`Bearer ${REAL}`);
+    const absent = await getVia(p, "127.0.0.1", port, {});
+    expect(absent.status).toBe(200);
+    expect(seen[1]?.authorization).toBe(REAL);
+  });
+
+  it("placeholder_to_another_host_is_refused", async () => {
+    const seen: http.IncomingHttpHeaders[] = [];
+    const port = await httpsServer(seen);
+    const other: http.IncomingHttpHeaders[] = [];
+    const otherServer = http.createServer((req, res) => {
+      other.push(req.headers);
+      res.end("x");
+    });
+    await new Promise<void>((r) => otherServer.listen(0, "127.0.0.1", r));
+    cleanups.push(() => new Promise<void>((r) => otherServer.close(() => r())));
+    const otherPort = (otherServer.address() as net.AddressInfo).port;
+    const lines: string[] = [];
+    const p = await credProxy(port, otherPort, lines);
+    const res = await new Promise<number>((resolve, reject) => {
+      http
+        .request(
+          {
+            socketPath: p.socketPath,
+            path: `http://localhost:${otherPort}/`,
+            headers: { authorization: PLACEHOLDER, host: `localhost:${otherPort}` },
+          },
+          (r) => {
+            r.resume();
+            resolve(r.statusCode ?? 0);
+          },
+        )
+        .once("error", reject)
+        .end();
+    });
+    expect(res).toBe(403);
+    expect(other).toHaveLength(0);
+    expect(p.denied.at(-1)?.reason).toBe("credential_misroute");
+    expect(lines.join("\n")).toContain("credential_misroute");
+  });
+
+  it("credential_rule_for_unlisted_host_is_refused", async () => {
+    await expect(
+      startEgressProxy({
+        allow: [{ host: "a.example.com" }],
+        credentials: [
+          { host: "b.example.com", header: "authorization", value: () => "x", placeholder: "P1" },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: "credential_host_not_allowed" });
+  });
+
+  it("real_value_never_logged", async () => {
+    const seen: http.IncomingHttpHeaders[] = [];
+    const port = await httpsServer(seen);
+    const lines: string[] = [];
+    const p = await credProxy(port, port + 1, lines);
+    await getVia(p, "127.0.0.1", port, { authorization: PLACEHOLDER });
+    await getVia(p, "127.0.0.1", port, { "x-other": PLACEHOLDER });
+    const dump = JSON.stringify(p.denied) + lines.join("\n");
+    expect(dump).not.toContain("real-secret-value");
+  });
+
+  it("refuses an upstream whose certificate does not verify", async () => {
+    const seen: http.IncomingHttpHeaders[] = [];
+    const port = await httpsServer(seen);
+    const p = await startEgressProxy({
+      allow: [{ host: "127.0.0.1", ports: [port] }],
+      credentials: [
+        { host: "127.0.0.1", header: "authorization", value: () => REAL, placeholder: PLACEHOLDER },
+      ],
+      // no upstreamCa: the test upstream's CA is unknown, so verification fails
+    });
+    cleanups.push(() => p.close());
+    const r = await getVia(p, "127.0.0.1", port, { authorization: PLACEHOLDER });
+    expect(r.status).toBe(502);
+    expect(seen).toHaveLength(0);
+  });
+
+  it("returns 502 without leaking when value() throws", async () => {
+    const seen: http.IncomingHttpHeaders[] = [];
+    const port = await httpsServer(seen);
+    const p = await startEgressProxy({
+      allow: [{ host: "127.0.0.1", ports: [port] }],
+      credentials: [
+        {
+          host: "127.0.0.1",
+          header: "authorization",
+          value: () => {
+            throw new Error(REAL);
+          },
+          placeholder: PLACEHOLDER,
+        },
+      ],
+      upstreamCa: upstreamCa.certPem,
+    });
+    cleanups.push(() => p.close());
+    const r = await getVia(p, "127.0.0.1", port, {});
+    expect(r.status).toBe(502);
+    expect(r.body).not.toContain("real-secret");
+    expect(seen).toHaveLength(0);
   });
 });
