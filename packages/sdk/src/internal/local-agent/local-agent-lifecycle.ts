@@ -14,7 +14,7 @@
 import type { AgentDefinition, AgentOptions } from "../../types/agent.js";
 import type { SessionStore } from "../../types/session-store.js";
 import { diag } from "../diagnostics.js";
-import type { TurnReviewQueue } from "../memory/turn-review.js";
+import type { TurnReviewQueue } from "../memory/review/turn-review.js";
 import { withCwdMutex } from "../persistence/cwd-mutex.js";
 import type { FileContextManager } from "../runtime/context/context-manager.js";
 import type { PluginsManager } from "../runtime/plugin-loader/plugins-manager.js";

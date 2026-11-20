@@ -8,10 +8,10 @@
  * @internal
  */
 
-import { Tool } from "../../define-tool.js";
-import type { AgentOptions, CustomTool, MemorySettings, SDKAgent } from "../../types/agent.js";
-import { diagFailure } from "../diagnostics.js";
-import { appendMemoryFact } from "../runtime/memory-glue/memory-store.js";
+import { Tool } from "../../../define-tool.js";
+import type { AgentOptions, CustomTool, MemorySettings, SDKAgent } from "../../../types/agent.js";
+import { diagFailure } from "../../diagnostics.js";
+import { appendMemoryFact } from "../../runtime/memory-glue/memory-store.js";
 
 /** Longest fact `save_memory` accepts, in characters. */
 export const MAX_REVIEW_FACT_CHARS = 500;
@@ -188,7 +188,7 @@ export function createAgentTurnReviews(
   const memory = options.memory;
   if (memory?.enabled !== true || memory.review === undefined) return undefined;
   const create = async (reviewerOptions: AgentOptions): Promise<SDKAgent> => {
-    const { getAgentFacade } = await import("../runtime/registry/agent-factory-registry.js");
+    const { getAgentFacade } = await import("../../runtime/registry/agent-factory-registry.js");
     return getAgentFacade().create(reviewerOptions);
   };
   const queue = createTurnReviewQueue(

@@ -13,7 +13,7 @@
 
 import type { AgentOptions } from "../../types/agent.js";
 import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
-import type { TurnReviewQueue } from "../memory/turn-review.js";
+import type { TurnReviewQueue } from "../memory/review/turn-review.js";
 import type { PluginManager } from "../plugins/manager.js";
 
 const DEFAULT_MAX_RECALL_BYTES = 16_000;
