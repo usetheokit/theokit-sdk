@@ -110,6 +110,23 @@ When every model fails the run ends `error` and `RunResult.error.cause` is a
 This differs from `providers.fallback`, which only picks another provider when a route has none
 available. It does not resend a run that failed.
 
+## Budgets: reserving in-flight spend
+
+`Budget.reserve` holds an estimate so concurrent calls cannot all pass a preflight that none has paid for:
+
+```ts
+const hold = Budget.reserve("copilot", 0.6); // throws BudgetExceededError in block mode if it would not fit
+try {
+  const actualUsd = await runCall();
+  await hold.settle(actualUsd); // charges the ledger, fires threshold callbacks, drops the hold
+} catch (err) {
+  hold.release(); // drops the hold without charging; no-op after settle
+  throw err;
+}
+```
+
+Open holds count in `preflightCheck` and show as `heldUsd` in `Budget.snapshot()`.
+
 ## Install
 
 ```bash
@@ -685,6 +702,24 @@ try {
 ```
 
 LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
+
+## Workflow compensation (saga rollback)
+
+A top-level `fn` step can declare `compensate(input, output, error)`. When a later top-level step fails (after its retries), the executor calls `compensate` on every earlier completed step that declares one, in reverse completion order. Each call gets that step's own input and output and the error that failed the run.
+
+```ts
+Workflow.create({ name: "checkout" })
+  .then(fn("book", bookRoom, { compensate: (_in, booking) => cancelBooking(booking) }))
+  .then(fn("charge", chargeCard, { compensate: (_in, receipt) => refund(receipt) }))
+  .then(fn("notify", sendEmail)) // if this throws, `charge` then `book` are compensated
+  .commit();
+```
+
+- A `compensate` that throws is recorded as `"failed"` and the pass continues. The run stays `status: "failed"` with the original step error.
+- `run.compensation` lists `{ stepId, status: "compensated" | "failed", error? }` in call order; it is absent when nothing was compensated.
+- `Workflow.stream()` emits `step_compensated` or `step_compensation_failed` for each call.
+- The failing step does not compensate itself, and a cancelled run (abort signal) does not compensate.
+- Limits: `compensate` on a step nested in `parallel`, `branch`, `foreach` or `dowhile` fails with `WorkflowCompensateNotImplementedError`; `agent` steps cannot compensate; after `resume()` only steps completed since the resume are compensated; a compensation pass is not persisted across a crash.
 
 ## Crash recovery: `durability: "step"` and `listRuns()`
 

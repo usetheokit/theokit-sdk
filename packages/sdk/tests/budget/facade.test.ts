@@ -4,11 +4,11 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Budget } from "../src/budget.js";
-import { BudgetExceededError, ConfigurationError } from "../src/errors.js";
-import { chargeAndCheckThresholds, preflightCheck } from "../src/internal/budget/enforcement.js";
-import { __resetLedgerForTests, spentIn } from "../src/internal/budget/ledger.js";
-import { __resetRegistryForTests } from "../src/internal/budget/registry.js";
+import { Budget } from "../../src/budget.js";
+import { BudgetExceededError, ConfigurationError } from "../../src/errors.js";
+import { chargeAndCheckThresholds, preflightCheck } from "../../src/internal/budget/enforcement.js";
+import { __resetLedgerForTests, spentIn } from "../../src/internal/budget/ledger.js";
+import { __resetRegistryForTests } from "../../src/internal/budget/registry.js";
 
 describe("Budget — facade (D375)", () => {
   beforeEach(() => {
