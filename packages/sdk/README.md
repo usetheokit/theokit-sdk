@@ -110,6 +110,19 @@ When every model fails the run ends `error` and `RunResult.error.cause` is a
 This differs from `providers.fallback`, which only picks another provider when a route has none
 available. It does not resend a run that failed.
 
+### Retry and CircuitBreaker
+
+`@theokit/sdk/retry` exports `Retry.run(fn, options)` for retrying transient failures, and `CircuitBreaker` for skipping a flaky key. After `maxTimeouts` (default 3) consecutive `recordTimeout(key)` calls, `shouldSkip(key)` is true for `cooldownMs` (default 60000); `recordSuccess(key)` resets it, and other keys are unaffected. `@theokit/sdk-memory` re-exports the same class.
+
+```ts
+import { CircuitBreaker } from "@theokit/sdk/retry";
+
+const breaker = new CircuitBreaker({ maxTimeouts: 3, cooldownMs: 30_000 });
+if (!breaker.shouldSkip("remote")) {
+  // call the remote; on a timeout: breaker.recordTimeout("remote")
+}
+```
+
 ## Budgets: reserving in-flight spend
 
 `Budget.reserve` holds an estimate so concurrent calls cannot all pass a preflight that none has paid for:
@@ -905,6 +918,14 @@ const agent = await Agent.create({
 ```
 
 A call to a filtered-out tool is refused in the client with a tool error naming the tool and the server; nothing is sent to the server. An `include` name the server does not list produces one diagnostics warning. A malformed filter makes `Agent.create` throw a `ConfigurationError` with code `invalid_mcp_tool_filter`.
+
+### MCP protocol revisions
+
+The MCP client supports the `2025-06-18`, `2025-03-26` and `2024-11-05` revisions. `initialize` offers the newest and keeps the revision the server answers; over HTTP that revision is then sent as `MCP-Protocol-Version` on every request. A server that answers a revision outside the list makes `initialize` reject with a `NetworkError` of code `mcp_protocol_unsupported`. To pin an older revision for a server that misbehaves on the newest, set `protocolVersion` on the server:
+
+```ts
+mcpServers: { legacy: { url: "https://mcp.example.com", protocolVersion: "2025-03-26" } }
+```
 
 ## Reading the managed settings document
 
