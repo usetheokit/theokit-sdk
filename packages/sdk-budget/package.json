@@ -1,6 +1,6 @@
 {
   "name": "@theokit/sdk-budget",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "USD-cost-aware BudgetTracker impls for @theokit/sdk — extends the counter-based reference with per-model pricing. Consumes the kernel-facing BudgetTracker port from sdk-core.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/usetheokit/theokit-sdk#readme",

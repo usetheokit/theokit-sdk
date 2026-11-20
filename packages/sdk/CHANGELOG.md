@@ -1,5 +1,76 @@
 # Changelog
 
+## 6.0.0
+
+### Major Changes
+
+- [#1379](https://github.com/usetheokit/theokit-sdk/pull/1379) [`5fe79be`](https://github.com/usetheokit/theokit-sdk/commit/5fe79be6f3c0e28eabcfceed07092185eb721cd6) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Refresh the committed API surface baseline for `Workflow`, `WorkflowSnapshot` and `WorkflowPersistenceOptions`, whose declarations changed when workflow checkpointing landed.
+
+- [#1373](https://github.com/usetheokit/theokit-sdk/pull/1373) [`18b1e2d`](https://github.com/usetheokit/theokit-sdk/commit/18b1e2d4e8e6d41adc98e62efe395f26e4f1c90d) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `Budget.reserve(name, estimatedUsd)`: in-flight estimates are held against a budget, so concurrent calls can no longer overrun a `block` budget. `preflightCheck` counts open holds, the returned `BudgetReservation` has `settle(actualUsd)` and `release()`, and `BudgetSnapshot` gains `heldUsd`.
+
+- [#1367](https://github.com/usetheokit/theokit-sdk/pull/1367) [`dc51bf2`](https://github.com/usetheokit/theokit-sdk/commit/dc51bf231ab50000eadf57f77453c4179a9abf0d) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Record the `@theokit/sdk/eval` `Scorer` signature change from [#1103](https://github.com/usetheokit/theokit-sdk/issues/1103) (a new optional third `ScoreContext` argument) in the public-surface baseline. The api-surface gate counts a changed stable declaration as breaking, so this changeset declares major; it adds no runtime change.
+
+- [#1375](https://github.com/usetheokit/theokit-sdk/pull/1375) [`96f9b46`](https://github.com/usetheokit/theokit-sdk/commit/96f9b46ea1c590046e3bea92b773b49bcaa2f448) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The `Scorers` object gains `faithfulness`, `rubric` and `judgedTrajectory`, and the `Scorer` type gains an optional `context` argument. The api-surface gate counts any change to these stable declarations (and to `SandboxBackend`, which gained `uploadFiles`) as breaking; existing callers are unaffected.
+
+- [#1356](https://github.com/usetheokit/theokit-sdk/pull/1356) [`bf5b17e`](https://github.com/usetheokit/theokit-sdk/commit/bf5b17e53be219cfb848fb53f9a0624332c7936b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Remove two surfaces that were never meant for consumers.
+  
+  - `__resetSnapshotStoresForTests` is no longer exported from `@theokit/sdk/workflow`. It was a test-only helper with no supported use; there is no replacement. Create workflows with unique ids instead of resetting the shared snapshot store.
+  - The deprecated `@theokit/sdk/internal/persistence` subpath is removed. Import `atomicWriteJson`, `atomicWriteText`, `replaceFileAtomic`, `withCwdMutex`, `withFileLock`, `sanitizeFts5Query`, `PersistenceSchema` and the other supported primitives from `@theokit/sdk/persistence`. Internal-only primitives (`createExclusive`, `casUpdate`, `getTheokitHome`, `containsCjk` and similar) have no public replacement.
+
+- [#1366](https://github.com/usetheokit/theokit-sdk/pull/1366) [`a85e847`](https://github.com/usetheokit/theokit-sdk/commit/a85e84774873f4b62c36f3f826c7836ba756cb65) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The `network` option of `LinuxSandbox` and `createSandboxBackend` widens from `boolean` to `boolean | { allow }`, so the declarations of `LinuxSandbox`, `CreateSandboxBackendOptions` and `wrapCommandForSandbox` change. Existing `true`/`false` callers are unaffected; code that reads the option's type as `boolean` must handle the object form.
+
+- [#1370](https://github.com/usetheokit/theokit-sdk/pull/1370) [`fa3e29c`](https://github.com/usetheokit/theokit-sdk/commit/fa3e29c6d2bbff097dbd484e1045e46b74644bb8) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Tag the sealed A2A transport exports of `@theokit/sdk/a2a` (`sealedTransport`, `generateA2AIdentity`, `A2AIdentity`, `TrustedPeers`, `SequenceStore`, `SealedDropReason`, `A2AUntrustedPeerError`, `memorySequenceStore`, `jsonSequenceStore`) as `@experimental`; list them in the README.
+
+- [#1368](https://github.com/usetheokit/theokit-sdk/pull/1368) [`712e132`](https://github.com/usetheokit/theokit-sdk/commit/712e1327974dc2e8c1f9889e2b2f2aaa3c50319e) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Auth: add `startSignInWeb` and `finishSignInWeb` (Web `Request` / `Headers`) to the orchestrator, export `writeTransactionCookie`, `readTransactionCookie` and `clearTransactionCookie` from `@theokit/sdk/server/auth`, widen `AuthProvider.handleCallback` to `Request | IncomingMessage`, and add an optional `SessionManager.createSessionWeb`.
+
+- [#1364](https://github.com/usetheokit/theokit-sdk/pull/1364) [`237b277`](https://github.com/usetheokit/theokit-sdk/commit/237b277377f90551e159d4b07aba2baab1398a66) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/workflow`: `compensate` now works on top-level function steps. When a top-level step fails, earlier completed steps' `compensate` handlers run in reverse order; results are on `WorkflowRun.compensation` and `Workflow.stream()` emits `step_compensated` / `step_compensation_failed`. A `compensate` nested in `parallel`, `branch`, `foreach` or `dowhile` still fails with `WorkflowCompensateNotImplementedError`.
+
+- [#1385](https://github.com/usetheokit/theokit-sdk/pull/1385) [`ef69798`](https://github.com/usetheokit/theokit-sdk/commit/ef69798bc4ab6d5632ff265074a8163a2c7c7fec) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Refresh the API-surface baseline for `Workflow` and `WorkflowSnapshot`: `WorkflowSnapshot._schemaVersion` now admits `3`, with an optional `status`, and `WorkflowPersistenceOptions` gains `durability` (step checkpoints from [#1096](https://github.com/usetheokit/theokit-sdk/issues/1096)).
+
+### Minor Changes
+
+- [#1367](https://github.com/usetheokit/theokit-sdk/pull/1367) [`dc51bf2`](https://github.com/usetheokit/theokit-sdk/commit/dc51bf231ab50000eadf57f77453c4179a9abf0d) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Export `checkToolName` and `ToolNameProblem`, a non-throwing check of the SDK tool name rules (missing, invalid, reserved, honouring `withheldBuiltins`). `Agent.create` throws the same codes and messages.
+
+- [#1361](https://github.com/usetheokit/theokit-sdk/pull/1361) [`b32a3f5`](https://github.com/usetheokit/theokit-sdk/commit/b32a3f591a37bf53518ed84754f76e4834bc31b2) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Export `diag` and `diagFailure` so packages above the SDK can send to the host's diagnostics sink. The functions are unchanged; the SDK does not redact the message.
+
+- [#1365](https://github.com/usetheokit/theokit-sdk/pull/1365) [`656181b`](https://github.com/usetheokit/theokit-sdk/commit/656181be34a3b6234a28330dd2a37a528616d809) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `@theokit/sdk/testing` with `startFakeModelServer`: a loopback server that speaks the OpenAI-compatible (SSE) or Ollama (NDJSON) chat wire with scripted replies, so an agent run can be tested end to end without a credential or a real model.
+
+- [#1375](https://github.com/usetheokit/theokit-sdk/pull/1375) [`96f9b46`](https://github.com/usetheokit/theokit-sdk/commit/96f9b46ea1c590046e3bea92b773b49bcaa2f448) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `Scorers.faithfulness`, `Scorers.rubric` and `Scorers.judgedTrajectory` to `@theokit/sdk/eval`: judge scorers with structured JSON verdicts, sharing one judge transport with `llmJudge`.
+
+- [#1359](https://github.com/usetheokit/theokit-sdk/pull/1359) [`88604c7`](https://github.com/usetheokit/theokit-sdk/commit/88604c71de235aa960e79a52428b474b1454411b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `SandboxBackend` gains `uploadFiles(files)`, which writes several files in one call. The default loops over `uploadFile`; a remote backend can override it to send one request.
+
+- [#1366](https://github.com/usetheokit/theokit-sdk/pull/1366) [`a85e847`](https://github.com/usetheokit/theokit-sdk/commit/a85e84774873f4b62c36f3f826c7836ba756cb65) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `LinuxSandbox` and `createSandboxBackend` accept `network: { allow }`: a host allowlist enforced through a host-side egress proxy while the confined process keeps an empty network namespace. `startEgressProxy`, `EgressRule` and `EgressProxy` are exported from `@theokit/sdk/sandbox`. Without bubblewrap the option throws `SandboxNotAvailableError` instead of falling back.
+
+- [#1385](https://github.com/usetheokit/theokit-sdk/pull/1385) [`ef69798`](https://github.com/usetheokit/theokit-sdk/commit/ef69798bc4ab6d5632ff265074a8163a2c7c7fec) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `provisionRepo` accepts `timeoutMs` (per clone attempt) and `attempts` (default 1); a failed clone is retried after the partial `instanceId` directory is removed.
+
+- [#1363](https://github.com/usetheokit/theokit-sdk/pull/1363) [`91edaec`](https://github.com/usetheokit/theokit-sdk/commit/91edaec0131a8af18570bbfc1b3e1ebf4d011c37) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `@theokit/sdk/testing` with `sessionStoreConformanceCases`: runner-independent named cases that check a custom `SessionStore` against the documented contract (unknown agent reads `[]`, ordered appends, isolation, failed reads throw, `SessionBusyError` propagates).
+
+- [#1355](https://github.com/usetheokit/theokit-sdk/pull/1355) [`5d9ab84`](https://github.com/usetheokit/theokit-sdk/commit/5d9ab84e2fb90374e5ec03f8ff268610c45a7433) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/eval`: a `Scorer` now receives a `ScoreContext` (input, metadata and the run's `toolCalls`) as its third argument, and `Scorers.toolCallAccuracy` and `Scorers.trajectory` score the tools a run called ([#1103](https://github.com/usetheokit/theokit-sdk/issues/1103)).
+
+- [#1369](https://github.com/usetheokit/theokit-sdk/pull/1369) [`272eea6`](https://github.com/usetheokit/theokit-sdk/commit/272eea648d7654f41ce916410d95ccbc5a97a6a6) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/workflow`: `persistence.durability: "step"` checkpoints a run after every completed top-level step, so `Workflow.resume({ runId })` can continue a run that crashed. A completed run deletes its checkpoint. New `workflow.listRuns()` lists suspended and running snapshots. Snapshot schema v3 adds `status`.
+
+### Patch Changes
+
+- [#1351](https://github.com/usetheokit/theokit-sdk/pull/1351) [`0312049`](https://github.com/usetheokit/theokit-sdk/commit/03120492204a1db8ac0d2b4779e10119264c9f13) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Tests: retry temp-folder removal in the throw-on-error helpers test so a late registry write no longer fails cleanup with ENOTEMPTY.
+
+- [#1390](https://github.com/usetheokit/theokit-sdk/pull/1390) [`cd71b80`](https://github.com/usetheokit/theokit-sdk/commit/cd71b80eba1c27c39490d38a12060929de02dad4) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Egress proxy restricted ranges are kept as numeric prefixes in separate IPv4 and IPv6 blocklists, and tool-call input comparison orders keys with a deterministic locale comparator.
+
+- [#1377](https://github.com/usetheokit/theokit-sdk/pull/1377) [`0970314`](https://github.com/usetheokit/theokit-sdk/commit/0970314edc9d11174c9759641b2c63fe35f0ab83) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Tests: the real-LLM OpenRouter fallback is now checked end to end, so an anthropic suite run with only OPENROUTER_API_KEY set sends its request to OpenRouter instead of failing with malformed_api_key.
+
+- [#1354](https://github.com/usetheokit/theokit-sdk/pull/1354) [`d2a7000`](https://github.com/usetheokit/theokit-sdk/commit/d2a70005daf4008ff830de82b7cd4863680cd11b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add a CI public-surface diff gate (`quality:api-surface`) with a committed baseline; no runtime change.
+
+- [#1378](https://github.com/usetheokit/theokit-sdk/pull/1378) [`d699f50`](https://github.com/usetheokit/theokit-sdk/commit/d699f504ebd2e7c6ba8a2d0a87efe360f59765f0) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Tests: prove that disposing an agent waits for a pending session write, so the memory-auto-write golden test no longer races the per-test home removal with ENOTEMPTY.
+
+- [#1392](https://github.com/usetheokit/theokit-sdk/pull/1392) [`4a8c1d4`](https://github.com/usetheokit/theokit-sdk/commit/4a8c1d4c22c5a72f17e488466926a0d2126cb762) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Tests: add an opt-in real-service check that a `meta/<model>` agent answers a one-word "pong" prompt through the Muse Code CLI.
+
+- [#1357](https://github.com/usetheokit/theokit-sdk/pull/1357) [`a613a6d`](https://github.com/usetheokit/theokit-sdk/commit/a613a6d68e4e7bd349665ca1dfc07127b081484f) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - README examples now use model ids from the shipped provider catalog, and a test keeps them resolvable.
+
+- [#1358](https://github.com/usetheokit/theokit-sdk/pull/1358) [`c0a23b3`](https://github.com/usetheokit/theokit-sdk/commit/c0a23b37c261bc740a6b71619f6249548a7c6a46) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Correct the README license line to Apache-2.0, matching the package license ([#1105](https://github.com/usetheokit/theokit-sdk/issues/1105)).
+
+- [#1362](https://github.com/usetheokit/theokit-sdk/pull/1362) [`378b855`](https://github.com/usetheokit/theokit-sdk/commit/378b85541c9f8cb51122d8aa59e064da3013aee8) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Security.redact now masks Stripe `whsec_`, `sk_test_` and `rk_test_` tokens and the password in `scheme://user:password@host` URLs. Publishable keys stay visible.
+
+- [#1360](https://github.com/usetheokit/theokit-sdk/pull/1360) [`974277b`](https://github.com/usetheokit/theokit-sdk/commit/974277b6b781de2b390463a05221d26d4fcb6c3a) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Breaking: removed `resetMigrationStateForTests` from the root entry. It was a test helper; `migrateLegacyJson` and `MigrationResult` are still exported.
+
 ## 5.32.0
 
 ### Minor Changes
