@@ -10,7 +10,6 @@ import { createOpenAiCompatibleRuntime } from "./openai-compatible.js";
  * Honors `OPENROUTER_API_KEY` and `OPENROUTER_API_BASE_URL`. Default base
  * URL is `https://openrouter.ai/api`.
  *
- * @internal
  */
 
 export const DEFAULT_OPENROUTER_EMBEDDING_MODEL = "openai/text-embedding-3-small";
@@ -22,6 +21,7 @@ const DIMENSION_BY_MODEL: Record<string, number> = {
   "mistralai/mistral-embed": 1024,
 };
 
+/** Embedding provider adapter `openRouter`: an OpenAI-compatible runtime factory with its default model and priority. */
 export const openRouterMemoryEmbeddingProviderAdapter: MemoryEmbeddingProviderAdapter = {
   id: "openrouter",
   defaultModel: DEFAULT_OPENROUTER_EMBEDDING_MODEL,
