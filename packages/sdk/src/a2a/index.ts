@@ -20,6 +20,17 @@ export {
   type RequestOptions,
 } from "./message-bus.js";
 export {
+  type A2AIdentity,
+  A2AUntrustedPeerError,
+  generateA2AIdentity,
+  jsonSequenceStore,
+  memorySequenceStore,
+  type SealedDropReason,
+  type SequenceStore,
+  sealedTransport,
+  type TrustedPeers,
+} from "./sealed-transport.js";
+export {
   type DelegationCompleteContext,
   type DelegationCompleteDecision,
   type DelegationStartContext,
