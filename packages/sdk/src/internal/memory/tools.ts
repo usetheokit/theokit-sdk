@@ -8,6 +8,7 @@ import type { MemoryIndex } from "./memory-index.js";
 // Only `search` is used, so the tools accept any index that has it — `@theokit/sdk-memory` hands
 // over its own `MemoryIndex`, whose result types do not declare the SDK's newer required fields.
 export type MemorySearchableIndex = Pick<MemoryIndex, "search">;
+
 import type { MemoryRoot } from "./storage/memory-root.js";
 import { readMemoryFileBounded } from "./storage/reader.js";
 

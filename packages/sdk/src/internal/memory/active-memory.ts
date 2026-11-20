@@ -12,9 +12,9 @@ import type {
   ActiveMemoryStatus,
 } from "./active-memory-types.js";
 import type { MemorySearchHit } from "./index-manager.js";
-import type { MemorySearchableIndex } from "./tools.js";
 import { type MemoryRoot, resolveMemoryRoot } from "./storage/memory-root.js";
 import { persistActiveMemoryTranscript } from "./storage/transcript-store.js";
+import type { MemorySearchableIndex } from "./tools.js";
 
 export type { ActiveMemoryQueryMode, ActiveMemoryResult, ActiveMemoryStatus };
 
