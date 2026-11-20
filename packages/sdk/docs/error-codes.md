@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-300 distinct code(s).
+301 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -67,7 +67,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `cron_no_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:257` +1 |
 | `cron_workflow_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:263` |
 | `decision_checksum_mismatch` | domain | — | `packages/sdk/src/decide.ts:59` |
-| `deferred_schema_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:352` |
+| `deferred_schema_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:359` |
 | `discovery_list_pattern_globbed` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-discovery-runner.ts:144` |
 | `duplicate_skill_name` | domain | ConfigurationError | `packages/sdk/src/define-skill-read-tool.ts:166` |
 | `duplicate_tool_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:214` |
@@ -96,9 +96,10 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `hooks_read_error` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:264` |
 | `hooks_unsupported_field` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:414` |
 | `hooks_unsupported_type` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:430` |
+| `insecure_directory` | domain | — | `packages/sdk/src/internal/persistence/secure-dir.ts:11` |
 | `instance_locked` | domain | — | `packages/sdk/src/internal/persistence/instance-lock.ts:51` +1 |
 | `interactive_unavailable` | domain | InteractiveUnavailableError | `packages/sdk/src/interactive/types.ts:28` +1 |
-| `INTERNAL_SERVER_ERROR` | domain | — | `packages/sdk/src/server/errors-envelope.ts:100` |
+| `INTERNAL_SERVER_ERROR` | domain | — | `packages/sdk/src/server/errors-envelope.ts:106` |
 | `invalid_argument` | domain | TheokitAgentError | `packages/sdk/src/compaction.ts:79` |
 | `invalid_batch_item` | domain | ConfigurationError | `packages/sdk/src/internal/agent/batch.ts:67` |
 | `invalid_batch_size` | domain | ConfigurationError | `packages/sdk/src/internal/memory/migrate-sqlite-to-lance.ts:140` |
@@ -177,7 +178,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `network_error` | domain | NetworkError | `packages/sdk/src/internal/http.ts:99` |
 | `no_api_key` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-brave.ts:50` +1 |
 | `no_base_url` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-searxng.ts:35` |
-| `no_deferred_tool_calls` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:398` |
+| `no_deferred_tool_calls` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:405` |
 | `no_memory_adapter` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:181` +2 |
 | `no_provider_credential` | domain | ProviderCredentialError | `packages/sdk/src/internal/auth/resolve-provider-credential.ts:218` |
 | `no_such_session` | domain | NoSuchSessionError | `packages/sdk/src/interactive/types.ts:41` +1 |
@@ -265,10 +266,10 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `task_not_found` | domain | — | `packages/sdk/src/task-errors.ts:53` +1 |
 | `task_op_unsupported` | domain | — | `packages/sdk/src/task-errors.ts:73` +1 |
 | `timeout` | domain | — | `packages/sdk/src/internal/error-mappers/vertex.ts:55` |
-| `tool_decision_duplicate` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:411` |
-| `tool_decision_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:416` |
-| `tool_decision_missing` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:424` +1 |
-| `tool_decision_unknown` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:406` |
+| `tool_decision_duplicate` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:418` |
+| `tool_decision_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:423` |
+| `tool_decision_missing` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:431` +1 |
+| `tool_decision_unknown` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:413` |
 | `tool_decision_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-send.ts:174` +1 |
 | `tool_invalid_name` | domain | — | `packages/sdk/src/tool-name.ts:28` |
 | `tool_invalid_schema_type` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:272` |
