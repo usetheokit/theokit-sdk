@@ -73,6 +73,28 @@ Values shorter than `minLength` (default 4) are ignored. A value split across st
 back until it is known not to match. `wrapStreams` throws `ConfigurationError` for a stream that is
 already wrapped; a write held back whole calls its callback before its bytes reach the stream.
 
+## `modelFallback`: rerun a turn on another model
+
+```ts
+const agent = await Agent.create({
+  model: "openai/gpt-4o",
+  modelFallback: { models: ["anthropic/claude-3.5-sonnet"] },
+});
+```
+
+When the primary model fails before it streams any assistant text or tool call (a provider or
+network error), the same turn is rerun on the next model of `models`, in order. The retry runs on
+the same agent, so the user message appears once in the transcript. The `Run` you hold stays the
+same object; its `stream()`/`events()` carry the answering model's items. `RunResult.modelFallbackAttempts`
+lists each failed attempt (`model`, `errorCode`).
+
+It never falls over on `cancelled`, on a `ConfigurationError`, or after output has started.
+When every model fails the run ends `error` and `RunResult.error.cause` is a
+`ModelFallbackExhaustedError` naming each model and its code; its own `cause` is the primary's error.
+
+This differs from `providers.fallback`, which only picks another provider when a route has none
+available. It does not resend a run that failed.
+
 ## Install
 
 ```bash
@@ -369,6 +391,18 @@ process.once("SIGTERM", async () => {
 ```
 
 Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must share one pid namespace (not containers or hosts sharing a volume). The lock needs a filesystem with hard links; without one the call rejects with `InstanceLockedError`.
+
+## `@theokit/sdk/auth`: choosing a provider credential
+
+`resolveProviderCredential({ env, model?, store?, providers?, pinnedEnvVar? })` returns
+`{ provider, apiKey, origin, baseUrl }`. Rules, in order:
+
+1. `pinnedEnvVar` set: that variable is used; empty or missing throws `pinned_credential_missing`.
+2. The model names a provider (`openai/gpt-4o-mini`): that provider's credential (env, then `store`) is used. None throws `model_provider_without_credential` and never falls back to another provider.
+3. A bare model id or no model: the first candidate by `priority` with a credential. None throws `no_provider_credential`, listing the variables checked.
+4. A key whose prefix names a different vendor than the provider it was found for throws `credential_provider_mismatch`.
+
+`DEFAULT_PROVIDER_CANDIDATES` is the one default order: `openrouter` (`OPENROUTER_API_KEY`), `anthropic` (`ANTHROPIC_API_KEY`), `openai` (`OPENAI_API_KEY`). It matches the chain `@theokit/agents` already uses. Errors are `ProviderCredentialError`; messages name variables, never values.
 
 ## `@theokit/sdk/persistence`: named profiles
 

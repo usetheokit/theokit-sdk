@@ -504,6 +504,7 @@ export class LocalAgent implements SDKAgent {
         assembleSystemPromptForSend: (request) =>
           assembleSystemPromptForSendHelper({ ...request, inputs: this.assemblyInputs() }),
         dispatchRun: (args) => this.dispatchRun(args),
+        currentModel: () => this.model,
       },
       message,
       options,
@@ -579,6 +580,7 @@ export class LocalAgent implements SDKAgent {
     priorMessages,
     memoryTools,
     memoryProviderOverride,
+    model,
   }: DispatchRunArgs): Promise<Run> {
     // SDK 2.0 Phase 1 physical Stage 2b — iter 23 KERNEL FLIP:
     // When `memoryProviderOverride` is supplied (env-flag path), inject
@@ -594,7 +596,7 @@ export class LocalAgent implements SDKAgent {
     return dispatchLocalRun({
       inputs: {
         agentId: this.agentId,
-        model: this.model,
+        model: model ?? this.model,
         options: effectiveAgentOptions,
         workspaceCwd: this.workspaceCwd,
         hooksExecutor: this.hooksExecutor,
