@@ -87,6 +87,12 @@ export interface PreToolCallContext {
   /** The model's `tool_use` id for this call; the same id appears on the resulting `tool_result`. */
   toolUseId?: string;
   /**
+   * Set when this call was deferred earlier and a person approved it on resume
+   * (`SendOptions.toolDecisions`). A permission plugin treats the approval as the answer to an
+   * `ask` verdict only: an explicit deny, a permission floor or any other veto still applies.
+   */
+  approvedOnResume?: boolean;
+  /**
    * SE1 — the run's resolved `PermissionMode` (from `SendOptions.permissionMode`
    * ?? `AgentOptions.permissionMode`), threaded so a permission-style plugin can
    * gate per-run rather than at construction time. Absent ⇒ the plugin's own

@@ -80,6 +80,11 @@ export interface SessionRecord {
   subtype?: string;
   compactMetadata?: { preTokens: number; trigger: string };
   /**
+   * On a `deferred_tool_calls` system record: the tool calls the run ended on without answering,
+   * with the schema version of each stored call.
+   */
+  deferredToolCalls?: Array<{ toolUseId: string; schemaVersion: number }>;
+  /**
    * The message body, in the shape the transcript writer actually writes.
    *
    * M94 — it was `Record<string, unknown>`, and the consumer recovered the type with a cast on every read.
