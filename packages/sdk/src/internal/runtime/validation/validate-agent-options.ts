@@ -9,6 +9,7 @@ import type {
 } from "../../../types/agent.js";
 import type { McpServerConfig } from "../../../types/mcp.js";
 import { assertValidDoomLoopWindow } from "../../agent-loop/doom-loop-tracker.js";
+import { validatePruneToolResults } from "../../agent-loop/prune-tool-results.js";
 import { validateMcpToolFilter } from "../../mcp/tool-filter.js";
 import { resolveMaxFacts } from "../../memory/storage/fact-ceiling.js";
 
@@ -51,6 +52,7 @@ export function validateAgentOptions(options: AgentOptions): void {
   validatePlugins(options);
   validateCustomTools(options);
   validateCredentialPoolShape(options);
+  validatePruneToolResults(options.sendDefaults?.pruneToolResults);
 }
 
 /**
