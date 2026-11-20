@@ -7,12 +7,11 @@
  */
 
 import { ConfigurationError } from "@theokit/sdk";
-
+import type { WebSearchCallback } from "./web-search.js";
 import { createBraveWebSearchAdapter } from "./web-search-brave.js";
 import { createGenericHttpSearchAdapter } from "./web-search-http.js";
 import { createSearxngWebSearchAdapter } from "./web-search-searxng.js";
 import { createTavilyWebSearchAdapter } from "./web-search-tavily.js";
-import type { WebSearchCallback } from "./web-search.js";
 
 export type WebSearchProvider = "brave" | "searxng" | "tavily" | "generic";
 
