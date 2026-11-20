@@ -12,7 +12,7 @@ import type {
   ActiveMemoryStatus,
 } from "./active-memory-types.js";
 import type { MemorySearchHit } from "./index-manager.js";
-import type { MemoryIndex } from "./memory-index.js";
+import type { MemorySearchableIndex } from "./tools.js";
 import { type MemoryRoot, resolveMemoryRoot } from "./storage/memory-root.js";
 import { persistActiveMemoryTranscript } from "./storage/transcript-store.js";
 
@@ -47,10 +47,11 @@ export interface ActiveMemoryOptions {
   recentUserTurns?: number;
 }
 
+/** Inputs to one blocking recall: options, the index to search, the user message and per-agent state. */
 export interface RunActiveMemoryArgs {
   userText: string;
   priorMessages: ReadonlyArray<{ role: "user" | "assistant"; text: string }>;
-  index: MemoryIndex | undefined;
+  index: MemorySearchableIndex | undefined;
   options: ActiveMemoryOptions;
   /** Per-agent circuit breaker (Phase 8). */
   breaker?: CircuitBreaker;
@@ -100,6 +101,7 @@ const DEFAULTS: Required<Omit<ActiveMemoryOptions, "enabled">> = {
   recentUserTurns: 2,
 };
 
+/** Run Active Memory recall before a turn; never throws, returns a status-tagged result. */
 export async function runActiveMemory(args: RunActiveMemoryArgs): Promise<ActiveMemoryResult> {
   const started = Date.now();
   // T0.1 — `memory.recall` span emitted around the entire body so skipped /

@@ -4,6 +4,10 @@ import { ConfigurationError } from "../../errors.js";
 import { atOrInsideRoot } from "../security/path-containment.js";
 import type { MemorySearchHit } from "./index-manager.js";
 import type { MemoryIndex } from "./memory-index.js";
+
+// Only `search` is used, so the tools accept any index that has it — `@theokit/sdk-memory` hands
+// over its own `MemoryIndex`, whose result types do not declare the SDK's newer required fields.
+export type MemorySearchableIndex = Pick<MemoryIndex, "search">;
 import type { MemoryRoot } from "./storage/memory-root.js";
 import { readMemoryFileBounded } from "./storage/reader.js";
 
@@ -23,6 +27,7 @@ export interface MemoryToolJson {
   inputSchema: Record<string, unknown>;
 }
 
+/** A memory tool: name, description, JSON schema and the async `execute`. */
 export interface MemoryTool extends MemoryToolJson {
   execute(input: Record<string, unknown>): Promise<string>;
 }
@@ -58,12 +63,14 @@ const MEMORY_GET_SCHEMA: Record<string, unknown> = {
 
 const DEFAULT_MAX_TOTAL_CHARS = 16384;
 
+/** Options for {@link createMemorySearchTool}. */
 export interface MemorySearchToolOptions {
-  index: MemoryIndex;
+  index: MemorySearchableIndex;
   /** Cap on the JSON response size (EC-10 of edge-case review). Default 16384. */
   maxTotalChars?: number;
 }
 
+/** Build the `memory_search` tool over an index. */
 export function createMemorySearchTool(opts: MemorySearchToolOptions): MemoryTool {
   const cap = opts.maxTotalChars ?? DEFAULT_MAX_TOTAL_CHARS;
   return {
@@ -87,6 +94,7 @@ export function createMemorySearchTool(opts: MemorySearchToolOptions): MemoryToo
   };
 }
 
+/** Options for {@link createMemoryGetTool}. */
 export interface MemoryGetToolOptions {
   /**
    * The RESOLVED memory root the tool may read inside — not a cwd (#463).
@@ -97,6 +105,7 @@ export interface MemoryGetToolOptions {
   root: MemoryRoot;
 }
 
+/** Build the `memory_get` tool: bounded excerpt reads confined to the memory root. */
 export function createMemoryGetTool(opts: MemoryGetToolOptions): MemoryTool {
   const memoryRoot = resolvePath(opts.root);
   return {
