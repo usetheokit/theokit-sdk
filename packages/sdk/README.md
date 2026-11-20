@@ -486,6 +486,7 @@ async function onMessage(key: string, text: string) {
 
 await pool.reset("chat-1"); // /new: next lease gets a new agent id; a turn in flight finishes on the old one
 pool.rebuild("chat-1"); // settings changed: same id (same transcript), fresh options on the next lease
+// Release your own lease first: the next lease waits for the old agent to be released and disposed.
 const { stillRunning } = await pool.disposeAll({ drainMs: 30_000 }); // lease() now rejects with SessionPoolClosedError
 ```
 

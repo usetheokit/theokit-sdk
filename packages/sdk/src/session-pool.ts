@@ -115,7 +115,11 @@ export interface SessionPool {
   lease(key: string): Promise<AgentLease>;
   /** Move `key` to the next generation. A turn in flight finishes on the old agent. */
   reset(key: string): Promise<void>;
-  /** Retire the current agent but keep its id: the next lease reopens it with fresh options. */
+  /**
+   * Retire the current agent but keep its id: the next lease reopens it with fresh options. That
+   * lease waits until the old agent is released and disposed, so release your own lease before
+   * calling `lease` again, or it never resolves.
+   */
   rebuild(key: string): void;
   /** Refuse new leases, wait up to `drainMs` (default 30 s) for held ones, dispose everything. */
   disposeAll(options?: { drainMs?: number }): Promise<{ stillRunning: string[] }>;
@@ -221,6 +225,14 @@ class Pool implements SessionPool {
       if (this.#entries.get(id) === entry && entry.agent === undefined) this.#entries.delete(id);
       this.#unhold(entry);
       throw err;
+    }
+    if (this.#closed || entry.disposed) {
+      // disposeAll ran during the build: it could not see this agent, so close it here.
+      this.host.registry.forget(id, inner.agent);
+      inner.release();
+      this.#unhold(entry);
+      await inner.agent.dispose().catch(() => undefined);
+      throw new SessionPoolClosedError(key);
     }
     entry.agent = inner.agent;
     // A retire that ran during the build cannot see an agent that did not exist yet.

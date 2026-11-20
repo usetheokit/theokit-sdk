@@ -125,6 +125,33 @@ describe("Agent.sessionPool", () => {
     expect(res.stillRunning).toEqual([]);
   });
 
+  it("a lease whose open is pending when disposeAll runs is rejected and leaks no agent", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const s = setup({
+      open: async () => {
+        await gate;
+        return opts();
+      },
+    });
+    pool = s.pool;
+    const lease = pool.lease("c");
+    const settled = lease.then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    await tick();
+    const done = pool.disposeAll({ drainMs: 1 });
+    await tick();
+    await tick();
+    release();
+    expect(await settled).toBeInstanceOf(SessionPoolClosedError);
+    await done;
+    expect(Agent.registry.get(s.id("c", 0))).toBeUndefined();
+  });
+
   it("rejects a lease after disposeAll started", async () => {
     pool = setup().pool;
     void pool.disposeAll({ drainMs: 1 });

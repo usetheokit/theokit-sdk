@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -46,13 +46,13 @@ describe("generations", () => {
     const file = join(d, "sub", "g.json");
     const g = jsonGenerations(file);
     await g.next("a");
-    chmodSync(join(d, "sub"), 0o500);
+    // Replace the parent directory with a regular file: fails for root too.
+    rmSync(join(d, "sub"), { recursive: true });
+    writeFileSync(join(d, "sub"), "x");
     const failed = await g.next("a").then(
       () => false,
       () => true,
     );
-    chmodSync(join(d, "sub"), 0o700);
-    if (process.getuid?.() === 0) return; // root ignores directory modes
     expect(failed).toBe(true);
     expect(g.current("a")).toBe(1);
   });
