@@ -18,7 +18,7 @@
     "test:order-shuffle": "pnpm --filter=@theokit/sdk exec vitest run --config vitest.shuffle.config.ts",
     "eval": "pnpm --filter=@theokit/sdk run eval",
     "typecheck": "turbo run typecheck --filter='./packages/*' && pnpm run typecheck:e2e",
-    "check": "git ls-files -z | xargs -0 biome check && pnpm run check:sdk-subentries",
+    "check": "git ls-files -z | xargs -0 biome check && pnpm run check:sdk-subentries && node tools/check-readme-licenses.mjs",
     "check:sdk-subentries": "node packages/sdk/scripts/check-subentry-consistency.mjs",
     "check:fix": "biome check --write .",
     "validate:publint": "pnpm --filter=@theokit/sdk exec publint",
