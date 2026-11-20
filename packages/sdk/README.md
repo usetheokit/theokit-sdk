@@ -54,6 +54,21 @@ specifier, or the call fails on a private field.
 
 Agents that consume documentation should prefer the machine-readable corpora on the docs site ([llmstxt.org](https://llmstxt.org) convention): [`llms.txt`](https://docs.usetheo.dev/llms.txt) (curated index) and [`llms-full.txt`](https://docs.usetheo.dev/llms-full.txt) (every page inlined).
 
+## Diagnostics: `setDiagnosticsSink`, `diag` and `diagFailure`
+
+A host (for example a TUI) calls `setDiagnosticsSink(fn)` to keep library output off its screen or route it to its logs. A library built on the SDK emits through the same sink:
+
+```ts
+import { diag, diagFailure, Security, setDiagnosticsSink } from "@theokit/sdk";
+
+setDiagnosticsSink((message) => statusPanel.append(message)); // host side
+
+diag("[my-adapter] reconnecting"); // progress and degraded-mode notes; dropped when no sink is installed
+diagFailure(`[my-adapter] handler threw: ${Security.redact(err.message)}`); // sink, or stderr without one
+```
+
+The SDK does not redact the message. A caller passing provider or platform text must redact it first, for example with `Security.redact`.
+
 ## Masking secrets: `Security.redact` and `Security.createMask`
 
 `Security.redact(text)` masks known credential *shapes* (API keys, `Bearer`, `key=value`).
@@ -221,6 +236,8 @@ await agent.memory.reviewsIdle?.(); // wait for queued reviews, e.g. in tests or
 ## Builtin tool names
 
 `BUILTIN_TOOL_NAMES` (`"shell"`, `"memory_search"`, `"memory_get"`) lists the tools the SDK declares itself; these are the names `withheldBuiltinTools` accepts and a custom tool may not claim. `isBuiltinToolName(name)` tests one, so an app that takes tool names from configuration can refuse a collision at load time. Withholding a builtin via `withheldBuiltinTools` releases its name, so a custom tool may then use it.
+
+`checkToolName(name, { withheldBuiltins })` applies the SDK's tool-name rules without throwing and returns `{ ok: true }` or `{ ok: false, code, message }`, where `code` is `tool_missing_name`, `tool_invalid_name` or `tool_reserved_name` (`ToolNameProblem`). A framework that compiles tools from configuration can reject a bad name with its own error before it constructs an `Agent`; `Agent.create` throws a `ConfigurationError` with the same code. Duplicate names are only detected across the whole tool list, by `Agent.create`.
 
 ## Plugins
 
@@ -428,6 +445,27 @@ const { removed, skippedRunning } = await removeSandboxContainers({ app: "x" });
 
 Both helpers require at least one label (an empty set would match every container on the host) and take `{ runner }` and default to `defaultDockerRunner()`. A docker command that fails or times out rejects with `SandboxDockerError` (`subcommand`, `exitCode`, `stderr`). Docker renders labels as `k=v,k=v`, so a label value that itself contains a comma followed by `word=` is parsed ambiguously.
 
+## `@theokit/sdk/sandbox`: network allowlist for `LinuxSandbox`
+
+`network` on `LinuxSandbox` and `createSandboxBackend` is `false` (no network), `true` (the host network) or `{ allow }`: only the listed destinations.
+
+```ts
+import { createSandboxBackend } from "@theokit/sdk/sandbox";
+
+const sandbox = createSandboxBackend({
+  mode: "workspace-write",
+  network: { allow: [{ host: "registry.npmjs.org" }, { host: "*.github.com", ports: [443] }] },
+});
+sandbox.networkPolicy; // { mode: "allowlist", allow: ["registry.npmjs.org", "*.github.com"] }
+await sandbox.dispose(); // closes the proxy
+```
+
+How it works: the command keeps an empty network namespace (loopback only). A forwarder, run with the Node binary the host already runs, listens on `127.0.0.1:3128` inside the namespace and pipes to a host-side proxy over a Unix socket (bound read-only into the sandbox). `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy`, `https_proxy` and an empty `NO_PROXY` are set. The proxy handles `CONNECT host:port` and absolute-URI `http://` requests; a host matching no rule, or a port not in `ports` (default `[80, 443]`), gets `403`. `*.example.com` matches subdomains, not `example.com`; IP literals must be listed exactly. The proxy resolves names itself after the rule check, connects to the address it validated, and refuses a name that resolves to a loopback, private, link-local or otherwise non-public address unless that address is also listed.
+
+What it blocks: a process that ignores the proxy variables and opens its own socket has no route out, and raw TCP, SSH git remotes and other non-HTTP protocols stay blocked. What it does not do: HTTPS is tunnelled without inspection, so the proxy sees the host and port but not the traffic, and an allowed host can receive anything the command sends it. Under an allowlist the seccomp network-syscall filter is not installed (the command must open a socket to the forwarder); the namespace is what blocks egress.
+
+Bubblewrap is required. Without it, or under `danger-full-access`, `network: { allow }` throws `SandboxNotAvailableError` rather than falling back to an unconfined `LocalSandbox`. `startEgressProxy({ allow })` is exported for use on its own and returns `{ socketPath, denied, close() }`. `DockerSandbox`, `E2BSandbox` and macOS are not covered.
+
 ## `@theokit/sdk/persistence`: single instance lock
 
 `acquireInstanceLock(dir, { path? })` takes `<dir>.instance.lock` for the life of the process, so two processes never run against the same state directory. A second holder rejects with `InstanceLockedError` (`lockPath`, `holderPid`); the message names the lock and the pid, and says to stop that process or remove the lock if the pid is not running. A lock left by a pid that is no longer running is taken over, and only one of several contenders wins a given stale lock. `release()` removes the lock only while this holder still owns it, and is idempotent.
@@ -628,6 +666,10 @@ try {
 
 LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
 
+## Crash recovery: `durability: "step"` and `listRuns()`
+
+By default a workflow writes a snapshot only when a step calls `suspend()`. Set `persistence: { backend: "json", dir, durability: "step" }` and the run is also checkpointed after every completed top-level step (not the children of `parallel`, `branch` or `foreach`). A completed run deletes its checkpoint; a failed or cancelled run keeps it. After a crash, `Workflow.resume({ workflow, runId })` continues from the step after the last checkpoint, and `workflow.listRuns()` returns `{ runId, status: "suspended" | "running", currentStepId, updatedAt }` for the snapshots the store holds for that workflow name. `durability: "step"` with `backend: "memory"` is allowed (useful in tests) but does not survive a restart. A crash between a step's side effect and its checkpoint can repeat that step. The run lock is still per process: it does not stop a second process from resuming the same run.
+
 ## Resuming a workflow run by id: `WorkflowSet`
 
 When an app runs several workflows that suspend, the run id is the only token you hand out. `WorkflowSet.of([...]).resume(runId, payload)` finds the workflow that owns it:
@@ -640,6 +682,22 @@ const { name, run } = await set.resume(runId, { approved: true });
 ```
 
 A member with no snapshot for the id, or whose snapshot belongs to another workflow, is skipped. Any other error (a payload that fails validation, an I/O error) is rethrown at once and the remaining members are not tried. If no member owns the run, it throws `WorkflowSnapshotNotFoundError`. `WorkflowSet.of` throws `ConfigurationError` when two members share a name.
+
+## Experimental exports
+
+Every export is stable unless its declaration carries `@experimental`; experimental names may change in any release. The list below is checked against the committed surface baseline (`tools/api-surface/sdk.json`).
+
+### `@theokit/sdk/a2a`
+
+- `A2AIdentity`
+- `A2AUntrustedPeerError`
+- `SealedDropReason`
+- `SequenceStore`
+- `TrustedPeers`
+- `generateA2AIdentity`
+- `jsonSequenceStore`
+- `memorySequenceStore`
+- `sealedTransport`
 
 ## Status
 
