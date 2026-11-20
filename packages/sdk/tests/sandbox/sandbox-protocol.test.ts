@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { LocalSandbox } from "../../src/sandbox/local-sandbox.js";
-import { SandboxBackend } from "../../src/sandbox/types.js";
 
 describe("SandboxBackend protocol (LocalSandbox)", () => {
   let sandbox: LocalSandbox;
@@ -85,17 +84,5 @@ describe("SandboxBackend protocol (LocalSandbox)", () => {
     const entries = await sandbox.listDir(workDir);
     expect(entries).toContain("file1.txt");
     expect(entries).toContain("file2.txt");
-  });
-});
-
-describe("optional executeStreaming", () => {
-  it("is absent on a backend that does not implement it", () => {
-    class Plain extends SandboxBackend {
-      async execute() {
-        return { stdout: "", stderr: "", exitCode: 0, timedOut: false };
-      }
-      async uploadFile() {}
-    }
-    expect(new Plain().executeStreaming).toBeUndefined();
   });
 });

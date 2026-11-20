@@ -1,7 +1,6 @@
 import { azureOpenAiMemoryEmbeddingProviderAdapter } from "./embedding/azure-openai-embedding.js";
 import { cohereMemoryEmbeddingProviderAdapter } from "./embedding/cohere-embedding.js";
 import { deepinfraMemoryEmbeddingProviderAdapter } from "./embedding/deepinfra-embedding.js";
-import type { MemoryEmbeddingProviderAdapter } from "./embedding/embedding-adapter.js";
 import { geminiMemoryEmbeddingProviderAdapter } from "./embedding/gemini-embedding.js";
 import { jinaMemoryEmbeddingProviderAdapter } from "./embedding/jina-embedding.js";
 import { mistralMemoryEmbeddingProviderAdapter } from "./embedding/mistral-embedding.js";
@@ -53,19 +52,7 @@ import { voyageMemoryEmbeddingProviderAdapter } from "./embedding/voyage-embeddi
  *
  * @internal
  */
-export const MEMORY_EMBEDDING_ADAPTERS: {
-  readonly [K in
-    | "openai"
-    | "mistral"
-    | "openrouter"
-    | "voyage"
-    | "deepinfra"
-    | "ollama"
-    | "azure-openai"
-    | "cohere"
-    | "jina"
-    | "gemini"]: MemoryEmbeddingProviderAdapter;
-} = {
+export const MEMORY_EMBEDDING_ADAPTERS = {
   openai: openAiMemoryEmbeddingProviderAdapter,
   mistral: mistralMemoryEmbeddingProviderAdapter,
   openrouter: openRouterMemoryEmbeddingProviderAdapter,

@@ -8,6 +8,7 @@ import { createOpenAiCompatibleRuntime } from "./openai-compatible.js";
  *
  * Honors `VOYAGE_API_KEY` and `VOYAGE_API_BASE_URL`.
  *
+ * @internal
  */
 
 export const DEFAULT_VOYAGE_EMBEDDING_MODEL = "voyage-3-lite";
@@ -20,7 +21,6 @@ const DIMENSION_BY_MODEL: Record<string, number> = {
   "voyage-multilingual-2": 1024,
 };
 
-/** Embedding provider adapter `voyage`: an OpenAI-compatible runtime factory with its default model and priority. */
 export const voyageMemoryEmbeddingProviderAdapter: MemoryEmbeddingProviderAdapter = {
   id: "voyage",
   defaultModel: DEFAULT_VOYAGE_EMBEDDING_MODEL,

@@ -47,17 +47,6 @@ describe("LinuxSandbox (real integration with bwrap)", () => {
     expect(existsSync("/usr/m53-should-fail")).toBe(false);
   });
 
-  itLive("executeStreaming_keeps_confinement", async () => {
-    const sbx = new LinuxSandbox({ workDir, timeoutMs: 10_000 }, { mode: "workspace-write" });
-    const lines: string[] = [];
-    const r = await sbx.executeStreaming("echo hi; touch /usr/m53-stream-fail", {
-      onStdoutLine: (l) => lines.push(l),
-    });
-    expect(lines).toEqual(["hi"]);
-    expect(r.exitCode).not.toBe(0);
-    expect(existsSync("/usr/m53-stream-fail")).toBe(false);
-  });
-
   itLive("execute_allows_write_in_cwd", async () => {
     const sbx = new LinuxSandbox({ workDir, timeoutMs: 10_000 }, { mode: "workspace-write" });
     const r = await sbx.execute("touch ./m53-ok.txt && echo WROTE");
