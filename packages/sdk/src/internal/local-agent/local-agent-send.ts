@@ -1,6 +1,7 @@
 import { AgentDisposedError, ConfigurationError } from "../../errors.js";
 import type { AgentOptions, ModelSelection } from "../../types/agent.js";
 import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
+import { validatePruneToolResults } from "../agent-loop/prune-tool-results.js";
 import type { MemoryToolSpec } from "../agent-loop/types.js";
 import { anySignal } from "../concurrency/abort-utils.js";
 import { diagFailure } from "../diagnostics.js";
@@ -23,6 +24,7 @@ import { runInputProcessors } from "../runtime/processors/run-processors.js";
 import { createTripwireRun } from "../runtime/processors/tripwire-run.js";
 import { wrapRunWithOutputProcessors } from "../runtime/processors/wrap-output-run.js";
 import { safeCall } from "../runtime/system-prompt/safe-call.js";
+import { validateSendOptions } from "../runtime/validation/validate-agent-options.js";
 import { appendSessionMessage, clearSession, getSessionMessages } from "../session/index.js";
 import type { TelemetryHandle } from "../telemetry/tracer.js";
 import { consumePending } from "./local-agent-invalidate.js";
@@ -385,4 +387,28 @@ function readMemoryForSend(
     [],
     "memory read",
   );
+}
+
+const SEND_DEFAULT_KEYS = ["toolResultGuard", "pruneToolResults", "perToolTimeoutMs"] as const;
+
+/**
+ * #1020 — the effective options of one send: `AgentOptions.sendDefaults` merged under the call's
+ * options per key (a call key set to `undefined` does not remove the default), then the
+ * creation-time checks (with the agent's withhold list; also `doomLoop.window`) and the pruning
+ * check, so an invalid override fails before the run is queued.
+ */
+export function resolveSendOptions(
+  agentOptions: AgentOptions,
+  callOptions: SendOptions,
+): SendOptions {
+  const defaults = agentOptions.sendDefaults;
+  const options: SendOptions = { ...callOptions };
+  for (const key of SEND_DEFAULT_KEYS) {
+    if (options[key] === undefined && defaults?.[key] !== undefined) {
+      (options as Record<string, unknown>)[key] = defaults[key];
+    }
+  }
+  validatePruneToolResults(options.pruneToolResults);
+  validateSendOptions(options, agentOptions.withheldBuiltinTools);
+  return options;
 }

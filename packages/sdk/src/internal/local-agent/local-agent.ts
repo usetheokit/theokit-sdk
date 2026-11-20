@@ -14,7 +14,6 @@ import type {
 import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
 import type { AgentOperation } from "../../types/sdk-agent.js";
 import type { SessionStore } from "../../types/session-store.js";
-import { validatePruneToolResults } from "../agent-loop/prune-tool-results.js";
 import { diagFailure } from "../diagnostics.js";
 import { generateLocalAgentId } from "../ids.js";
 import type { MemoryMirror } from "../memory/mirror.js";
@@ -50,7 +49,6 @@ import {
 } from "../runtime/system-prompt/local-assembly.js";
 import { SystemPromptPipeline } from "../runtime/system-prompt/pipeline.js";
 import { resolveSystemPromptForSend } from "../runtime/system-prompt/system-prompt.js";
-import { validateSendOptions } from "../runtime/validation/validate-agent-options.js";
 import { hydrateSession } from "../session/index.js";
 import { SPAN_NAMES } from "../telemetry/span-names.js";
 import { createTelemetry, type OTelSpan, type TelemetryHandle } from "../telemetry/tracer.js";
@@ -78,7 +76,7 @@ import {
   localAgentRunUntil,
   localAgentStreamToCompletion,
 } from "./local-agent-runtime-extensions.js";
-import { type DispatchRunArgs, executeSendLocked } from "./local-agent-send.js";
+import { type DispatchRunArgs, executeSendLocked, resolveSendOptions } from "./local-agent-send.js";
 import { registerRunAsTask } from "./local-agent-task-wrap.js";
 import { reportUnknownLocalOptions } from "./local-option-keys.js";
 import {
@@ -697,27 +695,6 @@ export class LocalAgent implements SDKAgent {
   > {
     return localAgentStreamToCompletion(this, message, options);
   }
-}
-
-const SEND_DEFAULT_KEYS = ["toolResultGuard", "pruneToolResults", "perToolTimeoutMs"] as const;
-
-/**
- * #1020 — the effective options of one send: `AgentOptions.sendDefaults` merged under the call's
- * options per key (a call key set to `undefined` does not remove the default), then the
- * creation-time checks (with the agent's withhold list; also `doomLoop.window`) and the pruning
- * check, so an invalid override fails before the run is queued.
- */
-function resolveSendOptions(agentOptions: AgentOptions, callOptions: SendOptions): SendOptions {
-  const defaults = agentOptions.sendDefaults;
-  const options: SendOptions = { ...callOptions };
-  for (const key of SEND_DEFAULT_KEYS) {
-    if (options[key] === undefined && defaults?.[key] !== undefined) {
-      (options as Record<string, unknown>)[key] = defaults[key];
-    }
-  }
-  validatePruneToolResults(options.pruneToolResults);
-  validateSendOptions(options, agentOptions.withheldBuiltinTools);
-  return options;
 }
 
 /**
