@@ -163,11 +163,12 @@ async function publish(
   const { bytes, description } = body;
   const sha256 = sha256Hex(bytes);
   await fs.mkdir(o.dir, { recursive: true, mode: 0o700 });
+  const taken = (): Response => fail(409, `${name}@${version} already exists`);
+  if (await readMeta(o.dir, name, version)) return taken();
   try {
-    if (await readMeta(o.dir, name, version)) throw Object.assign(new Error(), { code: "EEXIST" });
     await store(o.dir, name, bytes, { version, sha256, size: bytes.byteLength, description });
   } catch (e) {
-    if (isTaken(e)) return fail(409, `${name}@${version} already exists`);
+    if (isTaken(e)) return taken();
     throw e;
   }
   return json(201, { name, version, sha256 });
