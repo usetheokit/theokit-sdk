@@ -253,13 +253,9 @@ class EgressState {
         path: `${url.pathname}${url.search}`,
         headers: headers as http.OutgoingHttpHeaders,
       },
-      (r) => {
-        res.writeHead(r.statusCode ?? 502, r.headers);
-        r.pipe(res);
-      },
+      (r) => relayResponse(r, res),
     );
-    up.once("error", () => (res.headersSent ? res.destroy() : res.writeHead(502).end()));
-    req.pipe(up);
+    relayRequest(req, res, up);
   }
 
   private placeholderInPlainRequest(req: http.IncomingMessage): CredentialRule | undefined {
@@ -345,14 +341,24 @@ class EgressState {
         agent: false,
         ...(this.opts.upstreamCa ? { ca: this.opts.upstreamCa } : {}),
       },
-      (r) => {
-        res.writeHead(r.statusCode ?? 502, r.headers);
-        r.pipe(res);
-      },
+      (r) => relayResponse(r, res),
     );
-    up.once("error", () => (res.headersSent ? res.destroy() : res.writeHead(502).end()));
-    req.pipe(up);
+    relayRequest(req, res, up);
   }
+}
+
+function relayResponse(r: http.IncomingMessage, res: http.ServerResponse): void {
+  res.writeHead(r.statusCode ?? 502, r.headers);
+  r.pipe(res);
+}
+
+function relayRequest(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  up: http.ClientRequest,
+): void {
+  up.once("error", () => (res.headersSent ? res.destroy() : res.writeHead(502).end()));
+  req.pipe(up);
 }
 
 /** `current` with `placeholder` replaced by `value`, or `value` alone when the header was absent. */
