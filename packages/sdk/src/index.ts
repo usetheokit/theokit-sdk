@@ -103,9 +103,8 @@ export {
   RateLimitError,
   TaskNotFoundError,
   TheokitAgentError,
-  TrustRecordError,
-
   ToolCallBlockedError,
+  TrustRecordError,
   UnknownAgentError,
   UnsupportedBudgetOperationError,
   UnsupportedRunOperationError,
