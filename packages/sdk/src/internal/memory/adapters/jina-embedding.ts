@@ -15,6 +15,7 @@ const DIMENSION_BY_MODEL: Record<string, number> = {
   "jina-embeddings-v2-small-en": 512,
 };
 
+/** Embedding provider adapter `jina`: an OpenAI-compatible runtime factory with its default model and priority. */
 export const jinaMemoryEmbeddingProviderAdapter: MemoryEmbeddingProviderAdapter = {
   id: "jina",
   defaultModel: DEFAULT_JINA_EMBEDDING_MODEL,

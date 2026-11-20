@@ -26,6 +26,7 @@ export const OPENAI_EMBEDDING_DIMENSIONS: Readonly<Record<string, number>> = {
 
 const DIMENSION_BY_MODEL: Record<string, number> = { ...OPENAI_EMBEDDING_DIMENSIONS };
 
+/** Embedding provider adapter `openAi`: an OpenAI-compatible runtime factory with its default model and priority. */
 export const openAiMemoryEmbeddingProviderAdapter: MemoryEmbeddingProviderAdapter = {
   id: "openai",
   defaultModel: DEFAULT_OPENAI_EMBEDDING_MODEL,

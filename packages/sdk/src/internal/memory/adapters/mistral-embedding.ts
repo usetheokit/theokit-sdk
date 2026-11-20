@@ -16,6 +16,7 @@ const DIMENSION_BY_MODEL: Record<string, number> = {
   "mistral-embed": 1024,
 };
 
+/** Embedding provider adapter `mistral`: an OpenAI-compatible runtime factory with its default model and priority. */
 export const mistralMemoryEmbeddingProviderAdapter: MemoryEmbeddingProviderAdapter = {
   id: "mistral",
   defaultModel: DEFAULT_MISTRAL_EMBEDDING_MODEL,

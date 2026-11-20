@@ -33,6 +33,7 @@
 import type { MemoryEmbeddingProviderAdapter } from "../embedding-adapter.js";
 import { createOpenAiCompatibleRuntime } from "./openai-compatible.js";
 
+/** Default embedding model id for the Ollama adapter. */
 export const DEFAULT_OLLAMA_EMBEDDING_MODEL = "nomic-embed-text";
 
 /** Sentinel forwarded as Bearer token; Ollama local ignores Authorization. */
@@ -55,6 +56,7 @@ const DIMENSION_BY_MODEL: Record<string, number> = {
   "mxbai-embed-large:latest": 1024,
 };
 
+/** Embedding provider adapter `ollama`: an OpenAI-compatible runtime factory with its default model and priority. */
 export const ollamaMemoryEmbeddingProviderAdapter: MemoryEmbeddingProviderAdapter = {
   id: "ollama",
   defaultModel: DEFAULT_OLLAMA_EMBEDDING_MODEL,

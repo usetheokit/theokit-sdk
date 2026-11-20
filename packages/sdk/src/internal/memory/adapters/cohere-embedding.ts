@@ -16,6 +16,7 @@ const DIMENSION_BY_MODEL: Record<string, number> = {
   "embed-multilingual-light-v3.0": 384,
 };
 
+/** Embedding provider adapter `cohere`: an OpenAI-compatible runtime factory with its default model and priority. */
 export const cohereMemoryEmbeddingProviderAdapter: MemoryEmbeddingProviderAdapter = {
   id: "cohere",
   defaultModel: DEFAULT_COHERE_EMBEDDING_MODEL,

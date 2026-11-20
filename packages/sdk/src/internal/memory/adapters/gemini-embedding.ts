@@ -18,6 +18,7 @@ const DIMENSION_BY_MODEL: Record<string, number> = {
   "embedding-001": 768,
 };
 
+/** Embedding provider adapter `gemini`: an OpenAI-compatible runtime factory with its default model and priority. */
 export const geminiMemoryEmbeddingProviderAdapter: MemoryEmbeddingProviderAdapter = {
   id: "gemini",
   defaultModel: DEFAULT_GEMINI_EMBEDDING_MODEL,

@@ -24,6 +24,7 @@ export const DEFAULT_AZURE_OPENAI_EMBEDDING_MODEL = "text-embedding-3-small";
  */
 const DIMENSION_BY_MODEL: Record<string, number> = { ...OPENAI_EMBEDDING_DIMENSIONS };
 
+/** Embedding provider adapter `azureOpenAi`: an OpenAI-compatible runtime factory with its default model and priority. */
 export const azureOpenAiMemoryEmbeddingProviderAdapter: MemoryEmbeddingProviderAdapter = {
   id: "azure-openai",
   defaultModel: DEFAULT_AZURE_OPENAI_EMBEDDING_MODEL,

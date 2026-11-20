@@ -21,6 +21,7 @@ const DIMENSION_BY_MODEL: Record<string, number> = {
   "mistralai/mistral-embed": 1024,
 };
 
+/** Embedding provider adapter `openRouter`: an OpenAI-compatible runtime factory with its default model and priority. */
 export const openRouterMemoryEmbeddingProviderAdapter: MemoryEmbeddingProviderAdapter = {
   id: "openrouter",
   defaultModel: DEFAULT_OPENROUTER_EMBEDDING_MODEL,
