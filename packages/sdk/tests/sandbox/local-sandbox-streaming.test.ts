@@ -14,7 +14,7 @@ describe("LocalSandbox.executeStreaming", () => {
       },
     });
     expect(lines).toEqual(["a", "b", "", "c"]);
-    expect(stamps[1] - stamps[0]).toBeGreaterThanOrEqual(300);
+    expect((stamps[1] ?? 0) - (stamps[0] ?? 0)).toBeGreaterThanOrEqual(300);
     expect(r).toMatchObject({ stdout: "a\nb\n\nc", stderr: "err\n", exitCode: 0, timedOut: false });
   });
 
