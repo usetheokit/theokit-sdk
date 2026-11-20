@@ -28,7 +28,7 @@ describe("atomicWriteJsonSync / dirMode", () => {
     // target is a directory, so rename of a file over it fails
     const target = join(dir, "t");
     atomicWriteJsonSync(join(target, "x.json"), {});
-    expect(() => atomicWriteJsonSync(target, {})).toThrow();
+    expect(() => atomicWriteJsonSync(target, {})).toThrow(/EISDIR|ENOTEMPTY|EEXIST|EPERM/);
     expect(readdirSync(dir)).toEqual(["t"]);
   });
 
