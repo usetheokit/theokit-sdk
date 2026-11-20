@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1527 export(s) across 58 entry point(s).
+1528 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1758,6 +1758,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AgentStep` | interface | An agent.send-driven step. |
 | `BranchStep` | interface | First-match-wins predicates + optional fallback. |
 | `cloneWorkflow` | function | SE30 — clone a committed workflow under a new id/name.  |
+| `CompensationResult` | interface | The outcome of one `compensate` call. |
 | `DowhileStep` | interface | Loop a step until condFn returns false. |
 | `fn` | function | Build a `FnStep`.  |
 | `FnStep` | interface | A pure function step. |
@@ -1774,7 +1775,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `workflowAsTool` | function | SE19 — expose a {@link Workflow } as an agent {@link CustomTool } , completing the "X as tools" trio (tools; agents-as-tools via `defineSubAgent`; workflows-as-tools).  |
 | `WorkflowAsToolSpec` | interface | Spec for {@link workflowAsTool } .  |
 | `WorkflowBuilder` | class | Fluent step accumulator returned by {@link Workflow.create } .  |
-| `WorkflowCompensateNotImplementedError` | class | D238 — saga engine not yet implemented. |
+| `WorkflowCompensateNotImplementedError` | class | D238 — a `compensate` on a step nested in parallel/branch/foreach/dowhile (top-level steps are supported). |
 | `WorkflowDescription` | interface | theokit#161 — the read-only shape of a committed workflow.  |
 | `WorkflowDuplicateStepIdError` | class | Thrown by `.commit()` when one step id appears twice anywhere in the workflow — including inside a parallel branch, a branch predicate, the fallback, and the inner step of a `foreach` or `dowhile`.  |
 | `WorkflowEvent` | type | SE28 — a step-level workflow event emitted by `Workflow.stream()` as top-level steps run.  |

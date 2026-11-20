@@ -263,7 +263,7 @@ export class WorkflowParallelError extends AggregateError {
   }
 }
 
-/** A `compensate` on a step nested in parallel/branch/foreach/dowhile (top-level steps are supported). */
+/** D238 — a `compensate` on a step nested in parallel/branch/foreach/dowhile (top-level steps are supported). */
 export class WorkflowCompensateNotImplementedError extends TheokitAgentError {
   override readonly name = "WorkflowCompensateNotImplementedError";
   constructor(public readonly stepId: string) {

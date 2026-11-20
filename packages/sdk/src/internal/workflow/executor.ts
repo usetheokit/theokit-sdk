@@ -277,18 +277,28 @@ async function failWithCompensation<TO>(
   return { ...run, compensation };
 }
 
-/** A terminal run from a failed top-level step is compensated; any other terminal passes through. */
-function finishTerminal<TO>(
-  terminal: WorkflowRun<TO>,
-  outcome: { kind: "ok"; result: StepResult } | { kind: "terminal"; run: WorkflowRun<TO> },
-  done: ReadonlyArray<Compensable>,
-  signal: AbortSignal,
-  onStepEvent?: (event: WorkflowEvent) => void,
-): Promise<WorkflowRun<TO>> | WorkflowRun<TO> {
-  if (outcome.kind === "ok" && outcome.result.status === "failed") {
-    return failWithCompensation(terminal, done, signal, onStepEvent);
+/** Settle one step: compensate on a failed step, else record a compensable completion. */
+async function settleStep<TO>(
+  handled: { terminal: WorkflowRun<TO> } | { acc: unknown },
+  args: {
+    outcome: { kind: "ok"; result: StepResult } | { kind: "terminal"; run: WorkflowRun<TO> };
+    step: Step;
+    input: unknown;
+    done: Compensable[];
+    signal: AbortSignal;
+    onStepEvent?: (event: WorkflowEvent) => void;
+  },
+): Promise<{ terminal: WorkflowRun<TO> } | { acc: unknown }> {
+  const { outcome, step, done } = args;
+  if ("terminal" in handled) {
+    if (outcome.kind !== "ok" || outcome.result.status !== "failed") return handled;
+    const run = await failWithCompensation(handled.terminal, done, args.signal, args.onStepEvent);
+    return { terminal: run };
   }
-  return terminal;
+  if (step.kind === "fn" && step.compensate !== undefined) {
+    done.push({ step, input: args.input, output: handled.acc });
+  }
+  return handled;
 }
 
 async function runStepsLoop<TO>(params: LoopParams): Promise<WorkflowRun<TO>> {
@@ -311,13 +321,15 @@ async function runStepsLoop<TO>(params: LoopParams): Promise<WorkflowRun<TO>> {
       name: options.name,
       startedAt,
     });
-    const handled = handleStepOutcome<TO>(outcome, step, loop, onStepEvent);
-    if ("terminal" in handled) {
-      return finishTerminal(handled.terminal, outcome, done, signal, onStepEvent);
-    }
-    if (step.kind === "fn" && step.compensate !== undefined) {
-      done.push({ step, input: acc, output: handled.acc });
-    }
+    const handled = await settleStep<TO>(handleStepOutcome<TO>(outcome, step, loop, onStepEvent), {
+      outcome,
+      step,
+      input: acc,
+      done,
+      signal,
+      ...(onStepEvent !== undefined ? { onStepEvent } : {}),
+    });
+    if ("terminal" in handled) return handled.terminal;
     acc = handled.acc;
   }
   // SE27 — validate the whole-workflow output only on the terminal completed path.
