@@ -27,3 +27,41 @@ export function isAbortLike(cause: unknown): boolean {
   const name = (cause as { name: unknown }).name;
   return name === "TimeoutError" || name === "AbortError";
 }
+
+function eventData(event: string): string | undefined {
+  const lines = event
+    .split("\n")
+    .filter((l) => l.startsWith("data:"))
+    .map((l) => l.slice(5).replace(/^ /, ""));
+  const data = lines.join("\n");
+  return data.trim() === "" ? undefined : data;
+}
+
+/** Splits complete events (ended by a blank line) off `buffer`; returns their data and the rest. */
+function drainEvents(buffer: string): { data: string[]; rest: string } {
+  const parts = buffer.split("\n\n");
+  const rest = parts.pop() ?? "";
+  const data = parts.map(eventData).filter((d): d is string => d !== undefined);
+  return { data, rest };
+}
+
+/** Yields the joined `data:` payload of each SSE event as it arrives (not after the body ends). @internal */
+export async function* readSseData(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    for (let done = false; !done; ) {
+      const chunk = await reader.read();
+      done = chunk.done;
+      buffer += decoder.decode(chunk.value, { stream: !done }).replace(/\r\n?/g, "\n");
+      const drained = drainEvents(buffer);
+      buffer = drained.rest;
+      yield* drained.data;
+    }
+    const tail = eventData(buffer);
+    if (tail !== undefined) yield tail;
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+}

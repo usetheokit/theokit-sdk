@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1537 export(s) across 58 entry point(s).
+1542 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -266,6 +266,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ManagedSettingsDocument` | interface | The managed-settings file as read: where it was, and every top-level key as written. |
 | `managedSettingsPathFor` | function | Where the platform keeps its managed settings.  |
 | `McpAuthConfig` | interface | OAuth-style auth bundle for HTTP/SSE MCP servers. |
+| `McpElicitationHandler` | type | Answers MCP elicitation requests.  |
+| `McpElicitationRequest` | interface | A server's request for user input in the middle of a tool call (MCP elicitation, 2025-06-18). |
+| `McpElicitationResult` | type | The answer to an {@link McpElicitationRequest } .  |
 | `McpHttpServerConfig` | type | HTTP or SSE MCP server. |
 | `McpOAuthConfig` | interface | OAuth 2.1 PKCE flow descriptor.  |
 | `McpServerConfig` | type | Union of MCP server configs. |
