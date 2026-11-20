@@ -19,6 +19,7 @@ const SRC_ROOT = join(__dirname, "..", "..", "src");
 const ALLOWLIST = new Set<string>([
   "internal/agent-loop/loop.ts",
   "internal/agent-loop/loop-tool-steps.ts",
+  "internal/agent-loop/loop-resume.ts",
 ]);
 
 const BAD_PATTERN = /\b(ctx|loopCtx|context)\.messages\.push\b/;

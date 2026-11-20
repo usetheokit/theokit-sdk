@@ -225,6 +225,15 @@ export interface AgentLoopInputs {
    */
   priorMessages?: ReadonlyArray<SessionMessage>;
   /**
+   * Resume of tool calls a previous run deferred: the pending calls read from the transcript and the
+   * person's decisions. The loop answers them before its first model turn and the `message` is not
+   * added to the history.
+   */
+  resume?: {
+    readonly calls: readonly import("../../types/run.js").DeferredToolCall[];
+    readonly decisions: readonly import("../../types/run.js").ToolCallDecision[];
+  };
+  /**
    * Memory tools (`memory_search`, `memory_get`) to register with the LLM
    * when `AgentOptions.memory.enabled === true`. Appended to the shell + MCP
    * tool catalog in `collectTools`.
