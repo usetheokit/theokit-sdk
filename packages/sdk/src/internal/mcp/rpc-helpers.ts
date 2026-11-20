@@ -27,3 +27,72 @@ export function isAbortLike(cause: unknown): boolean {
   const name = (cause as { name: unknown }).name;
   return name === "TimeoutError" || name === "AbortError";
 }
+
+function eventData(event: string): string | undefined {
+  const lines = event
+    .split("\n")
+    .filter((l) => l.startsWith("data:"))
+    .map((l) => l.slice(5).replace(/^ /, ""));
+  const data = lines.join("\n");
+  return data.trim() === "" ? undefined : data;
+}
+
+/** Splits complete events (ended by a blank line) off `buffer`; returns their data and the rest. */
+function drainEvents(buffer: string): { data: string[]; rest: string } {
+  const parts = buffer.split("\n\n");
+  const rest = parts.pop() ?? "";
+  const data = parts.map(eventData).filter((d): d is string => d !== undefined);
+  return { data, rest };
+}
+
+/** Yields the joined `data:` payload of each SSE event as it arrives (not after the body ends). @internal */
+export async function* readSseData(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    for (let done = false; !done; ) {
+      const chunk = await reader.read();
+      done = chunk.done;
+      buffer += decoder.decode(chunk.value, { stream: !done }).replace(/\r\n?/g, "\n");
+      const drained = drainEvents(buffer);
+      buffer = drained.rest;
+      yield* drained.data;
+    }
+    const tail = eventData(buffer);
+    if (tail !== undefined) yield tail;
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+}
+
+export interface McpTool {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
+export interface McpToolCallResult {
+  content: Array<{ type: "text"; text: string }>;
+  isError?: boolean;
+}
+
+type RpcRequester = (method: string, params: Record<string, unknown>) => Promise<unknown>;
+
+export async function rpcListTools(request: RpcRequester): Promise<McpTool[]> {
+  const response = await request("tools/list", {});
+  return (response as { result?: { tools?: McpTool[] } }).result?.tools ?? [];
+}
+
+export async function rpcCallTool(
+  request: RpcRequester,
+  name: string,
+  args: Record<string, unknown>,
+): Promise<McpToolCallResult> {
+  const response = await request("tools/call", { name, arguments: args });
+  const result = (response as { result?: McpToolCallResult }).result;
+  if (result === undefined) {
+    return { content: [{ type: "text", text: "MCP returned empty result" }], isError: true };
+  }
+  return result;
+}

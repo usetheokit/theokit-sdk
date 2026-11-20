@@ -6,7 +6,7 @@
 import type { BudgetTracker } from "./budget-tracker.js";
 import type { ContextSettings } from "./context.js";
 import type { HookApprovalGate } from "./hooks.js";
-import type { McpServerConfig } from "./mcp.js";
+import type { McpElicitationHandler, McpServerConfig } from "./mcp.js";
 import type { MemoryProvider } from "./memory-provider.js";
 import type { PluginsSettings, ProviderRoutingSettings } from "./providers.js";
 import type { SendOptions } from "./run.js";
@@ -731,6 +731,14 @@ export interface AgentOptions {
    * risk, so they keep `'run'` unless they ask otherwise.
    */
   mcpLifecycle?: "run" | "session";
+  /**
+   * Answers MCP elicitation requests: a server asking the user for input in the middle of a tool
+   * call. The client declares the `elicitation` capability only when this is set and the MCP
+   * revision is `2025-06-18` or later; without it such a request gets JSON-RPC error `-32601`.
+   * A handler that throws, or an `accept` that does not match the requested schema, answers
+   * `cancel` and is reported on the diagnostics channel.
+   */
+  onMcpElicitation?: McpElicitationHandler;
   agents?: Record<string, AgentDefinition>;
   agentId?: string;
   /** Context manager configuration. See `agent.context`. */
