@@ -71,8 +71,13 @@ export function guardTools(
         runId: nextRunId(),
         ...(ctx.permissionMode !== undefined ? { permissionMode: ctx.permissionMode } : {}),
       });
-      if (decision !== undefined) throw new ToolCallBlockedError(tool.name, decision.message);
+      if (decision !== undefined) throw new ToolCallBlockedError(tool.name, blockMessage(decision));
       return tool.handler(input, toolCtx);
     },
   }));
+}
+
+/** No run loop here to end on a deferred call, so a defer blocks the call. */
+function blockMessage(decision: PreToolCallDecision): string {
+  return "defer" in decision ? (decision.reason ?? "deferred") : decision.message;
 }
