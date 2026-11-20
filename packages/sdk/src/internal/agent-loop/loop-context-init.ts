@@ -65,6 +65,8 @@ export interface LoopContext {
    * to the hard threshold (no progress). Threaded onto `AgentLoopOutput` → `RunResult.stoppedByDoomLoop`.
    */
   stoppedByDoomLoop?: boolean;
+  /** Tool calls a `pre_tool_call` handler deferred this run. */
+  deferredToolCalls?: readonly import("../../types/run.js").DeferredToolCall[];
   /** Per-run doom-loop detector; `undefined` when disabled via `SendOptions.doomLoop: false`. */
   doomLoop?: DoomLoopTracker;
   usage: UsageAccumulator;
@@ -203,10 +205,14 @@ export async function initLoopContext(inputs: AgentLoopInputs): Promise<LoopCont
   return {
     events,
     conversation: [],
-    messages: [
-      ...priorMessages,
-      { role: "user", content: buildUserContent(inputs.userMessage, inputs.userImages) },
-    ],
+    // A resume adds no user message: `applyResume` answers the stored tool calls instead.
+    messages:
+      inputs.resume !== undefined
+        ? priorMessages
+        : [
+            ...priorMessages,
+            { role: "user", content: buildUserContent(inputs.userMessage, inputs.userImages) },
+          ],
     tools,
     finalText: "",
     finalStatus: "finished",

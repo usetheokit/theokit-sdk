@@ -369,6 +369,38 @@ process.once("SIGTERM", async () => {
 
 Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must share one pid namespace (not containers or hosts sharing a volume). The lock needs a filesystem with hard links; without one the call rejects with `InstanceLockedError`.
 
+## Defer a tool call for approval
+
+A permission gate can hand a call to a person instead of waiting on a live Promise. Return `defer` from `canUseTool` (or `{ defer: true, reason }` from a `pre_tool_call` handler, which also receives `toolUseId`):
+
+```ts
+const plugin = createPermissionPlugin(engine, {
+  canUseTool: () => ({ behavior: "defer", reason: "needs a person" }),
+});
+const result = await (await agent.send("deploy")).wait();
+if (result.status === "deferred") {
+  for (const call of result.deferredToolCalls ?? []) {
+    // { toolUseId, toolName, input, deferredAt, reason, schemaVersion: 1 }
+  }
+}
+```
+
+The deferred call is not dispatched, the other calls of the step finish, and the transcript ends on the unanswered `tool_use`. The run releases the session, so the process can exit.
+
+### Resume after a restart
+
+Restore the agent (`Agent.resume(agentId, options)`, passing the plugins and tools again) and answer every pending call with `toolDecisions`, exactly one per `toolUseId`. The pending calls are read from the stored transcript; the `message` is ignored.
+
+```ts
+const agent = await Agent.resume(agentId, { plugins: [plugin], tools });
+const run = await agent.send("", {
+  toolDecisions: [{ toolUseId: "call_1", behavior: "allow" }], // or { behavior: "deny", message }
+});
+await run.wait(); // the model continues with the results
+```
+
+`allow` dispatches the stored call after the permission rules, floors and hooks run again on its input: an approval answers an `ask` and never overrides a current `deny`, a permission floor or another plugin's veto (the call then gets an error result). `deny` writes an error result with your `message` and runs nothing. An unknown or repeated `toolUseId`, a missing decision, nothing pending, or a stored call with an unsupported `schemaVersion` rejects with `ConfigurationError` (`tool_decision_unknown`, `tool_decision_duplicate`, `tool_decision_missing`, `no_deferred_tool_calls`, `deferred_schema_unsupported`) and leaves the session unchanged. A normal send while calls are pending abandons them; the unanswered calls are left out of the history so the session is not blocked. Local runtime only.
+
 ## `@theokit/sdk/persistence`: named profiles
 
 `resolveProfile(name, { profilesRoot?, appDirectories? })` maps a profile name to `<profilesRoot>/<name>` (default `getProfilesRoot()`, `~/.theokit/profiles`) and returns `directory`, `directories` and `env` (`THEOKIT_HOME` and `THEOKIT_AUTH_HOME` set to the profile directory, plus one entry per `appDirectories` item, joined under the profile). Names must match `^[a-z0-9][a-z0-9-]{0,15}$`, otherwise `ConfigurationError` code `profile_name_invalid` (the name is not echoed). App directory values must be relative and free of `..`. It touches no disk.

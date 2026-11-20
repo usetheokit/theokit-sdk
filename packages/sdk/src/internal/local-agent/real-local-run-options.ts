@@ -65,6 +65,8 @@ export interface CreateRealLocalRunOptions {
   onDelta?: SendOptions["onDelta"];
   /** Prior conversation history (excluding the current user message). */
   priorMessages?: ReadonlyArray<SessionMessage>;
+  /** Deferred calls this send resumes (read from the transcript); decisions come from `sendOptions`. */
+  resumeCalls?: ReadonlyArray<import("../../types/run.js").DeferredToolCall>;
   /** Memory tools to register with the LLM (Phase 6 of memory-system-peer-project-parity). */
   memoryTools?: ReadonlyArray<MemoryToolSpec>;
   /**

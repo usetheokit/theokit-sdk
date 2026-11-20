@@ -84,6 +84,14 @@ export interface PreToolCallContext {
   args: Record<string, unknown>;
   agentId: string;
   runId: string;
+  /** The model's `tool_use` id for this call; the same id appears on the resulting `tool_result`. */
+  toolUseId?: string;
+  /**
+   * Set when this call was deferred earlier and a person approved it on resume
+   * (`SendOptions.toolDecisions`). A permission plugin treats the approval as the answer to an
+   * `ask` verdict only: an explicit deny, a permission floor or any other veto still applies.
+   */
+  approvedOnResume?: boolean;
   /**
    * SE1 — the run's resolved `PermissionMode` (from `SendOptions.permissionMode`
    * ?? `AgentOptions.permissionMode`), threaded so a permission-style plugin can
@@ -122,10 +130,30 @@ export interface ConversationRef {
  * what it might do instead. It also reaches observability — as the `stderr` of a tool-completed event
  * with exit code 126, and as the message on a `permission_denied` run event.
  */
-export interface PreToolCallDecision {
+export interface PreToolCallBlock {
   block: true;
   message: string;
 }
+
+/**
+ * A `pre_tool_call` handler returns this to defer the call: the loop does not dispatch it, and the
+ * run ends with `status: "deferred"` carrying a `DeferredToolCall`. A block from any handler wins
+ * over a defer.
+ */
+export interface PreToolCallDefer {
+  defer: true;
+  reason?: string | undefined;
+  /** Never set; lets code that reads `block`/`message` off a decision compile against the union. */
+  block?: undefined;
+  message?: undefined;
+}
+
+/**
+ * What a `pre_tool_call` handler may return: a block (veto), a defer, or `undefined` to allow.
+ *
+ * @public
+ */
+export type PreToolCallDecision = PreToolCallBlock | PreToolCallDefer;
 
 /**
  * #65 — a 2nd argument passed to a tool handler, carrying the run's cancellation

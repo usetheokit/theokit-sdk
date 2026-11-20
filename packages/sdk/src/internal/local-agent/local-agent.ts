@@ -441,6 +441,7 @@ export class LocalAgent implements SDKAgent {
       await runPostRunLifecycle({
         run,
         userText,
+        ...resumedFlag(options),
         agentId: this.agentId,
         workspaceCwd: this.workspaceCwd,
         sessionStore: this.sessionStore,
@@ -480,6 +481,7 @@ export class LocalAgent implements SDKAgent {
         pluginManagerCode: this.pluginManagerCode,
         defaultMemoryProviderForLoop: this.defaultMemoryProviderForLoop,
         workspaceCwd: this.workspaceCwd,
+        sessionStore: this.sessionStore,
         ...(this.memoryMirror !== undefined ? { memoryMirror: this.memoryMirror } : {}),
         telemetry: this._telemetry,
         lifecycleAbortController: this.lifecycleAbortController,
@@ -565,6 +567,7 @@ export class LocalAgent implements SDKAgent {
     memoryTools,
     memoryProviderOverride,
     model,
+    resumeCalls,
   }: DispatchRunArgs): Promise<Run> {
     // SDK 2.0 Phase 1 physical Stage 2b — iter 23 KERNEL FLIP:
     // When `memoryProviderOverride` is supplied (env-flag path), inject
@@ -596,6 +599,7 @@ export class LocalAgent implements SDKAgent {
       memoryTools,
       activePreset: this.activePreset(),
       ...(this.activeTurn !== undefined ? { steerQueue: this.activeTurn.steer } : {}),
+      ...(resumeCalls !== undefined ? { resumeCalls } : {}),
     });
   }
 
@@ -717,4 +721,9 @@ function includesSetting(options: AgentOptions, source: string): boolean {
   return (
     sources !== undefined && (sources.includes(source as never) || sources.includes("all" as never))
   );
+}
+
+/** `resumed: true` when the send answers deferred tool calls, so post-run writes no user message. */
+function resumedFlag(options: SendOptions): { resumed?: true } {
+  return options.toolDecisions !== undefined ? { resumed: true } : {};
 }

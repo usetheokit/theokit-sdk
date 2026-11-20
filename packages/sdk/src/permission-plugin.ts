@@ -34,7 +34,8 @@ export interface PermissionGateContext {
  */
 export type PermissionGateDecision =
   | { readonly behavior: "allow" }
-  | { readonly behavior: "deny"; readonly message?: string };
+  | { readonly behavior: "deny"; readonly message?: string }
+  | { readonly behavior: "defer"; readonly reason?: string };
 
 /**
  * SE1 — the enriched `canUseTool` gate (the Anthropic-parity shape). Invoked ONLY
@@ -79,10 +80,16 @@ export interface PermissionPluginOptions {
  */
 async function resolveAsk(
   opts: PermissionPluginOptions,
-  name: string,
-  args: Record<string, unknown>,
-  mode: PermissionMode,
+  call: {
+    name: string;
+    args: Record<string, unknown>;
+    mode: PermissionMode;
+    /** A person approved this deferred call on resume: that answers the `ask`. */
+    approved: boolean;
+  },
 ): Promise<PreToolCallDecision | undefined> {
+  if (call.approved) return undefined;
+  const { name, args, mode } = call;
   if (opts.canUseTool !== undefined) {
     let decision: PermissionGateDecision;
     try {
@@ -94,9 +101,12 @@ async function resolveAsk(
     // Fail-CLOSED (allow-list): only an explicit `allow` passes. Any other value
     // — `deny`, a malformed/undefined return from a JS consumer, a wrong-cased
     // behavior — blocks, so the gate can never silently allow on a bad decision.
-    return decision?.behavior === "allow"
-      ? undefined
-      : { block: true, message: decision?.message ?? `denied: ${name}` };
+    if (decision?.behavior === "allow") return undefined;
+    if (decision?.behavior === "defer") return { defer: true, reason: decision.reason };
+    return {
+      block: true,
+      message: (decision as { message?: string })?.message ?? `denied: ${name}`,
+    };
   }
   // Deprecated back-compat: honor onAsk (undefined = allow). Fail-closed (block)
   // only when NEITHER a gate nor onAsk was supplied.
@@ -118,10 +128,11 @@ function createPermissionPlugin(
     kind: "general",
     register(ctx) {
       ctx.on("pre_tool_call", async (rawCtx) => {
-        const { name, args, permissionMode } = rawCtx as {
+        const { name, args, permissionMode, approvedOnResume } = rawCtx as {
           name: string;
           args: Record<string, unknown>;
           permissionMode?: PermissionMode;
+          approvedOnResume?: boolean;
         };
         // SE1 — precedence: the RUN's mode (threaded from `SendOptions`/`AgentOptions`
         // via the pre_tool_call context) wins over the plugin's construction-time
@@ -146,7 +157,11 @@ function createPermissionPlugin(
         if (action === "deny") {
           return { block: true, message: `denied by permission engine: ${name}` };
         }
-        if (action === "ask") return resolveAsk(opts, name, args, mode);
+        // A person's approval of a deferred call answers an `ask` and nothing else: the floor, an
+        // explicit deny and every other plugin were checked against the stored input just above.
+        if (action === "ask") {
+          return resolveAsk(opts, { name, args, mode, approved: approvedOnResume === true });
+        }
         return undefined;
       });
     },
