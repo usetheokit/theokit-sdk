@@ -111,6 +111,33 @@ function makeReporter(onExportError?: (line: string) => void): (...parts: unknow
   };
 }
 
+interface ExportResultLike {
+  code: number;
+  error?: Error;
+}
+
+/**
+ * Wraps an exporter so a failed export reaches `report`. Reporting here, and not through the
+ * global OpenTelemetry `diag` logger, leaves any logger the host installed untouched.
+ */
+function reportFailures<T extends object>(exporter: T, report: (...p: unknown[]) => void): T {
+  return new Proxy(exporter, {
+    get(target, key) {
+      const value = Reflect.get(target, key, target);
+      if (key !== "export") return typeof value === "function" ? value.bind(target) : value;
+      return (items: unknown, done: (r: ExportResultLike) => void) =>
+        (value as (i: unknown, d: (r: ExportResultLike) => void) => void).call(
+          target,
+          items,
+          (result) => {
+            if (result.code !== 0) report(result.error ?? "export failed");
+            done(result);
+          },
+        );
+    },
+  });
+}
+
 async function settle(tasks: Array<Promise<unknown>>, report: (...p: unknown[]) => void) {
   for (const r of await Promise.allSettled(tasks)) {
     if (r.status === "rejected") report(r.reason);
@@ -174,22 +201,26 @@ export async function registerTelemetry(
     () => import("@opentelemetry/resources"),
   );
 
-  const spanExporter =
+  const spanExporter = reportFailures(
     options.spanExporter ??
-    new (
-      await loadPeer(
-        "@opentelemetry/exporter-trace-otlp-http",
-        () => import("@opentelemetry/exporter-trace-otlp-http"),
-      )
-    ).OTLPTraceExporter({ url: `${base}/v1/traces`, timeoutMillis: timeout });
-  const metricExporter =
+      new (
+        await loadPeer(
+          "@opentelemetry/exporter-trace-otlp-http",
+          () => import("@opentelemetry/exporter-trace-otlp-http"),
+        )
+      ).OTLPTraceExporter({ url: `${base}/v1/traces`, timeoutMillis: timeout }),
+    report,
+  );
+  const metricExporter = reportFailures(
     options.metricExporter ??
-    new (
-      await loadPeer(
-        "@opentelemetry/exporter-metrics-otlp-http",
-        () => import("@opentelemetry/exporter-metrics-otlp-http"),
-      )
-    ).OTLPMetricExporter({ url: `${base}/v1/metrics`, timeoutMillis: timeout });
+      new (
+        await loadPeer(
+          "@opentelemetry/exporter-metrics-otlp-http",
+          () => import("@opentelemetry/exporter-metrics-otlp-http"),
+        )
+      ).OTLPMetricExporter({ url: `${base}/v1/metrics`, timeoutMillis: timeout }),
+    report,
+  );
 
   const readers: MetricReader[] = [
     new metricsSdk.PeriodicExportingMetricReader({
@@ -239,10 +270,6 @@ export async function registerTelemetry(
       { code: "telemetry_already_registered" },
     );
   }
-  api.diag.setLogger(
-    { error: report, warn: () => {}, info: () => {}, debug: () => {}, verbose: () => {} },
-    api.DiagLogLevel.ERROR,
-  );
   return buildHandle({ api, tracerProvider, meterProvider, server, prometheusEndpoint, report });
 }
 
@@ -268,7 +295,6 @@ function buildHandle(p: HandleParts): RegisteredTelemetry {
         );
         p.api.trace.disable();
         p.api.metrics.disable();
-        p.api.diag.disable();
       })().catch(() => undefined);
       return stopped;
     },

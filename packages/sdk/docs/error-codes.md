@@ -250,7 +250,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `subscription_not_found` | domain | SubscriptionError | `packages/sdk/src/subscription/internal/subscription-runtime.ts:130` |
 | `task_not_found` | domain | — | `packages/sdk/src/task-errors.ts:53` +1 |
 | `task_op_unsupported` | domain | — | `packages/sdk/src/task-errors.ts:73` +1 |
-| `telemetry_already_registered` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:237` |
+| `telemetry_already_registered` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:268` |
 | `telemetry_invalid_endpoint` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:68` +1 |
 | `telemetry_peer_missing` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:85` |
 | `timeout` | domain | — | `packages/sdk/src/internal/error-mappers/vertex.ts:55` |
