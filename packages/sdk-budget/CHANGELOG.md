@@ -1,5 +1,11 @@
 # Changelog — @theokit/sdk-budget
 
+## 0.3.6
+
+### Patch Changes
+
+- [#1373](https://github.com/usetheokit/theokit-sdk/pull/1373) [`18b1e2d`](https://github.com/usetheokit/theokit-sdk/commit/18b1e2d4e8e6d41adc98e62efe395f26e4f1c90d) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Report `heldUsd: 0` in `snapshotAll` so its snapshots satisfy the widened `BudgetSnapshot` type.
+
 ## 0.3.5
 
 ## 0.3.5-next.1

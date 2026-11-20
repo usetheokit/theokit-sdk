@@ -82,7 +82,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
  * that cannot be collapsed did not apply to it: `migration.ts` does hold module-level state, and a
  * re-export is what makes that state one set instead of two.
  */
-const BUDGET_LINES = Number(process.env.MAX_DUPLICATED_LINES ?? 1034);
+const BUDGET_LINES = Number(process.env.MAX_DUPLICATED_LINES ?? 953);
 
 const out = mkdtempSync(join(tmpdir(), "jscpd-gate-"));
 try {

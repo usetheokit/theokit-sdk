@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-299 distinct code(s).
+300 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -117,7 +117,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_local_registry` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:62` |
 | `invalid_mask_stream` | domain | ConfigurationError | `packages/sdk/src/security.ts:137` |
 | `invalid_max_iterations` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/real-local-run.ts:94` |
-| `invalid_mcp_tool_filter` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/tool-filter.ts:36` +1 |
+| `invalid_mcp_tool_filter` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/tool-filter.ts:37` +1 |
 | `invalid_memory_backend` | domain | ConfigurationError | `packages/sdk/src/internal/memory/index-manager-dispatch.ts:24` |
 | `invalid_memory_ceiling` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:23` +1 |
 | `invalid_memory_directory` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/memory-root.ts:161` |
@@ -149,11 +149,12 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `mcp_closed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:322` |
 | `mcp_config_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-dispatch.ts:158` |
 | `mcp_config_unreadable` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-dispatch.ts:148` |
-| `mcp_crashed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:237` |
-| `mcp_disconnected` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:250` +2 |
-| `mcp_http_error` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:519` +3 |
+| `mcp_crashed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:230` |
+| `mcp_disconnected` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:243` +2 |
+| `mcp_http_error` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:526` +3 |
 | `mcp_not_init` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/client.ts:280` +2 |
-| `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:76` |
+| `mcp_protocol_unsupported` | domain | NetworkError | `packages/sdk/src/internal/mcp/protocol-version.ts:30` |
+| `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/rpc-helpers.ts:15` |
 | `memory_ceiling_reached` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:43` +1 |
 | `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:168` |
 | `memory_fact_ambiguous` | domain | — | `packages/sdk/src/errors.ts:528` +1 |
@@ -228,7 +229,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `run_cancelled` | domain | — | `packages/sdk/src/errors.ts:737` |
 | `run_not_found` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:474` |
 | `runtime_exclusive` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:105` |
-| `sandbox_derived_helper_failed` | domain | ConfigurationError | `packages/sdk/src/sandbox/types.ts:236` +1 |
+| `sandbox_derived_helper_failed` | domain | ConfigurationError | `packages/sdk/src/sandbox/types.ts:251` +1 |
 | `sandbox_docker_error` | domain | SandboxDockerError | `packages/sdk/src/sandbox/docker-containers.ts:29` +1 |
 | `sandbox_not_available` | domain | SandboxNotAvailableError | `packages/sdk/src/sandbox/types.ts:110` +1 |
 | `sandbox_security` | domain | SandboxSecurityError | `packages/sdk/src/sandbox/types.ts:91` +1 |
