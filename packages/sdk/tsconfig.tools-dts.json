@@ -14,6 +14,8 @@
     "src/path-safety.ts",
     "src/compaction.ts",
     "src/hooks-approval.ts",
+    "src/testing.ts",
+    "src/testing/**/*",
     "src/models.ts",
     "src/providers.ts",
     "src/process.ts",

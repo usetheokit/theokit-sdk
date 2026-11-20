@@ -48,6 +48,8 @@ const targets = [
   join(DIST, "compaction.d.ts"),
   // #1053: hook allowlist sub-path.
   join(DIST, "hooks-approval.d.ts"),
+  // #1102: SessionStore conformance sub-path.
+  join(DIST, "testing.d.ts"),
   // M2-4: models sub-path.
   join(DIST, "models.d.ts"),
   // #326: the provider registry as public API.

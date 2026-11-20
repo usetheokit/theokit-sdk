@@ -150,6 +150,35 @@ const agent = await Agent.create({
 
 Use a fresh `InMemorySessionStore` per agent; resume works only while you keep the same instance. `registry: false` keeps the agent out of `<cwd>/.theokit/agents/registry.json`, but it stays visible to `Agent.list` in the current process. Tools, plugins and other features you enable can still write files of their own.
 
+## Writing your own SessionStore
+
+A `SessionStore` (Postgres, Redis, a KV store) must follow a few rules: a never-written agent reads as `[]`, a failed read throws instead of returning `[]`, appends keep order, and `SessionBusyError` from `acquire` propagates. `@theokit/sdk/testing` exports the rules as plain named cases that any test runner can loop over:
+
+```ts
+import { sessionStoreConformanceCases } from "@theokit/sdk/testing";
+import { describe, it } from "vitest";
+import { MyPostgresSessionStore } from "./my-store.js";
+
+const cases = sessionStoreConformanceCases({
+  // A fresh, empty store per case (use a new schema or key prefix each time).
+  create: async () => new MyPostgresSessionStore(await freshSchema()),
+  // Optional: a store pointed at a dead backend, to check that reads throw.
+  createUnreachable: async () => new MyPostgresSessionStore("postgres://127.0.0.1:1/none"),
+  // Set when every create() opens the same backend: enables the "survives a second create()"
+  // and lease-contention cases.
+  sharesBackend: true,
+});
+
+describe("MyPostgresSessionStore", () => {
+  for (const c of cases) {
+    if (c.skipReason) it.skip(`${c.name} (${c.skipReason})`, () => {});
+    else it(c.name, () => c.run());
+  }
+});
+```
+
+Each case throws an `Error` naming the violated rule. Set `exclusiveLeases: false` if your store lets two instances hold one session's lease at once.
+
 ## Memory
 
 Durable facts live under `<cwd>/.theokit/memory/`. To keep several users of one agent app apart, give each agent a `userId`; each user then gets their own partition (`.theokit/memory/users/<userId>/`) for facts, index and session summaries:
