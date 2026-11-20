@@ -5,7 +5,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { ConfigurationError } from "../../src/errors.js";
-import { fn, Workflow, WorkflowSet, WorkflowSnapshotNotFoundError } from "../../src/workflow.js";
+import {
+  fn,
+  Workflow,
+  WorkflowResumeWorkflowMismatchError,
+  WorkflowSet,
+  WorkflowSnapshotNotFoundError,
+} from "../../src/workflow.js";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -48,13 +54,26 @@ describe("WorkflowSet.resume (#1030)", () => {
 
   it("rethrows a payload validation error without trying later members", async () => {
     const dir = tmp();
-    const first = build("first", dir, z.object({ approved: z.boolean() }));
-    const second = build("second", dir, z.object({ approved: z.boolean() }));
-    const suspended = await first.run({ a: "x" });
-    const set = WorkflowSet.of([first, second]);
+    const schema = z.object({ approved: z.boolean() });
+    const first = build("first", dir, schema);
+    const second = build("second", dir, schema);
+    const third = build("third", dir, schema);
+    const touched: Array<string | symbol> = [];
+    const spyThird = new Proxy(third, {
+      get(target, prop, receiver) {
+        if (prop !== "__options" && prop !== "_options") touched.push(prop);
+        return Reflect.get(target, prop, receiver);
+      },
+    });
+    const suspended = await second.run({ a: "x" });
+    const set = WorkflowSet.of([first, second, spyThird]);
+    const parsed = schema.safeParse({ approved: "yes" });
+    expect(parsed.success).toBe(false);
     const err = await set.resume(suspended.id, { approved: "yes" }).catch((e) => e);
-    expect(err).toBeInstanceOf(Error);
     expect(err).not.toBeInstanceOf(WorkflowSnapshotNotFoundError);
+    expect(err).not.toBeInstanceOf(WorkflowResumeWorkflowMismatchError);
+    expect(err.message).toMatch(/approved/);
+    expect(touched).toEqual([]);
   });
 
   it("throws ConfigurationError naming a duplicated workflow name", () => {
