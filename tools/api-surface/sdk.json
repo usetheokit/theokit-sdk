@@ -5573,6 +5573,14 @@
         "tier": "stable",
         "declaration": "declare function describeCredential(input: CredentialInput): CredentialReport;"
       },
+      "diag": {
+        "tier": "stable",
+        "declaration": "declare function diag(message: string): void;"
+      },
+      "diagFailure": {
+        "tier": "stable",
+        "declaration": "declare function diagFailure(message: string): void;"
+      },
       "effectiveToolNames": {
         "tier": "stable",
         "declaration": "declare function effectiveToolNames(options: AgentOptions): EffectiveToolCatalog;"
@@ -7483,6 +7491,14 @@
       "describeCredential": {
         "tier": "stable",
         "declaration": "declare function describeCredential(input: CredentialInput): CredentialReport;"
+      },
+      "diag": {
+        "tier": "stable",
+        "declaration": "declare function diag(message: string): void;"
+      },
+      "diagFailure": {
+        "tier": "stable",
+        "declaration": "declare function diagFailure(message: string): void;"
       },
       "effectiveToolNames": {
         "tier": "stable",

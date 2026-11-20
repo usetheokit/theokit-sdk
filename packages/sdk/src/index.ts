@@ -156,8 +156,12 @@ export {
 //
 //     import { setDiagnosticsSink } from "@theokit/sdk";
 //     setDiagnosticsSink((message) => myStatusPanel.append(message));   // or `() => {}` for silence
+//
+// Libraries above the SDK emit through the same sink with `diag` and `diagFailure` (#1084).
 export {
   type DiagnosticsSink,
+  diag,
+  diagFailure,
   setDiagnosticsSink,
 } from "./internal/diagnostics.js";
 // SE2 — typed runtime event stream (opt-in via SendOptions.onRunEvent).

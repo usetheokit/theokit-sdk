@@ -173,6 +173,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `DefineToolSpec` | interface | Spec accepted by {@link Tool.create } .  |
 | `describeAction` | function | Read back the action a tool declared, if any.  |
 | `describeCredential` | function | Turn a resolved credential into something you can show a user.  |
+| `diag` | function | Emits a library diagnostic message.  |
+| `diagFailure` | function | Emits a diagnostic that reports a USER-VISIBLE FAILURE, and is never silently dropped.  |
 | `DiagnosticsSink` | type | Receives each diagnostic message already formatted, with the trailing `\n`. |
 | `DoomLoopThresholds` | interface | Doom-loop guard thresholds (see {@link SendOptions.doomLoop } ).  |
 | `DreamingSweepOptions` | interface | Inputs for {@link Memory.runDreamingSweep } .  |

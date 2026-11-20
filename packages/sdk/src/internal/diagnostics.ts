@@ -89,7 +89,12 @@ export function setDiagnosticsSink(next: DiagnosticsSink | undefined): void {
  * Emits a library diagnostic message.
  *
  * Replaces `process.stderr.write` on internal paths. Never throws: a faulty sink must not
- * must not take down the run it merely observes.
+ * take down the run it merely observes.
+ *
+ * Public: a library built on the SDK can send to the host's sink. Use `diag` for progress and
+ * degraded-mode notes; it is dropped when no sink is installed. Use {@link diagFailure} for
+ * something the operator must see. The SDK does not redact the message: a caller passing provider
+ * or platform text must redact it first (for example with `Security.redact`).
  */
 export function diag(message: string): void {
   // Silent by default (#147): with no sink installed the message is dropped. A library must not
@@ -120,7 +125,9 @@ export function diag(message: string): void {
  * EXCEPT when the sink throws. A broken sink swallowing the one report of a failure is the same
  * defect one layer further in.
  *
- * @internal
+ * Public: use it for something the operator must see; use {@link diag} for progress and
+ * degraded-mode notes. The SDK does not redact the message: a caller passing provider or platform
+ * text must redact it first (for example with `Security.redact`).
  */
 export function diagFailure(message: string): void {
   const sink = currentSink();
