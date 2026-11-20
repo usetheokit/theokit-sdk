@@ -299,6 +299,14 @@ const NOT_PROSE =
  */
 const INLINE_CODE = /`[^`\n]*`/g;
 
+/**
+ * HTTP(S) URL targets — a commit hash or path segment in a link is not prose. The live case is the
+ * generated changelog: `/commit/a1cada3…` tokenizes to `a`, `cada`, which the lexicon reads as
+ * Portuguese. Only the URL itself is removed; link labels and the surrounding sentence stay scanned.
+ * Cost stated: Portuguese written inside a URL is invisible here.
+ */
+const URL_TARGET = /https?:\/\/[^\s)>\]"'`]+/g;
+
 interface Offender {
   file: string;
   line: number;
@@ -391,7 +399,10 @@ function stripDiacritics(word: string): string {
 
 /** Every word-part of a line, with allowlisted loanwords already dropped. */
 function candidateParts(line: string): string[] {
-  return (line.replace(INLINE_CODE, " ").replace(NOT_PROSE, " ").match(WORD) ?? [])
+  return (
+    line.replace(URL_TARGET, " ").replace(INLINE_CODE, " ").replace(NOT_PROSE, " ").match(WORD) ??
+    []
+  )
     .filter((token) => !WORD_ALLOWLIST.has(token.toLowerCase()))
     .flatMap(identifierParts)
     .filter((part) => !WORD_ALLOWLIST.has(part.toLowerCase()));
@@ -421,6 +432,22 @@ function scanText(rel: string, text: string): Offender[] {
 
   return offenders;
 }
+
+describe("link destinations are not prose", () => {
+  it("ignores a commit hash inside a link destination", () => {
+    const line =
+      "- [`4788a20`](https://github.com/usetheokit/theokit-sdk/commit/cada1234567) Thanks";
+    expect(classifyLine(line)).toBeUndefined();
+  });
+
+  it("still flags Portuguese link text", () => {
+    expect(classifyLine("[isso nao funciona](https://example.com)")?.words).toContain("nao");
+  });
+
+  it("still flags Portuguese prose beside a link", () => {
+    expect(classifyLine("[docs](https://example.com) isso nao funciona")?.words).toContain("nao");
+  });
+});
 
 /** Filenames themselves must be English — a test file name is documentation. */
 function scanFilename(rel: string): Offender | undefined {
@@ -487,6 +514,22 @@ describe("codebase is English-only (no PT-BR)", () => {
   );
 });
 
+describe("URLs are not prose", () => {
+  const URL_LINE =
+    "- [`4788a20`](https://github.com/usetheokit/theokit-sdk/commit/4788a20cada0123) Thanks!";
+
+  it("does not flag a lexicon token inside a URL", () => {
+    expect(classifyLine(URL_LINE)).toBeUndefined();
+  });
+
+  it("still flags Portuguese prose next to a URL", () => {
+    const hit = classifyLine("Veja https://example.com/cada isso nao funciona");
+    expect(hit?.tier).toBe("lexicon");
+    expect(hit?.words).toContain("nao");
+    expect(hit?.words).not.toContain("cada");
+  });
+});
+
 /**
  * B-128 regression — proves the traversal itself, on a disposable scratch git repo rather than on
  * this repository. Two claims, one per test:
@@ -542,5 +585,24 @@ describe("traversal is git-ls-files-driven (B-128)", () => {
     expect(offenders).toHaveLength(1);
     expect(offenders[0]?.tier).toBe("lexicon");
     expect(offenders[0]?.words).toContain("nao");
+  });
+});
+
+describe("URL targets are not prose", () => {
+  const COMMIT_LINK =
+    "- [`a1cada3`](https://github.com/usetheokit/theokit-sdk/commit/a1cada3b2c) Thanks @someone!";
+
+  it("does not flag a commit hash inside a link URL", () => {
+    expect(classifyLine(COMMIT_LINK)).toBeUndefined();
+  });
+
+  it("still flags Portuguese in the text around a URL", () => {
+    const hit = classifyLine("isso nao funciona, veja https://example.com/a1cada3");
+    expect(hit?.tier).toBe("lexicon");
+    expect(hit?.words).toContain("nao");
+  });
+
+  it("still flags a bare hex run that is not part of a URL", () => {
+    expect(classifyLine("// see a1cada3")?.words).toContain("cada");
   });
 });

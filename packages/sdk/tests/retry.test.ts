@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { AuthenticationError, ConfigurationError, RateLimitError } from "../src/errors.js";
-import { Retry } from "../src/retry.js";
+import { CircuitBreaker, Retry } from "../src/retry.js";
 
 /**
  * M0-3 (plan m0-foundation-expose-primitives, T4.1) — generic `Retry`.
@@ -174,5 +174,21 @@ describe("Retry.run — the honest spelling of Retry.create", () => {
     const viaAlias = await Retry.create(async () => 42);
     const viaRun = await Retry.run(async () => 42);
     expect(viaAlias).toBe(viaRun);
+  });
+});
+
+describe("CircuitBreaker (public)", () => {
+  it("skips a key after maxTimeouts until the cooldown passes, leaving other keys alone", () => {
+    let t = 1000;
+    const cb = new CircuitBreaker({ maxTimeouts: 2, cooldownMs: 500, now: () => t });
+    cb.recordTimeout("k");
+    expect(cb.shouldSkip("k")).toBe(false);
+    cb.recordTimeout("k");
+    expect(cb.shouldSkip("k")).toBe(true);
+    expect(cb.shouldSkip("other")).toBe(false);
+    t = 1499;
+    expect(cb.shouldSkip("k")).toBe(true);
+    t = 1500;
+    expect(cb.shouldSkip("k")).toBe(false);
   });
 });
