@@ -27,7 +27,9 @@ import { appendJsonl } from "./jsonl.js";
 import {
   legacyTranscriptPath,
   readTranscript,
+  readTranscriptDetailed,
   type SessionRecord,
+  type TranscriptRead,
   transcriptPath,
 } from "./session-transcript.js";
 import { acquireSessionWriter, type SessionWriterLease } from "./session-writer.js";
@@ -134,6 +136,11 @@ export class FsSessionStore implements SessionStore {
 
   async readRecords(agentId: string): Promise<SessionRecord[]> {
     return readTranscript(this.#pathFor(agentId));
+  }
+
+  /** Like {@link readRecords}, plus absence and skipped-line count, from the same resolved path. */
+  async readHistory(agentId: string): Promise<TranscriptRead> {
+    return readTranscriptDetailed(this.#pathFor(agentId));
   }
 
   async appendRecords(agentId: string, records: readonly SessionRecord[]): Promise<void> {

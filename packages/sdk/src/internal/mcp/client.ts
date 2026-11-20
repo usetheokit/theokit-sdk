@@ -10,16 +10,28 @@ import { resolveChildEnv } from "../runtime/lifecycle/env-policy.js";
 import { safePathJoin } from "../security/path-guard.js";
 import { DEFAULT_MCP_TIMEOUT_MS, handshakeAwareTimeout } from "./handshake-timeout.js";
 import { resolveBearer } from "./oauth-bearer.js";
+import {
+  type McpProtocolVersion,
+  rpcInitialize,
+  SUPPORTED_MCP_PROTOCOL_VERSIONS,
+} from "./protocol-version.js";
+import { isAbortLike, mcpTimeoutError, reconnectDelay } from "./rpc-helpers.js";
 import { withToolFilter } from "./tool-filter.js";
 
 /**
- * Real MCP client implementing the subset of the 2024-11-05 spec used by the
- * SDK agent loop: `initialize`, `tools/list`, `tools/call`. Both stdio and
+ * Real MCP client implementing the subset of the MCP spec used by the SDK agent loop:
+ * `initialize`, `tools/list`, `tools/call`. Revisions 2025-06-18, 2025-03-26 and 2024-11-05 are
+ * supported: `initialize` offers the newest (or the server's pinned `protocolVersion`) and keeps
+ * the revision the server answers; an answer outside the list is refused. Over http the negotiated
+ * revision is sent as `MCP-Protocol-Version` on every request after `initialize`. Both stdio and
  * http transports are wired; sse uses the same wire format as http with a
  * streaming response handled identically by the JSON-RPC reader.
  *
  * @internal
  */
+
+export type { McpProtocolVersion };
+export { SUPPORTED_MCP_PROTOCOL_VERSIONS };
 
 export interface McpTool {
   name: string;
@@ -36,6 +48,8 @@ export interface McpClient {
   readonly name: string;
   /** `true` when the server's config sets `sequential`: the loop runs its calls one at a time. */
   readonly sequential?: boolean;
+  /** The version the server agreed to in `initialize`; undefined before it. */
+  readonly protocolVersion?: McpProtocolVersion;
   initialize(): Promise<void>;
   listTools(): Promise<McpTool[]>;
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult>;
@@ -60,44 +74,9 @@ const MAX_STDIO_BUFFER_BYTES = 8 * 1024 * 1024;
 
 /** M2 #59 — reconnect-after-drop bounds. Base for the full-jitter backoff between
  * reconnect attempts, and the max attempts before surfacing a typed error. */
-const RECONNECT_BASE_MS = 250;
 const MAX_RECONNECT_ATTEMPTS = 2;
 
-/** M2 #59 — full-jitter backoff (AWS Brooker 2015) for the Nth reconnect attempt,
- * then a plain delay. MCP requests carry no AbortSignal so the delay is unabortable. */
-function reconnectDelay(attempt: number): Promise<void> {
-  const ceiling = RECONNECT_BASE_MS * 2 ** attempt;
-  const ms = Math.floor(Math.random() * ceiling);
-  return ms <= 0 ? Promise.resolve() : new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Typed timeout error shared by both transports (#59). */
-function mcpTimeoutError(name: string, timeoutMs: number): NetworkError {
-  return new NetworkError(`MCP ${name} request timed out after ${timeoutMs}ms`, {
-    code: "mcp_timeout",
-  });
-}
-
-/**
- * True when a rejected fetch was aborted by our `AbortSignal.timeout` (#59).
- * `AbortSignal.timeout` rejects with a `DOMException` (name `TimeoutError`),
- * which is not always `instanceof Error`, so we inspect `.name` directly.
- */
-function isAbortLike(cause: unknown): boolean {
-  if (typeof cause !== "object" || cause === null || !("name" in cause)) return false;
-  const name = (cause as { name: unknown }).name;
-  return name === "TimeoutError" || name === "AbortError";
-}
-
 type RpcRequester = (method: string, params: Record<string, unknown>) => Promise<unknown>;
-
-async function rpcInitialize(request: RpcRequester): Promise<void> {
-  await request("initialize", {
-    protocolVersion: "2024-11-05",
-    capabilities: { tools: {} },
-    clientInfo: { name: "theokit-sdk", version: "0.0.0" },
-  });
-}
 
 async function rpcListTools(request: RpcRequester): Promise<McpTool[]> {
   const response = await request("tools/list", {});
@@ -123,12 +102,22 @@ async function rpcCallTool(
 abstract class BaseMcpClient implements McpClient {
   abstract readonly name: string;
 
+  protocolVersion: McpProtocolVersion | undefined;
+
+  /** The pinned revision from the server config, if any. */
+  protected abstract readonly pinnedVersion: McpProtocolVersion | undefined;
+
   abstract close(): Promise<void>;
 
   protected abstract request(method: string, params: Record<string, unknown>): Promise<unknown>;
 
-  initialize(): Promise<void> {
-    return rpcInitialize((method, params) => this.request(method, params));
+  async initialize(): Promise<void> {
+    this.protocolVersion = undefined;
+    this.protocolVersion = await rpcInitialize(
+      (method, params) => this.request(method, params),
+      this.name,
+      this.pinnedVersion ?? SUPPORTED_MCP_PROTOCOL_VERSIONS[0],
+    );
   }
 
   listTools(): Promise<McpTool[]> {
@@ -187,6 +176,10 @@ class StdioMcpClient extends BaseMcpClient {
   ) {
     super();
     this.name = name;
+  }
+
+  protected get pinnedVersion(): McpProtocolVersion | undefined {
+    return this.config.protocolVersion;
   }
 
   get sequential(): boolean {
@@ -267,7 +260,14 @@ class StdioMcpClient extends BaseMcpClient {
   override async initialize(): Promise<void> {
     if (this.child !== undefined) return;
     this.spawnChild();
-    await super.initialize();
+    try {
+      await super.initialize();
+    } catch (err) {
+      // A refused revision leaves a live child that would make the next initialize() a no-op.
+      if (err instanceof NetworkError && err.code === "mcp_protocol_unsupported")
+        await this.close();
+      throw err;
+    }
   }
 
   /** M2 #59 — ensure a live child before a request. Reconnect (bounded, with
@@ -462,6 +462,10 @@ class HttpMcpClient extends BaseMcpClient {
     this.fetchImpl = fetchImpl;
   }
 
+  protected get pinnedVersion(): McpProtocolVersion | undefined {
+    return this.config.protocolVersion;
+  }
+
   get sequential(): boolean {
     return this.config.sequential === true;
   }
@@ -490,6 +494,9 @@ class HttpMcpClient extends BaseMcpClient {
       // Present only for a STATEFUL server. For a stateless one nothing is sent — inventing a
       // header would trade one broken transport for another.
       ...(this.sessionId !== undefined ? { "mcp-session-id": this.sessionId } : {}),
+      ...(this.protocolVersion !== undefined
+        ? { "mcp-protocol-version": this.protocolVersion }
+        : {}),
       ...(bearer !== undefined ? { authorization: bearer } : {}),
       ...(this.config.headers ?? {}),
     };
