@@ -132,13 +132,14 @@ function privateKeyObject(value: string): KeyObject {
   });
 }
 
-function deriveKey(
-  dh1: Buffer,
-  dh2: Buffer,
-  sender: string,
-  recipient: string,
-  eph: string,
-): Buffer {
+function deriveKey(args: {
+  dh1: Buffer;
+  dh2: Buffer;
+  sender: string;
+  recipient: string;
+  eph: string;
+}): Buffer {
+  const { dh1, dh2, sender, recipient, eph } = args;
   const info = Buffer.from(`${LABEL}|key|${sender}|${recipient}|${eph}`);
   return Buffer.from(hkdfSync("sha256", Buffer.concat([dh1, dh2]), Buffer.alloc(0), info, 32));
 }
@@ -150,13 +151,13 @@ function aadFor(sender: string, recipient: string, eph: string, seq: number): Bu
 function seal(identity: A2AIdentity, peerKey: string, seq: number, plaintext: Buffer): Envelope {
   const eph = generateA2AIdentity();
   const peerPub = publicKeyObject(peerKey);
-  const key = deriveKey(
-    diffieHellman({ privateKey: privateKeyObject(eph.privateKey), publicKey: peerPub }),
-    diffieHellman({ privateKey: privateKeyObject(identity.privateKey), publicKey: peerPub }),
-    identity.publicKey,
-    peerKey,
-    eph.publicKey,
-  );
+  const key = deriveKey({
+    dh1: diffieHellman({ privateKey: privateKeyObject(eph.privateKey), publicKey: peerPub }),
+    dh2: diffieHellman({ privateKey: privateKeyObject(identity.privateKey), publicKey: peerPub }),
+    sender: identity.publicKey,
+    recipient: peerKey,
+    eph: eph.publicKey,
+  });
   const nonce = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, nonce);
   cipher.setAAD(aadFor(identity.publicKey, peerKey, eph.publicKey, seq));
@@ -175,13 +176,13 @@ function seal(identity: A2AIdentity, peerKey: string, seq: number, plaintext: Bu
 function open(identity: A2AIdentity, env: Envelope): Buffer {
   try {
     const own = privateKeyObject(identity.privateKey);
-    const key = deriveKey(
-      diffieHellman({ privateKey: own, publicKey: publicKeyObject(env.eph) }),
-      diffieHellman({ privateKey: own, publicKey: publicKeyObject(env.sender) }),
-      env.sender,
-      env.recipient,
-      env.eph,
-    );
+    const key = deriveKey({
+      dh1: diffieHellman({ privateKey: own, publicKey: publicKeyObject(env.eph) }),
+      dh2: diffieHellman({ privateKey: own, publicKey: publicKeyObject(env.sender) }),
+      sender: env.sender,
+      recipient: env.recipient,
+      eph: env.eph,
+    });
     const ct = Buffer.from(env.ct, "base64url");
     const nonce = Buffer.from(env.nonce, "base64url");
     if (ct.length < 16 || nonce.length !== 12) throw new DropError("authentication_failed");
@@ -300,12 +301,11 @@ interface Opened {
 }
 
 async function openMessage(
-  identity: A2AIdentity,
-  names: Map<string, string>,
-  sequences: SequenceStore,
+  ctx: { identity: A2AIdentity; names: Map<string, string>; sequences: SequenceStore },
   agentId: string,
   message: A2AMessage,
 ): Promise<A2AMessage> {
+  const { identity, names, sequences } = ctx;
   const env = parseEnvelope(message);
   if (env.recipient !== identity.publicKey) throw new DropError("wrong_recipient");
   const name = names.get(env.sender);
@@ -364,7 +364,7 @@ export function sealedTransport(
       const out: A2AMessage[] = [];
       for (const message of await inner.poll(identity.publicKey)) {
         try {
-          out.push(await openMessage(identity, names, sequences, agentId, message));
+          out.push(await openMessage({ identity, names, sequences }, agentId, message));
         } catch (cause) {
           const reason = cause instanceof DropError ? cause.reason : "malformed";
           diag(`[theokit-sdk] a2a: sealed message dropped (${reason})\n`);
