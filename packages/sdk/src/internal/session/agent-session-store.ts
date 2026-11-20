@@ -12,8 +12,10 @@
  * @internal
  */
 
+import { ConfigurationError } from "../../errors.js";
 import type { ToolResultContentBlock } from "../../types/content-blocks.js";
 import type { ConversationStep, ConversationTurn } from "../../types/conversation.js";
+import type { DeferredToolCall } from "../../types/run.js";
 import type { SessionStore } from "../../types/session-store.js";
 import {
   type AssistantTurn,
@@ -39,6 +41,10 @@ function seedTranscript(
 /** The turn to persist: the user's text plus the rich per-turn conversation view. */
 export interface PersistTurnInput {
   userText: string;
+  /** The turn resumes deferred calls: its first conversation turn holds their results, no user text is written. */
+  resumed?: boolean;
+  /** The turn ended on these unanswered tool calls; they are marked so a later send can resume them. */
+  deferredToolCalls?: readonly DeferredToolCall[];
   conversation: readonly ConversationTurn[];
   /**
    * M50 — when supplied, size-driven auto-compaction runs in the SAME write chain after the turn
@@ -140,9 +146,35 @@ export interface TranscriptLocation {
 export async function readSessionMessages(
   store: SessionStore,
   agentId: string,
+  options: { keepDeferred?: boolean } = {},
 ): Promise<SessionMessage[]> {
   const records = await store.readRecords(agentId);
-  return reconstructMessages(records).map(narrowToSessionMessage);
+  const visible = options.keepDeferred === true ? records : withoutAbandonedCalls(records);
+  return reconstructMessages(visible).map(narrowToSessionMessage);
+}
+
+/**
+ * Drop the `tool_use` blocks of deferred calls that no `tool_result` answers. A provider rejects a
+ * history holding an unanswered call, so a deferral nobody resumed would block the session for good;
+ * a resume reads the transcript with `keepDeferred` instead.
+ */
+function withoutAbandonedCalls(records: readonly SessionRecord[]): readonly SessionRecord[] {
+  const deferred = new Set([...storedSchemaVersions(records).keys()]);
+  if (deferred.size === 0) return records;
+  for (const rec of records) {
+    for (const b of rec.message?.content ?? []) {
+      if (b.type === "tool_result") deferred.delete(b.tool_use_id);
+    }
+  }
+  if (deferred.size === 0) return records;
+  return records.map((rec) => {
+    const content = rec.message?.content;
+    if (rec.message === undefined || content === undefined) return rec;
+    const kept = content.filter((b) => b.type !== "tool_use" || !deferred.has(b.id));
+    return kept.length === content.length
+      ? rec
+      : { ...rec, message: { ...rec.message, content: kept } };
+  });
 }
 
 type NarrowPart = {
@@ -240,8 +272,16 @@ export async function persistTurn(
 ): Promise<void> {
   const prior = await store.readRecords(loc.agentId);
   const transcript = seedTranscript(prior, { cwd: loc.cwd, sessionId, model: loc.model });
-  transcript.appendUserTurn(turn.userText);
+  if (turn.resumed !== true) transcript.appendUserTurn(turn.userText);
   appendConversation(transcript, turn.conversation);
+  if (turn.deferredToolCalls !== undefined && turn.deferredToolCalls.length > 0) {
+    transcript.appendDeferredCalls(
+      turn.deferredToolCalls.map((c) => ({
+        toolUseId: c.toolUseId,
+        schemaVersion: c.schemaVersion,
+      })),
+    );
+  }
   await store.appendRecords(loc.agentId, deltaRecords(transcript, prior.length));
 }
 
@@ -260,4 +300,132 @@ export async function appendCompactBoundaryRecord(
   const transcript = seedTranscript(prior, { cwd: loc.cwd, sessionId, model: loc.model });
   transcript.appendCompactBoundary(meta);
   await store.appendRecords(loc.agentId, deltaRecords(transcript, prior.length));
+}
+
+/** The `tool_use` ids of an assistant record that no id in `answered` closes. */
+function openToolUseIds(rec: SessionRecord, answered: ReadonlySet<string>): string[] {
+  const ids: string[] = [];
+  for (const b of rec.message?.content ?? []) {
+    if (b.type === "tool_use" && !answered.has(b.id)) ids.push(b.id);
+  }
+  return ids;
+}
+
+/** The ids a user record answers, or `undefined` when it holds anything but tool results. */
+function answeredIds(rec: SessionRecord): string[] | undefined {
+  const blocks = rec.message?.content ?? [];
+  if (!blocks.every((b) => b.type === "tool_result")) return undefined;
+  return blocks.flatMap((b) => (b.type === "tool_result" ? [b.tool_use_id] : []));
+}
+
+/** The newest turn's unanswered `tool_use` blocks, or none when anything follows them. */
+function unansweredToolUses(
+  records: readonly SessionRecord[],
+): { record: SessionRecord; ids: string[] } | undefined {
+  const answered = new Set<string>();
+  for (const rec of [...records].reverse().filter((r) => r.type !== "system")) {
+    if (rec.type === "assistant") {
+      const ids = openToolUseIds(rec, answered);
+      return ids.length > 0 ? { record: rec, ids } : undefined;
+    }
+    // A user turn with anything but tool results means the conversation moved on.
+    const closed = answeredIds(rec);
+    if (closed === undefined) return undefined;
+    for (const id of closed) answered.add(id);
+  }
+  return undefined;
+}
+
+/** The schema version stored for each deferred call; a call without a marker is a version 1 one. */
+function storedSchemaVersions(records: readonly SessionRecord[]): Map<string, number> {
+  const versions = new Map<string, number>();
+  for (const rec of records) {
+    if (rec.subtype !== "deferred_tool_calls") continue;
+    for (const c of rec.deferredToolCalls ?? []) versions.set(c.toolUseId, c.schemaVersion);
+  }
+  return versions;
+}
+
+/** Reject a stored call whose schema version this SDK does not read. */
+function assertSupportedVersion(toolUseId: string, version: number): void {
+  if (version === 1) return;
+  throw new ConfigurationError(
+    `Deferred tool call ${toolUseId} was stored with schema version ${version}; this SDK resumes version 1 only.`,
+    { code: "deferred_schema_unsupported" },
+  );
+}
+
+/**
+ * The tool calls a deferred run left unanswered at the end of the stored transcript, in call order.
+ * Empty when the newest turn has none. Throws `ConfigurationError` (`deferred_schema_unsupported`)
+ * for a stored call whose schema version this SDK does not read.
+ */
+export async function readPendingToolCalls(
+  store: SessionStore,
+  agentId: string,
+): Promise<DeferredToolCall[]> {
+  const records = await store.readRecords(agentId);
+  const pending = unansweredToolUses(records);
+  if (pending === undefined) return [];
+  const versions = storedSchemaVersions(records);
+  const parsedAt = Date.parse(pending.record.timestamp);
+  const deferredAt = Number.isNaN(parsedAt) ? 0 : parsedAt;
+  const open = new Set(pending.ids);
+  return (pending.record.message?.content ?? []).flatMap((block) => {
+    if (block.type !== "tool_use" || !open.has(block.id)) return [];
+    assertSupportedVersion(block.id, versions.get(block.id) ?? 1);
+    const call: DeferredToolCall = {
+      schemaVersion: 1,
+      toolUseId: block.id,
+      toolName: block.name,
+      input: (block.input ?? {}) as Record<string, unknown>,
+      deferredAt,
+    };
+    return [call];
+  });
+}
+
+/**
+ * Match the decisions of a resume against the pending calls: exactly one decision per pending call.
+ * Throws `ConfigurationError` (`tool_decision_unknown`, `tool_decision_duplicate`,
+ * `tool_decision_missing`) before anything is written, so a bad resume leaves the session unchanged.
+ */
+export function matchToolDecisions(
+  pending: readonly DeferredToolCall[],
+  decisions: ReadonlyArray<{ toolUseId: string; behavior: string }>,
+): void {
+  if (pending.length === 0) {
+    throw new ConfigurationError("There is no deferred tool call to resume.", {
+      code: "no_deferred_tool_calls",
+    });
+  }
+  const ids = new Set(pending.map((c) => c.toolUseId));
+  const seen = new Set<string>();
+  for (const d of decisions) {
+    if (!ids.has(d.toolUseId)) {
+      throw new ConfigurationError(`No deferred tool call has toolUseId "${d.toolUseId}".`, {
+        code: "tool_decision_unknown",
+      });
+    }
+    if (seen.has(d.toolUseId)) {
+      throw new ConfigurationError(`Two decisions for toolUseId "${d.toolUseId}".`, {
+        code: "tool_decision_duplicate",
+      });
+    }
+    if (d.behavior !== "allow" && d.behavior !== "deny") {
+      throw new ConfigurationError(`Decision for "${d.toolUseId}" must be "allow" or "deny".`, {
+        code: "tool_decision_invalid",
+      });
+    }
+    seen.add(d.toolUseId);
+  }
+  const missing = pending.filter((c) => !seen.has(c.toolUseId)).map((c) => c.toolUseId);
+  if (missing.length > 0) {
+    throw new ConfigurationError(
+      `Missing decision for deferred tool call(s): ${missing.join(", ")}.`,
+      {
+        code: "tool_decision_missing",
+      },
+    );
+  }
 }

@@ -77,7 +77,7 @@ import {
   localAgentRunUntil,
   localAgentStreamToCompletion,
 } from "./local-agent-runtime-extensions.js";
-import { type DispatchRunArgs, executeSendLocked } from "./local-agent-send.js";
+import { type DispatchRunArgs, executeSendLocked, resumedFlag } from "./local-agent-send.js";
 import { registerRunAsTask } from "./local-agent-task-wrap.js";
 import { reportUnknownLocalOptions } from "./local-option-keys.js";
 import {
@@ -441,6 +441,7 @@ export class LocalAgent implements SDKAgent {
       await runPostRunLifecycle({
         run,
         userText,
+        ...resumedFlag(options),
         agentId: this.agentId,
         workspaceCwd: this.workspaceCwd,
         sessionStore: this.sessionStore,
@@ -480,6 +481,7 @@ export class LocalAgent implements SDKAgent {
         pluginManagerCode: this.pluginManagerCode,
         defaultMemoryProviderForLoop: this.defaultMemoryProviderForLoop,
         workspaceCwd: this.workspaceCwd,
+        sessionStore: this.sessionStore,
         ...(this.memoryMirror !== undefined ? { memoryMirror: this.memoryMirror } : {}),
         telemetry: this._telemetry,
         lifecycleAbortController: this.lifecycleAbortController,
@@ -565,6 +567,7 @@ export class LocalAgent implements SDKAgent {
     memoryTools,
     memoryProviderOverride,
     model,
+    resumeCalls,
   }: DispatchRunArgs): Promise<Run> {
     // SDK 2.0 Phase 1 physical Stage 2b — iter 23 KERNEL FLIP:
     // When `memoryProviderOverride` is supplied (env-flag path), inject
@@ -596,6 +599,7 @@ export class LocalAgent implements SDKAgent {
       memoryTools,
       activePreset: this.activePreset(),
       ...(this.activeTurn !== undefined ? { steerQueue: this.activeTurn.steer } : {}),
+      ...(resumeCalls !== undefined ? { resumeCalls } : {}),
     });
   }
 
