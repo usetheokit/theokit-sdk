@@ -479,6 +479,20 @@ export interface MemoryMirrorOptions {
 }
 
 /**
+ * Options for {@link MemorySettings.review}.
+ *
+ * @public
+ */
+export interface MemoryReviewOptions {
+  /** Review each finished turn. */
+  after: "turn";
+  /** Model for the reviewer. Default: the agent's model. */
+  model?: string;
+  /** Replaces the default review instructions. */
+  instructions?: string;
+}
+
+/**
  * Memory configuration accepted by `Agent.create()` via {@link AgentOptions.memory}.
  *
  * Persists durable facts as markdown files under `<cwd>/.theokit/memory/` (or `directory`), with the
@@ -498,6 +512,18 @@ export interface MemoryMirrorOptions {
  */
 export interface MemorySettings {
   enabled: boolean;
+  /**
+   * Save durable facts from each finished turn with a small reviewer agent. Absent means no review.
+   *
+   * After a run ends `finished` with a reply, one review is queued. Reviews of one agent run one at
+   * a time. The reviewer is an internal agent with no plugins and one tool, `save_memory({ fact })`,
+   * which writes to this agent's own memory (same directory and `userId`); facts over 500
+   * characters are refused with a tool error. A failing review is reported on the diagnostics
+   * channel and never rejects the user's `wait()`. `agent.dispose()` waits up to 5 seconds for
+   * queued reviews, then drops the rest and says how many on diagnostics. Await
+   * `agent.memory.reviewsIdle()` to wait for the queue.
+   */
+  review?: MemoryReviewOptions;
   /**
    * Link the built-in fact store to the agent's `kind: "memory"` plugins (Mem0, Honcho,
    * Supermemory). Absent means no mirroring. The `MemoryContext` passed to adapters is the agent's

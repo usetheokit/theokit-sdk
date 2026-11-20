@@ -203,4 +203,10 @@ export interface AgentMemory {
 
   /** Returns the first registered adapter or `null` when none exists. */
   adapter(): MemoryAdapter | null;
+
+  /**
+   * Resolves once every queued `memory.review` has settled. Resolves immediately when review is not
+   * configured. Reviews never reject this promise: failures go to the diagnostics channel.
+   */
+  reviewsIdle?(): Promise<void>;
 }
