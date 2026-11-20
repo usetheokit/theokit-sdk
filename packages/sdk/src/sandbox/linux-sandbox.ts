@@ -229,9 +229,7 @@ export class LinuxSandbox extends LocalSandbox {
     if (list) refuseUnenforceableAllowlist(opts.mode, opts.bin, undefined, list);
     this.network = typeof opts.network === "boolean" && opts.network;
     this.networkPolicy = policyFor(opts.mode, this.network, allow);
-    this.egress = allow
-      ? startProxyFor(allow, list?.credentials ?? [])
-      : undefined;
+    this.egress = allow ? startProxyFor(allow, list?.credentials ?? []) : undefined;
     this.cwd = config.workDir ?? process.cwd();
     // MEDIUM-1: run the VALIDATED absolute binary from detection (anti-hijack), never bare `bwrap`
     // which the outer shell would re-resolve via $PATH at spawn time (TOCTOU / hijack window).
