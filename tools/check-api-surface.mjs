@@ -23,7 +23,7 @@
 // baseline file yet (the bootstrap PR) is accepted without a comparison.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
@@ -300,11 +300,20 @@ function checkProblems(previous, current, cfg) {
   return [...drift, ...compareToBase(current, cfg.today, cfg.log, cfg.ctx)];
 }
 
+function readBaseline(path) {
+  let text;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch (err) {
+    if (err?.code === "ENOENT") return undefined;
+    throw err;
+  }
+  return JSON.parse(text);
+}
+
 export function main(argv, opts = {}) {
   const cfg = settings(opts);
-  const previous = existsSync(cfg.baselinePath)
-    ? JSON.parse(readFileSync(cfg.baselinePath, "utf8"))
-    : undefined;
+  const previous = readBaseline(cfg.baselinePath);
   const current = buildSurface(cfg.entries(), { previous, today: cfg.today });
   if (argv.includes("--write")) {
     writeFileSync(cfg.baselinePath, `${JSON.stringify(current, null, 2)}\n`);
