@@ -432,7 +432,7 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
   /**
    * SE28 — run the workflow and STREAM step-level events as they happen. Returns
    * an async iterator of {@link WorkflowEvent}s (`step_started` / `step_completed`
-   * / `step_failed` / `workflow_suspended` / `workflow_completed`, top-level
+   * / `step_failed` / `step_compensated` / `step_compensation_failed` / `workflow_suspended` / `workflow_completed`, top-level
    * steps) plus a `result` promise resolving to the same terminal
    * {@link WorkflowRun} `run()` returns. Iterate for progress; await `result` for
    * the outcome. The stream ends when the run terminates.
@@ -490,7 +490,12 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
 export function fn<I = unknown, O = unknown>(
   id: string,
   step: (input: I, ctx: StepContext) => Promise<O> | O,
-  opts?: { inputSchema?: ZodType; outputSchema?: ZodType; retry?: RetryPolicy },
+  opts?: {
+    inputSchema?: ZodType;
+    outputSchema?: ZodType;
+    retry?: RetryPolicy;
+    compensate?: FnStep["compensate"];
+  },
 ): FnStep {
   validateStepId(id);
   if (opts?.retry !== undefined) RetryPolicySchema.parse(opts.retry);
@@ -501,6 +506,7 @@ export function fn<I = unknown, O = unknown>(
     ...(opts?.inputSchema !== undefined ? { inputSchema: opts.inputSchema } : {}),
     ...(opts?.outputSchema !== undefined ? { outputSchema: opts.outputSchema } : {}),
     ...(opts?.retry !== undefined ? { retry: opts.retry } : {}),
+    ...(opts?.compensate !== undefined ? { compensate: opts.compensate } : {}),
   };
 }
 

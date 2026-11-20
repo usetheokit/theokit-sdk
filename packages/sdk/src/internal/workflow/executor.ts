@@ -9,6 +9,8 @@
  */
 
 import type {
+  CompensationResult,
+  FnStep,
   Step,
   StepContext,
   StepResult,
@@ -135,12 +137,16 @@ async function runOneStep<T>(args: {
   });
   let result: StepResult;
   try {
-    result = await dispatchStep(args.step, args.acc, {
-      ctx: args.ctx,
-      options: args.options,
-      prevStepResults: args.stepResults,
-      dispatch: dispatchStep,
-    });
+    // Top-level fn steps may declare `compensate`; nested ones still go through dispatchStep.
+    result =
+      args.step.kind === "fn"
+        ? await runFnStep(args.step, args.acc, args.ctx, true)
+        : await dispatchStep(args.step, args.acc, {
+            ctx: args.ctx,
+            options: args.options,
+            prevStepResults: args.stepResults,
+            dispatch: dispatchStep,
+          });
   } catch (err) {
     if (err instanceof WorkflowSuspendedSentinel) {
       const outcome = await handleSuspend<T>(err, { ...args, stepSpan, stepCtx: args.ctx });
@@ -225,12 +231,73 @@ function handleStepOutcome<TO>(
   return { acc: outcome.result.output };
 }
 
+/** A completed top-level fn step that declared `compensate`, with what it needs to undo. */
+interface Compensable {
+  step: FnStep;
+  input: unknown;
+  output: unknown;
+}
+
+function errorFromShape(shape: { name: string; message: string } | undefined): Error {
+  const err = new Error(shape?.message ?? "step failed");
+  if (shape !== undefined) err.name = shape.name;
+  return err;
+}
+
+/** Call each `compensate` in reverse completion order; a throwing one is recorded, not fatal. */
+async function runCompensation(
+  done: ReadonlyArray<Compensable>,
+  error: Error,
+  onStepEvent?: (event: WorkflowEvent) => void,
+): Promise<CompensationResult[]> {
+  const results: CompensationResult[] = [];
+  for (const { step, input, output } of [...done].reverse()) {
+    try {
+      await step.compensate?.(input, output, error);
+      results.push({ stepId: step.id, status: "compensated" });
+      onStepEvent?.({ type: "step_compensated", stepId: step.id });
+    } catch (err) {
+      const shape = errToShape(err);
+      results.push({ stepId: step.id, status: "failed", error: shape });
+      onStepEvent?.({ type: "step_compensation_failed", stepId: step.id, error: shape });
+    }
+  }
+  return results;
+}
+
+/** Compensate after a failed (not cancelled) top-level step; returns the run with `compensation`. */
+async function failWithCompensation<TO>(
+  run: WorkflowRun<TO>,
+  done: ReadonlyArray<Compensable>,
+  signal: AbortSignal,
+  onStepEvent?: (event: WorkflowEvent) => void,
+): Promise<WorkflowRun<TO>> {
+  if (done.length === 0 || signal.aborted) return run;
+  const compensation = await runCompensation(done, errorFromShape(run.error), onStepEvent);
+  return { ...run, compensation };
+}
+
+/** A terminal run from a failed top-level step is compensated; any other terminal passes through. */
+function finishTerminal<TO>(
+  terminal: WorkflowRun<TO>,
+  outcome: { kind: "ok"; result: StepResult } | { kind: "terminal"; run: WorkflowRun<TO> },
+  done: ReadonlyArray<Compensable>,
+  signal: AbortSignal,
+  onStepEvent?: (event: WorkflowEvent) => void,
+): Promise<WorkflowRun<TO>> | WorkflowRun<TO> {
+  if (outcome.kind === "ok" && outcome.result.status === "failed") {
+    return failWithCompensation(terminal, done, signal, onStepEvent);
+  }
+  return terminal;
+}
+
 async function runStepsLoop<TO>(params: LoopParams): Promise<WorkflowRun<TO>> {
   const { options, steps, ctx, runId, startedAt, signal, onStepEvent } = params;
   // M3 #62 — seed with prior step outputs so a resumed workflow is not lossy.
   const stepResults: StepResult[] = [...(params.initialStepResults ?? [])];
   const loop = { stepResults, runId, name: options.name, startedAt };
   let acc: unknown = params.input;
+  const done: Compensable[] = [];
   for (const step of steps) {
     if (signal.aborted) return abortRun<TO>(options.name, runId, startedAt, stepResults, signal);
     onStepEvent?.({ type: "step_started", stepId: step.id });
@@ -245,7 +312,12 @@ async function runStepsLoop<TO>(params: LoopParams): Promise<WorkflowRun<TO>> {
       startedAt,
     });
     const handled = handleStepOutcome<TO>(outcome, step, loop, onStepEvent);
-    if ("terminal" in handled) return handled.terminal;
+    if ("terminal" in handled) {
+      return finishTerminal(handled.terminal, outcome, done, signal, onStepEvent);
+    }
+    if (step.kind === "fn" && step.compensate !== undefined) {
+      done.push({ step, input: acc, output: handled.acc });
+    }
     acc = handled.acc;
   }
   // SE27 — validate the whole-workflow output only on the terminal completed path.

@@ -263,13 +263,14 @@ export class WorkflowParallelError extends AggregateError {
   }
 }
 
-/** D238 — saga engine not yet implemented. */
+/** A `compensate` on a step nested in parallel/branch/foreach/dowhile (top-level steps are supported). */
 export class WorkflowCompensateNotImplementedError extends TheokitAgentError {
   override readonly name = "WorkflowCompensateNotImplementedError";
   constructor(public readonly stepId: string) {
     super(
-      `Step "${stepId}" defines compensate, but saga engine is deferred to v1.2. ` +
-        `Remove compensate or implement rollback manually.`,
+      `Step "${stepId}" defines compensate, but compensation works only on top-level steps, ` +
+        `not inside parallel, branch, foreach or dowhile. Move the step to the top level or ` +
+        `implement rollback manually.`,
       { code: "workflow_compensate_not_implemented", isRetryable: false },
     );
   }
