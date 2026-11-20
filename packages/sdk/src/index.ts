@@ -12,6 +12,7 @@ export { Agent, type AgentLease, type AgentPromptResult } from "./agent.js";
 export type { AgentBuilderDeps } from "./agent-builder.js";
 // DX helpers — agent construction patterns (ADR D22-D26)
 export { AgentBuilder } from "./agent-builder.js";
+export type { AgentFactoryConfig } from "./agent-factory.js";
 export { AgentFactory } from "./agent-factory.js";
 // SE9 — integrated structured output on `agent.generate(input, { output })`.
 export type { GenerateOptions, GenerateRunResult } from "./agent-generate.js";
@@ -442,6 +443,7 @@ export type {
   AgentToolDescription,
   CustomTool,
   MemoryMirrorOptions,
+  MemoryReviewOptions,
   MemorySettings,
   ModelFallbackOptions,
   SDKAgent,
