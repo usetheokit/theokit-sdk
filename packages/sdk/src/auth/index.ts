@@ -60,6 +60,16 @@ export {
   type ResolveCredentialOptions,
   resolveCredential,
 } from "../internal/auth/resolve-credential.js";
+// One documented answer to "which provider and which key?".
+export {
+  type CredentialOrigin,
+  DEFAULT_PROVIDER_CANDIDATES,
+  type ProviderCandidate,
+  ProviderCredentialError,
+  type ResolvedProviderCredential,
+  type ResolveProviderCredentialInput,
+  resolveProviderCredential,
+} from "../internal/auth/resolve-provider-credential.js";
 // Contract types (leaf module — single canonical origin).
 export type {
   CredentialStoreConfig,
