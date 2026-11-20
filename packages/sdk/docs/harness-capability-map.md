@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1503 export(s) across 58 entry point(s).
+1507 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -991,16 +991,20 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
+| `A2AMailboxError` | class | A mailbox request failed: a non-2xx HTTP answer (`status` set), or a refused persisted file. |
 | `A2AMessage` | interface | One message as a handler receives it.  |
 | `A2APeerNotRegisteredError` | class | Thrown by {@link MessageBus.send } and {@link MessageBus.request } when `to` has no registered handler.  |
 | `A2ARemoteRequestUnsupportedError` | class | Thrown by {@link MessageBus.request } when `to` has no local handler and the bus has a transport.  |
 | `A2ARequestTimeoutError` | class | A peer did not answer a {@link MessageBus.request } within its timeout.  |
 | `A2ATransport` | interface | A2ATransport — the seam that lets a {@link MessageBus } reach agents in other processes.  |
 | `AgentMailbox` | class | One agent's endpoint on a {@link MessageBus } : registers `agentId` on construction and forwards inbound messages to the handler installed by `onMessage`.  |
+| `createHttpMailboxHandler` | function | Build a fetch-style handler serving `POST <prefix>/put` and `POST <prefix>/take`.  |
 | `DelegationCompleteContext` | interface | Context passed to {@link SubAgentSpec.onDelegationComplete } after the child settles. |
 | `DelegationCompleteDecision` | interface | Decision returned from {@link SubAgentSpec.onDelegationComplete } . |
 | `DelegationStartContext` | interface | Context passed to {@link SubAgentSpec.onDelegationStart } before the child runs. |
 | `DelegationStartDecision` | type | Decision returned from {@link SubAgentSpec.onDelegationStart } .  |
+| `HttpMailboxOptions` | interface | Options for {@link createHttpMailboxHandler } . |
+| `httpMailboxTransport` | function | An {@link A2ATransport } over an HTTP mailbox served by {@link createHttpMailboxHandler } .  |
 | `inMemoryTransport` | function | A transport backed by one shared in-memory queue per recipient.  |
 | `MaxDelegationDepthError` | class | Raised by `SubAgent.create(spec, parentDepth)` when `parentDepth + 1` exceeds `spec.maxDelegationDepth` (default 3).  |
 | `MessageBus` | class | In-process router that delivers A2A messages between agents keyed by string id.  |

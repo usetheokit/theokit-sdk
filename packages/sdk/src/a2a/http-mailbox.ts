@@ -123,20 +123,19 @@ async function readBody(request: Request, max: number): Promise<string> {
   const declared = Number(request.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > max) throw new BodyTooLargeError();
   if (!request.body) return "";
+  const decoder = new TextDecoder();
   const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > max) {
+  let text = "";
+  let bytes = 0;
+  for (let r = await reader.read(); !r.done; r = await reader.read()) {
+    bytes += r.value.byteLength;
+    if (bytes > max) {
       await reader.cancel();
       throw new BodyTooLargeError();
     }
-    chunks.push(value);
+    text += decoder.decode(r.value, { stream: true });
   }
-  return Buffer.concat(chunks).toString("utf8");
+  return text + decoder.decode();
 }
 
 async function parseBody(request: Request, max: number): Promise<unknown | Response> {
