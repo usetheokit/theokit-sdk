@@ -42,7 +42,11 @@ export class A2AMailboxError extends TheokitAgentError {
   }
 }
 
-/** @public */
+/**
+ * Options for {@link createHttpMailboxHandler}.
+ *
+ * @public
+ */
 export interface HttpMailboxOptions {
   /** Shared bearer token every request must carry. */
   token: string;
@@ -271,7 +275,7 @@ export function httpMailboxTransport(options: {
   fetchImpl?: typeof fetch;
 }): A2ATransport {
   const base = checkBaseUrl(options.baseUrl).href.replace(/\/+$/, "");
-  const doFetch = options.fetchImpl ?? fetch;
+  const doFetch = options.fetchImpl ?? ((input, init) => fetch(input, init));
   const call = async (route: "put" | "take", body: unknown): Promise<unknown> => {
     const response = await doFetch(`${base}/${route}`, {
       method: "POST",

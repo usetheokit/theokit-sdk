@@ -985,7 +985,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `DelegationCompleteDecision` | interface | Decision returned from {@link SubAgentSpec.onDelegationComplete } . |
 | `DelegationStartContext` | interface | Context passed to {@link SubAgentSpec.onDelegationStart } before the child runs. |
 | `DelegationStartDecision` | type | Decision returned from {@link SubAgentSpec.onDelegationStart } .  |
-| `HttpMailboxOptions` | interface |  |
+| `HttpMailboxOptions` | interface | Options for {@link createHttpMailboxHandler } . |
 | `httpMailboxTransport` | function | An {@link A2ATransport } over an HTTP mailbox served by {@link createHttpMailboxHandler } .  |
 | `inMemoryTransport` | function | A transport backed by one shared in-memory queue per recipient.  |
 | `MaxDelegationDepthError` | class | Raised by `SubAgent.create(spec, parentDepth)` when `parentDepth + 1` exceeds `spec.maxDelegationDepth` (default 3).  |
