@@ -3688,10 +3688,6 @@
         "tier": "stable",
         "declaration": "declare class WorkflowToolError extends TheokitAgentError {\n    readonly toolName: string;\n    readonly workflowStatus: string;\n    readonly workflowError?: {\n        name: string;\n        message: string;\n    } | undefined;\n    readonly name = \"WorkflowToolError\";\n    readonly code: \"workflow_tool_failed\";\n    constructor(toolName: string, workflowStatus: string, workflowError?: {\n        name: string;\n        message: string;\n    } | undefined);\n}"
       },
-      "__resetSnapshotStoresForTests": {
-        "tier": "stable",
-        "declaration": "declare function __resetSnapshotStoresForTests(): void;"
-      },
       "agentStep": {
         "tier": "stable",
         "declaration": "declare function agentStep(id: string, agent: SDKAgent, promptTemplate: string | ((input: unknown) => string), opts?: {\n    retry?: RetryPolicy;\n    origin?: MessageOrigin;\n}): AgentStep;"
@@ -3881,10 +3877,6 @@
       "WorkflowToolError": {
         "tier": "stable",
         "declaration": "declare class WorkflowToolError extends TheokitAgentError {\n    readonly toolName: string;\n    readonly workflowStatus: string;\n    readonly workflowError?: {\n        name: string;\n        message: string;\n    } | undefined;\n    readonly name = \"WorkflowToolError\";\n    readonly code: \"workflow_tool_failed\";\n    constructor(toolName: string, workflowStatus: string, workflowError?: {\n        name: string;\n        message: string;\n    } | undefined);\n}"
-      },
-      "__resetSnapshotStoresForTests": {
-        "tier": "stable",
-        "declaration": "declare function __resetSnapshotStoresForTests(): void;"
       },
       "agentStep": {
         "tier": "stable",
