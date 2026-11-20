@@ -74,6 +74,53 @@ export interface ProvisionRepoOptions {
  */
 const SAFE_INSTANCE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
+/** Validate `timeoutMs`/`attempts`; returns the attempt count. */
+function validateCloneOptions(opts: ProvisionRepoOptions): number {
+  const { instanceId, timeoutMs } = opts;
+  const attempts = opts.attempts ?? 1;
+  if (timeoutMs !== undefined && !(Number.isFinite(timeoutMs) && timeoutMs > 0)) {
+    throw new RepoProvisionError(instanceId, "invalid timeoutMs: must be positive and finite");
+  }
+  if (!Number.isInteger(attempts) || attempts < 1) {
+    throw new RepoProvisionError(instanceId, "invalid attempts: must be a positive integer");
+  }
+  return attempts;
+}
+
+/** Retries delete the target dir, so never do it to a directory that was already there. */
+async function assertTargetAbsent(sandbox: SandboxBackend, instanceId: string): Promise<void> {
+  const exists = await sandbox.execute(`test -e ${shellEscapePosix(instanceId)}`);
+  if (exists.exitCode === 0) {
+    throw new RepoProvisionError(instanceId, "target directory already exists");
+  }
+}
+
+/** Clone, retrying after removing the partial directory. */
+async function cloneWithRetry(sandbox: SandboxBackend, opts: ProvisionRepoOptions): Promise<void> {
+  const { repoUrl, instanceId, timeoutMs } = opts;
+  const attempts = validateCloneOptions(opts);
+  const dir = shellEscapePosix(instanceId);
+  if (attempts > 1) await assertTargetAbsent(sandbox, instanceId);
+
+  // `--` terminates options (no `--upload-pack=` flag injection); `protocol.ext.allow=never`
+  // blocks the `ext::` arbitrary-command transport. `file`/`https` stay allowed.
+  const cloneCmd = `git -c protocol.ext.allow=never clone --quiet -- ${shellEscapePosix(repoUrl)} ${dir}`;
+  const execOpts = timeoutMs !== undefined ? { timeoutMs } : undefined;
+  for (let attempt = 1; ; attempt++) {
+    const clone = await sandbox.execute(cloneCmd, execOpts);
+    if (clone.exitCode === 0) return;
+    const failure = `clone failed: ${clone.stderr.trim()}`;
+    if (attempt >= attempts) throw new RepoProvisionError(instanceId, failure);
+    const cleanup = await sandbox.execute(`rm -rf -- ${dir}`);
+    if (cleanup.exitCode !== 0) {
+      throw new RepoProvisionError(
+        instanceId,
+        `${failure}; cleanup before retry failed: ${cleanup.stderr.trim()}`,
+      );
+    }
+  }
+}
+
 /**
  * Clone `repoUrl` into `<sandbox workdir>/<instanceId>` and check out `ref`.
  * Returns the absolute `repoDir` (resolved via `git rev-parse --show-toplevel`,
@@ -95,7 +142,7 @@ export async function provisionRepo(
 ): Promise<{ repoDir: string }> {
   const sandbox = maybeOpts !== undefined ? (sandboxOrOpts as SandboxBackend) : new LocalSandbox();
   const opts = maybeOpts ?? (sandboxOrOpts as ProvisionRepoOptions);
-  const { repoUrl, ref, instanceId } = opts;
+  const { ref, instanceId } = opts;
 
   // Validate untrusted-derivable inputs before they reach git/the shell.
   if (!SAFE_INSTANCE_ID.test(instanceId)) {
@@ -108,44 +155,7 @@ export async function provisionRepo(
     throw new RepoProvisionError(instanceId, `invalid ref: must not begin with '-' (got ${ref})`);
   }
 
-  const { timeoutMs } = opts;
-  const attempts = opts.attempts ?? 1;
-  if (timeoutMs !== undefined && !(Number.isFinite(timeoutMs) && timeoutMs > 0)) {
-    throw new RepoProvisionError(instanceId, `invalid timeoutMs: must be positive and finite`);
-  }
-  if (!Number.isInteger(attempts) || attempts < 1) {
-    throw new RepoProvisionError(instanceId, `invalid attempts: must be a positive integer`);
-  }
-
-  const dir = shellEscapePosix(instanceId);
-  if (attempts > 1) {
-    // Retries delete the target dir, so never do it to a directory that was already there.
-    const exists = await sandbox.execute(`test -e ${dir}`);
-    if (exists.exitCode === 0) {
-      throw new RepoProvisionError(instanceId, "target directory already exists");
-    }
-  }
-
-  // `--` terminates options (no `--upload-pack=` flag injection); `protocol.ext.allow=never`
-  // blocks the `ext::` arbitrary-command transport. `file`/`https` stay allowed.
-  const cloneCmd = `git -c protocol.ext.allow=never clone --quiet -- ${shellEscapePosix(repoUrl)} ${dir}`;
-  for (let attempt = 1; ; attempt++) {
-    const clone = await sandbox.execute(
-      cloneCmd,
-      timeoutMs !== undefined ? { timeoutMs } : undefined,
-    );
-    if (clone.exitCode === 0) break;
-    if (attempt >= attempts) {
-      throw new RepoProvisionError(instanceId, `clone failed: ${clone.stderr.trim()}`);
-    }
-    const cleanup = await sandbox.execute(`rm -rf -- ${dir}`);
-    if (cleanup.exitCode !== 0) {
-      throw new RepoProvisionError(
-        instanceId,
-        `clone failed: ${clone.stderr.trim()}; cleanup before retry failed: ${cleanup.stderr.trim()}`,
-      );
-    }
-  }
+  await cloneWithRetry(sandbox, opts);
 
   const top = await sandbox.execute(
     `git -C ${shellEscapePosix(instanceId)} rev-parse --show-toplevel`,
