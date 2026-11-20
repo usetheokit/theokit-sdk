@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-
 import { runAgentLoop } from "../../src/internal/agent-loop/loop.js";
 import type {
   LlmClient,
@@ -11,13 +10,8 @@ import type {
   LlmToolResultPart,
 } from "../../src/internal/llm/types.js";
 import { HooksExecutor } from "../../src/internal/runtime/hooks/hooks-executor.js";
-import {
-  __resetSnapshotStoresForTests,
-  fn,
-  Workflow,
-  workflowAsTool,
-  workflowResumeTool,
-} from "../../src/workflow.js";
+import { __resetSnapshotStoresForTests } from "../../src/internal/workflow/snapshot-store.js";
+import { fn, Workflow, workflowAsTool, workflowResumeTool } from "../../src/workflow.js";
 
 /**
  * B-677 review F-wire-2 — the start and resume tools registered on an agent loop, driven by a

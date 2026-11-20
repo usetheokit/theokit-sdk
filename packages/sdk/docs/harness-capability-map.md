@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1542 export(s) across 59 entry point(s).
+1506 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1384,47 +1384,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WikiFile` | interface | Wiki supplement discovery (ADR Phase 10 of memory-system-peer-project-parity).  |
 | `writeEmbeddingIdentity` | function | Persist the embedding identity in the `meta` table. |
 | `writeSessionSummary` | function | Write a session summary file.  |
-
-## `@theokit/sdk/internal/persistence`
-
-| Symbol | Kind | Summary |
-|---|---|---|
-| `appendJsonl` | function | Append one record as a whole `\n`-terminated JSON line.  |
-| `applyWalWithFallback` | function | Apply WAL mode with DELETE fallback.  |
-| `atomicWriteJson` | function | Typed JSON atomic write helper.  |
-| `AtomicWriteJsonOptions` | interface | Options for `atomicWriteJson`. |
-| `atomicWriteText` | function | Atomic text write.  |
-| `casUpdate` | function | Run an UPDATE and report whether it changed exactly the number of rows you expected — the optimistic-concurrency equivalent of taking a lock.  |
-| `containsCjk` | function | Report whether `text` holds at least one Chinese, Japanese or Korean character.  |
-| `createExclusive` | function | Create `path` holding `data`, but only if it does not exist yet.  |
-| `CreateExclusiveOptions` | interface | O_EXCL exclusive file creation (ADR D82).  |
-| `displayTheokitHome` | function | The same path `getTheokitHome(cwd)` returns, shortened for display: the home directory prefix collapses to `~`, so `/home/ada/.theokit` prints as `~/.theokit`.  |
-| `FileLockOptions` | interface | Retry and staleness tuning for `withFileLock`.  |
-| `getProfilesRoot` | function | The directory holding every profile: always `~/.theokit/profiles`, from `os.homedir()`.  |
-| `getTheokitHome` | function | Resolve the directory cwd-anchored SDK state lives in.  |
-| `isCorruptionError` | function | True when an open error indicates an unreadable / corrupt database file. |
-| `JsonlParseError` | class | Raised when a JSONL line is not valid JSON or is not a JSON object.  |
-| `loadJsonl` | function | Parse a JSONL file into rows.  |
-| `migrateSchema` | function | Bring a SQLite database's `user_version` up to `currentVersion` by running the steps that sit between the two.  |
-| `MigrateSchemaOptions` | interface | Arguments to `migrateSchema`.  |
-| `MigrateSchemaResult` | interface | What `migrateSchema` did.  |
-| `Migration` | interface | One forward migration step.  |
-| `openSqliteResilient` | function | Open a SQLite file with WAL (+ DELETE fallback) and corruption recovery. |
-| `OpenSqliteResilientOptions` | interface | Input to {@link openSqliteResilient } .  |
-| `PersistenceSchema` | const | `persistence?` opt-in JSON disk backend with `dir` required when chosen.  |
-| `readJsonlIds` | function | Read the set of keys from an existing JSONL file for which `keyFn(parsed)` returns a non-empty string.  |
-| `readVersionedJson` | function | Read a versioned JSON file, migrating or falling back rather than failing.  |
-| `ReadVersionedJsonOptions` | interface | Arguments to `readVersionedJson`.  |
-| `replaceFileAtomic` | function | Atomic file replacement: write content to a per-call unique tmp path, fsync, then rename over the target.  |
-| `ResilientSqliteDb` | interface | Minimal SQLite handle surface every driver (`better-sqlite3`) exposes. |
-| `sanitizeFts5Query` | function | Six-step FTS5 query sanitizer.  |
-| `SqliteLike` | interface | The three `better-sqlite3` methods this module actually uses, declared structurally so nothing here imports the driver.  |
-| `VersionedJsonFile` | interface | The on-disk envelope: the payload under `data`, its schema version alongside it.  |
-| `VersionedJsonMigrate` | type | Upgrade callback for `readVersionedJson`, invoked only when the stored version is BELOW the current one.  |
-| `WalApplyResult` | interface | What journal mode a connection ended up in after `applyWalWithFallback`.  |
-| `withCwdMutex` | function | Run `fn` after every earlier `withCwdMutex` call for the same `key` has settled, and return what `fn` returns.  |
-| `withFileLock` | function | Run `fn` while holding an OS-level cross-process lock on `path`.  |
-| `writeVersionedJson` | function | Write `data` wrapped in the version envelope, replacing the file atomically.  |
 
 ## `@theokit/sdk/internal/security`
 
