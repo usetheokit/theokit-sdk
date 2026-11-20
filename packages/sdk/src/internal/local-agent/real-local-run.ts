@@ -1,6 +1,6 @@
 import { ConfigurationError } from "../../errors.js";
 import type { SDKMessage } from "../../types/messages.js";
-import type { Run, RunOperation, RunStatus } from "../../types/run.js";
+import type { DeferredToolCall, Run, RunOperation, RunStatus } from "../../types/run.js";
 import { type AgentLoopInputs, runAgentLoop } from "../agent-loop/loop.js";
 import { validatePruneToolResults } from "../agent-loop/prune-tool-results.js";
 import { anySignal } from "../concurrency/abort-utils.js";
@@ -393,6 +393,10 @@ class RealLocalRun extends FixtureRunBase {
     }
   }
 
+  #recordDeferred(calls: readonly DeferredToolCall[] | undefined): void {
+    if (calls !== undefined) this.script.deferredToolCalls = calls;
+  }
+
   /**
    * Copy runAgentLoop output into the script (events + conversation +
    * usage/cost + errorDetail). Extracted to keep executeAgentLoop below
@@ -405,6 +409,7 @@ class RealLocalRun extends FixtureRunBase {
     // B-495 — a run cancelled mid-turn is already final; its output arrives after wait() resolved.
     if (this.terminated) return;
     this.deliverUndeliveredEvents(output.events);
+    this.#recordDeferred(output.deferredToolCalls);
     this.script.conversation.push(...output.conversation);
     if (output.result.length > 0) this.script.result = output.result;
     if (output.usage !== undefined) this.script.usage = output.usage;
