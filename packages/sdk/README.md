@@ -166,6 +166,19 @@ const agent = await Agent.create({
 
 Extended-thinking `--continue` is out of scope for now (thinking signatures are written but dropped on read — issue #122). See the exported session-persistence types for the full contract.
 
+### Reading a stored session
+
+`readSessionMessages` returns a session's messages. `readSessionHistory` also tells you why there are none:
+
+```ts
+import { readSessionHistory } from "@theokit/sdk";
+
+const h = await readSessionHistory({ sessionId, cwd: projectDir });
+// h.state: "absent" (no transcript), "present" (read; h.skippedLines counts dropped lines,
+// a torn last line is 1) or "unreadable" (read error, or a non-empty file with no valid
+// record; h.reason has the error without file contents). It does not throw for these.
+```
+
 ## Incognito agents
 
 To leave nothing on disk, keep the transcript in memory, keep the agent out of the persisted registry, and turn memory off:
