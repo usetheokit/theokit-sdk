@@ -1683,10 +1683,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AuthProviderNotFoundError` | class | Thrown at `startSignIn(providerName, ...)` or `finishSignIn(providerName, ...)` when the named provider is not registered in `providers[]`. |
 | `AuthResult` | interface | Per ADR D9 — provider profile types are provider-specific (not unified).  |
 | `AuthSecretTooShortError` | class | T5.1 — Typed error thrown when an OAuth tx-cookie secret has < 32 bytes of entropy.  |
+| `clearTransactionCookie` | function | Appends a deleting `Set-Cookie` line for the transaction cookie to `headers`. |
 | `DefineAuthOptions` | interface | `defineAuth(opts)` configuration shape — Path C (Hybrid).  |
 | `OAuthTransaction` | interface | Per ADR D5 — OAuth transaction state stored in encrypted HttpOnly cookie (cookie-state pattern).  |
+| `readTransactionCookie` | function | Reads the transaction from a Web `Request`.  |
 | `SessionManager` | interface | SessionManager contract (matches theokit/packages/theo/src/server/auth/session.ts:49).  |
 | `validateReturnTo` | function | Clamp a caller-supplied `returnTo` to a same-origin destination, falling back to `'/'` for anything else.  |
+| `writeTransactionCookie` | function | Web `Headers` counterpart of the Node cookie write: appends the encrypted transaction cookie (`__Host-theo_oauth_tx`, HttpOnly, Secure, SameSite=Lax, Path=/, Max-Age=600) to `headers`, replacing an... |
 
 ## `@theokit/sdk/server/errors-envelope`
 
