@@ -1,9 +1,8 @@
 import http from "node:http";
 import net from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-
-import { type EgressProxy, startEgressProxy } from "../../src/sandbox/index.js";
 import { isRestrictedAddress } from "../../src/sandbox/egress-proxy.js";
+import { type EgressProxy, startEgressProxy } from "../../src/sandbox/index.js";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
