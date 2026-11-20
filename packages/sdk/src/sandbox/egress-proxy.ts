@@ -18,8 +18,15 @@ import { join } from "node:path";
 import type { Duplex } from "node:stream";
 import tls from "node:tls";
 
-import { ConfigurationError } from "../errors.js";
 import { EgressCa } from "./egress-ca.js";
+import {
+  BAD_HEADER_VALUE,
+  hostMatches,
+  normalizeHost,
+  validateCredentialRules,
+} from "./egress-credential-rules.js";
+
+export { validateCredentialRules } from "./egress-credential-rules.js";
 
 /** One destination the proxy lets through. */
 export interface EgressRule {
@@ -83,26 +90,9 @@ const restricted = new net.BlockList();
 for (const [a, p] of RESTRICTED_V4) restricted.addSubnet(a, p, "ipv4");
 for (const [a, p] of RESTRICTED_V6) restricted.addSubnet(a, p, "ipv6");
 
-const MAPPED = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i;
-
-/** Lower-cased, dot-trimmed, bracket-free host; IPv4-mapped IPv6 reduced to its IPv4 form. */
-function normalizeHost(host: string): string {
-  const h = host
-    .toLowerCase()
-    .replace(/^\[|\]$/g, "")
-    .replace(/\.$/, "");
-  return MAPPED.exec(h)?.[1] ?? h;
-}
-
 function isRestrictedAddress(addr: string): boolean {
   const family = net.isIP(addr);
   return family === 0 || restricted.check(addr, family === 6 ? "ipv6" : "ipv4");
-}
-
-function hostMatches(ruleHost: string, host: string): boolean {
-  const r = normalizeHost(ruleHost);
-  if (r.startsWith("*.")) return host.endsWith(r.slice(1)) && host.length > r.length - 1;
-  return r === host;
 }
 
 function findRule(
@@ -159,8 +149,6 @@ interface Intercept {
   port: number;
   addrs: string[];
 }
-
-const BAD_HEADER_VALUE = /[\r\n\0]/;
 
 class EgressState {
   readonly denied: { host: string; port: number; at: number; reason?: string }[] = [];
@@ -391,52 +379,6 @@ function substitute(current: unknown, placeholder: string, value: unknown): stri
 
 function headerTexts(headers: http.IncomingHttpHeaders): string[] {
   return Object.entries(headers).flatMap(([k, v]) => [k, ...(Array.isArray(v) ? v : [v ?? ""])]);
-}
-
-const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
-const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-function invalidRule(message: string, code = "invalid_credential_rule"): never {
-  throw new ConfigurationError(message, { code });
-}
-
-function validateRuleShape(c: CredentialRule): void {
-  if (!HEADER_NAME.test(c.header)) invalidRule(`invalid header "${c.header}"`);
-  if (!c.placeholder || BAD_HEADER_VALUE.test(c.placeholder)) {
-    invalidRule("placeholder must be a non-empty single-line string");
-  }
-  if (c.envVar !== undefined && !ENV_NAME.test(c.envVar))
-    invalidRule(`invalid envVar "${c.envVar}"`);
-}
-
-function validateRuleSet(credentials: readonly CredentialRule[]): void {
-  const seenEnv = new Set<string>();
-  for (const [i, c] of credentials.entries()) {
-    if (credentials.some((o, j) => j !== i && o.placeholder.includes(c.placeholder))) {
-      invalidRule("placeholders must be distinct and must not contain one another");
-    }
-    if (c.envVar === undefined) continue;
-    if (seenEnv.has(c.envVar)) invalidRule(`duplicate envVar "${c.envVar}"`);
-    seenEnv.add(c.envVar);
-  }
-}
-
-/** Throw `ConfigurationError` for a credential rule set the proxy cannot enforce safely. */
-export function validateCredentialRules(
-  allow: readonly EgressRule[],
-  credentials: readonly CredentialRule[],
-): void {
-  for (const c of credentials) {
-    const host = normalizeHost(c.host);
-    if (!allow.some((r) => normalizeHost(r.host) === host || hostMatches(r.host, host))) {
-      invalidRule(
-        `credential rule for "${c.host}" has no matching egress rule`,
-        "credential_host_not_allowed",
-      );
-    }
-    validateRuleShape(c);
-  }
-  validateRuleSet(credentials);
 }
 
 /**
