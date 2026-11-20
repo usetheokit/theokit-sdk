@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1477 export(s) across 57 entry point(s).
+1494 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -167,6 +167,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `DeclaredAction` | interface | What an action reaches, and whether it can be taken back. |
 | `DeclaredLayer` | interface | One named layer in a precedence chain.  |
 | `DeepPartial` | type | Recursive partial — `T` where every nested field becomes optional. |
+| `DeferredToolCall` | interface | A tool call a permission gate deferred.  |
 | `DefineProviderOptions` | interface | Options for {@link defineProvider } . |
 | `DefineToolSpec` | interface | Spec accepted by {@link Tool.create } .  |
 | `describeAction` | function | Read back the action a tool declared, if any.  |
@@ -288,6 +289,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MigrateResult` | interface | Outcome of {@link migrateSqliteToLance } . |
 | `migrateSqliteToLance` | function | Migrate the Memory index from SQLite to LanceDB.  |
 | `mkMemoryId` | function | Construct a branded `MemoryId` for an adapter.  |
+| `ModelFallbackAttempt` | interface | One failed attempt of a turn run under {@link AgentOptions.modelFallback } . |
+| `ModelFallbackExhaustedError` | class | Raised (as `RunResult.error.cause`) when the primary model and every {@link AgentOptions.modelFallback } model failed before any output.  |
+| `ModelFallbackOptions` | interface | `AgentOptions.modelFallback` — models to retry a turn on when the primary fails before output.  |
 | `ModelListItem` | interface | Single model entry in the catalog. |
 | `ModelParameterDefinition` | interface | Per-model parameter definition discovered from `Theokit.models.list()`. |
 | `ModelParameterValue` | interface | One slot in a {@link ModelSelection.params } array.  |
@@ -325,7 +329,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `PostToolCallContext` | interface | #65 — context for the `post_tool_call` hook (fired after a tool runs). |
 | `preflightCheck` | function | Throws BudgetExceededError if `mode === "block"` and any limit would be exceeded.  |
 | `PreToolCallContext` | interface | What a `pre_tool_call` handler is given: the tool about to run, the arguments the model produced for it, and the identity of the run asking.  |
-| `PreToolCallDecision` | interface | The veto a `pre_tool_call` handler returns to stop a tool call.  |
+| `PreToolCallDecision` | type | What a `pre_tool_call` handler may return: a block (veto), a defer, or `undefined` to allow. |
 | `PreUserSendContext` | interface | Context passed to `pre_user_send` hook handlers (ADR D145). |
 | `PreUserSendResult` | interface | Optional result returned by `pre_user_send` handlers.  |
 | `Processor` | interface | A guardrail processor.  |
@@ -488,6 +492,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ToolCall` | interface | Single tool call event.  |
 | `ToolCallBlockedError` | class | Thrown by a tool wrapped with `guardTools` when a `pre_tool_call` plugin vetoes the call.  |
 | `ToolCallCompletedUpdate` | interface | Tool call completed. |
+| `ToolCallDecision` | interface | A person's answer to one deferred tool call, keyed by `toolUseId`.  |
 | `ToolCallStartedUpdate` | interface | Tool call started — args committed. |
 | `ToolCallSummary` | interface | M82 — one tool call of the turn, as seen by `transform_tool_result`.  |
 | `ToolContext` | interface | #65 — a 2nd argument passed to a tool handler, carrying the run's cancellation signal (ties into #58) so a cooperative tool can stop when the run is cancelled.  |
@@ -880,6 +885,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `RepoMapOptions` | interface | Repo-map / env-context builders for orienting an LLM coding agent (M3-3).  |
 | `resolveAndScreen` | function | Resolve `host` to ALL its addresses and screen each.  |
 | `ResolveAndScreenOptions` | interface | Options for {@link resolveAndScreen } . |
+| `ResolvedWebSearch` | interface | Result of `resolveWebSearchAdapter`: the adapter (if any), its provider, secrets and off reason. |
+| `resolveWebSearchAdapter` | function | Choose a web search adapter from `env` (never reads `process.env`). |
 | `screenedFetch` | function | Fetch `url` with SSRF screening: screens the host (unless `allowPrivateHosts`), sets `redirect:"manual"`, and re-screens every redirect hop (rejecting a hop to a blocked host or a non-http(s) targe... |
 | `ScreenedFetchOptions` | interface | Options for {@link screenedFetch } . |
 | `SessionArtifactStore` | interface | A generic, id-keyed, atomic artifact store.  |
@@ -898,6 +905,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `TruncationResult` | interface | What {@link truncateOutput } returns.  |
 | `VitestSummary` | interface | The fields lifted from vitest's JSON report.  |
 | `WebSearchCallback` | type | The search provider {@link createWebSearchTool } calls.  |
+| `WebSearchProvider` | type | Which adapter `resolveWebSearchAdapter` chose. |
 | `WebSearchResult` | interface | `web_search` — built-in tool for coding agents.  |
 | `withDefaultGuidance` | function | `withToolResultGuidance` pre-bound to {@link DEFAULT_TOOL_GUIDANCE } . |
 | `withDescription` | function | Return a new `CustomTool` with `description` replaced.  |
@@ -1011,7 +1019,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `authFilePath` | function | The credential file path inside the (possibly overridden) store directory. |
 | `CredentialError` | class | A credential problem the caller can act on.  |
 | `credentialHome` | function | The store directory, honoring an optional `homeEnvVar` override. |
+| `CredentialOrigin` | type | Where the key came from. |
 | `CredentialStoreConfig` | interface | Where the credential store lives — the three path segments, plus an optional environment override.  |
+| `DEFAULT_PROVIDER_CANDIDATES` | const | The default order for a bare model id: openrouter, anthropic, openai.  |
 | `DeviceCodeGrant` | interface | The device authorization the user acts on.  |
 | `DeviceDeps` | interface | Injected effects for the device flow — deterministic in tests, real in production. |
 | `deviceLogin` | function | The full device login: request a code, hand the user the verification URL + user code via `onPrompt` (never printed here — the caller renders it, keeping this module output-free), then poll to comp... |
@@ -1027,6 +1037,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `parseJwtClaims` | function | Decode a JWT's claim set (no signature verification — used only to read a self-reported account id). |
 | `persistOAuthTokens` | function | Persist a token triple to the store's oauth variant through the hardened 0600 writer. |
 | `pollDeviceToken` | function | Step 2 — poll the token endpoint until the user approves (or the code expires).  |
+| `ProviderCandidate` | interface | One provider the resolver may pick for a bare model id. |
+| `ProviderCredentialError` | class | Thrown when no provider credential can be chosen; branch on `code`. |
 | `providerFromApiKeyPrefix` | function | The provider whose key prefix matches, or `undefined` when none does.  |
 | `readAuthFile` | function | Read the credential file.  |
 | `readStoredOAuth` | function | Read the stored OAuth credential (with its refresh token), or `undefined` when the store is absent or holds an api credential.  |
@@ -1036,6 +1048,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `resolveCredential` | function | Resolve a fresh credential for `provider` from the store, or `undefined` if the store holds none for it.  |
 | `ResolveCredentialOptions` | interface | Input to `resolveCredential`: which provider, which store, and what to inject.  |
 | `ResolvedCredential` | interface | The flat bearer surface every consumer holds.  |
+| `ResolvedProviderCredential` | interface | The provider chosen and its key. |
+| `resolveProviderCredential` | function | Choose the provider and key for `input.model` in `input.env`; see the module docblock for the rules. |
+| `ResolveProviderCredentialInput` | interface | Input to {@link resolveProviderCredential } : the env, the optional model and store, and overrides. |
 | `StoredApiCredential` | interface | The API-key variant of the credential file, as it sits on disk.  |
 | `StoredCredential` | type | Whatever the credential file turned out to hold — the two variants are discriminated by `type`.  |
 | `StoredOAuthCredential` | interface | The OAuth variant of the credential file, as it sits on disk.  |
@@ -1134,6 +1149,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryAdapterErrorCode` | type | Finite error codes specific to memory adapter operations (ADR D141). |
 | `MemoryFactAmbiguousError` | class | Thrown by `removeMemoryFact` when the id names entries in more than one memory root (the same per-memory file name in the write root and the Claude Code CLI's store).  |
 | `MemoryFactNotRemovableError` | class | Thrown by `removeMemoryFact` when the entry exists but lives outside the write root, for example in the Claude Code CLI's store.  |
+| `ModelFallbackAttempt` | interface | One failed attempt of a turn run under {@link AgentOptions.modelFallback } . |
+| `ModelFallbackExhaustedError` | class | Raised (as `RunResult.error.cause`) when the primary model and every {@link AgentOptions.modelFallback } model failed before any output.  |
 | `NetworkError` | class | Service unavailable, timeout, transport-level failure. |
 | `ProfileConflictError` | class | Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a variable the profile owns.  |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
