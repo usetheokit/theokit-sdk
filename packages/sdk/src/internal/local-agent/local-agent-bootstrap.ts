@@ -144,3 +144,16 @@ export function bootstrapSubmanagers(args: BootstrapArgs): BootstrappedSubmanage
   buildPlugins(args, out);
   return out;
 }
+
+/** The first working directory of `local.cwd`, else the process cwd. @internal */
+export function resolveCwd(cwd: string | string[] | undefined): string {
+  return (Array.isArray(cwd) ? cwd[0] : cwd) ?? process.cwd();
+}
+
+/** Whether `local.settingSources` names `source` or `all`. @internal */
+export function includesSetting(options: AgentOptions, source: string): boolean {
+  const sources = options.local?.settingSources;
+  return (
+    sources !== undefined && (sources.includes(source as never) || sources.includes("all" as never))
+  );
+}
