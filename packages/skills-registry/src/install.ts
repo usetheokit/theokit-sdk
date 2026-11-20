@@ -14,8 +14,8 @@ import {
   type VerifiedSkillPackage,
   verifySkillPackage,
 } from "./package-format.js";
+import { parseRegistryUrl, readCapped, withDeadline } from "./transport.js";
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_LISTING_BYTES = 1024 * 1024;
 
@@ -23,26 +23,6 @@ const MAX_LISTING_BYTES = 1024 * 1024;
 export interface DownloadOptions {
   fetch?: typeof fetch;
   timeoutMs?: number;
-}
-
-function parseRegistryUrl(registryUrl: string): URL {
-  let url: URL;
-  try {
-    url = new URL(registryUrl);
-  } catch (cause) {
-    throw new SkillsRegistryError("insecure_url", `invalid registry URL: ${registryUrl}`, {
-      cause,
-    });
-  }
-  const ok =
-    url.protocol === "https:" || (url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname));
-  if (!ok) {
-    throw new SkillsRegistryError(
-      "insecure_url",
-      "registry URL must be https:, or http: for localhost only",
-    );
-  }
-  return url;
 }
 
 function parseSpec(spec: string): { name: string; version?: string } {
@@ -55,42 +35,19 @@ function parseSpec(spec: string): { name: string; version?: string } {
   return { name, version };
 }
 
-async function readCapped(res: Response, cap: number): Promise<Uint8Array> {
-  const declared = Number(res.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > cap) {
-    await res.body?.cancel();
-    throw new SkillsRegistryError("too_large", `response exceeds ${cap} bytes`);
-  }
-  if (!res.body) return new Uint8Array(0);
-  const reader = res.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > cap) {
-      await reader.cancel();
-      throw new SkillsRegistryError("too_large", `response exceeds ${cap} bytes`);
-    }
-    chunks.push(value);
-  }
-  return new Uint8Array(Buffer.concat(chunks));
-}
-
 async function get(url: string, cap: number, opts: DownloadOptions): Promise<Uint8Array> {
   const doFetch = opts.fetch ?? fetch;
-  const signal = AbortSignal.timeout(opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
-  try {
-    const res = await doFetch(url, { redirect: "manual", signal });
-    if (res.status === 404) throw new SkillsRegistryError("not_found", `not found: ${url}`);
-    if (!res.ok)
-      throw new SkillsRegistryError("unreachable", `registry answered ${res.status} for ${url}`);
-    return await readCapped(res, cap);
-  } catch (cause) {
-    if (cause instanceof SkillsRegistryError) throw cause;
-    throw new SkillsRegistryError("unreachable", `registry unreachable: ${url}`, { cause });
-  }
+  return withDeadline(
+    opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    `registry request ${url}`,
+    async (signal) => {
+      const res = await doFetch(url, { redirect: "manual", signal });
+      if (res.status === 404) throw new SkillsRegistryError("not_found", `not found: ${url}`);
+      if (!res.ok)
+        throw new SkillsRegistryError("unreachable", `registry answered ${res.status} for ${url}`);
+      return readCapped(res, cap);
+    },
+  );
 }
 
 interface ListedVersion {
