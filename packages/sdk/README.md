@@ -684,6 +684,22 @@ Eval.create({
 - A missing or malformed expected value scores 0 with reason `expected_tool_calls_missing` or
   `expected_trajectory_missing`. Both scorers are deterministic and make no network calls.
 
+### Judge scorers
+
+Three judge scorers take the same `model`, `apiKey` and `providers` as `Scorers.llmJudge`. Use a key
+other than the evaluated agent's, so a model does not judge its own output. Each row costs judge calls
+that `aggregate.tokensInTotal` does not count.
+
+- `Scorers.faithfulness({ contextKey? })` scores supported claims over total claims. The context comes
+  from `metadata[contextKey ?? "context"]` (string or string[]). The reason lists unsupported claims.
+  **2 judge calls per row** (extract claims, judge claims). Missing context scores 0 with
+  `context_missing` and makes no call; an answer with no claims scores 1 with `no_claims` after 1 call.
+- `Scorers.rubric({ items: [{ id, description, weight? }] })` scores the weighted pass ratio; the reason
+  names the failed item ids. **1 judge call per row.**
+- `Scorers.judgedTrajectory({ goal? })` shows the judge the input, the ordered tool calls
+  (`name`, `input`, `isError`) and the output, and returns a score in [0, 1]. **1 judge call per row.**
+- A judge reply that is not the expected JSON scores 0 with reason `judge_unparseable`.
+
 ## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
 
 `AgentLike` (`agentId`, `send`, optional `dispose`) and `RunLike` (`status`, `stream`, `wait`, `cancel`) are the small ports `SDKAgent` and `Run` satisfy with no cast. Type a wrapper, failover decorator or test double against them instead of the full `SDKAgent`, or re-declaring a port that drifts. `RunLike.wait()` resolves the real `RunResult`, so `status` is `RunStatus` and a misspelled status such as `"completed"` fails to compile.
