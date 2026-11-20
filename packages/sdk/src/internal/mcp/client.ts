@@ -14,12 +14,12 @@ import { resolveBearer } from "./oauth-bearer.js";
 import { rpcInitialize, SUPPORTED_MCP_PROTOCOL_VERSIONS } from "./protocol-version.js";
 import {
   isAbortLike,
+  type McpTool,
+  type McpToolCallResult,
   mcpTimeoutError,
   reconnectDelay,
   rpcCallTool,
   rpcListTools,
-  type McpTool,
-  type McpToolCallResult,
 } from "./rpc-helpers.js";
 import { withToolFilter } from "./tool-filter.js";
 
@@ -35,8 +35,7 @@ import { withToolFilter } from "./tool-filter.js";
  * @internal
  */
 
-export type { McpTool, McpToolCallResult };
-export type { McpProtocolVersion };
+export type { McpProtocolVersion, McpTool, McpToolCallResult };
 export { SUPPORTED_MCP_PROTOCOL_VERSIONS };
 
 export interface McpClient {
