@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.1.0
+
+### Minor Changes
+
+- [#1302](https://github.com/usetheokit/theokit-sdk/pull/1302) [`60a12a3`](https://github.com/usetheokit/theokit-sdk/commit/60a12a385d90455a642cc6f296700d092f758951) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `serveAcp` now accepts any `AgentLike` (or a factory returning one) instead of requiring a full `SDKAgent`; `dispose` is optional, and `session/new` now fails closed with `permission_enforcement_unavailable` when `ask`/`deny` cannot be enforced ([#1019](https://github.com/usetheokit/theokit-sdk/issues/1019)).
+
 ## 4.0.3
 
 ### Patch Changes

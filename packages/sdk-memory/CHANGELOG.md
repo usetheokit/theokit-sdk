@@ -1,5 +1,15 @@
 # Changelog — @theokit/sdk-memory
 
+## 0.6.5
+
+### Patch Changes
+
+- [#1198](https://github.com/usetheokit/theokit-sdk/pull/1198) [`cd578d4`](https://github.com/usetheokit/theokit-sdk/commit/cd578d43d8f59382fa888a5e50c130ac73b1ecdc) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `listMemoryFacts`, `removeMemoryFact`, `StoredMemoryFact` and `MemoryFactNotRemovableError` for the built-in memory store. The public signatures take the public `MemorySettings` (mapped internally to the internal location config, which stays unexported). An id found in more than one root rejects with `MemoryFactAmbiguousError` and removes nothing. Entries outside the write root, such as the Claude Code CLI's store, are listed with `removable: false` and refuse removal.
+  
+  `@theokit/sdk-memory` re-exports the two new internal store helpers (`listFactEntries`, `removeFactEntry`) to stay in step with the SDK store.
+  
+  Removal also deletes the entry's rows from the sqlite search index (and the corpus sync now prunes rows of files that left the disk), so recall does not return a removed fact. A sync racing a removal in another process can briefly re-insert the rows; the next sync drops them. The built-in store feeds only the sqlite index, so a Lance index is not touched. Two identical legacy bullets in one root share an id; removal takes the first.
+
 ## 0.6.4
 
 ### Patch Changes
