@@ -4655,7 +4655,7 @@
       },
       "McpHttpServerConfig": {
         "tier": "stable",
-        "declaration": "type McpHttpServerConfig = {\n    type?: \"http\" | \"sse\";\n    url: string;\n    headers?: Record<string, string>;\n    auth?: McpAuthConfig;\n    requestTimeoutMs?: number;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
+        "declaration": "type McpHttpServerConfig = {\n    type?: \"http\" | \"sse\";\n    url: string;\n    headers?: Record<string, string>;\n    auth?: McpAuthConfig;\n    requestTimeoutMs?: number;\n    protocolVersion?: \"2025-06-18\" | \"2025-03-26\" | \"2024-11-05\";\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
       },
       "McpOAuthConfig": {
         "tier": "stable",
@@ -4667,7 +4667,7 @@
       },
       "McpStdioServerConfig": {
         "tier": "stable",
-        "declaration": "type McpStdioServerConfig = {\n    type?: \"stdio\";\n    command: string;\n    args?: string[];\n    env?: Record<string, string>;\n    cwd?: string;\n    requestTimeoutMs?: number;\n    envPolicy?: EnvPolicy;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
+        "declaration": "type McpStdioServerConfig = {\n    type?: \"stdio\";\n    command: string;\n    args?: string[];\n    env?: Record<string, string>;\n    cwd?: string;\n    requestTimeoutMs?: number;\n    protocolVersion?: \"2025-06-18\" | \"2025-03-26\" | \"2024-11-05\";\n    envPolicy?: EnvPolicy;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
       },
       "Memory": {
         "tier": "stable",
@@ -6586,7 +6586,7 @@
       },
       "McpHttpServerConfig": {
         "tier": "stable",
-        "declaration": "type McpHttpServerConfig = {\n    type?: \"http\" | \"sse\";\n    url: string;\n    headers?: Record<string, string>;\n    auth?: McpAuthConfig;\n    requestTimeoutMs?: number;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
+        "declaration": "type McpHttpServerConfig = {\n    type?: \"http\" | \"sse\";\n    url: string;\n    headers?: Record<string, string>;\n    auth?: McpAuthConfig;\n    requestTimeoutMs?: number;\n    protocolVersion?: \"2025-06-18\" | \"2025-03-26\" | \"2024-11-05\";\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
       },
       "McpOAuthConfig": {
         "tier": "stable",
@@ -6598,7 +6598,7 @@
       },
       "McpStdioServerConfig": {
         "tier": "stable",
-        "declaration": "type McpStdioServerConfig = {\n    type?: \"stdio\";\n    command: string;\n    args?: string[];\n    env?: Record<string, string>;\n    cwd?: string;\n    requestTimeoutMs?: number;\n    envPolicy?: EnvPolicy;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
+        "declaration": "type McpStdioServerConfig = {\n    type?: \"stdio\";\n    command: string;\n    args?: string[];\n    env?: Record<string, string>;\n    cwd?: string;\n    requestTimeoutMs?: number;\n    protocolVersion?: \"2025-06-18\" | \"2025-03-26\" | \"2024-11-05\";\n    envPolicy?: EnvPolicy;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
       },
       "Memory": {
         "tier": "stable",

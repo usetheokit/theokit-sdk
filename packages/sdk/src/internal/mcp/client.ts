@@ -1,6 +1,5 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { isAbsolute } from "node:path";
-import packageJson from "../../../package.json" with { type: "json" };
 import { ConfigurationError, NetworkError } from "../../errors.js";
 import type {
   McpHttpServerConfig,
@@ -11,6 +10,12 @@ import { resolveChildEnv } from "../runtime/lifecycle/env-policy.js";
 import { safePathJoin } from "../security/path-guard.js";
 import { DEFAULT_MCP_TIMEOUT_MS, handshakeAwareTimeout } from "./handshake-timeout.js";
 import { resolveBearer } from "./oauth-bearer.js";
+import {
+  type McpProtocolVersion,
+  rpcInitialize,
+  SUPPORTED_MCP_PROTOCOL_VERSIONS,
+} from "./protocol-version.js";
+import { isAbortLike, mcpTimeoutError, reconnectDelay } from "./rpc-helpers.js";
 import { withToolFilter } from "./tool-filter.js";
 
 /**
@@ -25,12 +30,8 @@ import { withToolFilter } from "./tool-filter.js";
  * @internal
  */
 
-export const SUPPORTED_MCP_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"] as const;
-export type McpProtocolVersion = (typeof SUPPORTED_MCP_PROTOCOL_VERSIONS)[number];
-
-function isSupportedVersion(value: unknown): value is McpProtocolVersion {
-  return (SUPPORTED_MCP_PROTOCOL_VERSIONS as readonly unknown[]).includes(value);
-}
+export type { McpProtocolVersion };
+export { SUPPORTED_MCP_PROTOCOL_VERSIONS };
 
 export interface McpTool {
   name: string;
@@ -73,60 +74,9 @@ const MAX_STDIO_BUFFER_BYTES = 8 * 1024 * 1024;
 
 /** M2 #59 — reconnect-after-drop bounds. Base for the full-jitter backoff between
  * reconnect attempts, and the max attempts before surfacing a typed error. */
-const RECONNECT_BASE_MS = 250;
 const MAX_RECONNECT_ATTEMPTS = 2;
 
-/** M2 #59 — full-jitter backoff (AWS Brooker 2015) for the Nth reconnect attempt,
- * then a plain delay. MCP requests carry no AbortSignal so the delay is unabortable. */
-function reconnectDelay(attempt: number): Promise<void> {
-  const ceiling = RECONNECT_BASE_MS * 2 ** attempt;
-  const ms = Math.floor(Math.random() * ceiling);
-  return ms <= 0 ? Promise.resolve() : new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Typed timeout error shared by both transports (#59). */
-function mcpTimeoutError(name: string, timeoutMs: number): NetworkError {
-  return new NetworkError(`MCP ${name} request timed out after ${timeoutMs}ms`, {
-    code: "mcp_timeout",
-  });
-}
-
-/**
- * True when a rejected fetch was aborted by our `AbortSignal.timeout` (#59).
- * `AbortSignal.timeout` rejects with a `DOMException` (name `TimeoutError`),
- * which is not always `instanceof Error`, so we inspect `.name` directly.
- */
-function isAbortLike(cause: unknown): boolean {
-  if (typeof cause !== "object" || cause === null || !("name" in cause)) return false;
-  const name = (cause as { name: unknown }).name;
-  return name === "TimeoutError" || name === "AbortError";
-}
-
 type RpcRequester = (method: string, params: Record<string, unknown>) => Promise<unknown>;
-
-async function rpcInitialize(
-  request: RpcRequester,
-  name: string,
-  offered: McpProtocolVersion,
-): Promise<McpProtocolVersion | undefined> {
-  const response = await request("initialize", {
-    protocolVersion: offered,
-    capabilities: { tools: {} },
-    clientInfo: { name: "theokit-sdk", version: packageJson.version },
-  });
-  const answered = (response as { result?: { protocolVersion?: unknown } } | undefined)?.result
-    ?.protocolVersion;
-  // A reply with no version at all (a minimal or legacy server) is tolerated: nothing is negotiated
-  // and no header is sent. Only an explicit answer outside the supported list is refused.
-  if (answered === undefined) return undefined;
-  if (!isSupportedVersion(answered)) {
-    throw new NetworkError(
-      `MCP ${name} answered protocol version ${String(answered)}, which this client does not support (offered ${offered})`,
-      { code: "mcp_protocol_unsupported" },
-    );
-  }
-  return answered;
-}
 
 async function rpcListTools(request: RpcRequester): Promise<McpTool[]> {
   const response = await request("tools/list", {});
