@@ -39,19 +39,26 @@ export function splitFrontmatter(raw: string): FrontmatterSplit {
   });
 }
 
-function unquote(s: string): string {
-  return s.replace(/^["']|["']$/g, "");
+/**
+ * Loader-compat switches for {@link parseFrontmatterEntries}. The default (all false) is the public
+ * {@link parseFrontmatterYaml} behaviour.
+ *
+ * @internal
+ */
+export interface FrontmatterParseOptions {
+  /** Keep quotes on values (`match: "1"` stays the 3-char string), as the file loaders always did. */
+  readonly keepQuotes?: boolean;
+  /** A bare `key:` with no list items is `undefined` (so a caller's Zod default applies), not `[]`. */
+  readonly bareKeyUndefined?: boolean;
+  /** Skip a line without a usable `key:` instead of throwing `frontmatter_invalid`. */
+  readonly lenient?: boolean;
 }
 
-function parseScalar(raw: string): string | number | boolean {
-  if (raw === "true") return true;
-  if (raw === "false") return false;
-  const n = Number(raw);
-  if (raw !== "" && Number.isFinite(n) && raw === String(n)) return n;
-  return unquote(raw);
+function unquoter(opts: FrontmatterParseOptions): (s: string) => string {
+  return opts.keepQuotes ? (s) => s : (s) => s.replace(/^["']|["']$/g, "");
 }
 
-function parseValue(raw: string): FrontmatterScalar {
+function parseValue(raw: string, unquote: (s: string) => string): FrontmatterScalar {
   if (raw.startsWith("[") && raw.endsWith("]")) {
     return raw
       .slice(1, -1)
@@ -59,7 +66,11 @@ function parseValue(raw: string): FrontmatterScalar {
       .map((s) => unquote(s.trim()))
       .filter((s) => s.length > 0);
   }
-  return parseScalar(raw);
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  const n = Number(raw);
+  if (raw !== "" && Number.isFinite(n) && raw === String(n)) return n;
+  return unquote(raw);
 }
 
 function isSkippable(trimmed: string): boolean {
@@ -67,7 +78,11 @@ function isSkippable(trimmed: string): boolean {
 }
 
 /** Collect the `- item` lines after a bare `key:`; returns the items and the next index. */
-function collectList(lines: string[], start: number): { items: string[]; end: number } {
+function collectList(
+  lines: string[],
+  start: number,
+  unquote: (s: string) => string,
+): { items: string[]; end: number } {
   const items: string[] = [];
   let j = start;
   for (; j < lines.length; j += 1) {
@@ -77,6 +92,20 @@ function collectList(lines: string[], start: number): { items: string[]; end: nu
     items.push(unquote(t.slice(2).trim()));
   }
   return { items, end: j };
+}
+
+function splitEntry(trimmed: string): { key: string; rest: string } | undefined {
+  const colon = trimmed.indexOf(":");
+  const key = colon === -1 ? "" : trimmed.slice(0, colon).trim();
+  return key === "" ? undefined : { key, rest: trimmed.slice(colon + 1).trim() };
+}
+
+function skipOrThrow(opts: FrontmatterParseOptions, lineNo: number, text: string): void {
+  if (!opts.lenient) throw invalid(lineNo, text);
+}
+
+function bareValue(items: string[], opts: FrontmatterParseOptions): string[] | undefined {
+  return items.length === 0 && opts.bareKeyUndefined ? undefined : items;
 }
 
 function invalid(lineNo: number, text: string): ConfigurationError {
@@ -92,7 +121,21 @@ function invalid(lineNo: number, text: string): ConfigurationError {
  * @throws ConfigurationError code `frontmatter_invalid` naming the 1-based line number.
  */
 export function parseFrontmatterYaml(yaml: string): Record<string, FrontmatterScalar> {
-  const out: Record<string, FrontmatterScalar> = {};
+  return parseFrontmatterEntries(yaml, {}) as Record<string, FrontmatterScalar>;
+}
+
+/**
+ * The parser behind {@link parseFrontmatterYaml}, with the switches the file loaders need to keep
+ * their historical value shapes.
+ *
+ * @internal
+ */
+export function parseFrontmatterEntries(
+  yaml: string,
+  opts: FrontmatterParseOptions,
+): Record<string, FrontmatterScalar | undefined> {
+  const unquote = unquoter(opts);
+  const out: Record<string, FrontmatterScalar | undefined> = {};
   const lines = yaml.split(/\r?\n/);
   let i = 0;
   while (i < lines.length) {
@@ -100,16 +143,17 @@ export function parseFrontmatterYaml(yaml: string): Record<string, FrontmatterSc
     const trimmed = (lines[i] ?? "").trim();
     i += 1;
     if (isSkippable(trimmed)) continue;
-    const colon = trimmed.indexOf(":");
-    const key = colon === -1 ? "" : trimmed.slice(0, colon).trim();
-    if (key === "") throw invalid(lineNo, trimmed);
-    const rest = trimmed.slice(colon + 1).trim();
-    if (rest !== "") {
-      out[key] = parseValue(rest);
+    const entry = splitEntry(trimmed);
+    if (entry === undefined) {
+      skipOrThrow(opts, lineNo, trimmed);
       continue;
     }
-    const list = collectList(lines, i);
-    out[key] = list.items;
+    if (entry.rest !== "") {
+      out[entry.key] = parseValue(entry.rest, unquote);
+      continue;
+    }
+    const list = collectList(lines, i, unquote);
+    out[entry.key] = bareValue(list.items, opts);
     i = list.end;
   }
   return out;
