@@ -15,7 +15,10 @@ export type SkillsRegistryErrorCode =
   | "invalid_skill_md"
   | "invalid_package"
   | "insecure_url"
-  | "install_failed";
+  | "install_failed"
+  | "unauthorized"
+  | "version_exists"
+  | "rejected";
 
 /** Typed error of this package; branch on `code`, not on the message. */
 export class SkillsRegistryError extends Error {
@@ -160,21 +163,21 @@ function bad(msg: string): never {
 
 const UNQUOTED_BAD_START = /^[|>[\]{}&*!%@`,?-]/;
 
-function quotedScalar(v: string): string {
+function quotedScalar(v: string, label: string): string {
   const q = v[0] as string;
   const inner = v.slice(1, -1);
   if (v.length < 2 || !v.endsWith(q) || inner.includes(q) || inner.includes("\\")) {
-    bad("SKILL.md name is malformed");
+    bad(`SKILL.md ${label} is malformed`);
   }
   return inner;
 }
 
-function scalarName(raw: string): string {
+function scalarName(raw: string, label = "name"): string {
   const v = raw.trim();
-  if (v === "") bad("SKILL.md name is empty");
-  if (v.startsWith('"') || v.startsWith("'")) return quotedScalar(v);
+  if (v === "") bad(`SKILL.md ${label} is empty`);
+  if (v.startsWith('"') || v.startsWith("'")) return quotedScalar(v, label);
   const plain = v.replace(/\s+#.*$/, "").trim();
-  if (UNQUOTED_BAD_START.test(plain) || plain.includes(": ")) bad("SKILL.md name is malformed");
+  if (UNQUOTED_BAD_START.test(plain) || plain.includes(": ")) bad(`SKILL.md ${label} is malformed`);
   return plain;
 }
 
@@ -203,14 +206,20 @@ function readFields(lines: string[]): Field[] {
   return fields;
 }
 
-/** Returns the raw `name` value after checking that no field repeats. */
-function scanFrontmatter(lines: string[]): string | undefined {
+function scanFrontmatter(lines: string[]): Field[] {
   const fields = readFields(lines);
   const dup = fields.find((f, i) => fields.findIndex((g) => g.key === f.key) !== i);
   if (dup) bad(`SKILL.md repeats the field ${dup.key}`);
-  const name = fields.find((f) => f.key === "name");
-  if (name?.continued) bad("SKILL.md name spans several lines");
-  return name?.value;
+  if (fields.find((f) => f.key === "name")?.continued) bad("SKILL.md name spans several lines");
+  return fields;
+}
+
+function frontmatterFields(text: string): Field[] {
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
+  if (lines[0]?.trimEnd() !== "---") bad("SKILL.md has no frontmatter");
+  const end = lines.findIndex((l, i) => i > 0 && l.trimEnd() === "---");
+  if (end < 0) bad("SKILL.md frontmatter is not closed");
+  return scanFrontmatter(lines.slice(1, end));
 }
 
 /**
@@ -219,13 +228,27 @@ function scanFrontmatter(lines: string[]): string | undefined {
  * only name a consumer can read.
  */
 export function parseSkillName(text: string): string {
-  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
-  if (lines[0]?.trimEnd() !== "---") bad("SKILL.md has no frontmatter");
-  const end = lines.findIndex((l, i) => i > 0 && l.trimEnd() === "---");
-  if (end < 0) bad("SKILL.md frontmatter is not closed");
-  const nameLine = scanFrontmatter(lines.slice(1, end));
-  if (nameLine === undefined) bad("SKILL.md frontmatter has no name");
-  return scalarName(nameLine as string);
+  const name = frontmatterFields(text).find((f) => f.key === "name");
+  if (name === undefined) bad("SKILL.md frontmatter has no name");
+  return scalarName((name as Field).value);
+}
+
+/** Reads `name`, `description` and `version` for publishing; all three are required. */
+export function parseSkillIdentity(text: string): {
+  name: string;
+  description: string;
+  version: string;
+} {
+  const fields = frontmatterFields(text);
+  const name = parseSkillName(text);
+  const desc = fields.find((f) => f.key === "description");
+  const description = desc?.value.trim().replace(/^(["'])(.*)\1$/, "$2") ?? "";
+  if (description === "") bad("SKILL.md frontmatter has no single-line description");
+  const ver = fields.find((f) => f.key === "version");
+  if (!ver || ver.continued) bad("SKILL.md frontmatter has no single-line version");
+  const version = scalarName((ver as Field).value, "version");
+  assertSkillVersion(version);
+  return { name, description, version };
 }
 
 function decodeBase64(s: unknown, path: string): Uint8Array {
