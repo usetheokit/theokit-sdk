@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-304 distinct code(s).
+305 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -142,6 +142,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `judge_credential` | domain | — | `packages/sdk/src/internal/judge/judge-call.ts:72` +1 |
 | `lance_backend_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:138` +1 |
 | `lance_requires_embedding` | domain | ConfigurationError | `packages/sdk/src/internal/memory/index-manager-dispatch.ts:39` |
+| `list_projects_scan_bytes_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/list-projects.ts:103` |
 | `live_session_protected` | domain | — | `packages/sdk/src/internal/persistence/transcript-ops.ts:48` +1 |
 | `local_provider_http_error` | domain | ConfigurationError | `packages/sdk/src/internal/catalog/local-models.ts:61` |
 | `local_provider_unreachable` | domain | ConfigurationError | `packages/sdk/src/internal/catalog/local-models.ts:46` |
