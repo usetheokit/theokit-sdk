@@ -13,6 +13,7 @@ import type { AgentOptions, SDKAgent } from "../../../src/types/agent.js";
 
 interface FakeRun {
   wait: () => Promise<{ result: string; usage?: unknown }>;
+  stream?: () => AsyncIterable<unknown>;
 }
 
 interface FakeAgent extends SDKAgent {
@@ -26,8 +27,12 @@ function buildFakeAgent(options: AgentOptions): FakeAgent {
     model: options.model,
     options,
     disposeCalled: false,
+    events: [] as unknown[],
     async send(_message: unknown): Promise<FakeRun> {
       return {
+        stream: async function* () {
+          for (const e of (agent as unknown as { events: unknown[] }).events) yield e;
+        },
         wait: async () => ({ result: "ok", usage: { inputTokens: 0, outputTokens: 0 } }),
       };
     },
@@ -228,5 +233,47 @@ describe("forkAgentImpl (T1.2)", () => {
       },
     );
     expect(result.usage).toBeDefined();
+  });
+});
+
+describe("forkAgentImpl toolCalls (#750)", () => {
+  const run = async (events: unknown[]) =>
+    forkAgentImpl(
+      makeParent(),
+      { allowedTools: new Set(["read"]), prompt: "go" },
+      {
+        create: async (opts) => {
+          const a = buildFakeAgent(opts);
+          (a as unknown as { events: unknown[] }).events = events;
+          return a;
+        },
+      },
+    );
+
+  it("is empty when the fork called no tools", async () => {
+    expect((await run([{ type: "assistant" }])).toolCalls).toEqual([]);
+  });
+
+  it("collects calls in order and folds running/completed by call_id", async () => {
+    const r = await run([
+      { type: "tool_call", call_id: "1", name: "read", status: "running", args: { path: "a" } },
+      { type: "tool_call", call_id: "1", name: "read", status: "completed", args: { path: "a" } },
+      { type: "tool_call", call_id: "2", name: "grep", status: "error" },
+    ]);
+    expect(r.toolCalls).toEqual([
+      { name: "read", input: { path: "a" } },
+      { name: "grep", input: {} },
+    ]);
+  });
+
+  it("uses {} for non-object args and keeps id-less events separate", async () => {
+    const r = await run([
+      { type: "tool_call", name: "a", status: "completed", args: "x" },
+      { type: "tool_call", name: "a", status: "completed", args: [1] },
+    ]);
+    expect(r.toolCalls).toEqual([
+      { name: "a", input: {} },
+      { name: "a", input: {} },
+    ]);
   });
 });

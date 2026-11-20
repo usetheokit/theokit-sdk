@@ -104,16 +104,51 @@ export async function forkAgentImpl(
   try {
     return await withToolWhitelist(options.allowedTools, async () => {
       const run = await fork.send(options.prompt);
+      const toolCalls = await collectToolCalls(run);
       const result = await run.wait();
       return {
         result: result.result,
-        toolCalls: [],
+        toolCalls,
         usage: extractUsage(result),
       };
     });
   } finally {
     await fork.dispose();
   }
+}
+
+type ForkToolCall = ForkResult["toolCalls"][number];
+
+/**
+ * Drain the run stream and collect the tool calls. A call emits a `running`
+ * event and a terminal one sharing a `call_id`; those fold into one entry
+ * (first object `args` wins). Events without a `call_id` count as separate calls.
+ */
+async function collectToolCalls(run: unknown): Promise<ForkToolCall[]> {
+  const stream = (run as { stream?: () => AsyncIterable<unknown> }).stream;
+  if (typeof stream !== "function") return [];
+  const calls: ForkToolCall[] = [];
+  const byId = new Map<string, ForkToolCall & { hasInput: boolean }>();
+  for await (const msg of stream.call(run)) {
+    if (typeof msg !== "object" || msg === null) continue;
+    const m = msg as { type?: unknown; name?: unknown; call_id?: unknown; args?: unknown };
+    if (m.type !== "tool_call" || typeof m.name !== "string") continue;
+    const isObj = typeof m.args === "object" && m.args !== null && !Array.isArray(m.args);
+    const input = isObj ? (m.args as Record<string, unknown>) : {};
+    const id = typeof m.call_id === "string" ? m.call_id : undefined;
+    const existing = id === undefined ? undefined : byId.get(id);
+    if (existing) {
+      if (!existing.hasInput && isObj) {
+        existing.input = input;
+        existing.hasInput = true;
+      }
+      continue;
+    }
+    const entry = { name: m.name, input, hasInput: isObj };
+    calls.push(entry);
+    if (id !== undefined) byId.set(id, entry);
+  }
+  return calls.map(({ name, input }) => ({ name, input }));
 }
 
 function extractUsage(result: unknown): { inputTokens: number; outputTokens: number } {
