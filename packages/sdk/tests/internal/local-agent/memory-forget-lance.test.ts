@@ -41,7 +41,7 @@ function makeLance(opts: { failDelete?: boolean; gate?: Promise<void> } = {}) {
         (r) =>
           !(
             (r.id === exact || r.id.startsWith(prefix ?? "\0")) &&
-            r.namespace === ns &&
+            (ns === undefined || r.namespace === ns) &&
             r.source === src
           ),
       );
@@ -160,7 +160,7 @@ describe("agent.memory.delete → Lance cleanup (real agent)", () => {
 });
 
 describe("LanceIndex.removeFactChunks", () => {
-  it("removes every chunk of the fact and leaves prefix-sharing facts and other sources/namespaces", async () => {
+  it("removes every chunk of the fact in every namespace and leaves prefix-sharing facts and other sources", async () => {
     const { index, rows } = open();
     await index.indexFact(fact("a"));
     await index.indexFact(fact("a#b")); // id has the chunk separator, must not match 'a'
@@ -172,9 +172,15 @@ describe("LanceIndex.removeFactChunks", () => {
       "default/memory/a%23b#1",
       "default/wiki/a#0",
       "default/wiki/a#1",
-      "other/memory/a#0",
-      "other/memory/a#1",
     ]);
+  });
+
+  it("an explicit namespace scope leaves the same fact in other namespaces alone", async () => {
+    const { index, rows } = open();
+    await index.indexFact(fact("a"));
+    await index.indexFact(fact("a", { namespace: "other" }));
+    await index.removeFactChunks("a", { namespace: "other", source: "memory" });
+    expect(ids(rows)).toEqual(["default/memory/a#0", "default/memory/a#1"]);
   });
 
   it("is a no-op, not an error, when no index is open", async () => {

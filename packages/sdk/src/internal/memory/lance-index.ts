@@ -327,21 +327,25 @@ export class LanceIndex {
   /**
    * Forget one fact: remove every chunk written for it by {@link LanceIndex.indexFact}, and only
    * those. Chunk ids are `factChunkId(factId, i)`; the fact id is escaped so no other fact's chunks
-   * can share the `factId#` prefix (`a` never matches `a#b`). `namespace` and `source` are both
-   * required so another tenant's or source's rows are never touched. Rows with ids outside that
+   * can share the `factId#` prefix (`a` never matches `a#b`). `source` is required so other
+   * sources' rows are never touched; `namespace` narrows further when the caller knows it, and
+   * when omitted the fact is forgotten in every namespace (a fact id is unique, and
+   * `agent.memory.delete(id)` carries no namespace). Rows with ids outside that
    * convention (legacy migrated chunks, no link to a fact) are left alone. The removal is logged
    * before it is queued so a stale sync (see `beginSync`) cannot re-add the fact afterwards.
    */
   async removeFactChunks(
     factId: string,
-    scope: { namespace: string; source: "memory" | "sessions" | "wiki" },
+    scope: { namespace?: string; source: "memory" | "sessions" | "wiki" },
   ): Promise<void> {
     const enc = encodeFactId(factId);
     const predicates = [
       `(id = '${escapeSqlValue(enc)}' OR starts_with(id, '${escapeSqlValue(`${enc}#`)}'))`,
-      `namespace = '${escapeSqlValue(scope.namespace)}'`,
       `source = '${escapeSqlValue(scope.source)}'`,
     ];
+    if (scope.namespace !== undefined) {
+      predicates.push(`namespace = '${escapeSqlValue(scope.namespace)}'`);
+    }
     this.state.recordRemoval(enc, scope);
     await this.serialized(() => this.table.delete(predicates.join(" AND ")));
   }
@@ -416,17 +420,20 @@ function factRecords(f: IndexedFact): Array<Omit<LanceFactRecord, "embedding">> 
 /** Every `LanceIndex` currently open in this process. */
 const openIndexes = new Set<LanceIndex>();
 
-/** Namespace `agent.memory` facts are indexed under. */
-export const AGENT_MEMORY_NAMESPACE = "default";
-
 /**
- * Called by `agent.memory.delete`: removes the fact's chunks from every open Lance index. A
- * failure in any index is thrown after all were attempted. No-op when no index is open.
+ * Called by `agent.memory.delete`: removes the fact's chunks (source `memory`, any namespace) from
+ * every open Lance index. A failure in any index is thrown after all were attempted. No-op when no
+ * index is open.
+ *
+ * Limit: it only matches rows written with the `indexFact`/`syncFacts` id convention. The SDK has
+ * no production writer using it yet (`LanceMemoryAdapter.sync` is a no-op), so rows from SQLite
+ * migration or from `addFacts` with caller-chosen ids are not matched; remove those with
+ * `removeFacts(ids, scope)`.
  */
 export async function forgetFactInOpenIndexes(factId: string): Promise<void> {
   const results = await Promise.allSettled(
     [...openIndexes].map((i) =>
-      i.removeFactChunks(factId, { namespace: AGENT_MEMORY_NAMESPACE, source: "memory" }),
+      i.removeFactChunks(factId, { source: "memory" }),
     ),
   );
   const failed = results.find((r) => r.status === "rejected");
@@ -436,7 +443,7 @@ export async function forgetFactInOpenIndexes(factId: string): Promise<void> {
 interface RemovalEntry {
   seq: number;
   factId: string;
-  namespace: string;
+  namespace: string | undefined;
   source: string | undefined;
 }
 
@@ -446,7 +453,7 @@ class SharedWriteState {
   seq = 0;
   private readonly removals: RemovalEntry[] = [];
 
-  recordRemoval(factId: string, scope: { namespace: string; source?: string }): void {
+  recordRemoval(factId: string, scope: { namespace?: string; source?: string }): void {
     this.removals.push({
       seq: ++this.seq,
       factId,
@@ -461,7 +468,7 @@ class SharedWriteState {
       (r) =>
         r.seq > since &&
         r.factId === base &&
-        r.namespace === fact.namespace &&
+        (r.namespace === undefined || r.namespace === fact.namespace) &&
         (r.source === undefined || r.source === fact.source),
     );
   }

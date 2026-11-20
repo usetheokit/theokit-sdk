@@ -211,7 +211,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `schema_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:104` +5 |
 | `server_error` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:92` +1 |
 | `session_busy` | domain | — | `packages/sdk/src/internal/persistence/session-writer.ts:56` +1 |
-| `sql_injection_blocked` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:372` +1 |
+| `sql_injection_blocked` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:376` +1 |
 | `sqlite_driver_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/sqlite-open.ts:195` |
 | `sqlite_vec_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/memory/sqlite-vec-loader.ts:22` |
 | `squad_process_unsupported` | domain | ConfigurationError | `packages/sdk/src/squad.ts:143` |
