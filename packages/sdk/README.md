@@ -428,6 +428,19 @@ const { removed, skippedRunning } = await removeSandboxContainers({ app: "x" });
 
 Both helpers require at least one label (an empty set would match every container on the host) and take `{ runner }` and default to `defaultDockerRunner()`. A docker command that fails or times out rejects with `SandboxDockerError` (`subcommand`, `exitCode`, `stderr`). Docker renders labels as `k=v,k=v`, so a label value that itself contains a comma followed by `word=` is parsed ambiguously.
 
+## `@theokit/sdk/persistence`: owner-only directories and synchronous atomic writes
+
+- `ensureSecureDir(filePath)` creates the parent directory of `filePath` as `0700` if it is missing. If it exists and group or other can write it, it is chmodded to `0700` and checked again; when the repair does not hold it throws `InsecureDirectoryError` (code `insecure_directory`, `directory`). It does nothing on Windows.
+- `atomicWriteJsonSync(path, data, options?)` is the synchronous twin of `atomicWriteJson`: same temp naming (`atomicWriteTempTarget` recognises leftovers), same mode reassertion, temp removed on failure, `TypeError` for `undefined`.
+- `AtomicWriteJsonOptions.dirMode` sets the mode of the parent directory when `atomicWriteJson` / `atomicWriteJsonSync` has to create it (filtered by the `umask`; an existing directory is not changed, use `ensureSecureDir` for that).
+
+```ts
+import { atomicWriteJsonSync, ensureSecureDir } from "@theokit/sdk/persistence";
+
+ensureSecureDir(jobsPath);
+atomicWriteJsonSync(jobsPath, jobs, { mode: 0o600 });
+```
+
 ## `@theokit/sdk/persistence`: single instance lock
 
 `acquireInstanceLock(dir, { path? })` takes `<dir>.instance.lock` for the life of the process, so two processes never run against the same state directory. A second holder rejects with `InstanceLockedError` (`lockPath`, `holderPid`); the message names the lock and the pid, and says to stop that process or remove the lock if the pid is not running. A lock left by a pid that is no longer running is taken over, and only one of several contenders wins a given stale lock. `release()` removes the lock only while this holder still owns it, and is idempotent.

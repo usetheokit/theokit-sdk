@@ -1,4 +1,14 @@
 import { randomBytes } from "node:crypto";
+import {
+  closeSync,
+  fchmodSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  renameSync,
+  unlinkSync,
+  writeSync,
+} from "node:fs";
 import { mkdir, open, readdir, rename, statfs, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { diag } from "../diagnostics.js";
@@ -223,6 +233,19 @@ export interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {
   indent?: number;
   /** Whether to append a trailing newline (POSIX convention). Default: true. */
   trailingNewline?: boolean;
+  /**
+   * Permission bits for the parent directory when it has to be created (filtered by the
+   * `umask`). Not applied to a directory that already exists. Default: the `mkdir` default.
+   */
+  dirMode?: number;
+}
+
+function serializeJson(name: string, data: unknown, options?: AtomicWriteJsonOptions): string {
+  const json = JSON.stringify(data, null, options?.indent ?? 2);
+  if (json === undefined) {
+    throw new TypeError(`${name}: cannot serialize undefined`);
+  }
+  return (options?.trailingNewline ?? true) ? `${json}\n` : json;
 }
 
 /**
@@ -242,15 +265,51 @@ export async function atomicWriteJson<T>(
   data: T,
   options?: AtomicWriteJsonOptions,
 ): Promise<void> {
-  const indent = options?.indent ?? 2;
-  const trailingNewline = options?.trailingNewline ?? true;
-  const json = JSON.stringify(data, null, indent);
-  if (json === undefined) {
-    throw new TypeError("atomicWriteJson: cannot serialize undefined");
-  }
-  const content = trailingNewline ? `${json}\n` : json;
-  await mkdir(dirname(filePath), { recursive: true });
+  const content = serializeJson("atomicWriteJson", data, options);
+  await mkdir(
+    dirname(filePath),
+    options?.dirMode === undefined
+      ? { recursive: true }
+      : { recursive: true, mode: options.dirMode },
+  );
   await replaceFileAtomic(filePath, content, options);
+}
+
+/**
+ * Synchronous twin of {@link atomicWriteJson}: same temp naming, same mode reassertion, same
+ * cleanup on failure. Throws `TypeError` on `undefined` or circular data, before touching disk.
+ */
+export function atomicWriteJsonSync<T>(
+  filePath: string,
+  data: T,
+  options?: AtomicWriteJsonOptions,
+): void {
+  const content = serializeJson("atomicWriteJsonSync", data, options);
+  mkdirSync(
+    dirname(filePath),
+    options?.dirMode === undefined
+      ? { recursive: true }
+      : { recursive: true, mode: options.dirMode },
+  );
+  const tmp = atomicWriteTempPath(filePath, process.pid, randomBytes(8).toString("hex"));
+  const fd = openSync(tmp, options?.exclusive === true ? "wx" : "w", options?.mode ?? 0o600);
+  try {
+    try {
+      writeSync(fd, content, null, "utf8");
+      fsyncSync(fd);
+      if (options?.mode !== undefined) fchmodSync(fd, options.mode);
+    } finally {
+      closeSync(fd);
+    }
+    renameSync(tmp, filePath);
+  } catch (cause) {
+    try {
+      unlinkSync(tmp);
+    } catch {
+      // best effort, same as the async form
+    }
+    throw cause;
+  }
 }
 
 /**
