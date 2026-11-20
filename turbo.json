@@ -44,6 +44,25 @@
       "outputs": [],
       "outputLogs": "new-only"
     },
+    "@theokit/sdk#test": {
+      "dependsOn": ["^build", "build"],
+      "inputs": ["src/**", "tests/**", "vitest.config.ts", "package.json", "$TURBO_ROOT$/**"],
+      "outputs": [],
+      "outputLogs": "new-only"
+    },
+    "@theokit/cli#test": {
+      "dependsOn": ["^build", "build"],
+      "inputs": [
+        "src/**",
+        "tests/**",
+        "templates/**",
+        "vitest.config.ts",
+        "package.json",
+        "$TURBO_ROOT$/packages/sdk/package.json"
+      ],
+      "outputs": [],
+      "outputLogs": "new-only"
+    },
     "check": {
       "inputs": ["src/**", "tests/**", "biome.json"],
       "outputs": [],
