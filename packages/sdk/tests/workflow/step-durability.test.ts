@@ -128,6 +128,6 @@ describe("workflow step durability", () => {
         name: "x",
         persistence: { backend: "memory", durability: "async" as "step" },
       }),
-    ).toThrow();
+    ).toThrow(/durability|Invalid/i);
   });
 });
