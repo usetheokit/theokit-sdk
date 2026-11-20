@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1481 export(s) across 57 entry point(s).
+1493 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -289,6 +289,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MigrateResult` | interface | Outcome of {@link migrateSqliteToLance } . |
 | `migrateSqliteToLance` | function | Migrate the Memory index from SQLite to LanceDB.  |
 | `mkMemoryId` | function | Construct a branded `MemoryId` for an adapter.  |
+| `ModelFallbackAttempt` | interface | One failed attempt of a turn run under {@link AgentOptions.modelFallback } . |
+| `ModelFallbackExhaustedError` | class | Raised (as `RunResult.error.cause`) when the primary model and every {@link AgentOptions.modelFallback } model failed before any output.  |
+| `ModelFallbackOptions` | interface | `AgentOptions.modelFallback` — models to retry a turn on when the primary fails before output.  |
 | `ModelListItem` | interface | Single model entry in the catalog. |
 | `ModelParameterDefinition` | interface | Per-model parameter definition discovered from `Theokit.models.list()`. |
 | `ModelParameterValue` | interface | One slot in a {@link ModelSelection.params } array.  |
@@ -1016,7 +1019,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `authFilePath` | function | The credential file path inside the (possibly overridden) store directory. |
 | `CredentialError` | class | A credential problem the caller can act on.  |
 | `credentialHome` | function | The store directory, honoring an optional `homeEnvVar` override. |
+| `CredentialOrigin` | type | Where the key came from. |
 | `CredentialStoreConfig` | interface | Where the credential store lives — the three path segments, plus an optional environment override.  |
+| `DEFAULT_PROVIDER_CANDIDATES` | const | The default order for a bare model id: openrouter, anthropic, openai.  |
 | `DeviceCodeGrant` | interface | The device authorization the user acts on.  |
 | `DeviceDeps` | interface | Injected effects for the device flow — deterministic in tests, real in production. |
 | `deviceLogin` | function | The full device login: request a code, hand the user the verification URL + user code via `onPrompt` (never printed here — the caller renders it, keeping this module output-free), then poll to comp... |
@@ -1032,6 +1037,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `parseJwtClaims` | function | Decode a JWT's claim set (no signature verification — used only to read a self-reported account id). |
 | `persistOAuthTokens` | function | Persist a token triple to the store's oauth variant through the hardened 0600 writer. |
 | `pollDeviceToken` | function | Step 2 — poll the token endpoint until the user approves (or the code expires).  |
+| `ProviderCandidate` | interface | One provider the resolver may pick for a bare model id. |
+| `ProviderCredentialError` | class | Thrown when no provider credential can be chosen; branch on `code`. |
 | `providerFromApiKeyPrefix` | function | The provider whose key prefix matches, or `undefined` when none does.  |
 | `readAuthFile` | function | Read the credential file.  |
 | `readStoredOAuth` | function | Read the stored OAuth credential (with its refresh token), or `undefined` when the store is absent or holds an api credential.  |
@@ -1041,6 +1048,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `resolveCredential` | function | Resolve a fresh credential for `provider` from the store, or `undefined` if the store holds none for it.  |
 | `ResolveCredentialOptions` | interface | Input to `resolveCredential`: which provider, which store, and what to inject.  |
 | `ResolvedCredential` | interface | The flat bearer surface every consumer holds.  |
+| `ResolvedProviderCredential` | interface | The provider chosen and its key. |
+| `resolveProviderCredential` | function | Choose the provider and key for `input.model` in `input.env`; see the module docblock for the rules. |
+| `ResolveProviderCredentialInput` | interface | Input to {@link resolveProviderCredential } : the env, the optional model and store, and overrides. |
 | `StoredApiCredential` | interface | The API-key variant of the credential file, as it sits on disk.  |
 | `StoredCredential` | type | Whatever the credential file turned out to hold — the two variants are discriminated by `type`.  |
 | `StoredOAuthCredential` | interface | The OAuth variant of the credential file, as it sits on disk.  |
@@ -1139,6 +1149,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryAdapterErrorCode` | type | Finite error codes specific to memory adapter operations (ADR D141). |
 | `MemoryFactAmbiguousError` | class | Thrown by `removeMemoryFact` when the id names entries in more than one memory root (the same per-memory file name in the write root and the Claude Code CLI's store).  |
 | `MemoryFactNotRemovableError` | class | Thrown by `removeMemoryFact` when the entry exists but lives outside the write root, for example in the Claude Code CLI's store.  |
+| `ModelFallbackAttempt` | interface | One failed attempt of a turn run under {@link AgentOptions.modelFallback } . |
+| `ModelFallbackExhaustedError` | class | Raised (as `RunResult.error.cause`) when the primary model and every {@link AgentOptions.modelFallback } model failed before any output.  |
 | `NetworkError` | class | Service unavailable, timeout, transport-level failure. |
 | `ProfileConflictError` | class | Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a variable the profile owns.  |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
