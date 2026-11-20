@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1506 export(s) across 58 entry point(s).
+1505 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1732,7 +1732,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
-| `__resetSnapshotStoresForTests` | function | Test seam — clear in-memory store between tests. |
 | `agentStep` | function | Build an `AgentStep`.  |
 | `AgentStep` | interface | An agent.send-driven step. |
 | `BranchStep` | interface | First-match-wins predicates + optional fallback. |
