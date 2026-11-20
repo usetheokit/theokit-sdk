@@ -19,7 +19,7 @@ describe.skipIf(!enabled)("real-llm: meta/ (Muse Code)", () => {
   it("answers the pong prompt", async () => {
     const agent = await Agent.create({ model: { id: modelId } });
     try {
-      const run = await agent.send("Responda só: pong");
+      const run = await agent.send("Reply only: pong");
       const result = await run.wait();
       expect(result.status).toBe("finished");
       expect(result.result?.trim().toLowerCase()).toContain("pong");
