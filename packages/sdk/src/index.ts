@@ -423,6 +423,7 @@ export {
 // SE7 — ToolError (thrown from a tool handler; own module for the G8 LoC budget).
 export { ToolError } from "./tool-error.js";
 export { type GuardToolsContext, guardTools, runPreToolCall } from "./tool-guard.js";
+export { checkToolName, type ToolNameProblem } from "./tool-name.js";
 // Trajectory export (ADR D139) — opt-in ShareGPT converter
 export { toShareGptTrajectory } from "./trajectory-helpers.js";
 export {
