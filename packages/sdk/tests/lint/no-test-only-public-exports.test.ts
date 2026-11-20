@@ -44,6 +44,16 @@ function exportedNames(files: string[]): Map<string, string[]> {
   return out;
 }
 
+function isOffender(name: string, entry: string | undefined): boolean {
+  return FORBIDDEN.test(name) && ALLOWED_BY_ENTRY[entry ?? ""] !== name;
+}
+
+function findOffenders(names: Map<string, string[]>, entryByFile: Map<string, string>): string[] {
+  return [...names].flatMap(([file, list]) =>
+    list.filter((n) => isOffender(n, entryByFile.get(file))).map((n) => `${file}: ${n}`),
+  );
+}
+
 describe("no published entry resolves a test-only export", () => {
   const manifest = JSON.parse(readFileSync(join(PKG_ROOT, "package.json"), "utf8")) as {
     exports: Record<string, unknown>;
@@ -59,12 +69,6 @@ describe("no published entry resolves a test-only export", () => {
   });
 
   it("no export name matches the test-only pattern", () => {
-    const offenders: string[] = [];
-    for (const [file, names] of exportedNames(files)) {
-      for (const n of names)
-        if (FORBIDDEN.test(n) && ALLOWED_BY_ENTRY[entryByFile.get(file) ?? ""] !== n)
-          offenders.push(`${file}: ${n}`);
-    }
-    expect(offenders).toEqual([]);
+    expect(findOffenders(exportedNames(files), entryByFile)).toEqual([]);
   });
 });
