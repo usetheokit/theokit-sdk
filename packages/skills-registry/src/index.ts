@@ -1,3 +1,5 @@
+export type { RegistrySkillSummary } from "./client.js";
+export { searchSkills } from "./client.js";
 export type { DownloadOptions } from "./install.js";
 export { downloadSkill, installSkill } from "./install.js";
 export type {
@@ -11,3 +13,4 @@ export {
   SkillsRegistryError,
   verifySkillPackage,
 } from "./package-format.js";
+export { buildSkillPackage, publishSkill } from "./publish.js";
