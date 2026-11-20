@@ -28,10 +28,10 @@ import {
   memoryMdPath,
   migrateLegacyJson,
   readFactsFromMarkdown,
-  resetMigrationStateForTests,
   resolveMemoryRoot,
 } from "@theokit/sdk-memory";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetMigrationStateForTests } from "../src/internal/index/migration.js";
 
 async function seedLegacyJson(
   cwd: string,
