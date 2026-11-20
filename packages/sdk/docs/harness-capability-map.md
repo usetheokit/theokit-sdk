@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1539 export(s) across 59 entry point(s).
+1543 export(s) across 59 entry point(s).
 
 ## `@theokit/acp`
 
@@ -367,6 +367,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `readManagedSettings` | function | Read the deployed policy, or `{}` when none is.  |
 | `readManagedSettingsDocument` | function | Read the whole managed-settings file, for an app that defines its own keys (model, sandbox mode, approval policy) and lets an operator impose them through it.  |
 | `ReadManagedSettingsDocumentOptions` | interface | Options for `readManagedSettingsDocument`. |
+| `readSessionHistory` | function | Like {@link readSessionMessages } , but tells a session that does not exist (`absent`) from one that was read (`present`) and one that could not be (`unreadable`: a read error other than ENOENT, or... |
 | `readSessionMessages` | function | Read the messages a session already contains, for a surface that needs to re-render it.  |
 | `ReadSessionMessagesOptions` | interface | Which session to read, in the terms a host already has. |
 | `ReapableArtifact` | interface | One artifact the caller is considering deleting, described well enough to decide about.  |
@@ -434,6 +435,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `Security` | class | Secret masking at consumer output boundaries: pattern-based `redact` / `addPattern` and exact-value `createMask`. |
 | `SecurityFloorInput` | interface | The vocabulary, the layer names, and the values to resolve.  |
 | `SendOptions` | interface | Per-send overrides and callbacks.  |
+| `SessionHistory` | interface | A stored session as a host sees it: found, not there, or there but not readable. |
 | `SessionLifecycleContext` | interface | #65 — context for the `on_session_start` / `on_session_end` hooks.  |
 | `SessionMessage` | interface | One turn of a session.  |
 | `SessionMessagePart` | type | One structured element of a {@link SessionMessage } .  |
@@ -637,8 +639,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ceilingReachedError` | function | The refusal of a new fact at a store's declared ceiling: where the store is, how many facts it holds, the ceiling, and what to consolidate.  |
 | `chunkMarkdown` | function | Split a markdown document into heading- and paragraph-aligned chunks. |
 | `ChunkMarkdownOptions` | interface | Split a markdown document into semantically meaningful chunks (ADR D1 of memory-system-peer-project-parity).  |
-| `CircuitBreaker` | class | Stops calling a recall path that keeps timing out.  |
-| `CircuitBreakerOptions` | interface | Consecutive-timeout circuit breaker for Active Memory recall.  |
+| `CircuitBreaker` | class | Consecutive-failure circuit breaker — a cross-cutting resilience primitive.  |
+| `CircuitBreakerOptions` | interface | Options for {@link CircuitBreaker } . |
 | `claudeProjectMemoryDir` | function | Where the Claude Code CLI keeps THIS project's memories.  |
 | `Cluster` | interface | A group of semantically similar facts, with the text chosen to represent them. |
 | `ClusterResult` | interface | What clustering produced: the clusters and how many facts the per-sweep cap left out. |
@@ -1587,6 +1589,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
+| `CircuitBreaker` | class | Consecutive-failure circuit breaker — a cross-cutting resilience primitive.  |
+| `CircuitBreakerOptions` | interface | Options for {@link CircuitBreaker } . |
 | `Retry` | class | SE36 — replaces `withRetry` (ADR 0015 / ADR-P2).  |
 | `RetryOptions` | interface | Options for {@link withRetry } .  |
 
