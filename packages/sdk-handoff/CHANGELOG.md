@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.7
+
+### Patch Changes
+
+- [#1349](https://github.com/usetheokit/theokit-sdk/pull/1349) [`9c34402`](https://github.com/usetheokit/theokit-sdk/commit/9c3440242ce25244ab6cd59d13af913d5a2f0d7c) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Document `./internal/tool-injector` as an internal subpath with no compatibility promise.
+
 ## 0.1.6
 
 ### Patch Changes

@@ -3536,6 +3536,14 @@
         "tier": "stable",
         "declaration": "export interface FakeModelServerOptions {\n    wire?: \"openai\" | \"ollama\";\n    reply?: string | ((request: FakeModelRequest) => string);\n    host?: string;\n}"
       },
+      "ScriptedModelServer": {
+        "tier": "stable",
+        "declaration": "export interface ScriptedModelServer extends FakeModelServer {\n    assertConsumed(): void;\n}"
+      },
+      "ScriptedStep": {
+        "tier": "stable",
+        "declaration": "export type ScriptedStep = {\n    readonly text: string;\n} | {\n    readonly toolCalls: ReadonlyArray<{\n        readonly name: string;\n        readonly input: Record<string, unknown>;\n        readonly id?: string;\n    }>;\n    readonly text?: string;\n} | {\n    readonly error: {\n        readonly status: number;\n        readonly body?: unknown;\n        readonly retryAfterSeconds?: number;\n    };\n};"
+      },
       "SessionStoreConformanceCase": {
         "tier": "stable",
         "declaration": "export interface SessionStoreConformanceCase {\n    readonly name: string;\n    run(): Promise<void>;\n    readonly skipReason?: string;\n}"
@@ -3544,6 +3552,14 @@
         "tier": "stable",
         "declaration": "export interface SessionStoreFactory {\n    create(): Promise<SessionStore>;\n    createUnreachable?(): Promise<SessionStore>;\n    readonly sharesBackend?: boolean;\n    readonly exclusiveLeases?: boolean;\n}"
       },
+      "UnconsumedModelStepsError": {
+        "tier": "stable",
+        "declaration": "export declare class UnconsumedModelStepsError extends TheokitAgentError {\n    readonly name: string;\n    readonly code: \"unconsumed_model_steps\";\n    readonly remaining: number;\n    constructor(remaining: number);\n}"
+      },
+      "UnexpectedModelCallError": {
+        "tier": "stable",
+        "declaration": "export declare class UnexpectedModelCallError extends TheokitAgentError {\n    readonly name: string;\n    readonly code: \"unexpected_model_call\";\n    readonly callIndex: number;\n    constructor(callIndex: number, stepCount: number);\n}"
+      },
       "sessionStoreConformanceCases": {
         "tier": "stable",
         "declaration": "export declare function sessionStoreConformanceCases(factory: SessionStoreFactory): readonly SessionStoreConformanceCase[];"
@@ -3551,6 +3567,10 @@
       "startFakeModelServer": {
         "tier": "stable",
         "declaration": "export declare function startFakeModelServer(options?: FakeModelServerOptions): Promise<FakeModelServer>;"
+      },
+      "startScriptedModelServer": {
+        "tier": "stable",
+        "declaration": "export declare function startScriptedModelServer(options: {\n    steps: readonly ScriptedStep[];\n    wire?: \"openai\" | \"ollama\";\n}): Promise<ScriptedModelServer>;"
       }
     },
     "./testing#require": {
@@ -3566,6 +3586,14 @@
         "tier": "stable",
         "declaration": "export interface FakeModelServerOptions {\n    wire?: \"openai\" | \"ollama\";\n    reply?: string | ((request: FakeModelRequest) => string);\n    host?: string;\n}"
       },
+      "ScriptedModelServer": {
+        "tier": "stable",
+        "declaration": "export interface ScriptedModelServer extends FakeModelServer {\n    assertConsumed(): void;\n}"
+      },
+      "ScriptedStep": {
+        "tier": "stable",
+        "declaration": "export type ScriptedStep = {\n    readonly text: string;\n} | {\n    readonly toolCalls: ReadonlyArray<{\n        readonly name: string;\n        readonly input: Record<string, unknown>;\n        readonly id?: string;\n    }>;\n    readonly text?: string;\n} | {\n    readonly error: {\n        readonly status: number;\n        readonly body?: unknown;\n        readonly retryAfterSeconds?: number;\n    };\n};"
+      },
       "SessionStoreConformanceCase": {
         "tier": "stable",
         "declaration": "export interface SessionStoreConformanceCase {\n    readonly name: string;\n    run(): Promise<void>;\n    readonly skipReason?: string;\n}"
@@ -3574,6 +3602,14 @@
         "tier": "stable",
         "declaration": "export interface SessionStoreFactory {\n    create(): Promise<SessionStore>;\n    createUnreachable?(): Promise<SessionStore>;\n    readonly sharesBackend?: boolean;\n    readonly exclusiveLeases?: boolean;\n}"
       },
+      "UnconsumedModelStepsError": {
+        "tier": "stable",
+        "declaration": "export declare class UnconsumedModelStepsError extends TheokitAgentError {\n    readonly name: string;\n    readonly code: \"unconsumed_model_steps\";\n    readonly remaining: number;\n    constructor(remaining: number);\n}"
+      },
+      "UnexpectedModelCallError": {
+        "tier": "stable",
+        "declaration": "export declare class UnexpectedModelCallError extends TheokitAgentError {\n    readonly name: string;\n    readonly code: \"unexpected_model_call\";\n    readonly callIndex: number;\n    constructor(callIndex: number, stepCount: number);\n}"
+      },
       "sessionStoreConformanceCases": {
         "tier": "stable",
         "declaration": "export declare function sessionStoreConformanceCases(factory: SessionStoreFactory): readonly SessionStoreConformanceCase[];"
@@ -3581,6 +3617,10 @@
       "startFakeModelServer": {
         "tier": "stable",
         "declaration": "export declare function startFakeModelServer(options?: FakeModelServerOptions): Promise<FakeModelServer>;"
+      },
+      "startScriptedModelServer": {
+        "tier": "stable",
+        "declaration": "export declare function startScriptedModelServer(options: {\n    steps: readonly ScriptedStep[];\n    wire?: \"openai\" | \"ollama\";\n}): Promise<ScriptedModelServer>;"
       }
     },
     "./workflow#import": {

@@ -85,3 +85,73 @@ describe("promotion: no re-consumed changesets", () => {
     expect(git("ls-tree", "--name-only", "cleanup", ".changeset/")).toContain("brand-new.md");
   });
 });
+
+/*
+ * #863 — a PR into develop: the Version Packages deletion lands on main only, and a back-merge can
+ * keep the files (they were added by separate commits on the head side).
+ */
+describe("promotion into develop is also checked against main (#863)", () => {
+  const F = ".changeset/released.md";
+  let d2: string;
+  const g = (...a: string[]) => execFileSync("git", ["-C", d2, ...a], { encoding: "utf8" }).trim();
+  const ci = (m: string) => {
+    g("add", "-A");
+    g("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", m);
+  };
+  const run = (base: string, head: string) => {
+    const r = spawnSync("node", [GUARD, base, head], {
+      cwd: d2,
+      encoding: "utf8",
+      env: { ...process.env, GIT_DIR: join(d2, ".git") },
+    });
+    return { code: r.status, out: `${r.stdout}${r.stderr}` };
+  };
+
+  beforeAll(() => {
+    d2 = mkdtempSync(join(tmpdir(), "reconsumed-863-"));
+    g("init", "-q", "-b", "main");
+    mkdirSync(join(d2, ".changeset"));
+    writeFileSync(join(d2, ".changeset/README.md"), "readme\n");
+    ci("base");
+    g("branch", "develop");
+    writeFileSync(join(d2, F), "---\n---\nx\n");
+    ci("add on main");
+    g("branch", "workspace");
+    g("rm", "-q", F);
+    ci("Version Packages");
+    g("checkout", "-q", "workspace");
+  });
+  afterAll(() => rmSync(d2, { recursive: true, force: true }));
+
+  it("flags a changeset main consumed, and says to back-merge while main is not an ancestor", () => {
+    const r = run("develop", "workspace");
+    expect(r.code).toBe(1);
+    expect(r.out).toContain(F);
+    expect(r.out).toContain("back-merge main into workspace");
+  });
+
+  it("says to delete the files once main is an ancestor yet the copy survived", () => {
+    g("checkout", "-q", "-b", "kept", "workspace");
+    g("-c", "user.name=t", "-c", "user.email=t@t", "merge", "-q", "--no-edit", "-s", "ours", "main");
+    const r = run("develop", "kept");
+    expect(r.code).toBe(1);
+    expect(r.out).toContain(F);
+    expect(r.out).toContain("already merged");
+    expect(r.out).not.toContain("back-merge main into kept");
+  });
+
+  it("passes once the file is deleted", () => {
+    g("rm", "-q", F);
+    ci("delete");
+    const r = run("develop", "kept");
+    expect(r.code).toBe(0);
+  });
+
+  it("refuses (exit 2) when the release ref is missing", () => {
+    g("branch", "-m", "main", "gone");
+    const r = run("develop", "kept");
+    expect(r.code).toBe(2);
+    expect(r.out).toContain("main");
+    g("branch", "-m", "gone", "main");
+  });
+});
