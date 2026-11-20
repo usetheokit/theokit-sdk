@@ -1,22 +1,8 @@
-/**
- * Consecutive-failure circuit breaker — a cross-cutting resilience primitive.
- *
- * Used by Active Memory recall (timeout-driven) and the LLM credential pool
- * (429/terminal-failure-driven). Domain-neutral: it counts consecutive
- * failure events per key and trips after N, staying open for `cooldownMs`.
- *
- * Mirrors peer-project's `circuitBreakerMaxTimeouts` + `circuitBreakerCooldownMs`
- * config: after N consecutive timeouts the breaker trips and `shouldSkip`
- * returns `true` until `cooldownMs` has elapsed. A successful recall resets
- * the counter immediately.
- *
- * Per-key isolation so two agents in the same process don't share a counter.
- *
- * @internal
- */
-
+/** Options for {@link CircuitBreaker}. */
 export interface CircuitBreakerOptions {
+  /** Consecutive timeouts that trip the breaker. Default 3. */
   maxTimeouts?: number;
+  /** How long a tripped key stays skipped, in ms. Default 60000. */
   cooldownMs?: number;
   /** Injectable clock for tests. */
   now?: () => number;
@@ -30,12 +16,32 @@ interface KeyState {
 const DEFAULT_MAX_TIMEOUTS = 3;
 const DEFAULT_COOLDOWN_MS = 60_000;
 
+/**
+ * Consecutive-failure circuit breaker — a cross-cutting resilience primitive.
+ *
+ * Useful for any caller of a flaky remote: it counts timeouts per key and skips the key
+ * for a cooldown once the threshold is reached. Domain-neutral: it counts consecutive
+ * failure events per key and trips after N, staying open for `cooldownMs`.
+ *
+ * Mirrors peer-project's `circuitBreakerMaxTimeouts` + `circuitBreakerCooldownMs`
+ * config: after N consecutive timeouts the breaker trips and `shouldSkip`
+ * returns `true` until `cooldownMs` has elapsed. A success resets
+ * the counter immediately.
+ *
+ * Per-key isolation so two agents in the same process don't share a counter.
+ *
+ * @public
+ */
 export class CircuitBreaker {
   private readonly states = new Map<string, KeyState>();
 
   constructor(private readonly opts: CircuitBreakerOptions = {}) {}
 
-  /** @returns true when the breaker is open and the call should be skipped. */
+  /**
+   * Whether calls for `key` should be skipped right now; closes the breaker once the cooldown has elapsed.
+   *
+   * @returns true when the breaker is open and the call should be skipped.
+   */
   shouldSkip(key: string): boolean {
     const state = this.states.get(key);
     if (state === undefined) return false;
@@ -47,6 +53,7 @@ export class CircuitBreaker {
     return false;
   }
 
+  /** Reset the consecutive-timeout counter for `key` and close its breaker. */
   recordSuccess(key: string): void {
     const state = this.states.get(key);
     if (state === undefined) return;
@@ -54,6 +61,7 @@ export class CircuitBreaker {
     state.cooldownUntilMs = 0;
   }
 
+  /** Record a timeout for `key`; trips the breaker after `maxTimeouts` in a row. */
   recordTimeout(key: string): void {
     const state = this.states.get(key) ?? { consecutiveTimeouts: 0, cooldownUntilMs: 0 };
     state.consecutiveTimeouts += 1;

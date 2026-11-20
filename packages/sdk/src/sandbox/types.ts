@@ -165,6 +165,21 @@ export abstract class SandboxBackend {
   abstract uploadFile(path: string, content: string | Buffer): Promise<void>;
 
   /**
+   * Optional: like `execute`, but reports stdout while the command runs. A backend that cannot
+   * stream leaves it undefined, and the caller falls back to `execute`.
+   *
+   * `onStdoutLine` gets each stdout line as it arrives, in order, without its newline (`\n` or
+   * `\r\n`); empty lines are kept and a final unterminated line is delivered when the command exits.
+   * The result is the same `ExecuteResult` as `execute` (full stdout and stderr, timeout, output
+   * cap). When `signal` aborts, the command is killed and the result carries the output so far,
+   * a nonzero `exitCode` and `timedOut: false`. A signal already aborted runs nothing.
+   */
+  executeStreaming?(
+    command: string,
+    opts?: { timeoutMs?: number; onStdoutLine?: (line: string) => void; signal?: AbortSignal },
+  ): Promise<ExecuteResult>;
+
+  /**
    * Writes several files. The default awaits `uploadFile` for each entry in order and stops at the
    * first failure, leaving earlier writes in place. A remote backend overrides it to send the batch
    * in one request.
