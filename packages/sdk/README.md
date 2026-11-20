@@ -941,6 +941,25 @@ The MCP client supports the `2025-06-18`, `2025-03-26` and `2024-11-05` revision
 mcpServers: { legacy: { url: "https://mcp.example.com", protocolVersion: "2025-03-26" } }
 ```
 
+### MCP elicitation
+
+A server can ask the user for input in the middle of a tool call (MCP `2025-06-18`). Pass `onMcpElicitation` to answer it:
+
+```ts
+const agent = await Agent.create({
+  mcpServers: { pay: { command: "pay-mcp" } },
+  onMcpElicitation: async ({ serverName, message, requestedSchema }, signal) => {
+    const ok = await askUser(`${serverName}: ${message}`, requestedSchema, signal);
+    return ok ? { action: "accept", content: { confirmed: true } } : { action: "decline" };
+  },
+});
+```
+
+- The client declares the `elicitation` capability only when a handler is set and the offered revision is `2025-06-18` or later. Without a handler, or on an older revision, an `elicitation/create` request gets JSON-RPC error `-32601`.
+- The handler returns `accept` with `content`, `decline` or `cancel`. `signal` aborts when the run is cancelled or the client closes.
+- A handler that throws answers `cancel`. An `accept` whose content lacks a required key or has a primitive of the wrong type also answers `cancel`. Both are reported on the diagnostics channel; the second as `ConfigurationError` code `mcp_elicitation_invalid`.
+- URL-mode elicitation and sampling are not supported.
+
 ## Reading the managed settings document
 
 `readManagedSettings()` returns only the four keys the SDK enforces. An app with its own keys (model, sandbox mode, approval policy) that an operator imposes through `managed-settings.json` can read the whole file with `readManagedSettingsDocument()` from `@theokit/sdk`:

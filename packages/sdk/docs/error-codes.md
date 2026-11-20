@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-303 distinct code(s).
+304 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -148,15 +148,16 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `malformed_api_key` | domain | AuthenticationError | `packages/sdk/src/internal/agent/helpers.ts:236` +1 |
 | `max_delegation_depth` | domain | MaxDelegationDepthError | `packages/sdk/src/a2a/subagent.ts:239` +1 |
 | `mcp_auth_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:156` +1 |
-| `mcp_buffer_overflow` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:347` |
-| `mcp_closed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:322` |
+| `mcp_buffer_overflow` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:345` |
+| `mcp_closed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:320` |
 | `mcp_config_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-dispatch.ts:158` |
 | `mcp_config_unreadable` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-dispatch.ts:148` |
-| `mcp_crashed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:230` |
-| `mcp_disconnected` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:243` +2 |
-| `mcp_http_error` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:526` +3 |
-| `mcp_not_init` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/client.ts:280` +2 |
-| `mcp_protocol_unsupported` | domain | NetworkError | `packages/sdk/src/internal/mcp/protocol-version.ts:30` |
+| `mcp_crashed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:227` |
+| `mcp_disconnected` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:240` +2 |
+| `mcp_elicitation_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/elicitation.ts:81` |
+| `mcp_http_error` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:587` +3 |
+| `mcp_not_init` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/client.ts:277` +2 |
+| `mcp_protocol_unsupported` | domain | NetworkError | `packages/sdk/src/internal/mcp/protocol-version.ts:36` |
 | `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/rpc-helpers.ts:15` |
 | `memory_ceiling_reached` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:43` +1 |
 | `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:168` |

@@ -12,6 +12,7 @@
 
 import type { AgentOptions } from "../../types/agent.js";
 import { createMcpClient, type McpClient } from "../mcp/client.js";
+import type { McpClientHooks } from "../mcp/elicitation.js";
 import { McpClientPool } from "./mcp-pool.js";
 import type { CreateRealLocalRunOptions } from "./real-local-run-options.js";
 
@@ -70,12 +71,23 @@ export function buildMcpMap(options: CreateRealLocalRunOptions): Map<string, Mcp
   const pooled = !runOwnsMcpClients(options.agentOptions);
   if (pooled) sessionMcpPool.reapIdle((c) => void c.close());
 
+  // A pooled client outlives this run, so it must not hold this run's cancel signal.
+  const hooks: McpClientHooks = {
+    ...(options.agentOptions.onMcpElicitation !== undefined
+      ? { onElicitation: options.agentOptions.onMcpElicitation }
+      : {}),
+    ...(!pooled && options.sendOptions.signal !== undefined
+      ? { signal: options.sendOptions.signal }
+      : {}),
+  };
   for (const [name, config] of Object.entries(inline)) {
     map.set(
       name,
       pooled
-        ? sessionMcpPool.acquire(options.agentId, name, config, () => createMcpClient(name, config))
-        : createMcpClient(name, config),
+        ? sessionMcpPool.acquire(options.agentId, name, config, () =>
+            createMcpClient(name, config, undefined, hooks),
+          )
+        : createMcpClient(name, config, undefined, hooks),
     );
   }
   return map;
