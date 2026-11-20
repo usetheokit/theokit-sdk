@@ -8,7 +8,7 @@ import {
   type SessionStoreConformanceCase,
   type SessionStoreFactory,
   sessionStoreConformanceCases,
-} from "../src/testing.js";
+} from "../src/testing/index.js";
 import type { SessionRecord, SessionStore } from "../src/types/session-store.js";
 
 const dirs: string[] = [];

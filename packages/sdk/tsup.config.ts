@@ -12,8 +12,6 @@ export default defineConfig({
     compaction: "src/compaction.ts",
     // Hook allowlists (#1053): fingerprint, gate, lister — a sub-entry to keep the root barrel small.
     "hooks-approval": "src/hooks-approval.ts",
-    // #1102: SessionStore conformance cases for store authors — leaf module; DTS via tsc.
-    testing: "src/testing.ts",
     // M2-4: model-capabilities catalog — leaf module; DTS via tsc (tsconfig.tools-dts.json).
     models: "src/models.ts",
     // The provider registry as public API — a sub-entry so the barrel's module graph is untouched

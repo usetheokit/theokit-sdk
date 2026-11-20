@@ -9,3 +9,8 @@ export type {
   FakeModelServerOptions,
 } from "./fake-model-server.js";
 export { startFakeModelServer } from "./fake-model-server.js";
+export {
+  type SessionStoreConformanceCase,
+  type SessionStoreFactory,
+  sessionStoreConformanceCases,
+} from "./session-store-conformance.js";
