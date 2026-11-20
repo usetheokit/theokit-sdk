@@ -132,30 +132,37 @@ function extractUsage(result: unknown): { inputTokens: number; outputTokens: num
   };
 }
 
+type ToolCall = { name: string; input: Record<string, unknown> };
+
+function toToolInput(args: unknown): Record<string, unknown> {
+  const isRecord = typeof args === "object" && args !== null && !Array.isArray(args);
+  return isRecord ? (args as Record<string, unknown>) : {};
+}
+
+function isToolCallMessage(
+  msg: unknown,
+): msg is { name: string; call_id?: unknown; args?: unknown } {
+  if (typeof msg !== "object" || msg === null) return false;
+  const m = msg as { type?: unknown; name?: unknown };
+  return m.type === "tool_call" && typeof m.name === "string";
+}
+
 /**
  * Drain the run stream and collect one entry per tool call (keyed by
  * `call_id`, first-seen order). Events without a `call_id` count as separate calls.
  */
-async function collectToolCalls(
-  run: unknown,
-): Promise<Array<{ name: string; input: Record<string, unknown> }>> {
+async function collectToolCalls(run: unknown): Promise<ToolCall[]> {
   const stream = (run as { stream?: () => AsyncIterable<unknown> }).stream;
   if (typeof stream !== "function") return [];
-  const calls: Array<{ name: string; input: Record<string, unknown> }> = [];
+  const calls: ToolCall[] = [];
   const seen = new Set<string>();
   for await (const msg of stream.call(run)) {
-    if (typeof msg !== "object" || msg === null) continue;
-    const m = msg as { type?: unknown; name?: unknown; call_id?: unknown; args?: unknown };
-    if (m.type !== "tool_call" || typeof m.name !== "string") continue;
-    if (typeof m.call_id === "string") {
-      if (seen.has(m.call_id)) continue;
-      seen.add(m.call_id);
+    if (!isToolCallMessage(msg)) continue;
+    if (typeof msg.call_id === "string") {
+      if (seen.has(msg.call_id)) continue;
+      seen.add(msg.call_id);
     }
-    const input =
-      typeof m.args === "object" && m.args !== null && !Array.isArray(m.args)
-        ? (m.args as Record<string, unknown>)
-        : {};
-    calls.push({ name: m.name, input });
+    calls.push({ name: msg.name, input: toToolInput(msg.args) });
   }
   return calls;
 }
