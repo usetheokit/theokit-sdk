@@ -17,13 +17,14 @@
 // THE ORACLE IS THE COMPILER (see `check-public-surface.mjs`): names, tiers and declarations come
 // from the TypeScript checker and printer, never from matching `.d.ts` text.
 //
-// When the PR base cannot be resolved (a shallow checkout) the breaking-change comparison is
-// skipped with a warning, unless API_SURFACE_STRICT=1, which fails closed. API_SURFACE_BASE names
-// the base ref explicitly.
+// The PR base is GITHUB_BASE_REF / API_SURFACE_BASE, else origin/workspace, else origin/main, and a
+// missing remote ref is fetched (CI checks out shallowly). If no base can be established the gate
+// FAILS: a skipped comparison would let a deleted stable export through. Only a base that has no
+// baseline file yet (the bootstrap PR) is accepted without a comparison.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
 import { declaredEntries, ROOT } from "./lib/published-entries.mjs";
@@ -192,63 +193,72 @@ export function declaresMajor(text) {
   });
 }
 
-function git(args) {
+function git(root, args) {
   return execFileSync("git", args, {
-    cwd: ROOT,
+    cwd: root,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
   });
 }
 
-function resolveBase() {
-  for (const ref of [process.env.API_SURFACE_BASE, "origin/workspace", "origin/main"].filter(
-    Boolean,
-  )) {
-    try {
-      return git(["merge-base", "HEAD", ref]).trim();
-    } catch {}
-  }
-  return undefined;
-}
-
-function addedChangesets(base) {
-  const files = git([
-    "diff",
-    "--name-only",
-    "--diff-filter=A",
-    `${base}...HEAD`,
-    "--",
-    ".changeset",
-  ])
-    .split("\n")
-    .filter((f) => /^\.changeset\/[^/]+\.md$/.test(f) && !f.endsWith("README.md"));
-  return files.map((f) => readFileSync(join(ROOT, f), "utf8"));
-}
-
-function baseBaseline(base) {
+function tryGit(root, args) {
   try {
-    return JSON.parse(git(["show", `${base}:tools/api-surface/sdk.json`]));
+    return git(root, args).trim();
   } catch {
     return undefined;
   }
 }
 
-const readBaseline = () =>
-  existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, "utf8")) : undefined;
-const sdkEntries = () => declaredEntries().filter((e) => e.pkg === PACKAGE);
+function baseBranches(env) {
+  const named = env.API_SURFACE_BASE ?? env.GITHUB_BASE_REF;
+  return [named, "workspace", "main"].filter(Boolean).map((r) => r.replace(/^origin\//, ""));
+}
 
-function compareToBase(current, today, log) {
-  const strict = process.env.API_SURFACE_STRICT === "1";
-  const base = resolveBase();
-  if (!base) {
-    log(`PR base not resolvable: breaking-change comparison ${strict ? "cannot run" : "skipped"}`);
-    return strict ? ["cannot resolve the PR base (API_SURFACE_STRICT=1)"] : [];
+/**
+ * The commit to compare against: the merge base with the PR base branch, else that branch's tip
+ * (a shallow checkout has no merge base). A missing remote ref is fetched, so no workflow change
+ * is needed. `undefined` means the base cannot be established, which the caller treats as a failure.
+ */
+function resolveBase(root, env) {
+  for (const branch of baseBranches(env)) {
+    const ref = `refs/remotes/origin/${branch}`;
+    if (!tryGit(root, ["rev-parse", "--verify", "-q", ref])) {
+      tryGit(root, ["fetch", "--no-tags", "--depth=1", "origin", `+refs/heads/${branch}:${ref}`]);
+    }
+    const tip = tryGit(root, ["rev-parse", "--verify", "-q", ref]);
+    if (tip) return tryGit(root, ["merge-base", "HEAD", ref]) ?? tip;
   }
-  const before = baseBaseline(base);
-  if (!before) return [];
+  return undefined;
+}
+
+function addedChangesets(root, base) {
+  const files = git(root, [
+    "diff",
+    "--name-only",
+    "--diff-filter=A",
+    base,
+    "HEAD",
+    "--",
+    ".changeset",
+  ])
+    .split("\n")
+    .filter((f) => /^\.changeset\/[^/]+\.md$/.test(f) && !f.endsWith("README.md"));
+  return files.map((f) => git(root, ["show", `HEAD:${f}`]));
+}
+
+function baseBaseline(root, base, rel) {
+  const text = tryGit(root, ["show", `${base}:${rel}`]);
+  return text === undefined ? undefined : JSON.parse(text);
+}
+
+/**
+ * The gate decision, pure: problems for the move from `before` to `current`, given the texts of the
+ * changesets added in the PR range.
+ */
+export function evaluateChange({ before, current, changesets, today }) {
   const breaking = breakingChanges(before, current);
   const problems = windowViolations(breaking, today);
-  if (breaking.length > 0 && !addedChangesets(base).some(declaresMajor)) {
+  if (breaking.length > 0 && !changesets.some(declaresMajor)) {
     problems.push(
       ...breaking.map(
         (b) => `${b.where} ${b.name}: ${b.reason}, no added changeset declares "${PACKAGE}": major`,
@@ -258,25 +268,56 @@ function compareToBase(current, today, log) {
   return problems;
 }
 
-export function main(
-  argv,
-  { today = new Date().toISOString().slice(0, 10), log = console.error } = {},
-) {
-  const previous = readBaseline();
-  const current = buildSurface(sdkEntries(), { previous, today });
+function compareToBase(current, today, log, ctx) {
+  const base = resolveBase(ctx.root, ctx.env);
+  if (!base)
+    return ["cannot resolve the PR base branch (set API_SURFACE_BASE, or fetch origin/workspace)"];
+  const before = baseBaseline(ctx.root, base, ctx.rel);
+  if (!before) {
+    log(`base ${base.slice(0, 8)} has no ${ctx.rel}: first baseline, nothing to compare`);
+    return [];
+  }
+  return evaluateChange({ before, current, changesets: addedChangesets(ctx.root, base), today });
+}
+
+const sdkEntries = () => declaredEntries().filter((e) => e.pkg === PACKAGE);
+
+function settings(opts) {
+  const root = opts.root ?? ROOT;
+  const baselinePath = opts.baselinePath ?? BASELINE_PATH;
+  return {
+    today: opts.today ?? new Date().toISOString().slice(0, 10),
+    log: opts.log ?? console.error,
+    baselinePath,
+    entries: opts.entries ?? sdkEntries,
+    ctx: { root, env: opts.env ?? process.env, rel: relative(root, baselinePath) },
+  };
+}
+
+function checkProblems(previous, current, cfg) {
+  if (!previous) return ["no committed baseline: run node tools/check-api-surface.mjs --write"];
+  const drift = differingNames(previous, current).map((n) => `baseline differs: ${n}`);
+  return [...drift, ...compareToBase(current, cfg.today, cfg.log, cfg.ctx)];
+}
+
+export function main(argv, opts = {}) {
+  const cfg = settings(opts);
+  const previous = existsSync(cfg.baselinePath)
+    ? JSON.parse(readFileSync(cfg.baselinePath, "utf8"))
+    : undefined;
+  const current = buildSurface(cfg.entries(), { previous, today: cfg.today });
   if (argv.includes("--write")) {
-    writeFileSync(BASELINE_PATH, `${JSON.stringify(current, null, 2)}\n`);
-    log(`wrote ${BASELINE_PATH}`);
+    writeFileSync(cfg.baselinePath, `${JSON.stringify(current, null, 2)}\n`);
+    cfg.log(`wrote ${cfg.baselinePath}`);
     return 0;
   }
-  const problems = previous
-    ? differingNames(previous, current).map((n) => `baseline differs: ${n}`)
-    : ["no committed baseline: run node tools/check-api-surface.mjs --write"];
-  if (previous) problems.push(...compareToBase(current, today, log));
-  for (const p of problems) log(`FAIL ${p}`);
-  if (problems.length > 0)
-    log("api-surface: FAIL (regenerate with --write; breaking changes need a major changeset)");
-  else log("api-surface: PASS");
+  const problems = checkProblems(previous, current, cfg);
+  for (const p of problems) cfg.log(`FAIL ${p}`);
+  cfg.log(
+    problems.length > 0
+      ? "api-surface: FAIL (regenerate with --write; breaking changes need a major changeset)"
+      : "api-surface: PASS",
+  );
   return problems.length > 0 ? 1 : 0;
 }
 
