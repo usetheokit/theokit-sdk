@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,7 +9,7 @@ import {
   extractMemoryFact,
   isMemoryWritePrompt,
 } from "../../../src/internal/runtime/memory-glue/memory-store.js";
-import { flushSessionWrites } from "../../../src/internal/session/agent-session.js";
+import { enqueueSessionWrite } from "../../../src/internal/session/agent-session.js";
 import { sseFrame } from "../../helpers/anthropic-sse.js";
 import { removeTempDirRobust } from "../../helpers/temp-workspace.js";
 
@@ -87,17 +87,6 @@ function readBody(req: IncomingMessage): Promise<string> {
     });
     req.on("end", () => resolve(buf));
   });
-}
-
-/** Every path under `dir`, so two snapshots of one tree can be compared. */
-async function listTree(dir: string): Promise<string[]> {
-  const out: string[] = [];
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name);
-    out.push(path);
-    if (entry.isDirectory()) out.push(...(await listTree(path)));
-  }
-  return out.sort();
 }
 
 /**
@@ -275,21 +264,41 @@ describe("LocalAgent.send memory auto-write", () => {
     expect(facts).toHaveLength(0);
   });
 
-  it("leaves no transcript write in flight for the home teardown once its agents are released", async () => {
+  it("disposing an agent waits for a pending session write before the home teardown (EC-4 path)", async () => {
     if (cwd === undefined) throw new Error("missing workspace");
-    const home = process.env.THEOKIT_HOME;
-    if (home === undefined) throw new Error("THEOKIT_HOME is not sandboxed");
+    await mountStub();
     const agent = await createAgent({
-      apiKey: "theo_test_memwrite_teardown",
-      model: { id: "google/gemini-2.0-flash-001" },
+      apiKey: "user-real-memwrite-disabled",
+      model: { id: "claude-sonnet-4-6" },
       local: { cwd, settingSources: ["project"] },
-      memory: { enabled: true },
+      // no memory option, as in EC-4
     });
-    await (await agent.send("What's the magic number?")).wait();
-    await releaseAgents();
-    const atRelease = await listTree(home);
-    await flushSessionWrites();
-    expect(await listTree(home)).toEqual(atRelease);
+    await (await agent.send("Remember: foo.")).wait();
+
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let written = false;
+    const held = enqueueSessionWrite(cwd, agent.agentId, async () => {
+      await gate;
+      written = true;
+    });
+    try {
+      let disposed = false;
+      const disposal = agent.dispose().then(() => {
+        disposed = true;
+      });
+      await new Promise((r) => setTimeout(r, 50));
+      expect(disposed).toBe(false);
+      expect(written).toBe(false);
+      release();
+      await held;
+      await disposal;
+      expect(written).toBe(true);
+    } finally {
+      release();
+    }
   });
 
   it("writes the fact exactly once in fixture mode (no double-write, EC-2)", async () => {

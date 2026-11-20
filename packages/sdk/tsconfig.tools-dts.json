@@ -59,6 +59,7 @@
     "src/event-bus.ts",
     "src/job-queue.ts",
     "src/permission-engine.ts",
+    "src/testing/**/*",
     "src/mcp-auth.ts",
     "src/mcp-events.ts",
     "src/internal/mcp/**/*"
