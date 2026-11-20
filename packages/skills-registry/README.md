@@ -36,6 +36,20 @@ await installSkill("/home/me/.skills", pkg, { registry: "https://registry.exampl
 
 `installSkill` revalidates the package, writes to a temporary sibling of `<skillsDir>/<name>`, adds `.origin.json` (`registry`, `name`, `version`, `sha256`), then swaps it in with a rename. If the swap fails the previous version is restored. Readers may see the folder missing for the instant between the two renames.
 
+## Search and publish
+
+```ts
+import { buildSkillPackage, publishSkill, searchSkills } from "@theokit/skills-registry";
+
+const hits = await searchSkills("https://registry.example", "pdf"); // GET /v1/skills?q=pdf
+const pkg = await buildSkillPackage("./my-skill");
+await publishSkill("https://registry.example", pkg, { token }); // PUT /v1/skills/<name>/<version>
+```
+
+- `searchSkills(registryUrl, term, { fetch?, timeoutMs?, maxBytes? })` returns `{ name, description, latest, versions }` entries and drops malformed ones. Defaults: 10 s timeout, 1,000,000-byte response cap.
+- `buildSkillPackage(dir)` reads a folder into the package format. Symbolic links and anything but regular files are refused (`unsafe_path`, naming the path), as is a folder over 1 MiB (`too_large`), a missing `SKILL.md`, and frontmatter without `name`, `description` and a SemVer `version`.
+- `publishSkill(registryUrl, pkg, { token, fetch?, timeoutMs? })` sends the bearer token with the same URL guard as install: `https:`, or `http:` on loopback, otherwise `insecure_url` before any request. Default timeout 30 s (`unreachable`). 201 resolves; 409 is `version_exists`, 401 `unauthorized`, 400 `rejected` (carrying the server's `error` text). The token never appears in an error message.
+
 ## Errors
 
-`SkillsRegistryError.code`: `invalid_name`, `invalid_version`, `not_found`, `unreachable`, `too_large`, `digest_mismatch`, `unsafe_path`, `invalid_skill_md`, `invalid_package`, `insecure_url`, `install_failed`.
+`SkillsRegistryError.code`: `invalid_name`, `invalid_version`, `not_found`, `unreachable`, `too_large`, `digest_mismatch`, `unsafe_path`, `invalid_skill_md`, `invalid_package`, `insecure_url`, `install_failed`, `unauthorized`, `version_exists`, `rejected`.
