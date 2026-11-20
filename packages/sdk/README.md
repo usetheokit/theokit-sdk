@@ -112,6 +112,22 @@ const agent = await Agent.create({
 
 Extended-thinking `--continue` is out of scope for now (thinking signatures are written but dropped on read — issue #122). See the exported session-persistence types for the full contract.
 
+## Incognito agents
+
+To leave nothing on disk, keep the transcript in memory, keep the agent out of the persisted registry, and turn memory off:
+
+```ts
+import { Agent, InMemorySessionStore } from "@theokit/sdk";
+
+const agent = await Agent.create({
+  model: { id: "openai/gpt-4o-mini" },
+  memory: { enabled: false },
+  local: { sessionStore: new InMemorySessionStore(), registry: false },
+});
+```
+
+Use a fresh `InMemorySessionStore` per agent; resume works only while you keep the same instance. `registry: false` keeps the agent out of `<cwd>/.theokit/agents/registry.json`, but it stays visible to `Agent.list` in the current process. Tools, plugins and other features you enable can still write files of their own.
+
 ## Memory
 
 Durable facts live under `<cwd>/.theokit/memory/`. To keep several users of one agent app apart, give each agent a `userId`; each user then gets their own partition (`.theokit/memory/users/<userId>/`) for facts, index and session summaries:

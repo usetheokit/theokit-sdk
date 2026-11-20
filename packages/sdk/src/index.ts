@@ -173,6 +173,7 @@ export { JudgeCredentialError } from "./internal/judge/judge-call.js";
 // without racing. Stability guarantee: signature stable until sdk-core
 // v3.0.
 export { withCwdMutex } from "./internal/persistence/cwd-mutex.js";
+export { InMemorySessionStore } from "./internal/persistence/in-memory-session-store.js";
 export {
   SqliteSessionStore,
   type SqliteSessionStoreOptions,
