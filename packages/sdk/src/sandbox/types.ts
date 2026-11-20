@@ -163,6 +163,17 @@ export abstract class SandboxBackend {
   abstract uploadFile(path: string, content: string | Buffer): Promise<void>;
 
   /**
+   * Writes several files. The default awaits `uploadFile` for each entry in order and stops at the
+   * first failure, leaving earlier writes in place. A remote backend overrides it to send the batch
+   * in one request.
+   */
+  async uploadFiles(files: { path: string; content: string | Buffer }[]): Promise<void> {
+    for (const file of files) {
+      await this.uploadFile(file.path, file.content);
+    }
+  }
+
+  /**
    * Releases whatever the backend holds, such as a VM or a container. The default does nothing,
    * which is correct for a backend that holds nothing, so existing subclasses need no change. Safe
    * to call more than once. The owner of the backend calls it; nothing in this package does.

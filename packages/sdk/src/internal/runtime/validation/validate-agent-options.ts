@@ -1,5 +1,5 @@
-import { BUILTIN_TOOL_NAMES } from "../../../builtin-tools.js";
 import { ConfigurationError } from "../../../errors.js";
+import { checkToolName } from "../../../tool-name.js";
 import type {
   AgentDefinition,
   AgentOptions,
@@ -191,27 +191,6 @@ function validateSubagents(agents: Record<string, AgentDefinition> | undefined):
   }
 }
 
-const TOOL_NAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/;
-const RESERVED_TOOL_NAMES: ReadonlySet<string> = new Set(BUILTIN_TOOL_NAMES);
-
-/**
- * The builtin names still occupied for this agent.
- *
- * usetheokit/theokit-sdk#381 — the reservation exists so a consumer's tool cannot shadow one of the
- * SDK's, which would make two different tools answer to one name. Withholding a builtin removes the
- * SDK's, so there is nothing left to shadow and the reservation has no subject: holding the name
- * anyway would forbid a collision that cannot happen. Every builtin still declared stays reserved,
- * so withholding `shell` does not release `memory_get`.
- *
- * @internal
- */
-function reservedNamesFor(
-  withheld: ReadonlyArray<BuiltinToolName> | undefined,
-): ReadonlySet<string> {
-  if (withheld === undefined || withheld.length === 0) return RESERVED_TOOL_NAMES;
-  return new Set<string>(BUILTIN_TOOL_NAMES.filter((name) => !withheld.includes(name)));
-}
-
 /**
  * Shared per-tool catalog validator used by both creation-time AgentOptions
  * and per-call SendOptions paths. Runs the same name/schema/dedupe rules
@@ -228,10 +207,9 @@ export function validateToolCatalog(
   tools: ReadonlyArray<CustomTool>,
   withheldBuiltins?: ReadonlyArray<BuiltinToolName>,
 ): void {
-  const reserved = reservedNamesFor(withheldBuiltins);
   const seen = new Set<string>();
   for (const tool of tools) {
-    validateSingleTool(tool, reserved);
+    validateSingleTool(tool, withheldBuiltins);
     if (seen.has(tool.name)) {
       throw new ConfigurationError(`Duplicate custom tool name "${tool.name}"`, {
         code: "duplicate_tool_name",
@@ -253,8 +231,11 @@ function validateCustomTools(options: AgentOptions): void {
   validateToolCatalog(tools, options.withheldBuiltinTools);
 }
 
-function validateSingleTool(tool: CustomTool, reserved: ReadonlySet<string>): void {
-  validateToolName(tool, reserved);
+function validateSingleTool(
+  tool: CustomTool,
+  withheldBuiltins: ReadonlyArray<BuiltinToolName> | undefined,
+): void {
+  validateToolName(tool, withheldBuiltins);
   validateToolDescription(tool);
   validateToolSchema(tool);
   if (typeof tool.handler !== "function") {
@@ -264,24 +245,12 @@ function validateSingleTool(tool: CustomTool, reserved: ReadonlySet<string>): vo
   }
 }
 
-function validateToolName(tool: CustomTool, reserved: ReadonlySet<string>): void {
-  if (typeof tool.name !== "string" || tool.name.length === 0) {
-    throw new ConfigurationError("Custom tool requires a non-empty name", {
-      code: "tool_missing_name",
-    });
-  }
-  if (!TOOL_NAME_PATTERN.test(tool.name)) {
-    throw new ConfigurationError(
-      `Custom tool name "${tool.name}" must match /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/`,
-      { code: "tool_invalid_name" },
-    );
-  }
-  if (reserved.has(tool.name) || tool.name.startsWith("mcp_")) {
-    throw new ConfigurationError(
-      `Custom tool name "${tool.name}" collides with a reserved SDK tool name`,
-      { code: "tool_reserved_name" },
-    );
-  }
+function validateToolName(
+  tool: CustomTool,
+  withheldBuiltins: ReadonlyArray<BuiltinToolName> | undefined,
+): void {
+  const result = checkToolName(tool.name, { withheldBuiltins });
+  if (!result.ok) throw new ConfigurationError(result.message, { code: result.code });
 }
 
 function validateToolDescription(tool: CustomTool): void {
