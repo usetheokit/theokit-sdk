@@ -11,16 +11,7 @@ import { resolveChildEnv } from "../runtime/lifecycle/env-policy.js";
 import { safePathJoin } from "../security/path-guard.js";
 import { DEFAULT_MCP_TIMEOUT_MS, handshakeAwareTimeout } from "./handshake-timeout.js";
 import { resolveBearer } from "./oauth-bearer.js";
-import { rpcInitialize, SUPPORTED_MCP_PROTOCOL_VERSIONS } from "./protocol-version.js";
-import {
-  isAbortLike,
-  type McpTool,
-  type McpToolCallResult,
-  mcpTimeoutError,
-  reconnectDelay,
-  rpcCallTool,
-  rpcListTools,
-} from "./rpc-helpers.js";
+import { rpcInitialize } from "./protocol-version.js";
 import { withToolFilter } from "./tool-filter.js";
 
 /**
@@ -35,8 +26,18 @@ import { withToolFilter } from "./tool-filter.js";
  * @internal
  */
 
-export type { McpProtocolVersion, McpTool, McpToolCallResult };
-export { SUPPORTED_MCP_PROTOCOL_VERSIONS };
+export { type McpProtocolVersion, SUPPORTED_MCP_PROTOCOL_VERSIONS } from "./protocol-version.js";
+
+export interface McpTool {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
+export interface McpToolCallResult {
+  content: Array<{ type: "text"; text: string }>;
+  isError?: boolean;
+}
 
 export interface McpClient {
   readonly name: string;
@@ -66,8 +67,56 @@ export function createMcpClient(
 /** Max buffered stdout bytes before a flooding stdio server is torn down (SEC-M0-04). */
 const MAX_STDIO_BUFFER_BYTES = 8 * 1024 * 1024;
 
-/** M2 #59 — max reconnect attempts before surfacing a typed error. */
+/** M2 #59 — reconnect-after-drop bounds. Base for the full-jitter backoff between
+ * reconnect attempts, and the max attempts before surfacing a typed error. */
+const RECONNECT_BASE_MS = 250;
 const MAX_RECONNECT_ATTEMPTS = 2;
+
+/** M2 #59 — full-jitter backoff (AWS Brooker 2015) for the Nth reconnect attempt,
+ * then a plain delay. MCP requests carry no AbortSignal so the delay is unabortable. */
+function reconnectDelay(attempt: number): Promise<void> {
+  const ceiling = RECONNECT_BASE_MS * 2 ** attempt;
+  const ms = Math.floor(Math.random() * ceiling);
+  return ms <= 0 ? Promise.resolve() : new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Typed timeout error shared by both transports (#59). */
+function mcpTimeoutError(name: string, timeoutMs: number): NetworkError {
+  return new NetworkError(`MCP ${name} request timed out after ${timeoutMs}ms`, {
+    code: "mcp_timeout",
+  });
+}
+
+/**
+ * True when a rejected fetch was aborted by our `AbortSignal.timeout` (#59).
+ * `AbortSignal.timeout` rejects with a `DOMException` (name `TimeoutError`),
+ * which is not always `instanceof Error`, so we inspect `.name` directly.
+ */
+function isAbortLike(cause: unknown): boolean {
+  if (typeof cause !== "object" || cause === null || !("name" in cause)) return false;
+  const name = (cause as { name: unknown }).name;
+  return name === "TimeoutError" || name === "AbortError";
+}
+
+type RpcRequester = (method: string, params: Record<string, unknown>) => Promise<unknown>;
+
+async function rpcListTools(request: RpcRequester): Promise<McpTool[]> {
+  const response = await request("tools/list", {});
+  return (response as { result?: { tools?: McpTool[] } }).result?.tools ?? [];
+}
+
+async function rpcCallTool(
+  request: RpcRequester,
+  name: string,
+  args: Record<string, unknown>,
+): Promise<McpToolCallResult> {
+  const response = await request("tools/call", { name, arguments: args });
+  const result = (response as { result?: McpToolCallResult }).result;
+  if (result === undefined) {
+    return { content: [{ type: "text", text: "MCP returned empty result" }], isError: true };
+  }
+  return result;
+}
 
 /** Shared base wiring `initialize` / `listTools` / `callTool` onto an
  * abstract RPC `request` implementation. Subclasses define the transport.
@@ -85,11 +134,9 @@ abstract class BaseMcpClient implements McpClient {
   protocolVersion: McpProtocolVersion | undefined;
 
   async initialize(): Promise<void> {
-    this.protocolVersion = undefined;
-    const offered = this.pinnedVersion ?? SUPPORTED_MCP_PROTOCOL_VERSIONS[0];
     this.protocolVersion = await rpcInitialize(
       (method, params) => this.request(method, params),
-      offered,
+      this.pinnedVersion,
     );
   }
 
@@ -233,15 +280,7 @@ class StdioMcpClient extends BaseMcpClient {
   override async initialize(): Promise<void> {
     if (this.child !== undefined) return;
     this.spawnChild();
-    try {
-      await super.initialize();
-    } catch (err) {
-      // A refused handshake leaves a live child nobody will talk to: release it so a retry re-spawns.
-      if (err instanceof NetworkError && err.code === "mcp_protocol_unsupported") {
-        await this.close();
-      }
-      throw err;
-    }
+    await super.initialize();
   }
 
   /** M2 #59 — ensure a live child before a request. Reconnect (bounded, with

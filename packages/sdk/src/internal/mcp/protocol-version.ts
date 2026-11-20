@@ -15,12 +15,13 @@ type RpcRequester = (method: string, params: Record<string, unknown>) => Promise
 /**
  * Run the `initialize` handshake and return the version the server agreed to.
  * A server that answers a version outside the supported list is refused. A reply that names no
- * version at all (a non-conforming server) is tolerated and yields `undefined`.
+ * version (many minimal servers) is tolerated and yields `undefined`: no header is sent then.
  */
 export async function rpcInitialize(
   request: RpcRequester,
-  offered: McpProtocolVersion,
+  pinned: McpProtocolVersion | undefined,
 ): Promise<McpProtocolVersion | undefined> {
+  const offered = pinned ?? SUPPORTED_MCP_PROTOCOL_VERSIONS[0];
   const response = await request("initialize", {
     protocolVersion: offered,
     capabilities: { tools: {} },

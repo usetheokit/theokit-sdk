@@ -26,7 +26,7 @@ function stdioScript(answer: string): string {
         const m = JSON.parse(buf.slice(0, i)); buf = buf.slice(i + 1);
         if (m.method === "initialize") {
           fs.writeFileSync(process.env.SEEN, JSON.stringify(m.params));
-          process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: ${JSON.stringify(answer)} } }) + "\\n");
+          process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: m.id, result: ${JSON.stringify(answer === "" ? {} : { protocolVersion: answer })} }) + "\\n");
         } else if (m.method === "tools/list") {
           process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: m.id, result: { tools: [{ name: "t", description: "", inputSchema: {} }] } }) + "\\n");
         }
@@ -83,6 +83,13 @@ describe("mcp protocol version negotiation", () => {
     expect((err as Error).message).toContain("2025-06-18");
     expect((err as Error).message).toContain("2099-01-01");
     expect(client.protocolVersion).toBeUndefined();
+  });
+
+  it("mcp_tolerates_an_answer_without_a_version", async () => {
+    const { client } = await stdioClient("");
+    await client.initialize();
+    expect(client.protocolVersion).toBeUndefined();
+    expect(await client.listTools()).toHaveLength(1);
   });
 
   it("mcp_config_pins_protocol_version", async () => {
