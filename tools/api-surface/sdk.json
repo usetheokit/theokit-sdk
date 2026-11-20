@@ -3,7 +3,7 @@
   "entries": {
     "./a2a#import": {
       "A2AIdentity": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export interface A2AIdentity {\n    publicKey: string;\n    privateKey: string;\n}"
       },
       "A2AMailboxError": {
@@ -31,7 +31,7 @@
         "declaration": "export interface A2ATransport {\n    send(message: A2AMessage): Promise<void>;\n    poll(agentId: string): Promise<A2AMessage[]>;\n}"
       },
       "A2AUntrustedPeerError": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export declare class A2AUntrustedPeerError extends TheokitAgentError {\n    readonly peer: string;\n    readonly name = \"A2AUntrustedPeerError\";\n    readonly code: \"a2a_untrusted_peer\";\n    constructor(peer: string);\n}"
       },
       "AgentMailbox": {
@@ -79,11 +79,11 @@
         "declaration": "export interface RequestOptions {\n    timeoutMs?: number;\n}"
       },
       "SealedDropReason": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export type SealedDropReason = \"malformed\" | \"wrong_recipient\" | \"untrusted_peer\" | \"authentication_failed\" | \"replay\";"
       },
       "SequenceStore": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export interface SequenceStore {\n    nextSent(peerKey: string): Promise<number>;\n    acceptReceived(peerKey: string, seq: number): Promise<boolean>;\n}"
       },
       "SubAgent": {
@@ -99,7 +99,7 @@
         "declaration": "export interface ToolContextMessage {\n    role: \"system\" | \"user\" | \"assistant\";\n    content: string;\n}"
       },
       "TrustedPeers": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export type TrustedPeers = ReadonlyMap<string, string>;"
       },
       "createHttpMailboxHandler": {
@@ -107,7 +107,7 @@
         "declaration": "export declare function createHttpMailboxHandler(options: HttpMailboxOptions): (request: Request) => Promise<Response>;"
       },
       "generateA2AIdentity": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export declare function generateA2AIdentity(): A2AIdentity;"
       },
       "httpMailboxTransport": {
@@ -119,21 +119,21 @@
         "declaration": "export declare function inMemoryTransport(): A2ATransport;"
       },
       "jsonSequenceStore": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export declare function jsonSequenceStore(file: string): SequenceStore;"
       },
       "memorySequenceStore": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export declare function memorySequenceStore(): SequenceStore;"
       },
       "sealedTransport": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export declare function sealedTransport(inner: A2ATransport, options: {\n    identity: A2AIdentity;\n    trustedPeers: TrustedPeers;\n    sequences?: SequenceStore;\n}): A2ATransport;"
       }
     },
     "./a2a#require": {
       "A2AIdentity": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export interface A2AIdentity {\n    publicKey: string;\n    privateKey: string;\n}"
       },
       "A2AMailboxError": {
@@ -161,7 +161,7 @@
         "declaration": "export interface A2ATransport {\n    send(message: A2AMessage): Promise<void>;\n    poll(agentId: string): Promise<A2AMessage[]>;\n}"
       },
       "A2AUntrustedPeerError": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export declare class A2AUntrustedPeerError extends TheokitAgentError {\n    readonly peer: string;\n    readonly name = \"A2AUntrustedPeerError\";\n    readonly code: \"a2a_untrusted_peer\";\n    constructor(peer: string);\n}"
       },
       "AgentMailbox": {
@@ -209,11 +209,11 @@
         "declaration": "export interface RequestOptions {\n    timeoutMs?: number;\n}"
       },
       "SealedDropReason": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export type SealedDropReason = \"malformed\" | \"wrong_recipient\" | \"untrusted_peer\" | \"authentication_failed\" | \"replay\";"
       },
       "SequenceStore": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export interface SequenceStore {\n    nextSent(peerKey: string): Promise<number>;\n    acceptReceived(peerKey: string, seq: number): Promise<boolean>;\n}"
       },
       "SubAgent": {
@@ -229,7 +229,7 @@
         "declaration": "export interface ToolContextMessage {\n    role: \"system\" | \"user\" | \"assistant\";\n    content: string;\n}"
       },
       "TrustedPeers": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export type TrustedPeers = ReadonlyMap<string, string>;"
       },
       "createHttpMailboxHandler": {
@@ -237,7 +237,7 @@
         "declaration": "export declare function createHttpMailboxHandler(options: HttpMailboxOptions): (request: Request) => Promise<Response>;"
       },
       "generateA2AIdentity": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export declare function generateA2AIdentity(): A2AIdentity;"
       },
       "httpMailboxTransport": {
@@ -249,15 +249,15 @@
         "declaration": "export declare function inMemoryTransport(): A2ATransport;"
       },
       "jsonSequenceStore": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export declare function jsonSequenceStore(file: string): SequenceStore;"
       },
       "memorySequenceStore": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export declare function memorySequenceStore(): SequenceStore;"
       },
       "sealedTransport": {
-        "tier": "stable",
+        "tier": "experimental",
         "declaration": "export declare function sealedTransport(inner: A2ATransport, options: {\n    identity: A2AIdentity;\n    trustedPeers: TrustedPeers;\n    sequences?: SequenceStore;\n}): A2ATransport;"
       }
     },
@@ -2598,7 +2598,7 @@
     "./sandbox#import": {
       "BwrapArgvOptions": {
         "tier": "stable",
-        "declaration": "export interface BwrapArgvOptions {\n    cwd: string;\n    network?: boolean;\n    gitDirExists?: boolean;\n    env?: Record<string, string>;\n    denyReadPaths?: readonly string[];\n}"
+        "declaration": "export interface BwrapArgvOptions {\n    cwd: string;\n    network?: boolean;\n    gitDirExists?: boolean;\n    env?: Record<string, string>;\n    denyReadPaths?: readonly string[];\n    roBinds?: readonly string[];\n}"
       },
       "BwrapDetection": {
         "tier": "stable",
@@ -2610,7 +2610,7 @@
       },
       "CreateSandboxBackendOptions": {
         "tier": "stable",
-        "declaration": "export interface CreateSandboxBackendOptions {\n    mode: SandboxMode;\n    workDir?: string;\n    network?: boolean;\n    timeoutMs?: number;\n    denyReadPaths?: readonly string[];\n    detect?: () => BwrapDetection;\n    warn?: (message: string) => void;\n}"
+        "declaration": "export interface CreateSandboxBackendOptions {\n    mode: SandboxMode;\n    workDir?: string;\n    network?: boolean | {\n        allow: readonly EgressRule[];\n    };\n    timeoutMs?: number;\n    denyReadPaths?: readonly string[];\n    detect?: () => BwrapDetection;\n    warn?: (message: string) => void;\n}"
       },
       "DockerRunResult": {
         "tier": "stable",
@@ -2644,6 +2644,14 @@
         "tier": "stable",
         "declaration": "E2B_CA_BUNDLE = \"/etc/ssl/certs/ca-certificates.crt\""
       },
+      "EgressProxy": {
+        "tier": "stable",
+        "declaration": "export interface EgressProxy {\n    readonly socketPath: string;\n    readonly denied: readonly {\n        host: string;\n        port: number;\n        at: number;\n    }[];\n    close(): Promise<void>;\n}"
+      },
+      "EgressRule": {
+        "tier": "stable",
+        "declaration": "export interface EgressRule {\n    readonly host: string;\n    readonly ports?: readonly number[];\n}"
+      },
       "ExecuteResult": {
         "tier": "stable",
         "declaration": "export interface ExecuteResult {\n    stdout: string;\n    stderr: string;\n    exitCode: number;\n    timedOut: boolean;\n}"
@@ -2654,7 +2662,7 @@
       },
       "LinuxSandbox": {
         "tier": "stable",
-        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean;\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<import(\"./chunk\").ExecuteResult>;\n}"
+        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly egress;\n    private disposed;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean | {\n            allow: readonly EgressRule[];\n        };\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    dispose(): Promise<void>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    private egressFailure;\n}"
       },
       "LocalSandbox": {
         "tier": "stable",
@@ -2670,7 +2678,7 @@
       },
       "SandboxBackend": {
         "tier": "stable",
-        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
+        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
       },
       "SandboxConfig": {
         "tier": "stable",
@@ -2798,9 +2806,13 @@
         "tier": "stable",
         "declaration": "export declare function shellEscapePosix(arg: string): string;"
       },
+      "startEgressProxy": {
+        "tier": "stable",
+        "declaration": "export declare function startEgressProxy(options: {\n    allow: readonly EgressRule[];\n    socketPath?: string;\n}): Promise<EgressProxy>;"
+      },
       "wrapCommandForSandbox": {
         "tier": "stable",
-        "declaration": "export declare function wrapCommandForSandbox(mode: SandboxMode, opts: {\n    cwd: string;\n    network?: boolean;\n    env?: Record<string, string>;\n    bin?: string;\n    seccompPath?: string;\n    seccompProgram?: Uint8Array;\n    denyReadPaths?: readonly string[];\n}, command: string): string | null;"
+        "declaration": "export declare function wrapCommandForSandbox(mode: SandboxMode, opts: {\n    cwd: string;\n    network?: boolean;\n    env?: Record<string, string>;\n    bin?: string;\n    seccompPath?: string;\n    seccompProgram?: Uint8Array;\n    denyReadPaths?: readonly string[];\n    egress?: {\n        socketPath: string;\n    };\n}, command: string): string | null;"
       },
       "writableRootsFor": {
         "tier": "stable",
@@ -2810,7 +2822,7 @@
     "./sandbox#require": {
       "BwrapArgvOptions": {
         "tier": "stable",
-        "declaration": "export interface BwrapArgvOptions {\n    cwd: string;\n    network?: boolean;\n    gitDirExists?: boolean;\n    env?: Record<string, string>;\n    denyReadPaths?: readonly string[];\n}"
+        "declaration": "export interface BwrapArgvOptions {\n    cwd: string;\n    network?: boolean;\n    gitDirExists?: boolean;\n    env?: Record<string, string>;\n    denyReadPaths?: readonly string[];\n    roBinds?: readonly string[];\n}"
       },
       "BwrapDetection": {
         "tier": "stable",
@@ -2822,7 +2834,7 @@
       },
       "CreateSandboxBackendOptions": {
         "tier": "stable",
-        "declaration": "export interface CreateSandboxBackendOptions {\n    mode: SandboxMode;\n    workDir?: string;\n    network?: boolean;\n    timeoutMs?: number;\n    denyReadPaths?: readonly string[];\n    detect?: () => BwrapDetection;\n    warn?: (message: string) => void;\n}"
+        "declaration": "export interface CreateSandboxBackendOptions {\n    mode: SandboxMode;\n    workDir?: string;\n    network?: boolean | {\n        allow: readonly EgressRule[];\n    };\n    timeoutMs?: number;\n    denyReadPaths?: readonly string[];\n    detect?: () => BwrapDetection;\n    warn?: (message: string) => void;\n}"
       },
       "DockerRunResult": {
         "tier": "stable",
@@ -2856,6 +2868,14 @@
         "tier": "stable",
         "declaration": "E2B_CA_BUNDLE = \"/etc/ssl/certs/ca-certificates.crt\""
       },
+      "EgressProxy": {
+        "tier": "stable",
+        "declaration": "export interface EgressProxy {\n    readonly socketPath: string;\n    readonly denied: readonly {\n        host: string;\n        port: number;\n        at: number;\n    }[];\n    close(): Promise<void>;\n}"
+      },
+      "EgressRule": {
+        "tier": "stable",
+        "declaration": "export interface EgressRule {\n    readonly host: string;\n    readonly ports?: readonly number[];\n}"
+      },
       "ExecuteResult": {
         "tier": "stable",
         "declaration": "export interface ExecuteResult {\n    stdout: string;\n    stderr: string;\n    exitCode: number;\n    timedOut: boolean;\n}"
@@ -2866,7 +2886,7 @@
       },
       "LinuxSandbox": {
         "tier": "stable",
-        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean;\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<import(\"./chunk\").ExecuteResult>;\n}"
+        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly egress;\n    private disposed;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean | {\n            allow: readonly EgressRule[];\n        };\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    dispose(): Promise<void>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    private egressFailure;\n}"
       },
       "LocalSandbox": {
         "tier": "stable",
@@ -2882,7 +2902,7 @@
       },
       "SandboxBackend": {
         "tier": "stable",
-        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
+        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
       },
       "SandboxConfig": {
         "tier": "stable",
@@ -3010,9 +3030,13 @@
         "tier": "stable",
         "declaration": "export declare function shellEscapePosix(arg: string): string;"
       },
+      "startEgressProxy": {
+        "tier": "stable",
+        "declaration": "export declare function startEgressProxy(options: {\n    allow: readonly EgressRule[];\n    socketPath?: string;\n}): Promise<EgressProxy>;"
+      },
       "wrapCommandForSandbox": {
         "tier": "stable",
-        "declaration": "export declare function wrapCommandForSandbox(mode: SandboxMode, opts: {\n    cwd: string;\n    network?: boolean;\n    env?: Record<string, string>;\n    bin?: string;\n    seccompPath?: string;\n    seccompProgram?: Uint8Array;\n    denyReadPaths?: readonly string[];\n}, command: string): string | null;"
+        "declaration": "export declare function wrapCommandForSandbox(mode: SandboxMode, opts: {\n    cwd: string;\n    network?: boolean;\n    env?: Record<string, string>;\n    bin?: string;\n    seccompPath?: string;\n    seccompProgram?: Uint8Array;\n    denyReadPaths?: readonly string[];\n    egress?: {\n        socketPath: string;\n    };\n}, command: string): string | null;"
       },
       "writableRootsFor": {
         "tier": "stable",
@@ -3066,11 +3090,11 @@
       },
       "AuthOrchestrator": {
         "tier": "stable",
-        "declaration": "interface AuthOrchestrator<TSession> {\n    startSignIn(providerName: string, req: IncomingMessage, opts?: {\n        returnTo?: string;\n    }): Promise<Response>;\n    finishSignIn(providerName: string, req: IncomingMessage, res: ServerResponse): Promise<{\n        session: TSession;\n        returnTo?: string;\n    }>;\n    signIn<TProfile>(profile: TProfile, providerName: string, req: IncomingMessage, res: ServerResponse): Promise<TSession>;\n    signOut(res: ServerResponse): void | Promise<void>;\n    getSession(req: IncomingMessage): Promise<TSession | null>;\n}"
+        "declaration": "interface AuthOrchestrator<TSession> {\n    startSignIn(providerName: string, req: IncomingMessage, opts?: {\n        returnTo?: string;\n    }): Promise<Response>;\n    finishSignIn(providerName: string, req: IncomingMessage, res: ServerResponse): Promise<{\n        session: TSession;\n        returnTo?: string;\n    }>;\n    startSignInWeb(providerName: string, request: Request, opts?: {\n        returnTo?: string;\n    }): Promise<Response>;\n    finishSignInWeb(providerName: string, request: Request, responseHeaders: Headers): Promise<{\n        session: TSession;\n        returnTo?: string;\n    }>;\n    signIn<TProfile>(profile: TProfile, providerName: string, req: IncomingMessage, res: ServerResponse): Promise<TSession>;\n    signOut(res: ServerResponse): void | Promise<void>;\n    getSession(req: IncomingMessage): Promise<TSession | null>;\n}"
       },
       "AuthProvider": {
         "tier": "stable",
-        "declaration": "interface AuthProvider<TProfile, TName extends string = string> {\n    name: TName;\n    createAuthorizationURL(tx: OAuthTransaction): URL | Promise<URL>;\n    handleCallback(req: IncomingMessage, tx: OAuthTransaction): Promise<AuthResult<TProfile, TName>>;\n}"
+        "declaration": "interface AuthProvider<TProfile, TName extends string = string> {\n    name: TName;\n    createAuthorizationURL(tx: OAuthTransaction): URL | Promise<URL>;\n    handleCallback(req: Request | IncomingMessage, tx: OAuthTransaction): Promise<AuthResult<TProfile, TName>>;\n}"
       },
       "AuthProviderNotFoundError": {
         "tier": "stable",
@@ -3094,11 +3118,23 @@
       },
       "SessionManager": {
         "tier": "stable",
-        "declaration": "interface SessionManager<TSession> {\n    getSession(req: IncomingMessage): Promise<TSession | null>;\n    createSession(res: ServerResponse, data: TSession): Promise<void>;\n    destroySession(res: ServerResponse): void;\n    rotateSession(req: IncomingMessage, res: ServerResponse): Promise<TSession | null>;\n    getCookieSecret?(): string | string[] | undefined;\n}"
+        "declaration": "interface SessionManager<TSession> {\n    getSession(req: IncomingMessage): Promise<TSession | null>;\n    createSession(res: ServerResponse, data: TSession): Promise<void>;\n    destroySession(res: ServerResponse): void;\n    rotateSession(req: IncomingMessage, res: ServerResponse): Promise<TSession | null>;\n    createSessionWeb?(headers: Headers, data: TSession): Promise<void>;\n    getCookieSecret?(): string | string[] | undefined;\n}"
+      },
+      "clearTransactionCookie": {
+        "tier": "stable",
+        "declaration": "declare function clearTransactionCookie(headers: Headers): void;"
+      },
+      "readTransactionCookie": {
+        "tier": "stable",
+        "declaration": "declare function readTransactionCookie(request: Request, secret: string): Promise<OAuthTransaction | null>;"
       },
       "validateReturnTo": {
         "tier": "stable",
         "declaration": "declare function validateReturnTo(returnTo: string | undefined, baseUrl: URL): string;"
+      },
+      "writeTransactionCookie": {
+        "tier": "stable",
+        "declaration": "declare function writeTransactionCookie(headers: Headers, tx: OAuthTransaction, secret: string): Promise<void>;"
       }
     },
     "./server/auth#require": {
@@ -3120,11 +3156,11 @@
       },
       "AuthOrchestrator": {
         "tier": "stable",
-        "declaration": "interface AuthOrchestrator<TSession> {\n    startSignIn(providerName: string, req: IncomingMessage, opts?: {\n        returnTo?: string;\n    }): Promise<Response>;\n    finishSignIn(providerName: string, req: IncomingMessage, res: ServerResponse): Promise<{\n        session: TSession;\n        returnTo?: string;\n    }>;\n    signIn<TProfile>(profile: TProfile, providerName: string, req: IncomingMessage, res: ServerResponse): Promise<TSession>;\n    signOut(res: ServerResponse): void | Promise<void>;\n    getSession(req: IncomingMessage): Promise<TSession | null>;\n}"
+        "declaration": "interface AuthOrchestrator<TSession> {\n    startSignIn(providerName: string, req: IncomingMessage, opts?: {\n        returnTo?: string;\n    }): Promise<Response>;\n    finishSignIn(providerName: string, req: IncomingMessage, res: ServerResponse): Promise<{\n        session: TSession;\n        returnTo?: string;\n    }>;\n    startSignInWeb(providerName: string, request: Request, opts?: {\n        returnTo?: string;\n    }): Promise<Response>;\n    finishSignInWeb(providerName: string, request: Request, responseHeaders: Headers): Promise<{\n        session: TSession;\n        returnTo?: string;\n    }>;\n    signIn<TProfile>(profile: TProfile, providerName: string, req: IncomingMessage, res: ServerResponse): Promise<TSession>;\n    signOut(res: ServerResponse): void | Promise<void>;\n    getSession(req: IncomingMessage): Promise<TSession | null>;\n}"
       },
       "AuthProvider": {
         "tier": "stable",
-        "declaration": "interface AuthProvider<TProfile, TName extends string = string> {\n    name: TName;\n    createAuthorizationURL(tx: OAuthTransaction): URL | Promise<URL>;\n    handleCallback(req: IncomingMessage, tx: OAuthTransaction): Promise<AuthResult<TProfile, TName>>;\n}"
+        "declaration": "interface AuthProvider<TProfile, TName extends string = string> {\n    name: TName;\n    createAuthorizationURL(tx: OAuthTransaction): URL | Promise<URL>;\n    handleCallback(req: Request | IncomingMessage, tx: OAuthTransaction): Promise<AuthResult<TProfile, TName>>;\n}"
       },
       "AuthProviderNotFoundError": {
         "tier": "stable",
@@ -3148,11 +3184,23 @@
       },
       "SessionManager": {
         "tier": "stable",
-        "declaration": "interface SessionManager<TSession> {\n    getSession(req: IncomingMessage): Promise<TSession | null>;\n    createSession(res: ServerResponse, data: TSession): Promise<void>;\n    destroySession(res: ServerResponse): void;\n    rotateSession(req: IncomingMessage, res: ServerResponse): Promise<TSession | null>;\n    getCookieSecret?(): string | string[] | undefined;\n}"
+        "declaration": "interface SessionManager<TSession> {\n    getSession(req: IncomingMessage): Promise<TSession | null>;\n    createSession(res: ServerResponse, data: TSession): Promise<void>;\n    destroySession(res: ServerResponse): void;\n    rotateSession(req: IncomingMessage, res: ServerResponse): Promise<TSession | null>;\n    createSessionWeb?(headers: Headers, data: TSession): Promise<void>;\n    getCookieSecret?(): string | string[] | undefined;\n}"
+      },
+      "clearTransactionCookie": {
+        "tier": "stable",
+        "declaration": "declare function clearTransactionCookie(headers: Headers): void;"
+      },
+      "readTransactionCookie": {
+        "tier": "stable",
+        "declaration": "declare function readTransactionCookie(request: Request, secret: string): Promise<OAuthTransaction | null>;"
       },
       "validateReturnTo": {
         "tier": "stable",
         "declaration": "declare function validateReturnTo(returnTo: string | undefined, baseUrl: URL): string;"
+      },
+      "writeTransactionCookie": {
+        "tier": "stable",
+        "declaration": "declare function writeTransactionCookie(headers: Headers, tx: OAuthTransaction, secret: string): Promise<void>;"
       }
     },
     "./server/errors-envelope#import": {
@@ -3550,7 +3598,7 @@
       },
       "Workflow": {
         "tier": "stable",
-        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
+        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
       },
       "WorkflowAlreadyRunningError": {
         "tier": "stable",
@@ -3610,7 +3658,7 @@
       },
       "WorkflowPersistenceOptions": {
         "tier": "stable",
-        "declaration": "interface WorkflowPersistenceOptions {\n    readonly backend: \"memory\" | \"json\";\n    readonly dir?: string;\n}"
+        "declaration": "interface WorkflowPersistenceOptions {\n    readonly backend: \"memory\" | \"json\";\n    readonly dir?: string;\n    readonly durability?: \"suspend\" | \"step\";\n}"
       },
       "WorkflowResumeOptions": {
         "tier": "stable",
@@ -3642,7 +3690,7 @@
       },
       "WorkflowSnapshot": {
         "tier": "stable",
-        "declaration": "interface WorkflowSnapshot {\n    readonly _schemaVersion: 1 | 2;\n    readonly runId: string;\n    readonly workflowName: string;\n    readonly currentStepId: string;\n    readonly suspendedPayload?: unknown;\n    readonly stepResults: ReadonlyArray<StepResult>;\n    readonly accumulatedInput: unknown;\n    readonly state?: unknown;\n    readonly suspendedAt: number;\n}"
+        "declaration": "interface WorkflowSnapshot {\n    readonly _schemaVersion: 1 | 2 | 3;\n    readonly status?: \"suspended\" | \"running\";\n    readonly runId: string;\n    readonly workflowName: string;\n    readonly currentStepId: string;\n    readonly suspendedPayload?: unknown;\n    readonly stepResults: ReadonlyArray<StepResult>;\n    readonly accumulatedInput: unknown;\n    readonly state?: unknown;\n    readonly suspendedAt: number;\n}"
       },
       "WorkflowSnapshotNotFoundError": {
         "tier": "stable",
@@ -3663,10 +3711,6 @@
       "WorkflowToolError": {
         "tier": "stable",
         "declaration": "declare class WorkflowToolError extends TheokitAgentError {\n    readonly toolName: string;\n    readonly workflowStatus: string;\n    readonly workflowError?: {\n        name: string;\n        message: string;\n    } | undefined;\n    readonly name = \"WorkflowToolError\";\n    readonly code: \"workflow_tool_failed\";\n    constructor(toolName: string, workflowStatus: string, workflowError?: {\n        name: string;\n        message: string;\n    } | undefined);\n}"
-      },
-      "__resetSnapshotStoresForTests": {
-        "tier": "stable",
-        "declaration": "declare function __resetSnapshotStoresForTests(): void;"
       },
       "agentStep": {
         "tier": "stable",
@@ -3744,7 +3788,7 @@
       },
       "Workflow": {
         "tier": "stable",
-        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
+        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
       },
       "WorkflowAlreadyRunningError": {
         "tier": "stable",
@@ -3804,7 +3848,7 @@
       },
       "WorkflowPersistenceOptions": {
         "tier": "stable",
-        "declaration": "interface WorkflowPersistenceOptions {\n    readonly backend: \"memory\" | \"json\";\n    readonly dir?: string;\n}"
+        "declaration": "interface WorkflowPersistenceOptions {\n    readonly backend: \"memory\" | \"json\";\n    readonly dir?: string;\n    readonly durability?: \"suspend\" | \"step\";\n}"
       },
       "WorkflowResumeOptions": {
         "tier": "stable",
@@ -3836,7 +3880,7 @@
       },
       "WorkflowSnapshot": {
         "tier": "stable",
-        "declaration": "interface WorkflowSnapshot {\n    readonly _schemaVersion: 1 | 2;\n    readonly runId: string;\n    readonly workflowName: string;\n    readonly currentStepId: string;\n    readonly suspendedPayload?: unknown;\n    readonly stepResults: ReadonlyArray<StepResult>;\n    readonly accumulatedInput: unknown;\n    readonly state?: unknown;\n    readonly suspendedAt: number;\n}"
+        "declaration": "interface WorkflowSnapshot {\n    readonly _schemaVersion: 1 | 2 | 3;\n    readonly status?: \"suspended\" | \"running\";\n    readonly runId: string;\n    readonly workflowName: string;\n    readonly currentStepId: string;\n    readonly suspendedPayload?: unknown;\n    readonly stepResults: ReadonlyArray<StepResult>;\n    readonly accumulatedInput: unknown;\n    readonly state?: unknown;\n    readonly suspendedAt: number;\n}"
       },
       "WorkflowSnapshotNotFoundError": {
         "tier": "stable",
@@ -3857,10 +3901,6 @@
       "WorkflowToolError": {
         "tier": "stable",
         "declaration": "declare class WorkflowToolError extends TheokitAgentError {\n    readonly toolName: string;\n    readonly workflowStatus: string;\n    readonly workflowError?: {\n        name: string;\n        message: string;\n    } | undefined;\n    readonly name = \"WorkflowToolError\";\n    readonly code: \"workflow_tool_failed\";\n    constructor(toolName: string, workflowStatus: string, workflowError?: {\n        name: string;\n        message: string;\n    } | undefined);\n}"
-      },
-      "__resetSnapshotStoresForTests": {
-        "tier": "stable",
-        "declaration": "declare function __resetSnapshotStoresForTests(): void;"
       },
       "agentStep": {
         "tier": "stable",
@@ -5445,6 +5485,10 @@
         "tier": "stable",
         "declaration": "declare class ToolError extends TheokitAgentError {\n    readonly name: string;\n    readonly content: string | ToolResultContentBlock[];\n    constructor(content: string | ToolResultContentBlock[], options?: {\n        code?: string;\n        cause?: unknown;\n        metadata?: ErrorMetadata;\n    });\n}"
       },
+      "ToolNameProblem": {
+        "tier": "stable",
+        "declaration": "type ToolNameProblem = \"tool_missing_name\" | \"tool_invalid_name\" | \"tool_reserved_name\";"
+      },
       "ToolResult": {
         "tier": "stable",
         "declaration": "interface ToolResult {\n    callId: string;\n    name: string;\n    result: string;\n    isError: boolean;\n}"
@@ -5555,7 +5599,7 @@
       },
       "Workflow": {
         "tier": "stable",
-        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
+        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
       },
       "WorkspacePluginListing": {
         "tier": "stable",
@@ -5580,6 +5624,10 @@
       "chargeAndCheckThresholds": {
         "tier": "stable",
         "declaration": "declare function chargeAndCheckThresholds(name: string, actualUsd: number): Promise<void>;"
+      },
+      "checkToolName": {
+        "tier": "stable",
+        "declaration": "declare function checkToolName(name: string, options?: {\n    withheldBuiltins?: readonly BuiltinToolName[];\n}): {\n    ok: true;\n} | {\n    ok: false;\n    code: ToolNameProblem;\n    message: string;\n};"
       },
       "computeCost": {
         "tier": "stable",
@@ -5612,6 +5660,14 @@
       "describeCredential": {
         "tier": "stable",
         "declaration": "declare function describeCredential(input: CredentialInput): CredentialReport;"
+      },
+      "diag": {
+        "tier": "stable",
+        "declaration": "declare function diag(message: string): void;"
+      },
+      "diagFailure": {
+        "tier": "stable",
+        "declaration": "declare function diagFailure(message: string): void;"
       },
       "effectiveToolNames": {
         "tier": "stable",
@@ -7356,6 +7412,10 @@
         "tier": "stable",
         "declaration": "declare class ToolError extends TheokitAgentError {\n    readonly name: string;\n    readonly content: string | ToolResultContentBlock[];\n    constructor(content: string | ToolResultContentBlock[], options?: {\n        code?: string;\n        cause?: unknown;\n        metadata?: ErrorMetadata;\n    });\n}"
       },
+      "ToolNameProblem": {
+        "tier": "stable",
+        "declaration": "type ToolNameProblem = \"tool_missing_name\" | \"tool_invalid_name\" | \"tool_reserved_name\";"
+      },
       "ToolResult": {
         "tier": "stable",
         "declaration": "interface ToolResult {\n    callId: string;\n    name: string;\n    result: string;\n    isError: boolean;\n}"
@@ -7466,7 +7526,7 @@
       },
       "Workflow": {
         "tier": "stable",
-        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
+        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
       },
       "WorkspacePluginListing": {
         "tier": "stable",
@@ -7491,6 +7551,10 @@
       "chargeAndCheckThresholds": {
         "tier": "stable",
         "declaration": "declare function chargeAndCheckThresholds(name: string, actualUsd: number): Promise<void>;"
+      },
+      "checkToolName": {
+        "tier": "stable",
+        "declaration": "declare function checkToolName(name: string, options?: {\n    withheldBuiltins?: readonly BuiltinToolName[];\n}): {\n    ok: true;\n} | {\n    ok: false;\n    code: ToolNameProblem;\n    message: string;\n};"
       },
       "computeCost": {
         "tier": "stable",
@@ -7523,6 +7587,14 @@
       "describeCredential": {
         "tier": "stable",
         "declaration": "declare function describeCredential(input: CredentialInput): CredentialReport;"
+      },
+      "diag": {
+        "tier": "stable",
+        "declaration": "declare function diag(message: string): void;"
+      },
+      "diagFailure": {
+        "tier": "stable",
+        "declaration": "declare function diagFailure(message: string): void;"
       },
       "effectiveToolNames": {
         "tier": "stable",
