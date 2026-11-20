@@ -3226,19 +3226,23 @@
       },
       "TheokitErrorCode": {
         "tier": "stable",
-        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";"
+        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";",
+        "deprecatedSince": "2026-11-20"
       },
       "TheokitErrorEnvelope": {
         "tier": "stable",
-        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}"
+        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}",
+        "deprecatedSince": "2026-11-20"
       },
       "fromEnvelope": {
         "tier": "stable",
-        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;"
+        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;",
+        "deprecatedSince": "2026-11-20"
       },
       "toEnvelope": {
         "tier": "stable",
-        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;"
+        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;",
+        "deprecatedSince": "2026-11-20"
       }
     },
     "./server/errors-envelope#require": {
@@ -3248,19 +3252,23 @@
       },
       "TheokitErrorCode": {
         "tier": "stable",
-        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";"
+        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";",
+        "deprecatedSince": "2026-11-20"
       },
       "TheokitErrorEnvelope": {
         "tier": "stable",
-        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}"
+        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}",
+        "deprecatedSince": "2026-11-20"
       },
       "fromEnvelope": {
         "tier": "stable",
-        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;"
+        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;",
+        "deprecatedSince": "2026-11-20"
       },
       "toEnvelope": {
         "tier": "stable",
-        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;"
+        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;",
+        "deprecatedSince": "2026-11-20"
       }
     },
     "./skills#import": {

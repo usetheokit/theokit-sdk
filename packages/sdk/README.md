@@ -964,3 +964,7 @@ await agent.send("...", { doomLoop: { window: 20, windowRepeatLimit: 3 } });
 ```
 
 Once a call (same tool, same arguments; key order does not matter) already occurs `windowRepeatLimit` times in the last `window` calls, the next identical call is not executed. The model receives a blocked tool result naming the tool so it can change course. Blocked attempts count toward the window. `window` and `windowRepeatLimit` must be positive integers set together, otherwise `send` rejects with `ConfigurationError` code `invalid_doom_loop`. The consecutive `softThreshold`/`hardThreshold` keep working.
+
+## Deprecated: `@theokit/sdk/server/errors-envelope`
+
+`toEnvelope`, `fromEnvelope`, `TheokitErrorCode` and `TheokitErrorEnvelope` are deprecated and will be removed in the next major. They still work. Build your own envelope from the error: read `name`, `isRetryable` and `metadata` (provider, endpoint, status code) from the `TheokitAgentError`. Theokit apps get the envelope from `theokit/server`.
