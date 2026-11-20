@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Agent } from "../src/agent.js";
-import { setDiagnosticsSink } from "../src/internal/diagnostics.js";
-import type { AgentOptions } from "../src/types/agent.js";
+import { Agent } from "../../src/agent.js";
+import { setDiagnosticsSink } from "../../src/internal/diagnostics.js";
+import type { AgentOptions } from "../../src/types/agent.js";
 import {
   blockStop,
   messageStart,
@@ -14,8 +14,8 @@ import {
   textReply,
   toolBlockStart,
   toolInputDelta,
-} from "./helpers/anthropic-sse.js";
-import { useTempCwd } from "./helpers/temp-workspace.js";
+} from "../helpers/anthropic-sse.js";
+import { useTempCwd } from "../helpers/temp-workspace.js";
 
 interface Stub {
   server: Server;

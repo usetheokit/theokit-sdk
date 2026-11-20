@@ -55,7 +55,12 @@ import { validateSendOptions } from "../runtime/validation/validate-agent-option
 import { hydrateSession } from "../session/index.js";
 import { SPAN_NAMES } from "../telemetry/span-names.js";
 import { createTelemetry, type OTelSpan, type TelemetryHandle } from "../telemetry/tracer.js";
-import { bootstrapSubmanagers, registerLocalAgent } from "./local-agent-bootstrap.js";
+import {
+  bootstrapSubmanagers,
+  includesSetting,
+  registerLocalAgent,
+  resolveCwd,
+} from "./local-agent-bootstrap.js";
 import { localAgentCapabilities } from "./local-agent-capabilities.js";
 import { dispatchLocalRun } from "./local-agent-dispatch.js";
 import { invalidateCacheImpl } from "./local-agent-invalidate.js";
@@ -234,10 +239,12 @@ export class LocalAgent implements SDKAgent {
       this.workspaceCwd,
       this.options,
     );
-    this.turnReviews = createAgentTurnReviews(this.agentId, this.workspaceCwd, options);
-    if (this.memory !== undefined) {
-      this.memory.reviewsIdle = () => this.turnReviews?.idle() ?? Promise.resolve();
-    }
+    this.turnReviews = createAgentTurnReviews(
+      this.agentId,
+      this.workspaceCwd,
+      options,
+      this.memory,
+    );
 
     registerLocalAgent({
       agentId: this.agentId,
@@ -713,15 +720,4 @@ export class LocalAgent implements SDKAgent {
  */
 function callerView(run: Run, throwOnError: boolean | undefined): Run {
   return throwOnError === true ? wrapRunWithThrowOnError(run) : run;
-}
-
-function resolveCwd(cwd: string | string[] | undefined): string {
-  return (Array.isArray(cwd) ? cwd[0] : cwd) ?? process.cwd();
-}
-
-function includesSetting(options: AgentOptions, source: string): boolean {
-  const sources = options.local?.settingSources;
-  return (
-    sources !== undefined && (sources.includes(source as never) || sources.includes("all" as never))
-  );
 }

@@ -96,14 +96,15 @@ function reviewerOptions(
 
 type MemoryReviewConfig = NonNullable<MemorySettings["review"]>;
 
-async function reviewOnce(
-  deps: TurnReviewDeps,
-  review: MemoryReviewConfig,
-  memory: MemorySettings,
-  n: number,
-  turn: { prompt: string; reply: string },
-  signal: AbortSignal,
-): Promise<void> {
+async function reviewOnce(job: {
+  deps: TurnReviewDeps;
+  review: MemoryReviewConfig;
+  memory: MemorySettings;
+  n: number;
+  turn: { prompt: string; reply: string };
+  signal: AbortSignal;
+}): Promise<void> {
+  const { deps, review, memory, n, turn, signal } = job;
   const tool = await createSaveMemoryTool(deps.workspaceCwd, memory);
   const reviewer = await deps.create(reviewerOptions(deps, review, n, tool));
   try {
@@ -133,7 +134,7 @@ export function createTurnReviewQueue(
 
   async function runJob(n: number, turn: { prompt: string; reply: string }): Promise<void> {
     try {
-      if (!dropping) await reviewOnce(deps, review, memory, n, turn, abort.signal);
+      if (!dropping) await reviewOnce({ deps, review, memory, n, turn, signal: abort.signal });
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       diagFailure(`[theokit-sdk] memory review failed for agent ${deps.agentId}: ${message}`);
@@ -182,6 +183,7 @@ export function createAgentTurnReviews(
   agentId: string,
   workspaceCwd: string,
   options: AgentOptions,
+  agentMemory?: { reviewsIdle(): Promise<void> },
 ): TurnReviewQueue | undefined {
   const memory = options.memory;
   if (memory?.enabled !== true || memory.review === undefined) return undefined;
@@ -189,5 +191,11 @@ export function createAgentTurnReviews(
     const { getAgentFacade } = await import("../runtime/registry/agent-factory-registry.js");
     return getAgentFacade().create(reviewerOptions);
   };
-  return createTurnReviewQueue({ agentId, workspaceCwd, options, create }, memory.review, memory);
+  const queue = createTurnReviewQueue(
+    { agentId, workspaceCwd, options, create },
+    memory.review,
+    memory,
+  );
+  if (agentMemory !== undefined) agentMemory.reviewsIdle = () => queue.idle();
+  return queue;
 }
