@@ -4,11 +4,12 @@
 // `@theokit/sdk`. Today: an in-process markdown-backed impl. Next iters
 // ship LanceDB + embeddings + active-memory cache.
 
+// CircuitBreaker lives in @theokit/sdk/retry; re-exported so both packages share one class.
+export { CircuitBreaker, type CircuitBreakerOptions } from "@theokit/sdk/retry";
 export {
   createInMemoryMarkdownProvider,
   type InMemoryMarkdownProviderOptions,
 } from "./in-memory-provider.js";
-
 // Iter 75: thirty-eighth Stage 3 file move (FINAL) — active-memory
 // orchestrator (296 LOC). The recall blocking primitive (ADR D6)
 // that runs BEFORE `agent.send` assembles the system prompt. Composes
@@ -22,9 +23,6 @@ export {
 // satisfy local type checking). **CLOSES Stage 3 source-move** —
 // all 38 files now canonical in @theokit/sdk-memory.
 export * from "./internal/active-memory/active-memory.js";
-
-// CircuitBreaker lives in @theokit/sdk/retry; re-exported so both packages share one class.
-export { CircuitBreaker, type CircuitBreakerOptions } from "@theokit/sdk/retry";
 
 // Iter 45: second Stage 3 file move — embedding-adapter types (61 LOC,
 // pure type-only file). Defines the contract that provider adapters

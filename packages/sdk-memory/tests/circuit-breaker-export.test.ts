@@ -13,8 +13,8 @@
  * happens when Stage 3 source-move completes (iter 30 target).
  */
 
-import type { CircuitBreakerOptions } from "@theokit/sdk-memory";
 import { CircuitBreaker as SdkCircuitBreaker } from "@theokit/sdk/retry";
+import type { CircuitBreakerOptions } from "@theokit/sdk-memory";
 import { CircuitBreaker } from "@theokit/sdk-memory";
 import { describe, expect, expectTypeOf, it } from "vitest";
 
