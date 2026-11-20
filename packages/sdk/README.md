@@ -243,6 +243,26 @@ const decision = await runPreToolCall(plugins, { name, args, agentId, runId });
 A plugin handler that throws is not turned into a veto: the exception propagates, as it does in the
 agent loop. `guardTools` passes no `conversation`; use `runPreToolCall` to supply one.
 
+## Tool-result guard and `sendDefaults`
+
+`SendOptions.toolResultGuard` (`{ delimit, redactPii }`) wraps or redacts tool output before the model sees it, and `SendOptions.pruneToolResults` stubs results older than `olderThanRounds` rounds. Both are read per send, so a missed call site runs unguarded. Set them once on the agent instead:
+
+```ts
+const agent = await Agent.create({
+  model: "anthropic/claude-sonnet-4-6",
+  local: { cwd: process.cwd() },
+  sendDefaults: {
+    toolResultGuard: { delimit: true }, // tool output arrives inside <untrusted-tool-output>
+    pruneToolResults: { olderThanRounds: 3 },
+  },
+});
+
+await agent.send("summarise the page"); // guarded
+await agent.send("raw", { toolResultGuard: { redactPii: true } }); // this call's guard replaces the default
+```
+
+`sendDefaults` accepts `toolResultGuard`, `pruneToolResults` and `perToolTimeoutMs`, applies to local agents, and also covers `fork()`, `generate()`, `runUntil()` and the `*ToCompletion` helpers. It merges per key: a key the send passes wins. Passing a key as `undefined` explicitly does **not** remove the default. An invalid `pruneToolResults` fails at `Agent.create` (and `Agent.resume`) with `ConfigurationError` code `invalid_prune_tool_results`. The defaults are persisted, so a disk-backed `Agent.resume` keeps them.
+
 ## Explain skills
 
 `explainSkills` from `@theokit/sdk/skills` reports what an agent would see, from the same walk the
@@ -385,9 +405,21 @@ if (result.status === "deferred") {
 }
 ```
 
-The deferred call is not dispatched, the other calls of the step finish, and the transcript ends on the unanswered `tool_use`.
+The deferred call is not dispatched, the other calls of the step finish, and the transcript ends on the unanswered `tool_use`. The run releases the session, so the process can exit.
 
-Answering a deferred call (resume) is not part of this release.
+### Resume after a restart
+
+Restore the agent (`Agent.resume(agentId, options)`, passing the plugins and tools again) and answer every pending call with `toolDecisions`, exactly one per `toolUseId`. The pending calls are read from the stored transcript; the `message` is ignored.
+
+```ts
+const agent = await Agent.resume(agentId, { plugins: [plugin], tools });
+const run = await agent.send("", {
+  toolDecisions: [{ toolUseId: "call_1", behavior: "allow" }], // or { behavior: "deny", message }
+});
+await run.wait(); // the model continues with the results
+```
+
+`allow` dispatches the stored call after the permission rules, floors and hooks run again on its input: an approval answers an `ask` and never overrides a current `deny`, a permission floor or another plugin's veto (the call then gets an error result). `deny` writes an error result with your `message` and runs nothing. An unknown or repeated `toolUseId`, a missing decision, nothing pending, or a stored call with an unsupported `schemaVersion` rejects with `ConfigurationError` (`tool_decision_unknown`, `tool_decision_duplicate`, `tool_decision_missing`, `no_deferred_tool_calls`, `deferred_schema_unsupported`) and leaves the session unchanged. A normal send while calls are pending abandons them; the unanswered calls are left out of the history so the session is not blocked. Local runtime only.
 
 ## `@theokit/sdk/auth`: choosing a provider credential
 
@@ -441,6 +473,27 @@ await b.pump(); // polls for every locally registered agent, delivers in order, 
 - `request` stays local only. With a transport and no local handler it rejects with `A2ARemoteRequestUnsupportedError` (`a2a_remote_request_unsupported`).
 - `pump()` is not automatic: call it when you want waiting messages delivered. A handler failure is reported on diagnostics and does not stop the others.
 - `from` is self-asserted. The transport does not authenticate it; that is the job of a sealed transport.
+
+### HTTP store-and-forward mailbox
+
+For peers that are offline or behind NAT, serve a mailbox from any fetch-style server and point `httpMailboxTransport` at it:
+
+```ts
+import { MessageBus, createHttpMailboxHandler, httpMailboxTransport } from "@theokit/sdk/a2a";
+
+// server: handles POST <prefix>/put and POST <prefix>/take
+const handler = createHttpMailboxHandler({ token: process.env.MAILBOX_TOKEN!, persistPath: "./mailbox.json" });
+
+// client
+const bus = new MessageBus({
+  transport: httpMailboxTransport({ baseUrl: "https://host.example/mailbox", token: process.env.MAILBOX_TOKEN! }),
+});
+```
+
+- Defaults: 100 messages per recipient (a full queue answers 507), 256 KiB body cap (413). Non-POST answers 405 with `allow: POST`; a wrong token answers 401 before the body is read. The token is compared in constant time.
+- `persistPath` writes atomically with mode 0600. A file that fails its shape check is refused at start with `A2AMailboxError` and never overwritten. Handlers sharing one file are not coordinated.
+- `baseUrl` must be `https:`, or `http:` on `localhost`, `127.0.0.1` or `[::1]`; otherwise `ConfigurationError` (`a2a_mailbox_insecure_url`). A non-2xx answer rejects with `A2AMailboxError` carrying `status`.
+- **Shared-token limit:** one token guards the whole mailbox. Any holder can `take` any recipient's queue, draining other peers' messages, and `from` is self-asserted. Share the token only between peers that trust each other.
 
 ## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
 

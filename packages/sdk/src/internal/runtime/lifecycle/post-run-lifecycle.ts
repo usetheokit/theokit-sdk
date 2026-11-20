@@ -36,6 +36,8 @@ import { readRunResolving } from "./throw-on-error-run.js";
 export interface PostRunLifecycleInputs {
   run: Run;
   userText: string;
+  /** The send resumed deferred tool calls: no user message is written, the results are the turn. */
+  resumed?: boolean;
   agentId: string;
   workspaceCwd: string;
   /** SE41 — the session record store (FS default, or an injected external store). */
@@ -175,6 +177,7 @@ export async function runPostRunLifecycle(inputs: PostRunLifecycleInputs): Promi
         persistTurnToTranscript(sessionStore, { cwd: workspaceCwd, agentId, model }, agentId, {
           userText,
           conversation: partial,
+          ...(inputs.resumed === true ? { resumed: true } : {}),
         });
       }
     } catch (cause) {
@@ -223,16 +226,26 @@ export async function runPostRunLifecycle(inputs: PostRunLifecycleInputs): Promi
     {
       userText,
       conversation,
-      autoCompact: {
-        usageTotal: usageForTrigger,
-        // The EFFECTIVE window (after override, clamp and margin) — not the declared one. Swapping for
-        // `contextWindow` here would budget against a number the clamp already rejected.
-        contextWindow: effectiveWindow,
-        summarize: buildDefaultSummarizer({
-          agentModel: model,
-          ...(inputs.apiKey !== undefined ? { apiKey: inputs.apiKey } : {}),
-        }),
-      },
+      ...(inputs.resumed === true ? { resumed: true } : {}),
+      // A run that ended on deferred calls keeps them as the transcript's tail: compacting would
+      // summarize away the calls a person is yet to answer.
+      ...(result.deferredToolCalls !== undefined
+        ? { deferredToolCalls: result.deferredToolCalls }
+        : {}),
+      ...(result.status === "deferred"
+        ? {}
+        : {
+            autoCompact: {
+              usageTotal: usageForTrigger,
+              // The EFFECTIVE window (after override, clamp and margin) — not the declared one. Swapping for
+              // `contextWindow` here would budget against a number the clamp already rejected.
+              contextWindow: effectiveWindow,
+              summarize: buildDefaultSummarizer({
+                agentModel: model,
+                ...(inputs.apiKey !== undefined ? { apiKey: inputs.apiKey } : {}),
+              }),
+            },
+          }),
     },
     onRunEvent !== undefined
       ? () => emitRunEvent(onRunEvent, { type: "compact_boundary", trigger: "auto" })

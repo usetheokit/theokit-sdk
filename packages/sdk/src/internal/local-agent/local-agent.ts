@@ -49,7 +49,6 @@ import {
 } from "../runtime/system-prompt/local-assembly.js";
 import { SystemPromptPipeline } from "../runtime/system-prompt/pipeline.js";
 import { resolveSystemPromptForSend } from "../runtime/system-prompt/system-prompt.js";
-import { validateSendOptions } from "../runtime/validation/validate-agent-options.js";
 import { hydrateSession } from "../session/index.js";
 import { SPAN_NAMES } from "../telemetry/span-names.js";
 import { createTelemetry, type OTelSpan, type TelemetryHandle } from "../telemetry/tracer.js";
@@ -77,7 +76,12 @@ import {
   localAgentRunUntil,
   localAgentStreamToCompletion,
 } from "./local-agent-runtime-extensions.js";
-import { type DispatchRunArgs, executeSendLocked } from "./local-agent-send.js";
+import {
+  type DispatchRunArgs,
+  executeSendLocked,
+  resolveSendOptions,
+  resumedFlag,
+} from "./local-agent-send.js";
 import { registerRunAsTask } from "./local-agent-task-wrap.js";
 import { reportUnknownLocalOptions } from "./local-option-keys.js";
 import {
@@ -310,10 +314,10 @@ export class LocalAgent implements SDKAgent {
     return agentGenerate(this, this.model, apiKey, local, message, options);
   }
 
-  async send(message: string | SDKUserMessage, options: SendOptions = {}): Promise<Run> {
+  async send(message: string | SDKUserMessage, callOptions: SendOptions = {}): Promise<Run> {
     // Per-call tools get the creation-time checks (cloud agents reject them in CloudAgent.send);
     // #381 — with the agent's withhold list. Also validates `doomLoop.window` (#1031).
-    validateSendOptions(options, this.options.withheldBuiltinTools);
+    const options = resolveSendOptions(this.options, callOptions);
     // T0.1: `agent.send` parent span spans the FULL lifecycle (mutex acquire +
     // dispatch + post-run). Child step spans (`agent.send.<step>`) land in T1.7.
     const sendSpan = this._telemetry.startSpan(SPAN_NAMES.AGENT_SEND, {
@@ -441,6 +445,7 @@ export class LocalAgent implements SDKAgent {
       await runPostRunLifecycle({
         run,
         userText,
+        ...resumedFlag(options),
         agentId: this.agentId,
         workspaceCwd: this.workspaceCwd,
         sessionStore: this.sessionStore,
@@ -480,6 +485,7 @@ export class LocalAgent implements SDKAgent {
         pluginManagerCode: this.pluginManagerCode,
         defaultMemoryProviderForLoop: this.defaultMemoryProviderForLoop,
         workspaceCwd: this.workspaceCwd,
+        sessionStore: this.sessionStore,
         ...(this.memoryMirror !== undefined ? { memoryMirror: this.memoryMirror } : {}),
         telemetry: this._telemetry,
         lifecycleAbortController: this.lifecycleAbortController,
@@ -565,6 +571,7 @@ export class LocalAgent implements SDKAgent {
     memoryTools,
     memoryProviderOverride,
     model,
+    resumeCalls,
   }: DispatchRunArgs): Promise<Run> {
     // SDK 2.0 Phase 1 physical Stage 2b — iter 23 KERNEL FLIP:
     // When `memoryProviderOverride` is supplied (env-flag path), inject
@@ -596,6 +603,7 @@ export class LocalAgent implements SDKAgent {
       memoryTools,
       activePreset: this.activePreset(),
       ...(this.activeTurn !== undefined ? { steerQueue: this.activeTurn.steer } : {}),
+      ...(resumeCalls !== undefined ? { resumeCalls } : {}),
     });
   }
 
