@@ -750,6 +750,25 @@ export class CompressionFailedError extends TheokitAgentError {
 }
 
 /**
+ * Thrown by a tool wrapped with `guardTools` when a `pre_tool_call` plugin vetoes the call. The
+ * handler did not run. `pluginMessage` is the veto's message; `message` uses the agent loop's
+ * `Plugin blocked this tool call: <message>` wording. Not retryable.
+ *
+ * @public
+ */
+export class ToolCallBlockedError extends TheokitAgentError {
+  override readonly name: string = "ToolCallBlockedError";
+  readonly toolName: string;
+  readonly pluginMessage: string;
+
+  constructor(toolName: string, pluginMessage: string) {
+    super(`Plugin blocked this tool call: ${pluginMessage}`, { isRetryable: false });
+    this.toolName = toolName;
+    this.pluginMessage = pluginMessage;
+  }
+}
+
+/**
  * Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a
  * variable the profile owns. Lists variable NAMES only, never their values.
  *
