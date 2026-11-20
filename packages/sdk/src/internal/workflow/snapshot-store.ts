@@ -32,7 +32,37 @@ function toListing(s: WorkflowSnapshot): WorkflowSnapshotListing {
   };
 }
 
+/** One kept checkpoint: the snapshot plus, on the first one, what the run started with. */
+export interface WorkflowHistoryRecord {
+  readonly snapshot: WorkflowSnapshot;
+  /** Present on the first checkpoint only: the run input. */
+  readonly runInput?: unknown;
+  /** Present on the first checkpoint only: the shared state before any step ran. */
+  readonly initialState?: unknown;
+}
+
+function serializeRecord(record: WorkflowHistoryRecord): string {
+  try {
+    return JSON.stringify(record);
+  } catch (err) {
+    throw new WorkflowNotSerializableError(
+      record.snapshot.currentStepId,
+      err instanceof Error ? err : new Error(String(err)),
+    );
+  }
+}
+
+/** `{index}-{stepId}.json` → index, or -1 when the name is not a history file. */
+function historyFileIndex(file: string): number {
+  const m = /^(\d+)-.+\.json$/.exec(file);
+  return m === null ? -1 : Number(m[1]);
+}
+
 export interface WorkflowSnapshotStore {
+  /** Keep checkpoint `index` of a run (independent of the latest snapshot). */
+  appendHistory(index: number, record: WorkflowHistoryRecord): Promise<void>;
+  /** Kept checkpoints of a run, oldest first. */
+  loadHistory(runId: string): Promise<ReadonlyArray<WorkflowHistoryRecord>>;
   save(snapshot: WorkflowSnapshot): Promise<void>;
   load(runId: string): Promise<WorkflowSnapshot | undefined>;
   delete(runId: string): Promise<void>;
@@ -43,6 +73,20 @@ export interface WorkflowSnapshotStore {
 
 class InMemoryWorkflowSnapshotStore implements WorkflowSnapshotStore {
   private readonly map = new Map<string, WorkflowSnapshot>();
+  /** Serialized copies, so later mutation of a state object cannot alter a kept checkpoint. */
+  private readonly history = new Map<string, string[]>();
+
+  async appendHistory(index: number, record: WorkflowHistoryRecord): Promise<void> {
+    const serialized = serializeRecord(record);
+    const list = this.history.get(record.snapshot.runId) ?? [];
+    list[index] = serialized;
+    this.history.set(record.snapshot.runId, list);
+  }
+  async loadHistory(runId: string): Promise<ReadonlyArray<WorkflowHistoryRecord>> {
+    return (this.history.get(runId) ?? [])
+      .filter((s) => s !== undefined)
+      .map((s) => JSON.parse(s) as WorkflowHistoryRecord);
+  }
 
   async save(snapshot: WorkflowSnapshot): Promise<void> {
     // Verify serializability even in-memory so behavior is consistent with json backend.
@@ -76,6 +120,36 @@ class JsonFileWorkflowSnapshotStore implements WorkflowSnapshotStore {
 
   private filePath(runId: string): string {
     return join(this.dir, `${runId}.json`);
+  }
+
+  async appendHistory(index: number, record: WorkflowHistoryRecord): Promise<void> {
+    const serialized = serializeRecord(record);
+    const runDir = join(this.dir, record.snapshot.runId);
+    await mkdir(runDir, { recursive: true });
+    await atomicWriteText(
+      join(runDir, `${index}-${record.snapshot.currentStepId}.json`),
+      serialized,
+    );
+  }
+
+  async loadHistory(runId: string): Promise<ReadonlyArray<WorkflowHistoryRecord>> {
+    const runDir = join(this.dir, runId);
+    let files: string[];
+    try {
+      files = await readdir(runDir);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw err;
+    }
+    const ordered = files
+      .map((file) => ({ file, index: historyFileIndex(file) }))
+      .filter((f) => f.index >= 0)
+      .sort((a, b) => a.index - b.index);
+    const records: WorkflowHistoryRecord[] = [];
+    for (const { file } of ordered) {
+      records.push(JSON.parse(await readFile(join(runDir, file), "utf8")) as WorkflowHistoryRecord);
+    }
+    return records;
   }
 
   async save(snapshot: WorkflowSnapshot): Promise<void> {
@@ -166,4 +240,6 @@ export function __resetSnapshotStoresForTests(): void {
   // memoryStore has private map; reset via assignment.
   // biome-ignore lint/suspicious/noExplicitAny: test-only seam
   (memoryStore as any).map.clear();
+  // biome-ignore lint/suspicious/noExplicitAny: test-only seam
+  (memoryStore as any).history.clear();
 }

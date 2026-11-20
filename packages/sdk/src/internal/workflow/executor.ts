@@ -12,8 +12,10 @@ import type {
   Step,
   StepContext,
   StepResult,
+  WorkflowCheckpoint,
   WorkflowEvent,
   WorkflowOptions,
+  WorkflowRerunOptions,
   WorkflowResumeOptions,
   WorkflowRun,
   WorkflowRunOptions,
@@ -38,7 +40,7 @@ import {
 } from "./executor-helpers.js";
 import { mintRunId } from "./run-id.js";
 import { acquireSingleFlight } from "./single-flight.js";
-import { getSnapshotStoreFor } from "./snapshot-store.js";
+import { getSnapshotStoreFor, type WorkflowHistoryRecord } from "./snapshot-store.js";
 import { runAgentStep } from "./step-agent.js";
 import { runBranchStep } from "./step-branch.js";
 import { runDowhileStep } from "./step-dowhile.js";
@@ -178,6 +180,8 @@ interface LoopParams {
   initialStepResults?: ReadonlyArray<StepResult>;
   /** SE28 — sink for step-level stream events (top-level steps). */
   onStepEvent?: (event: WorkflowEvent) => void;
+  /** `keepHistory` — the shared state before any step ran, kept on the first checkpoint. */
+  startState?: unknown;
 }
 
 /** Emit events + branch on one step's outcome. Returns a terminal run, or the new acc. */
@@ -240,7 +244,7 @@ async function checkpointStep<TO>(
   const { options, runId, startedAt } = params;
   if (options.persistence?.durability !== "step") return undefined;
   try {
-    await saveSnapshot({
+    const snapshotParams: SnapshotParams = {
       runId,
       workflowName: options.name,
       currentStepId: step.id,
@@ -249,7 +253,15 @@ async function checkpointStep<TO>(
       state: params.ctx.state,
       options,
       status: "running",
-    });
+    };
+    await saveSnapshot(snapshotParams);
+    if (options.persistence.keepHistory === true) {
+      const index = stepResults.length - 1;
+      await getSnapshotStoreFor(options).appendHistory(index, {
+        snapshot: buildSnapshot(snapshotParams),
+        ...(index === 0 ? { runInput: params.input, initialState: params.startState } : {}),
+      });
+    }
     return undefined;
   } catch (snapErr) {
     return assembleRun<TO>({
@@ -345,7 +357,23 @@ type InternalRunOpts = WorkflowRunOptions & {
   readonly onStepEvent?: (event: WorkflowEvent) => void;
   /** SE29 — shared state restored from a snapshot on resume. */
   readonly restoredState?: unknown;
+  /** `rerunFrom` — the input was validated for the whole workflow already (or does not apply). */
+  readonly skipInputValidation?: boolean;
 };
+
+function loopExtras(
+  options: WorkflowOptions,
+  internal: InternalRunOpts | undefined,
+  seededState: unknown,
+): Partial<LoopParams> {
+  return {
+    ...(internal?.initialStepResults !== undefined
+      ? { initialStepResults: internal.initialStepResults }
+      : {}),
+    ...(internal?.onStepEvent !== undefined ? { onStepEvent: internal.onStepEvent } : {}),
+    ...(options.persistence?.keepHistory === true ? { startState: cloneJson(seededState) } : {}),
+  };
+}
 
 export async function executeWorkflow<TInput, TOutput>(
   options: WorkflowOptions,
@@ -375,7 +403,9 @@ export async function executeWorkflow<TInput, TOutput>(
   const ctx: StepContext = makeStepContext(runId, signal, stateController);
   try {
     // SE27 — validate the whole-workflow input BEFORE any step runs (fail-fast).
-    const inputIssues = validateWorkflowSchema(options.inputSchema, input);
+    const inputIssues = internal?.skipInputValidation
+      ? undefined
+      : validateWorkflowSchema(options.inputSchema, input);
     if (inputIssues !== undefined) {
       return assembleRun<TOutput>({
         runId,
@@ -409,10 +439,7 @@ export async function executeWorkflow<TInput, TOutput>(
       runId,
       startedAt,
       signal,
-      ...(internal?.initialStepResults !== undefined
-        ? { initialStepResults: internal.initialStepResults }
-        : {}),
-      ...(internal?.onStepEvent !== undefined ? { onStepEvent: internal.onStepEvent } : {}),
+      ...loopExtras(options, internal, seededState),
     });
   } finally {
     runSpan.end();
@@ -468,8 +495,16 @@ interface SnapshotParams {
   status?: "running";
 }
 
-async function saveSnapshot(p: SnapshotParams): Promise<void> {
-  const snapshot: WorkflowSnapshot = {
+function cloneJson(value: unknown): unknown {
+  try {
+    return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+  } catch {
+    return undefined; // not serializable: appendHistory reports it with the step id
+  }
+}
+
+function buildSnapshot(p: SnapshotParams): WorkflowSnapshot {
+  return {
     _schemaVersion: p.status === "running" ? 3 : 2, // SE29 — carries `state`; v3 adds `status`
     ...(p.status !== undefined ? { status: p.status } : {}),
     runId: p.runId,
@@ -481,8 +516,10 @@ async function saveSnapshot(p: SnapshotParams): Promise<void> {
     ...(p.state !== undefined ? { state: p.state } : {}),
     suspendedAt: Date.now(),
   };
-  const store = getSnapshotStoreFor(p.options);
-  await store.save(snapshot);
+}
+
+async function saveSnapshot(p: SnapshotParams): Promise<void> {
+  await getSnapshotStoreFor(p.options).save(buildSnapshot(p));
 }
 
 /* ─── Resume ─── */
@@ -556,4 +593,94 @@ export async function resumeWorkflow<TO>(opts: WorkflowResumeOptions): Promise<W
     // executeWorkflow falls back to `options.initialState`.
     ...(snapshot.state !== undefined ? { restoredState: snapshot.state } : {}),
   } as InternalRunOpts);
+}
+
+/* ─── History + rerun ─── */
+
+function toCheckpoint(record: WorkflowHistoryRecord): WorkflowCheckpoint {
+  const { snapshot } = record;
+  return {
+    runId: snapshot.runId,
+    stepId: snapshot.currentStepId,
+    output: snapshot.accumulatedInput,
+    ...(snapshot.state !== undefined ? { state: snapshot.state } : {}),
+    at: snapshot.suspendedAt,
+  };
+}
+
+async function loadHistoryOrThrow(
+  options: WorkflowOptions,
+  runId: string,
+): Promise<ReadonlyArray<WorkflowHistoryRecord>> {
+  const records = await getSnapshotStoreFor(options).loadHistory(runId);
+  if (records.length === 0) throw new WorkflowSnapshotNotFoundError(runId);
+  return records;
+}
+
+export async function workflowHistory(
+  options: WorkflowOptions,
+  runId: string,
+): Promise<ReadonlyArray<WorkflowCheckpoint>> {
+  return (await loadHistoryOrThrow(options, runId)).map(toCheckpoint);
+}
+
+/** Locate the checkpoint before `stepIdx` and carry the earlier history over to `newRunId`. */
+async function forkHistory(
+  options: WorkflowOptions,
+  steps: ReadonlyArray<Step>,
+  records: ReadonlyArray<WorkflowHistoryRecord>,
+  stepIdx: number,
+  newRunId: string,
+): Promise<WorkflowHistoryRecord | undefined> {
+  const before =
+    stepIdx === 0
+      ? undefined
+      : records.find((r) => r.snapshot.currentStepId === steps[stepIdx - 1]?.id);
+  if (stepIdx > 0 && before === undefined) {
+    throw new WorkflowSnapshotNotFoundError(records[0]?.snapshot.runId ?? "");
+  }
+  const store = getSnapshotStoreFor(options);
+  for (const [index, record] of records.slice(0, stepIdx).entries()) {
+    await store.appendHistory(index, {
+      ...record,
+      snapshot: { ...record.snapshot, runId: newRunId },
+    });
+  }
+  return before;
+}
+
+export async function rerunWorkflow<TO>(
+  options: WorkflowOptions,
+  steps: ReadonlyArray<Step>,
+  opts: WorkflowRerunOptions,
+): Promise<WorkflowRun<TO>> {
+  const records = await loadHistoryOrThrow(options, opts.runId);
+  const first = records[0] as WorkflowHistoryRecord;
+  if (first.snapshot.workflowName !== options.name) {
+    throw new WorkflowResumeWorkflowMismatchError(
+      opts.runId,
+      first.snapshot.workflowName,
+      options.name,
+    );
+  }
+  const stepIdx = steps.findIndex((s) => s.id === opts.stepId);
+  if (stepIdx < 0) throw new WorkflowResumeStepNotFoundError(opts.stepId, options.name);
+  const newRunId = mintRunId();
+  const before = await forkHistory(options, steps, records, stepIdx, newRunId);
+  // The step before `stepId` supplies input and state; for the first step, the run's own.
+  const startInput = before === undefined ? first.runInput : before.snapshot.accumulatedInput;
+  const restored = before === undefined ? first.initialState : before.snapshot.state;
+  const run = await executeWorkflow<unknown, TO>(
+    options,
+    steps.slice(stepIdx),
+    opts.input !== undefined ? opts.input : startInput,
+    {
+      signal: opts.signal,
+      runId: newRunId,
+      initialStepResults: before?.snapshot.stepResults ?? [],
+      skipInputValidation: stepIdx > 0,
+      ...(restored !== undefined ? { restoredState: restored } : {}),
+    } as InternalRunOpts,
+  );
+  return { ...run, rerunOf: { runId: opts.runId, stepId: opts.stepId } };
 }

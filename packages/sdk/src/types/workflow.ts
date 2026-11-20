@@ -262,6 +262,8 @@ export interface WorkflowRun<TOutput = unknown> {
   readonly stepResults: ReadonlyArray<StepResult>;
   /** Outcome of each `compensate` call, in call order. Absent when no compensation ran. */
   readonly compensation?: ReadonlyArray<CompensationResult>;
+  /** Set on a run started by `Workflow.rerunFrom()`: the run and step it forked from. */
+  readonly rerunOf?: { readonly runId: string; readonly stepId: string };
 }
 
 /** The outcome of one `compensate` call. @public */
@@ -375,6 +377,32 @@ export interface WorkflowPersistenceOptions {
    * survive a process restart. The run lock stays per process.
    */
   readonly durability?: "suspend" | "step";
+  /**
+   * With `durability: "step"`: keep every checkpoint of a run, not only the latest, so `history()` can
+   * list them and `rerunFrom()` can fork from one. Default false. Requires `durability: "step"`;
+   * `Workflow.create()` throws `ConfigurationError` otherwise. A completed run keeps its history.
+   */
+  readonly keepHistory?: boolean;
+}
+
+/** One kept checkpoint of a run (`keepHistory: true`): the state of the run just after `stepId`. */
+export interface WorkflowCheckpoint {
+  readonly runId: string;
+  /** The top-level step that had just completed. */
+  readonly stepId: string;
+  readonly output: unknown;
+  readonly state?: unknown;
+  readonly at: number;
+}
+
+/** Options of `Workflow.rerunFrom()`. */
+export interface WorkflowRerunOptions {
+  readonly runId: string;
+  /** The top-level step to start again from. */
+  readonly stepId: string;
+  /** Replaces the stored output of the step before `stepId` (or the run input for the first step). */
+  readonly input?: unknown;
+  readonly signal?: AbortSignal;
 }
 
 /**
