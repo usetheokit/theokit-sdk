@@ -2028,6 +2028,10 @@
         "tier": "stable",
         "declaration": "declare class JsonlParseError extends TheokitAgentError {\n    readonly line: number;\n    readonly name = \"JsonlParseError\";\n    constructor(message: string, line: number);\n}"
       },
+      "ListProjectsOptions": {
+        "tier": "stable",
+        "declaration": "interface ListProjectsOptions {\n    readonly baseDir?: string;\n    readonly idScanBytes?: number;\n}"
+      },
       "ListSessionsOptions": {
         "tier": "stable",
         "declaration": "interface ListSessionsOptions {\n    readonly baseDir?: string;\n    readonly idScanBytes?: number;\n}"
@@ -2051,6 +2055,10 @@
       "ProfileConflictError": {
         "tier": "stable",
         "declaration": "declare class ProfileConflictError extends ConfigurationError {\n    readonly name: string;\n    readonly variables: readonly string[];\n    constructor(variables: readonly string[]);\n}"
+      },
+      "ProjectListing": {
+        "tier": "stable",
+        "declaration": "interface ProjectListing {\n    readonly encoded: string;\n    readonly cwd?: string;\n    readonly cwdSource: \"transcript\" | \"unavailable\";\n    readonly cwdConflict?: boolean;\n    readonly sessionCount: number;\n    readonly modifiedAt: Date;\n}"
       },
       "ReadJsonlTailOptions": {
         "tier": "stable",
@@ -2082,7 +2090,7 @@
       },
       "SessionListing": {
         "tier": "stable",
-        "declaration": "interface SessionListing {\n    readonly id: string | undefined;\n    readonly idSource: SessionIdSource;\n    readonly transcript: string;\n    readonly modifiedAt: Date;\n}"
+        "declaration": "interface SessionListing {\n    readonly id: string | undefined;\n    readonly idSource: SessionIdSource;\n    readonly cwd?: string | undefined;\n    readonly transcript: string;\n    readonly modifiedAt: Date;\n}"
       },
       "SessionWriterLease": {
         "tier": "stable",
@@ -2163,6 +2171,10 @@
       "legacyTranscriptPath": {
         "tier": "stable",
         "declaration": "declare function legacyTranscriptPath(baseDir: string, cwd: string, sessionId: string): string;"
+      },
+      "listProjects": {
+        "tier": "stable",
+        "declaration": "declare function listProjects(options?: ListProjectsOptions): Promise<readonly ProjectListing[]>;"
       },
       "listSessions": {
         "tier": "stable",
@@ -2250,6 +2262,10 @@
         "tier": "stable",
         "declaration": "declare class JsonlParseError extends TheokitAgentError {\n    readonly line: number;\n    readonly name = \"JsonlParseError\";\n    constructor(message: string, line: number);\n}"
       },
+      "ListProjectsOptions": {
+        "tier": "stable",
+        "declaration": "interface ListProjectsOptions {\n    readonly baseDir?: string;\n    readonly idScanBytes?: number;\n}"
+      },
       "ListSessionsOptions": {
         "tier": "stable",
         "declaration": "interface ListSessionsOptions {\n    readonly baseDir?: string;\n    readonly idScanBytes?: number;\n}"
@@ -2273,6 +2289,10 @@
       "ProfileConflictError": {
         "tier": "stable",
         "declaration": "declare class ProfileConflictError extends ConfigurationError {\n    readonly name: string;\n    readonly variables: readonly string[];\n    constructor(variables: readonly string[]);\n}"
+      },
+      "ProjectListing": {
+        "tier": "stable",
+        "declaration": "interface ProjectListing {\n    readonly encoded: string;\n    readonly cwd?: string;\n    readonly cwdSource: \"transcript\" | \"unavailable\";\n    readonly cwdConflict?: boolean;\n    readonly sessionCount: number;\n    readonly modifiedAt: Date;\n}"
       },
       "ReadJsonlTailOptions": {
         "tier": "stable",
@@ -2304,7 +2324,7 @@
       },
       "SessionListing": {
         "tier": "stable",
-        "declaration": "interface SessionListing {\n    readonly id: string | undefined;\n    readonly idSource: SessionIdSource;\n    readonly transcript: string;\n    readonly modifiedAt: Date;\n}"
+        "declaration": "interface SessionListing {\n    readonly id: string | undefined;\n    readonly idSource: SessionIdSource;\n    readonly cwd?: string | undefined;\n    readonly transcript: string;\n    readonly modifiedAt: Date;\n}"
       },
       "SessionWriterLease": {
         "tier": "stable",
@@ -2385,6 +2405,10 @@
       "legacyTranscriptPath": {
         "tier": "stable",
         "declaration": "declare function legacyTranscriptPath(baseDir: string, cwd: string, sessionId: string): string;"
+      },
+      "listProjects": {
+        "tier": "stable",
+        "declaration": "declare function listProjects(options?: ListProjectsOptions): Promise<readonly ProjectListing[]>;"
       },
       "listSessions": {
         "tier": "stable",

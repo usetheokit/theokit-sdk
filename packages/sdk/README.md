@@ -594,6 +594,20 @@ export async function callback(request: Request) {
 
 `DEFAULT_PROVIDER_CANDIDATES` is the one default order: `openrouter` (`OPENROUTER_API_KEY`), `anthropic` (`ANTHROPIC_API_KEY`), `openai` (`OPENAI_API_KEY`). It matches the chain `@theokit/agents` already uses. Errors are `ProviderCredentialError`; messages name variables, never values.
 
+## `@theokit/sdk/persistence`: listing projects
+
+`listSessions(cwd)` lists one project's sessions. `listProjects({ baseDir?, idScanBytes? })` lists every `projects/<encoded>/` folder under `baseDir` (default: the transcript root, which honours `THEOKIT_HOME`) and says which working directory each belongs to. The folder name cannot be inverted (`/a-b` and `/a/b` encode the same), so the `cwd` is read from a transcript record, from the first `idScanBytes` (default 65536, must be a positive integer) of each `.jsonl` file.
+
+```ts
+import { listProjects } from "@theokit/sdk/persistence";
+
+for (const p of await listProjects()) {
+  // p.encoded, p.cwd, p.cwdSource ("transcript" | "unavailable"), p.cwdConflict, p.sessionCount, p.modifiedAt
+}
+```
+
+When no `cwd` could be read (an empty transcript, say) `cwdSource` is `"unavailable"` and `cwd` is absent. When transcripts in one folder name different cwds, `cwd` comes from the newest and `cwdConflict` is `true`. An absent `projects/` directory gives `[]`. The call only reads. `SessionListing` also carries `cwd`, from the same bounded scan.
+
 ## `@theokit/sdk/persistence`: named profiles
 
 `resolveProfile(name, { profilesRoot?, appDirectories? })` maps a profile name to `<profilesRoot>/<name>` (default `getProfilesRoot()`, `~/.theokit/profiles`) and returns `directory`, `directories` and `env` (`THEOKIT_HOME` and `THEOKIT_AUTH_HOME` set to the profile directory, plus one entry per `appDirectories` item, joined under the profile). Names must match `^[a-z0-9][a-z0-9-]{0,15}$`, otherwise `ConfigurationError` code `profile_name_invalid` (the name is not echoed). App directory values must be relative and free of `..`. It touches no disk.

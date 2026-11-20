@@ -22,6 +22,7 @@ const REQUIRED_PRIMITIVES = [
   "resolveProfile",
   "applyProfile",
   "getProfilesRoot",
+  "listProjects",
   "ProfileConflictError",
 ] as const;
 
