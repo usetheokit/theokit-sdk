@@ -28,6 +28,7 @@ import type { TelemetryHandle } from "../telemetry/tracer.js";
 import { consumePending } from "./local-agent-invalidate.js";
 import { applyPreUserSendHook, wrapRunWithPostReplyHook } from "./local-agent-memory-hooks.js";
 import { persistMemoryFactIfWritePrompt } from "./local-agent-runtime-extensions.js";
+import { runWithModelFallback } from "./model-fallback-run.js";
 
 /**
  * Inputs for the `executeSendLocked` helper extracted from LocalAgent.sendLocked.
@@ -60,6 +61,8 @@ export interface SendLockedInputs {
   ) => Promise<string | undefined>;
   assembleSystemPromptForSend: (request: SendAssemblyRequest) => Promise<string | undefined>;
   dispatchRun: (args: DispatchRunArgs) => Promise<Run>;
+  /** The agent's model after this send's override, for naming the primary fallback attempt. */
+  currentModel?: () => ModelSelection | undefined;
 }
 
 /**
@@ -97,6 +100,8 @@ export interface DispatchRunArgs {
   readonly priorMessages: ReadonlyArray<{ role: "user" | "assistant"; text: string }>;
   readonly memoryTools: ReadonlyArray<MemoryToolSpec> | undefined;
   readonly memoryProviderOverride?: MemoryProvider | undefined;
+  /** Model for this one dispatch (`modelFallback` attempts); the agent's own model when absent. */
+  readonly model?: ModelSelection | undefined;
 }
 
 /**
@@ -236,7 +241,7 @@ export async function executeSendLocked(
     ...options,
     signal: anySignal([options.signal, inputs.lifecycleAbortController.signal]),
   };
-  const run = await inputs.dispatchRun({
+  const dispatchArgs: DispatchRunArgs = {
     message: adaptedMessage,
     options: composedOptions,
     systemPrompt: assembledSystemPrompt,
@@ -244,7 +249,8 @@ export async function executeSendLocked(
     priorMessages,
     memoryTools,
     memoryProviderOverride: effectiveMemoryProvider,
-  });
+  };
+  const run = await dispatchWithFallback(inputs, dispatchArgs);
   // SE24 — output processors wrap INNER (they redact/block the model text) so the
   // post_assistant_reply memory hook observes the FINAL (processed) reply.
   const outputProcessors = inputs.options.outputProcessors;
@@ -271,6 +277,22 @@ export async function executeSendLocked(
     completionCheck: options.completionCheck,
     onRunEvent: options.onRunEvent,
     deps: buildCompletionCheckDeps(),
+  });
+}
+
+/**
+ * One dispatch, or — when `AgentOptions.modelFallback` lists models — a single run that reruns the
+ * same prepared turn (same user message, same prior messages) on the next model after a failure
+ * before output. Each attempt's model is per-dispatch, so the agent's own model is untouched.
+ */
+function dispatchWithFallback(inputs: SendLockedInputs, args: DispatchRunArgs): Promise<Run> {
+  const models = inputs.options.modelFallback?.models ?? [];
+  if (models.length === 0) return inputs.dispatchRun(args);
+  return runWithModelFallback({
+    primaryModel: inputs.currentModel?.()?.id ?? "primary",
+    models,
+    signal: args.options.signal,
+    dispatch: (model) => inputs.dispatchRun(model === undefined ? args : { ...args, model }),
   });
 }
 
