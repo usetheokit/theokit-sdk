@@ -8,10 +8,9 @@ import { ConfigurationError, NetworkError } from "./errors.js";
 import {
   createMcpClient,
   type McpClient,
-  type McpTool,
-  type McpToolCallResult,
   SUPPORTED_MCP_PROTOCOL_VERSIONS,
 } from "./internal/mcp/client.js";
+import type { McpTool, McpToolCallResult } from "./internal/mcp/rpc-helpers.js";
 import type { McpServerConfig } from "./types/mcp.js";
 
 export type { McpTool, McpToolCallResult };
