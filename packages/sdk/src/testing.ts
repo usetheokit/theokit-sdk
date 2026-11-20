@@ -1,3 +1,6 @@
+/**
+ * SessionStore conformance cases for store authors: `@theokit/sdk/testing`.
+ */
 export {
   type SessionStoreConformanceCase,
   type SessionStoreFactory,
