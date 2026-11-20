@@ -22,7 +22,10 @@ const MAX_MD_FILE_BYTES = 1_048_576; // 1 MB
 import type { z } from "zod";
 
 import { ConfigurationError } from "../../errors.js";
-import { type FrontmatterSplit, splitFrontmatter as splitFences } from "../runtime/context/frontmatter.js";
+import {
+  type FrontmatterSplit,
+  splitFrontmatter as splitFences,
+} from "../runtime/context/frontmatter.js";
 import { parseSimpleYaml } from "../runtime/context/yaml-frontmatter.js";
 
 export interface MarkdownEntity<T> {

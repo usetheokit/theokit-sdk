@@ -2,13 +2,13 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { ConfigurationError } from "../../../errors.js";
-import { splitFrontmatter } from "../context/frontmatter.js";
 import type { AgentDefinition } from "../../../types/agent.js";
 import type { ModelSelection } from "../../../types/agent-prims.js";
 import { diag } from "../../diagnostics.js";
 import { projectConfigRoots } from "../../persistence/paths.js";
 import type { CompatSourceDeclaration } from "../compat/foreign-config-sources.js";
 import { readWorkspaceDir } from "../config/workspace-dir.js";
+import { splitFrontmatter } from "../context/frontmatter.js";
 import { type FrontmatterValue, parseSimpleYaml } from "../context/yaml-frontmatter.js";
 import { pluginBundleDirs } from "../plugin-loader/plugin-bundles.js";
 

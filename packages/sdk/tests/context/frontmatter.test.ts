@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ConfigurationError } from "../../src/errors.js";
 import { parseFrontmatterYaml, splitFrontmatter } from "../../src/context/index.js";
+import { ConfigurationError } from "../../src/errors.js";
 
 describe("splitFrontmatter", () => {
   it("gives equal yaml and body for LF and CRLF", () => {
