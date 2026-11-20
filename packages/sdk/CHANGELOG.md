@@ -1,5 +1,57 @@
 # Changelog
 
+## 5.30.0
+
+### Minor Changes
+
+- [#1257](https://github.com/usetheokit/theokit-sdk/pull/1257) [`180e0b1`](https://github.com/usetheokit/theokit-sdk/commit/180e0b14dd195acada484796077cbf7c3edb0e9a) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Export narrow `AgentLike` and `RunLike` types that `SDKAgent` and `Run` satisfy, for wrappers, fakes and decorators ([#1018](https://github.com/usetheokit/theokit-sdk/issues/1018)).
+
+### Patch Changes
+
+- [#1256](https://github.com/usetheokit/theokit-sdk/pull/1256) [`42ce590`](https://github.com/usetheokit/theokit-sdk/commit/42ce59006344bca2506452661be593ca370f3893) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Regenerate the harness capability map for the new `@theokit/sdk-tools` XWD exports.
+
+## 5.29.0
+
+### Minor Changes
+
+- [#1272](https://github.com/usetheokit/theokit-sdk/pull/1272) [`2290e6a`](https://github.com/usetheokit/theokit-sdk/commit/2290e6aa592ebc8436b5a40a94f5f7bc05d5da0b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `pre_tool_call` plugins receive the run's conversation: `AgentOptions.conversation` and `SendOptions.conversation` (send wins) take a `ConversationRef` (`platform`, `channelId`, `sessionKey`), exposed as `PreToolCallContext.conversation` and omitted when none is declared ([#1032](https://github.com/usetheokit/theokit-sdk/issues/1032)).
+
+- [#1285](https://github.com/usetheokit/theokit-sdk/pull/1285) [`3522f95`](https://github.com/usetheokit/theokit-sdk/commit/3522f95546798a72bb7236f65ec23b97af524098) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Export synchronous `validateCron` and `validateCronTimezone` from `@theokit/sdk/cron`.
+
+- [#1278](https://github.com/usetheokit/theokit-sdk/pull/1278) [`438c394`](https://github.com/usetheokit/theokit-sdk/commit/438c394f817611083b975dadaeddaf56044e5865) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `window` and `windowRepeatLimit` to `DoomLoopThresholds`: a sliding-window repeat limit that blocks identical tool calls (same tool, same arguments) which alternate with others, so A-B-A-B loops no longer slip past the consecutive-only guard ([#1031](https://github.com/usetheokit/theokit-sdk/issues/1031)).
+
+- [#1268](https://github.com/usetheokit/theokit-sdk/pull/1268) [`86040fa`](https://github.com/usetheokit/theokit-sdk/commit/86040fa03c4914f873550e7a6eefe37c9f8ffca8) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `Workflow.resume` and `workflowResumeTool` accept a committed workflow with a typed input without a cast. `Workflow.resume` gains a second type parameter `TI`, inferred from `workflow`.
+
+## 5.28.0
+
+### Minor Changes
+
+- [#1263](https://github.com/usetheokit/theokit-sdk/pull/1263) [`4df47f4`](https://github.com/usetheokit/theokit-sdk/commit/4df47f40ce8602aa1764918cf43bc0c88c88907b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `Agent.lease` and `AgentLease`: a hold on a live agent so the registry's LRU, idle sweep and `evict` never dispose it while a turn is running ([#1016](https://github.com/usetheokit/theokit-sdk/issues/1016)).
+
+### Patch Changes
+
+- [#1274](https://github.com/usetheokit/theokit-sdk/pull/1274) [`5c7fcd1`](https://github.com/usetheokit/theokit-sdk/commit/5c7fcd140dbdad3c7ddb1109f2f2e80e9f51d2a8) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Correct the export count in the generated capability map to include `AgentLease`.
+
+## 5.27.0
+
+### Minor Changes
+
+- [#1252](https://github.com/usetheokit/theokit-sdk/pull/1252) [`83b8dc7`](https://github.com/usetheokit/theokit-sdk/commit/83b8dc7b44ff3c4f3bfb5eb93f56489401cea9c3) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - DockerSandbox: `readOnlyWorkspace` mounts the workspace `:ro`, `labels` adds `--label` to every container (invalid ones throw `invalid_docker_label`), and `defaultDockerRunner` is exported from `@theokit/sdk/sandbox` ([#1037](https://github.com/usetheokit/theokit-sdk/issues/1037)).
+
+### Patch Changes
+
+- [#1205](https://github.com/usetheokit/theokit-sdk/pull/1205) [`38306ab`](https://github.com/usetheokit/theokit-sdk/commit/38306abda42569437660b91cd7d3b34d78d9fb2e) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `LanceIndex.removeFacts` now runs after any `addFacts` already in flight on the same storage path, so a concurrent sync can no longer restore a removed fact. Chunks of a split fact are linked through a new `fact_id` column (default: the row's own `id`). An older table gets the column on open; its existing rows keep `fact_id` NULL, no parent link is guessed for them, and they are removed by exact id only. The new optional second argument `{ namespace, source }` removes every row linked to the fact, limited to that namespace and source; without it, removal is the exact-id deletion it was.
+  
+  There is still no fact-forget call site in the SDK that uses this; wiring one in is separate work.
+
+## 5.26.1
+
+### Patch Changes
+
+- [#1234](https://github.com/usetheokit/theokit-sdk/pull/1234) [`03b648a`](https://github.com/usetheokit/theokit-sdk/commit/03b648a87245a6a37e549358cedad49027c1638a) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Agent loop: a forced call to an MCP tool outside the offered catalog is refused without reaching the server, `mcp_` names are never case-repaired onto another tool, and MCP name sanitization lives in one helper ([#1208](https://github.com/usetheokit/theokit-sdk/issues/1208)).
+
+- [#1244](https://github.com/usetheokit/theokit-sdk/pull/1244) [`b3b0d8f`](https://github.com/usetheokit/theokit-sdk/commit/b3b0d8fbf8e4904115db41a15ef5640f4dbaad1b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Release verification waits one more backoff rung before calling an accepted version unpublished.
+
 ## 5.26.0
 
 ### Minor Changes

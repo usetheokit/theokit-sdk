@@ -166,6 +166,9 @@ function buildLoopInputs(
           permissionMode: options.sendOptions.permissionMode ?? options.agentOptions.permissionMode,
         }
       : {}),
+    ...((options.sendOptions.conversation ?? options.agentOptions.conversation) !== undefined
+      ? { conversation: options.sendOptions.conversation ?? options.agentOptions.conversation }
+      : {}),
     ...(options.priorMessages !== undefined ? { priorMessages: options.priorMessages } : {}),
     ...(options.memoryTools !== undefined && options.memoryTools.length > 0
       ? { memoryTools: options.memoryTools }

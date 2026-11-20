@@ -6,12 +6,12 @@
  * @internal
  */
 
-import type { SDKAgent } from "@theokit/sdk";
+import type { AgentLike } from "@theokit/sdk";
 
 /** One live ACP session: the agent serving it, its cwd, its abort handle, and access timestamps. */
 export interface AcpSession {
   readonly sessionId: string;
-  readonly agent: SDKAgent;
+  readonly agent: AgentLike;
   readonly createdAt: number;
   lastUsedAt: number;
   /**

@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1409 export(s) across 57 entry point(s).
+1459 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -67,6 +67,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AgentDescription` | interface | theokit#123 — the read-only introspection of a registered agent, returned by `Agent.describe()`.  |
 | `AgentDisposedError` | class | T1.6 — Thrown when a consumer calls `agent.send()` or any method on an agent that has already been `dispose()`d.  |
 | `AgentFactory` | class | Handle returned by {@link createAgentFactory } .  |
+| `AgentLease` | interface | A hold on a live agent returned by {@link Agent.lease } . |
+| `AgentLike` | interface | Narrow agent port: the part of `SDKAgent` a wrapper, test double or failover decorator needs.  |
 | `AgentMemory` | interface | Direct memory API exposed on `SDKAgent.memory`.  |
 | `AgentOperation` | type | An operation a consumer may ask an {@link SDKAgent } about via `supports()`.  |
 | `AgentOperationOptions` | interface | Options for archive/unarchive/delete. |
@@ -130,6 +132,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ContextSnapshot` | interface | Result of `agent.context.snapshot()`.  |
 | `ContextSource` | interface | A single context source resolved by the context manager. |
 | `ContextSourceStatus` | type | Inclusion state of a single context source in a {@link ContextSnapshot } . |
+| `ConversationRef` | interface | Where a run's conversation lives, as the caller declares it.  |
 | `ConversationStep` | type | A single step inside an agent turn, discriminated by `type`: an assistant message, a tool call, the tool result that pairs with it, or a thinking block.  |
 | `ConversationTurn` | type | Structured per-turn view of a run. |
 | `CostBreakdown` | interface | Cost breakdown attached to `RunResult.cost`.  |
@@ -186,12 +189,14 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `evaluateBlastRadius` | function | Decide one declared action against the scopes the operator granted.  |
 | `EventBus` | class | A typed publish/subscribe bus, parameterised by a map of event name to payload type.  |
 | `EvictReason` | type | Live-agent cache for production deploys (Production-Readiness #2, ADRs D307-D310).  |
+| `ExactValueMask` | interface | Exact-value masker returned by {@link Security.createMask } .  |
 | `extractRawId` | function | Extract the raw provider id from a `MemoryId`, enforcing that the prefix matches `expectedAdapterId`.  |
 | `fingerprintHookGate` | function | A gate that approves only hooks whose fingerprint is listed.  |
 | `fn` | function | Build a `FnStep`.  |
 | `foldLayers` | function | Combine `entries` into one record.  |
 | `ForkOptions` | interface | Caller-supplied fork configuration.  |
 | `ForkResult` | interface | Outcome of a fork run. |
+| `GeneralPlugin` | type | The `"general"` member of {@link Plugin } . |
 | `GeneratedImage` | interface | Result of {@link generateImage } . |
 | `generateImage` | function | Generate one image.  |
 | `GenerateImageOptions` | interface | Options for {@link generateImage } . |
@@ -209,10 +214,15 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `GoalOptions` | interface | Per-call configuration for `Agent.runUntil`. |
 | `GoalResult` | interface | Return value of the `runUntil` async generator.  |
 | `guardSessionDestruction` | function | Throw unless `sessionId` is safe to destroy. |
+| `guardTools` | function | Wrap each tool so its handler runs the `pre_tool_call` chain first.  |
+| `GuardToolsContext` | interface | Identity of the run a guarded tool call belongs to. |
 | `HookApprovalGate` | interface | #631 — a consumer's decision point before this package spawns a hook.  |
 | `HookApprovalRequest` | interface | #631 — what the consumer is shown when asked to approve a hook.  |
+| `HookContextMap` | interface | The context each hook's handler receives, keyed by {@link HookName } .  |
 | `hookFingerprint` | function | The hex sha256 of `sourceEvent`, `command` and `timeoutMs`, one per line (`${sourceEvent}\n${command}\n${timeoutMs}`).  |
+| `HookHandler` | type | The untyped hook handler shape, `(ctx: unknown) => unknown`.  |
 | `HookName` | type | The fixed set of points a `"general"` plugin may attach to through `PluginContext.on`.  |
+| `HookResultMap` | interface | What each hook's handler may return.  |
 | `ImageBlock` | interface | SE7 — a base64-encoded image block a tool can hand back as (part of) its result or its `ToolError`.  |
 | `inferApiMode` | function | Guess which usage shape a provider reports, from its name alone.  |
 | `InlineSkill` | interface | A code-defined skill (from {@link createSkill } ) — a {@link Skill } plus its inline body. |
@@ -234,6 +244,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `LayerOrderError` | class | Raised when a declared layer chain is not strictly ascending. |
 | `LayerValues` | interface | A declared layer together with the values it supplies.  |
 | `ListAgentsOptions` | type | Options for `Agent.list()`.  |
+| `listMemoryFacts` | function | Every memory in the built-in store, in the order the agent reads them: per-memory files first (oldest first), then legacy `## Facts` bullets.  |
 | `listProjectHooks` | function | Every command hook the agent would load for `cwd`, grouped by event (events in the merged config's order, and within an event the commands in the order the runtime merges the files).  |
 | `ListResult` | interface | Paginated list shape. |
 | `ListRunsOptions` | interface | Options for `Agent.listRuns()`.  |
@@ -260,7 +271,10 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryAdapterErrorCode` | type | Finite error codes specific to memory adapter operations (ADR D141). |
 | `MemoryContext` | interface | Portable identity context.  |
 | `MemoryFact` | interface | A single memory fact returned by `recall` or `get`. |
+| `MemoryFactAmbiguousError` | class | Thrown by `removeMemoryFact` when the id names entries in more than one memory root (the same per-memory file name in the write root and the Claude Code CLI's store).  |
+| `MemoryFactNotRemovableError` | class | Thrown by `removeMemoryFact` when the entry exists but lives outside the write root, for example in the Claude Code CLI's store.  |
 | `MemoryId` | type | Branded provider memory ID.  |
+| `MemoryMirrorOptions` | interface | How the built-in fact store is mirrored to memory adapters.  |
 | `MemoryProvider` | interface | The kernel-facing contract.  |
 | `MemoryProviderAgentRef` | interface | The agent identity a `MemoryProvider` is given — the whole of it.  |
 | `MemoryProviderFactory` | type | Memory provider factory shape (ADR D141).  |
@@ -341,6 +355,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ReapPlanInput` | interface | Everything `planReaping` needs: the candidates, the policy, and the current time.  |
 | `RecordSessionSummaryArgs` | interface | Arguments for `MemoryProvider.recordSessionSummary(...)` (SDK 2.0 Phase 1 physical Stage 3 prep — iter 27).  |
 | `recordWiring` | function | Record what a build actually wired, per capability.  |
+| `removeMemoryFact` | function | Remove one memory by `id`: the per-memory file and its `MEMORY.md` index line, or one legacy bullet inside `## Facts`.  |
 | `ResolvedProviderRoute` | interface | Resolved routing decision returned by `agent.providers.routes()`.  |
 | `resolveTrustPosture` | function | Decide what a project directory is allowed to switch on.  |
 | `RetentionPolicy` | interface | How long artifacts are kept and how many always survive.  |
@@ -353,9 +368,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `RunEventSink` | type | Receives every {@link RunEvent } a run emits, in emission order.  |
 | `RunGitInfo` | interface | Git metadata attached to cloud runs. |
 | `runGoalLoop` | function | Run the goal-driven loop (`send → judge → continuation`) over ANY `send → wait` surface.  |
+| `RunLike` | interface | Narrow run port: the part of {@link import ("./run.js").Run } a wrapper, fake or decorator needs.  |
 | `RunMemoryDegradedEvent` | interface | A memory stage failed and the run continued without it.  |
 | `RunOperation` | type | Operations that may or may not be supported on a given `Run`, or on its parent agent.  |
 | `RunPermissionDeniedEvent` | interface | A tool call was DENIED before dispatch — by the permission gate/plugin (SE1), an operator file-hook `preToolUse`, or the fork tool-whitelist.  |
+| `runPreToolCall` | function | Run the `pre_tool_call` chain of `plugins` for one call.  |
 | `RunRateLimitEvent` | interface | The provider returned a rate-limit (HTTP 429); the loop will back off + retry. |
 | `RunResult` | interface | Terminal result of a {@link Run } . |
 | `RunStatus` | type | Lifecycle status of a {@link Run } . |
@@ -395,7 +412,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SDKUser` | interface | Owner: `internal/catalog/` (2 of 3 importers).  |
 | `SDKUserMessage` | interface | Structured form of `agent.send()`'s message argument.  |
 | `SDKUserMessageEvent` | interface | Echo of the user prompt for this run. |
-| `Security` | class | Public security namespace (T2.1, ADR D68).  |
+| `Security` | class | Secret masking at consumer output boundaries: pattern-based `redact` / `addPattern` and exact-value `createMask`. |
 | `SecurityFloorInput` | interface | The vocabulary, the layer names, and the values to resolve.  |
 | `SendOptions` | interface | Per-send overrides and callbacks.  |
 | `SessionLifecycleContext` | interface | #65 — context for the `on_session_start` / `on_session_end` hooks.  |
@@ -428,6 +445,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SquadRunOptions` | interface | Options for {@link Squad.run } . |
 | `StepCompletedUpdate` | interface | Conversation step completed. |
 | `StepStartedUpdate` | interface | Conversation step started. |
+| `StoredMemoryFact` | interface | One memory in the built-in markdown store. |
 | `StreamObjectError` | class | Error thrown by {@link Agent.streamObject } when the model refuses to call the synthetic `output` tool or when all retries fail to produce a schema-valid object.  |
 | `StreamObjectEvent` | type | Event emitted by {@link Agent.streamObject } .  |
 | `StreamObjectOptions` | interface | Options accepted by {@link Agent.streamObject } .  |
@@ -469,6 +487,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `TokenUsage` | interface | Token usage observed during a Run.  |
 | `Tool` | class | SE36 — the uniform `X.create()` namespace API.  |
 | `ToolCall` | interface | Single tool call event.  |
+| `ToolCallBlockedError` | class | Thrown by a tool wrapped with `guardTools` when a `pre_tool_call` plugin vetoes the call.  |
 | `ToolCallCompletedUpdate` | interface | Tool call completed. |
 | `ToolCallDecision` | interface | A person's answer to one deferred tool call, keyed by `toolUseId`.  |
 | `ToolCallStartedUpdate` | interface | Tool call started — args committed. |
@@ -488,6 +507,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `TrustPostureInput` | interface | What the decision is made from: the capability vocabulary, a way to read the operator's record, and an optional blanket override.  |
 | `TrustSource` | type | Where the decision came from. |
 | `TurnEndedUpdate` | interface | Turn ended with usage summary. |
+| `TypedHookHandler` | type | A handler for hook `H`, with the context and return value checked.  |
 | `UngatedCapabilityError` | class | Raised when a recorded capability has no entry in the gate. |
 | `UnicodeNormalizer` | class | SE36 — `UnicodeNormalizer.create` replaces `createUnicodeNormalizer` (ADR 0015). |
 | `UnicodeNormalizerOptions` | interface | Options for {@link createUnicodeNormalizer } . |
@@ -948,12 +968,15 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `A2AMessage` | interface | One message as a handler receives it.  |
 | `A2APeerNotRegisteredError` | class | Thrown by {@link MessageBus.send } and {@link MessageBus.request } when `to` has no registered handler.  |
+| `A2ARemoteRequestUnsupportedError` | class | Thrown by {@link MessageBus.request } when `to` has no local handler and the bus has a transport.  |
 | `A2ARequestTimeoutError` | class | A peer did not answer a {@link MessageBus.request } within its timeout.  |
+| `A2ATransport` | interface | A2ATransport — the seam that lets a {@link MessageBus } reach agents in other processes.  |
 | `AgentMailbox` | class | One agent's endpoint on a {@link MessageBus } : registers `agentId` on construction and forwards inbound messages to the handler installed by `onMessage`.  |
 | `DelegationCompleteContext` | interface | Context passed to {@link SubAgentSpec.onDelegationComplete } after the child settles. |
 | `DelegationCompleteDecision` | interface | Decision returned from {@link SubAgentSpec.onDelegationComplete } . |
 | `DelegationStartContext` | interface | Context passed to {@link SubAgentSpec.onDelegationStart } before the child runs. |
 | `DelegationStartDecision` | type | Decision returned from {@link SubAgentSpec.onDelegationStart } .  |
+| `inMemoryTransport` | function | A transport backed by one shared in-memory queue per recipient.  |
 | `MaxDelegationDepthError` | class | Raised by `SubAgent.create(spec, parentDepth)` when `parentDepth + 1` exceeds `spec.maxDelegationDepth` (default 3).  |
 | `MessageBus` | class | In-process router that delivers A2A messages between agents keyed by string id.  |
 | `MessageFilterArgs` | interface | Arguments passed to {@link SubAgentSpec.messageFilter } (SE12). |
@@ -1068,6 +1091,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | Symbol | Kind | Summary |
 |---|---|---|
 | `Cron` | class | Static façade for scheduling Theo agent runs on a cron expression. |
+| `validateCron` | function | Synchronously validate a cron expression with the same rules `Cron.create` applies. |
+| `validateCronTimezone` | function | Synchronously validate an IANA timezone name with the same rules `Cron.create` applies. |
 
 ## `@theokit/sdk/errors`
 
@@ -1090,12 +1115,16 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `KnownAgentRunErrorCode` | type | T1.1 — closed literal union for `AgentRunError.code`.  |
 | `MemoryAdapterError` | class | Error raised by `@theokit-memory-*` adapters.  |
 | `MemoryAdapterErrorCode` | type | Finite error codes specific to memory adapter operations (ADR D141). |
+| `MemoryFactAmbiguousError` | class | Thrown by `removeMemoryFact` when the id names entries in more than one memory root (the same per-memory file name in the write root and the Claude Code CLI's store).  |
+| `MemoryFactNotRemovableError` | class | Thrown by `removeMemoryFact` when the entry exists but lives outside the write root, for example in the Claude Code CLI's store.  |
 | `NetworkError` | class | Service unavailable, timeout, transport-level failure. |
+| `ProfileConflictError` | class | Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a variable the profile owns.  |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
 | `StructuredOutputError` | class | The failure contract shared by `generateObject` and `streamObject`.  |
 | `StructuredOutputErrorCode` | type | Why a structured-output call failed.  |
 | `TaskNotFoundError` | class | Thrown when `Task.subscribe(id)` is called for a task that has been evicted, never submitted, or evicted after retention (D373). |
 | `TheokitAgentError` | class | Base class for all errors thrown by `@theokit/sdk`.  |
+| `ToolCallBlockedError` | class | Thrown by a tool wrapped with `guardTools` when a `pre_tool_call` plugin vetoes the call.  |
 | `UnknownAgentError` | class | Catch-all for unclassified server or runtime errors. |
 | `UnsupportedBudgetOperationError` | class | Thrown when a budget operation is requested on a `CloudAgent` (D388).  |
 | `UnsupportedRunOperationError` | class | Thrown when a {@link Run } or agent operation is not available on the current runtime.  |
@@ -1220,6 +1249,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `EmbeddingIdentity` | interface | Identity of the embedding provider, model and dimension that produced the stored vectors. |
 | `embedMissingChunks` | function | Embed every chunk that doesn't yet have a vector. |
 | `entryHash` | function | A stable hash of one entry's counts, so two sweeps that did the same work read as the same work.  |
+| `FactEntryInfo` | interface | What {@link listFactEntries } reports for one stored memory. |
+| `factsBlockRange` | function | Offsets of the text between the `## Facts` heading and the next h1/h2 heading (or the end). |
 | `identityMatches` | function | Whether two embedding identities describe the same vector space. |
 | `indexBudgetWarning` | function | What to say about an index that the interop partner will truncate, or `undefined` when there is nothing true to say.  |
 | `IndexManager` | class | The default memory index: SQLite for storage, FTS5 for text matching, and sqlite-vec for vectors when an embedding runtime is supplied.  |
@@ -1232,6 +1263,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `LanceSearchOptions` | interface | Filters for `LanceIndex.search`.  |
 | `lanceStoragePath` | function | `<memory root>/lance`.  |
 | `lightPhase` | function | Light phase — drop facts whose embedding is too similar to one already kept.  |
+| `listFactEntries` | function | Every stored memory with an id, in the order {@link readFactsFromMarkdown } returns them.  |
 | `loadSqliteVecExtension` | function | Load the `sqlite-vec` extension into an opened SQLite connection.  |
 | `MEMORY_INDEX_MAX_BYTES` | const | The byte limit the Claude Code CLI applies when it loads a `MEMORY.md`, whichever it reaches first.  |
 | `MEMORY_INDEX_MAX_LINES` | const | The line limit the Claude Code CLI applies when it loads a `MEMORY.md`.  |
@@ -1268,7 +1300,10 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `readFacts` | function | Every memory in the store, honouring the `enabled` gate on {@link MemoryConfig } : when memory is disabled the call resolves to `[]` without touching disk.  |
 | `readFactsFromMarkdown` | function | Every memory in the store: the per-memory files, plus any legacy `## Facts` bullets still in `MEMORY.md`.  |
 | `ReadFileOptions` | interface | Options for a bounded read of a memory file. |
+| `readLegacyEntriesIn` | function | The legacy `## Facts` bullets of one root's `MEMORY.md`, each with the fact it reads as. |
+| `readMemoryEntriesIn` | function | The per-memory files of one root, oldest first, each with the fact it reads as. |
 | `readMemoryFileBounded` | function | Read a memory file, limited to a bounded range of lines. |
+| `removeFactEntry` | function | Remove one stored memory from the write root: the per-memory file and its `MEMORY.md` index line, or one legacy bullet inside `## Facts`.  |
 | `remPhase` | function | REM phase — single-link agglomerative clustering by cosine similarity. |
 | `renderDiaryEntry` | function | One diary entry as the markdown that gets appended: a timestamp heading, the short entry hash, and the counts the sweep produced.  |
 | `resetMigrationStateForTests` | function | Test-only — reset the in-process migration flag map. |
@@ -1284,6 +1319,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SqliteFactRow` | interface | One row of the SQLite memory index, as the Lance migration reads it: the chunk plus the tenant columns the target table needs.  |
 | `SyncResult` | interface | Outcome of one index sync pass. |
 | `TenantContext` | interface | T4.9 — Tenant isolation context for cache key derivation.  |
+| `unlessMissing` | function | The read's value, or `undefined` when there is nothing there to read: the path does not exist, or it is a directory (a `*.md` directory is not a fact either).  |
 | `upsertEmbedding` | function | Insert or replace the embedding stored for a chunk. |
 | `VALID_BACKENDS` | const | Valid backend identifiers — runtime guard against TS-narrowing escapes (EC-1). |
 | `VectorHitRow` | interface | One nearest-neighbour row returned by a vector search. |
@@ -1340,6 +1376,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `addPattern` | function | Register an extra pattern for `redactSecrets` to mask, on top of the built-in vendor set.  |
 | `assertNoSymlinkEscape` | function | Assert that `path` — including every directory component in the chain — stays under `base` after symlink resolution.  |
+| `createExactMask` | function | Build an exact-value masker; `makeError` builds the error thrown for an already-wrapped stream. |
+| `ExactMaskOptions` | interface | Exact-value masking: replaces known secret values (not patterns) in text, structured values and Node writable streams.  |
+| `ExactValueMaskImpl` | interface | Shape returned by {@link createExactMask } ; the public `ExactValueMask` mirrors it. |
 | `ForbiddenPathError` | class | Thrown when an agent tool is asked to read or write a sensitive path that the blocklist forbids (`.env`, `.git/`, `node_modules/`, `.theo/`, lock files).  |
 | `isForbiddenPath` | function | Decide whether a project-relative path points to a known-sensitive file that a coding agent must not read or write.  |
 | `maskToken` | function | Mask one string, keeping enough of it to be recognizable in a log.  |
@@ -1420,6 +1459,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `acquireInstanceLock` | function | Takes `<dir>.instance.lock` (or `options.path`) for the life of the process.  |
 | `acquireSessionWriter` | function | Take the exclusive writer lease for `sessionPath`, or reject with {@link SessionBusyError } .  |
 | `appendJsonl` | function | Append one record as a whole `\n`-terminated JSON line.  |
+| `applyProfile` | function | Create the profile directories at 0700 (tightening existing ones, never reading or removing their contents), then write the overrides into `env`.  |
 | `applyWalWithFallback` | function | Apply WAL mode with DELETE fallback.  |
 | `atomicWriteJson` | function | Typed JSON atomic write helper.  |
 | `AtomicWriteJsonOptions` | interface | Options for `atomicWriteJson`. |
@@ -1430,6 +1470,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `FileLockOptions` | interface | Retry and staleness tuning for `withFileLock`.  |
 | `forkTranscript` | function | Copy `src` into `dst`, keeping the first `beforeRecordIndex` records.  |
 | `ForkTranscriptOptions` | interface | Options for {@link forkTranscript } . |
+| `getProfilesRoot` | function | The directory holding every profile: always `~/.theokit/profiles`, from `os.homedir()`.  |
 | `InstanceLock` | interface | A held instance lock. |
 | `InstanceLockedError` | class | Another live process holds the instance lock, or the filesystem cannot hold one. |
 | `isCorruptionError` | function | True when an open error indicates an unreadable / corrupt database file. |
@@ -1443,11 +1484,15 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `openSqliteResilient` | function | Open a SQLite file with WAL (+ DELETE fallback) and corruption recovery. |
 | `OpenSqliteResilientOptions` | interface | Input to {@link openSqliteResilient } .  |
 | `PersistenceSchema` | const | `persistence?` opt-in JSON disk backend with `dir` required when chosen.  |
+| `ProfileConflictError` | class | Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a variable the profile owns.  |
 | `readJsonlIds` | function | Read the set of keys from an existing JSONL file for which `keyFn(parsed)` returns a non-empty string.  |
 | `readJsonlTail` | function | Read the LAST records of a JSONL file without loading the whole thing.  |
 | `ReadJsonlTailOptions` | interface | Options for {@link readJsonlTail } . |
 | `replaceFileAtomic` | function | Atomic file replacement: write content to a per-call unique tmp path, fsync, then rename over the target.  |
 | `ResilientSqliteDb` | interface | Minimal SQLite handle surface every driver (`better-sqlite3`) exposes. |
+| `ResolvedProfile` | interface | A profile name turned into directories and environment overrides. |
+| `resolveProfile` | function | Turn a profile name into its directories and environment overrides.  |
+| `ResolveProfileOptions` | interface | Options for {@link resolveProfile } . |
 | `sanitizeFts5Query` | function | Six-step FTS5 query sanitizer.  |
 | `SessionArtifact` | type | The kinds of file this SDK leaves in a project's transcript directory.  |
 | `SessionBusyError` | class | M81 — another process already holds the writer lease for this session.  |
@@ -1512,6 +1557,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `BwrapProbes` | interface | Injectable probes — each mirrors one Codex availability check. |
 | `createSandboxBackend` | function | Honest factory: bwrap available + mode wants confinement → `LinuxSandbox` (kernel enforcement, running the VALIDATED absolute bin); `danger-full-access` → plain `LocalSandbox` silently (explicit op... |
 | `CreateSandboxBackendOptions` | interface | Options for `createSandboxBackend`, which probes for bubblewrap and returns a {@link LinuxSandbox } when confinement is genuinely available or a `LocalSandbox` when it is not — warning once when th... |
+| `defaultDockerRunner` | function | The runner {@link DockerSandbox } uses by default; exported so a custom runner can wrap it. |
 | `detectBwrap` | function | Honest detection — fail-closed on every probe; NEVER throws (callers WARN + fall back). |
 | `detectBwrapMemoized` | function | `detectBwrap` with memoization — what production should call.  |
 | `DockerRunner` | type | Seam for tests: runs `docker <args>`, optionally feeding `input` to stdin. |
@@ -1526,11 +1572,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `interactiveWrapCommand` | function | The composition the interactive path needs — the counterpart of `createSandboxBackend`.  |
 | `InteractiveWrapOptions` | interface | Options for `interactiveWrapCommand`, the PTY counterpart of `createSandboxBackend`.  |
 | `LinuxSandbox` | class | Kernel-confined backend for Linux hosts: a `LocalSandbox` whose commands are rewritten as `bwrap <policy flags> -- /bin/sh -c '<command>'` before they are spawned.  |
+| `listSandboxContainers` | function | Lists containers (running or not) that carry every one of `labels`. |
 | `LocalSandbox` | class | Runs a command with `/bin/sh -c` on the host.  |
 | `provisionRepo` | function | Clone `repoUrl` into `<sandbox workdir>/<instanceId>` and check out `ref`.  |
 | `ProvisionRepoOptions` | interface | Options for {@link provisionRepo } . |
 | `realProbeCount` | function | How many real probes ran.  |
 | `realProbes` | const | Real probes used in production. |
+| `removeSandboxContainers` | function | Removes containers carrying every one of `labels`.  |
 | `RepoProvisionError` | class | Raised when cloning or checking out a repo fails.  |
 | `resetBwrapMemo` | function | Clears the `detectBwrapMemoized` memo.  |
 | `resetInteractiveWarnLatch` | function | Reset for tests — the latch is module state and tests need isolation.  |
@@ -1540,6 +1588,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `restrictedSeccompPath` | function | M57 — the memoized x64-gated seccomp program, written once per process to a temp file. |
 | `SandboxBackend` | class | The execution capability handed to an agent tool, and the extension point for new environments.  |
 | `SandboxConfig` | interface | Construction-time settings shared by every {@link SandboxBackend } .  |
+| `SandboxContainer` | interface | A container started by a `DockerSandbox`, as `docker ps -a` reports it. |
+| `SandboxDockerError` | class | A `docker` subcommand failed or timed out. |
 | `SandboxMode` | type | Codex's three canonical sandbox modes; lives in this leaf module so bwrap.ts and deny-read.ts need not import each other. |
 | `SandboxNetworkPolicy` | interface | What a {@link SandboxBackend } states about its outbound network.  |
 | `SandboxNotAvailableError` | class | A backend cannot be used at all: its runtime is missing or unusable.  |

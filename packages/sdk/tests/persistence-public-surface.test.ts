@@ -19,6 +19,10 @@ const REQUIRED_PRIMITIVES = [
   "atomicWriteJson",
   "acquireInstanceLock",
   "InstanceLockedError",
+  "resolveProfile",
+  "applyProfile",
+  "getProfilesRoot",
+  "ProfileConflictError",
 ] as const;
 
 describe("SE43 DoD#2 — public ./persistence exposes the shared kernel", () => {

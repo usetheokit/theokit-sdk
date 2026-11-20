@@ -301,6 +301,7 @@ async function vetoFromPluginPreHook(dc: DispatchContext): Promise<LlmContentPar
     toolUseId: call.id,
     // SE1 — thread the run's permission mode so a PermissionPlugin gates per-run.
     ...(inputs.permissionMode !== undefined ? { permissionMode: inputs.permissionMode } : {}),
+    ...(inputs.conversation !== undefined ? { conversation: inputs.conversation } : {}),
   });
   if (pluginVeto === undefined) return undefined;
   if ("defer" in pluginVeto) {
