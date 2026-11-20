@@ -20,6 +20,12 @@ export interface SessionManager<TSession> {
   destroySession(res: ServerResponse): void;
   rotateSession(req: IncomingMessage, res: ServerResponse): Promise<TSession | null>;
   /**
+   * Web counterpart of `createSession`: appends the session `Set-Cookie` to `headers`. OPTIONAL;
+   * required only for `finishSignInWeb`. It must issue a fresh session (no reuse of a prior
+   * session id), because the Web flow has no `rotateSession` step.
+   */
+  createSessionWeb?(headers: Headers, data: TSession): Promise<void>;
+  /**
    * The secret used to encrypt the OAuth transaction cookie, when this manager has one to share.
    *
    * OPTIONAL and additive: a manager without it makes `defineAuth` fall back to
@@ -36,12 +42,6 @@ export interface SessionManager<TSession> {
    * An array is accepted for rotation: the first entry encrypts, and the rest are for verifying
    * cookies written before the last rotation.
    */
-  /**
-   * Web counterpart of `createSession`: appends the session `Set-Cookie` to `headers`. OPTIONAL;
-   * required only for `finishSignInWeb`. It must issue a fresh session (no reuse of a prior
-   * session id), because the Web flow has no `rotateSession` step.
-   */
-  createSessionWeb?(headers: Headers, data: TSession): Promise<void>;
   getCookieSecret?(): string | string[] | undefined;
 }
 
