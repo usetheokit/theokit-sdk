@@ -358,6 +358,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `readManagedSettings` | function | Read the deployed policy, or `{}` when none is.  |
 | `readManagedSettingsDocument` | function | Read the whole managed-settings file, for an app that defines its own keys (model, sandbox mode, approval policy) and lets an operator impose them through it.  |
 | `ReadManagedSettingsDocumentOptions` | interface | Options for `readManagedSettingsDocument`. |
+| `readSessionHistory` | function | Like {@link readSessionMessages } , but tells a session that does not exist (`absent`) from one that was read (`present`) and one that could not be (`unreadable`: a read error other than ENOENT, or... |
 | `readSessionMessages` | function | Read the messages a session already contains, for a surface that needs to re-render it.  |
 | `ReadSessionMessagesOptions` | interface | Which session to read, in the terms a host already has. |
 | `ReapableArtifact` | interface | One artifact the caller is considering deleting, described well enough to decide about.  |
@@ -425,6 +426,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `Security` | class | Secret masking at consumer output boundaries: pattern-based `redact` / `addPattern` and exact-value `createMask`. |
 | `SecurityFloorInput` | interface | The vocabulary, the layer names, and the values to resolve.  |
 | `SendOptions` | interface | Per-send overrides and callbacks.  |
+| `SessionHistory` | interface | A stored session as a host sees it: found, not there, or there but not readable. |
 | `SessionLifecycleContext` | interface | #65 — context for the `on_session_start` / `on_session_end` hooks.  |
 | `SessionMessage` | interface | One turn of a session.  |
 | `SessionMessagePart` | type | One structured element of a {@link SessionMessage } .  |
@@ -1498,15 +1500,18 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `applyWalWithFallback` | function | Apply WAL mode with DELETE fallback.  |
 | `atomicWriteJson` | function | Typed JSON atomic write helper.  |
 | `AtomicWriteJsonOptions` | interface | Options for `atomicWriteJson`. |
+| `atomicWriteJsonSync` | function | Synchronous twin of {@link atomicWriteJson } : same temp naming, same mode reassertion, same cleanup on failure.  |
 | `atomicWriteTempTarget` | function | U-9 — the file a leftover temp was replacing, or `undefined` if this is not one of ours.  |
 | `atomicWriteText` | function | Atomic text write.  |
 | `classifySessionArtifact` | function | U-1 — what is this entry, if it is one of ours?  |
 | `encodeProjectDir` | function | Claude Code path convention: cwd with every non-alphanumeric replaced by `-`. |
+| `ensureSecureDir` | function | Create the parent directory of `filePath` as 0700 if missing; if it exists and group or other can write it, chmod it to 0700 and check again.  |
 | `FileLockOptions` | interface | Retry and staleness tuning for `withFileLock`.  |
 | `forkTranscript` | function | Copy `src` into `dst`, keeping the first `beforeRecordIndex` records.  |
 | `ForkTranscriptOptions` | interface | Options for {@link forkTranscript } . |
 | `getProfilesRoot` | function | The directory holding every profile: always `~/.theokit/profiles`, from `os.homedir()`.  |
 | `InMemorySessionStore` | class | A {@link SessionStore } whose records live in this object only: nothing is written to disk, and the transcript disappears with the process.  |
+| `InsecureDirectoryError` | class | A directory that must be owner-only is still writable by group or other after the repair. |
 | `InstanceLock` | interface | A held instance lock. |
 | `InstanceLockedError` | class | Another live process holds the instance lock, or the filesystem cannot hold one. |
 | `isCorruptionError` | function | True when an open error indicates an unreadable / corrupt database file. |

@@ -2002,7 +2002,7 @@
     "./persistence#import": {
       "AtomicWriteJsonOptions": {
         "tier": "stable",
-        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n}"
+        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n    dirMode?: number;\n}"
       },
       "FileLockOptions": {
         "tier": "stable",
@@ -2015,6 +2015,10 @@
       "InMemorySessionStore": {
         "tier": "stable",
         "declaration": "declare class InMemorySessionStore implements SessionStore {\n    #private;\n    readRecords(agentId: string): Promise<SessionRecord[]>;\n    appendRecords(agentId: string, records: readonly SessionRecord[]): Promise<void>;\n}"
+      },
+      "InsecureDirectoryError": {
+        "tier": "stable",
+        "declaration": "declare class InsecureDirectoryError extends TheokitAgentError {\n    readonly name = \"InsecureDirectoryError\";\n    readonly directory: string;\n    constructor(directory: string, detail: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
       "InstanceLock": {
         "tier": "stable",
@@ -2140,6 +2144,10 @@
         "tier": "stable",
         "declaration": "declare function atomicWriteJson<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): Promise<void>;"
       },
+      "atomicWriteJsonSync": {
+        "tier": "stable",
+        "declaration": "declare function atomicWriteJsonSync<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): void;"
+      },
       "atomicWriteTempTarget": {
         "tier": "stable",
         "declaration": "declare function atomicWriteTempTarget(name: string): string | undefined;"
@@ -2155,6 +2163,10 @@
       "encodeProjectDir": {
         "tier": "stable",
         "declaration": "declare function encodeProjectDir(cwd: string): string;"
+      },
+      "ensureSecureDir": {
+        "tier": "stable",
+        "declaration": "declare function ensureSecureDir(filePath: string): void;"
       },
       "forkTranscript": {
         "tier": "stable",
@@ -2236,7 +2248,7 @@
     "./persistence#require": {
       "AtomicWriteJsonOptions": {
         "tier": "stable",
-        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n}"
+        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n    dirMode?: number;\n}"
       },
       "FileLockOptions": {
         "tier": "stable",
@@ -2249,6 +2261,10 @@
       "InMemorySessionStore": {
         "tier": "stable",
         "declaration": "declare class InMemorySessionStore implements SessionStore {\n    #private;\n    readRecords(agentId: string): Promise<SessionRecord[]>;\n    appendRecords(agentId: string, records: readonly SessionRecord[]): Promise<void>;\n}"
+      },
+      "InsecureDirectoryError": {
+        "tier": "stable",
+        "declaration": "declare class InsecureDirectoryError extends TheokitAgentError {\n    readonly name = \"InsecureDirectoryError\";\n    readonly directory: string;\n    constructor(directory: string, detail: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
       "InstanceLock": {
         "tier": "stable",
@@ -2374,6 +2390,10 @@
         "tier": "stable",
         "declaration": "declare function atomicWriteJson<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): Promise<void>;"
       },
+      "atomicWriteJsonSync": {
+        "tier": "stable",
+        "declaration": "declare function atomicWriteJsonSync<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): void;"
+      },
       "atomicWriteTempTarget": {
         "tier": "stable",
         "declaration": "declare function atomicWriteTempTarget(name: string): string | undefined;"
@@ -2389,6 +2409,10 @@
       "encodeProjectDir": {
         "tier": "stable",
         "declaration": "declare function encodeProjectDir(cwd: string): string;"
+      },
+      "ensureSecureDir": {
+        "tier": "stable",
+        "declaration": "declare function ensureSecureDir(filePath: string): void;"
       },
       "forkTranscript": {
         "tier": "stable",
@@ -3226,19 +3250,23 @@
       },
       "TheokitErrorCode": {
         "tier": "stable",
-        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";"
+        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";",
+        "deprecatedSince": "2026-11-20"
       },
       "TheokitErrorEnvelope": {
         "tier": "stable",
-        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}"
+        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}",
+        "deprecatedSince": "2026-11-20"
       },
       "fromEnvelope": {
         "tier": "stable",
-        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;"
+        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;",
+        "deprecatedSince": "2026-11-20"
       },
       "toEnvelope": {
         "tier": "stable",
-        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;"
+        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;",
+        "deprecatedSince": "2026-11-20"
       }
     },
     "./server/errors-envelope#require": {
@@ -3248,19 +3276,23 @@
       },
       "TheokitErrorCode": {
         "tier": "stable",
-        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";"
+        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";",
+        "deprecatedSince": "2026-11-20"
       },
       "TheokitErrorEnvelope": {
         "tier": "stable",
-        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}"
+        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}",
+        "deprecatedSince": "2026-11-20"
       },
       "fromEnvelope": {
         "tier": "stable",
-        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;"
+        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;",
+        "deprecatedSince": "2026-11-20"
       },
       "toEnvelope": {
         "tier": "stable",
-        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;"
+        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;",
+        "deprecatedSince": "2026-11-20"
       }
     },
     "./skills#import": {
@@ -5305,6 +5337,10 @@
         "tier": "stable",
         "declaration": "interface SendOptions {\n    queueMode?: QueueMode;\n    model?: string | ModelSelection;\n    origin?: MessageOrigin;\n    onRunEvent?: RunEventSink;\n    doomLoop?: false | DoomLoopThresholds;\n    systemPrompt?: string;\n    mcpServers?: Record<string, McpServerConfig>;\n    tools?: CustomTool[];\n    contextPaths?: readonly string[];\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n    onStep?: (args: {\n        step: ConversationStep;\n    }) => void | Promise<void>;\n    onDelta?: (args: {\n        update: InteractionUpdate;\n    }) => void | Promise<void>;\n    toolChoice?: \"auto\" | \"none\" | \"required\";\n    toolDecisions?: readonly ToolCallDecision[];\n    activeTools?: string[];\n    local?: {\n        force?: boolean;\n    };\n    signal?: AbortSignal;\n    context?: unknown;\n    perToolTimeoutMs?: number;\n    toolResultGuard?: ToolResultGuardOptions;\n    pruneToolResults?: PruneToolResultsOptions;\n    task?: true | {\n        id?: string;\n        meta?: Record<string, unknown>;\n    };\n    maxIterations?: number;\n    completionCheck?: CompletionCheck;\n}"
       },
+      "SessionHistory": {
+        "tier": "stable",
+        "declaration": "interface SessionHistory {\n    readonly state: \"present\" | \"absent\" | \"unreadable\";\n    readonly messages: SessionMessage[];\n    readonly skippedLines: number;\n    readonly reason?: string;\n}"
+      },
       "SessionLifecycleContext": {
         "tier": "stable",
         "declaration": "interface SessionLifecycleContext {\n    agentId: string;\n    runId: string;\n}"
@@ -5928,6 +5964,10 @@
       "readManagedSettingsDocument": {
         "tier": "stable",
         "declaration": "declare function readManagedSettingsDocument(root?: string, options?: ReadManagedSettingsDocumentOptions): ManagedSettingsDocument | null;"
+      },
+      "readSessionHistory": {
+        "tier": "stable",
+        "declaration": "declare function readSessionHistory(options: ReadSessionMessagesOptions): Promise<SessionHistory>;"
       },
       "readSessionMessages": {
         "tier": "stable",
@@ -7236,6 +7276,10 @@
         "tier": "stable",
         "declaration": "interface SendOptions {\n    queueMode?: QueueMode;\n    model?: string | ModelSelection;\n    origin?: MessageOrigin;\n    onRunEvent?: RunEventSink;\n    doomLoop?: false | DoomLoopThresholds;\n    systemPrompt?: string;\n    mcpServers?: Record<string, McpServerConfig>;\n    tools?: CustomTool[];\n    contextPaths?: readonly string[];\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n    onStep?: (args: {\n        step: ConversationStep;\n    }) => void | Promise<void>;\n    onDelta?: (args: {\n        update: InteractionUpdate;\n    }) => void | Promise<void>;\n    toolChoice?: \"auto\" | \"none\" | \"required\";\n    toolDecisions?: readonly ToolCallDecision[];\n    activeTools?: string[];\n    local?: {\n        force?: boolean;\n    };\n    signal?: AbortSignal;\n    context?: unknown;\n    perToolTimeoutMs?: number;\n    toolResultGuard?: ToolResultGuardOptions;\n    pruneToolResults?: PruneToolResultsOptions;\n    task?: true | {\n        id?: string;\n        meta?: Record<string, unknown>;\n    };\n    maxIterations?: number;\n    completionCheck?: CompletionCheck;\n}"
       },
+      "SessionHistory": {
+        "tier": "stable",
+        "declaration": "interface SessionHistory {\n    readonly state: \"present\" | \"absent\" | \"unreadable\";\n    readonly messages: SessionMessage[];\n    readonly skippedLines: number;\n    readonly reason?: string;\n}"
+      },
       "SessionLifecycleContext": {
         "tier": "stable",
         "declaration": "interface SessionLifecycleContext {\n    agentId: string;\n    runId: string;\n}"
@@ -7859,6 +7903,10 @@
       "readManagedSettingsDocument": {
         "tier": "stable",
         "declaration": "declare function readManagedSettingsDocument(root?: string, options?: ReadManagedSettingsDocumentOptions): ManagedSettingsDocument | null;"
+      },
+      "readSessionHistory": {
+        "tier": "stable",
+        "declaration": "declare function readSessionHistory(options: ReadSessionMessagesOptions): Promise<SessionHistory>;"
       },
       "readSessionMessages": {
         "tier": "stable",

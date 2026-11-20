@@ -179,6 +179,19 @@ const agent = await Agent.create({
 
 Extended-thinking `--continue` is out of scope for now (thinking signatures are written but dropped on read — issue #122). See the exported session-persistence types for the full contract.
 
+### Reading a stored session
+
+`readSessionMessages` returns a session's messages. `readSessionHistory` also tells you why there are none:
+
+```ts
+import { readSessionHistory } from "@theokit/sdk";
+
+const h = await readSessionHistory({ sessionId, cwd: projectDir });
+// h.state: "absent" (no transcript), "present" (read; h.skippedLines counts dropped lines,
+// a torn last line is 1) or "unreadable" (read error, or a non-empty file with no valid
+// record; h.reason has the error without file contents). It does not throw for these.
+```
+
 ## Incognito agents
 
 To leave nothing on disk, keep the transcript in memory, keep the agent out of the persisted registry, and turn memory off:
@@ -621,6 +634,20 @@ for (const p of await listProjects()) {
 
 When no `cwd` could be read (an empty transcript, say) `cwdSource` is `"unavailable"` and `cwd` is absent. When transcripts in one folder name different cwds, `cwd` comes from the newest and `cwdConflict` is `true`. An absent `projects/` directory gives `[]`. The call only reads. `SessionListing` also carries `cwd`, from the same bounded scan.
 
+
+## `@theokit/sdk/persistence`: owner-only directories and synchronous atomic writes
+
+`ensureSecureDir(filePath)` makes the parent directory of `filePath` owner-only: it creates a missing one as `0700`, and if an existing one is writable by group or other it chmods it to `0700` and checks again. It throws `InsecureDirectoryError` (code `insecure_directory`, the directory in the message) when the repair does not hold. It does nothing on Windows.
+
+`atomicWriteJsonSync(filePath, data, options?)` is the synchronous twin of `atomicWriteJson`: same temp-file naming, same mode reassertion, same cleanup on failure, and a `TypeError` for `undefined` or circular data. `atomicWriteJson` and `atomicWriteJsonSync` both take `dirMode`, the mode for the parent directory when it has to be created (filtered by the `umask`; an existing directory is left as it is, so call `ensureSecureDir` to repair one).
+
+```ts
+import { atomicWriteJsonSync, ensureSecureDir } from "@theokit/sdk/persistence";
+
+ensureSecureDir(jobsPath);
+atomicWriteJsonSync(jobsPath, jobs, { mode: 0o600 });
+```
+
 ## `@theokit/sdk/persistence`: named profiles
 
 `resolveProfile(name, { profilesRoot?, appDirectories? })` maps a profile name to `<profilesRoot>/<name>` (default `getProfilesRoot()`, `~/.theokit/profiles`) and returns `directory`, `directories` and `env` (`THEOKIT_HOME` and `THEOKIT_AUTH_HOME` set to the profile directory, plus one entry per `appDirectories` item, joined under the profile). Names must match `^[a-z0-9][a-z0-9-]{0,15}$`, otherwise `ConfigurationError` code `profile_name_invalid` (the name is not echoed). App directory values must be relative and free of `..`. It touches no disk.
@@ -952,3 +979,7 @@ await agent.send("...", { doomLoop: { window: 20, windowRepeatLimit: 3 } });
 ```
 
 Once a call (same tool, same arguments; key order does not matter) already occurs `windowRepeatLimit` times in the last `window` calls, the next identical call is not executed. The model receives a blocked tool result naming the tool so it can change course. Blocked attempts count toward the window. `window` and `windowRepeatLimit` must be positive integers set together, otherwise `send` rejects with `ConfigurationError` code `invalid_doom_loop`. The consecutive `softThreshold`/`hardThreshold` keep working.
+
+## Deprecated: `@theokit/sdk/server/errors-envelope`
+
+`toEnvelope`, `fromEnvelope`, `TheokitErrorCode` and `TheokitErrorEnvelope` are deprecated and will be removed in the next major. They still work. Build your own envelope from the error: read `name`, `isRetryable` and `metadata` (provider, endpoint, status code) from the `TheokitAgentError`. Theokit apps get the envelope from `theokit/server`.

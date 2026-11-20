@@ -22,6 +22,7 @@ export { ProfileConflictError } from "./errors.js";
 export type { AtomicWriteJsonOptions } from "./internal/persistence/atomic-write.js";
 export {
   atomicWriteJson,
+  atomicWriteJsonSync,
   atomicWriteTempTarget,
   atomicWriteText,
   replaceFileAtomic,
@@ -99,6 +100,8 @@ export type {
   ResolveProfileOptions,
 } from "./internal/persistence/profile.js";
 export { applyProfile, resolveProfile } from "./internal/persistence/profile.js";
+// Owner-only directory: create 0700, repair a loose one, or throw InsecureDirectoryError.
+export { ensureSecureDir, InsecureDirectoryError } from "./internal/persistence/secure-dir.js";
 export {
   classifySessionArtifact,
   type SessionArtifact,

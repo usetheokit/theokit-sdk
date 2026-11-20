@@ -148,7 +148,14 @@ export async function readSessionMessages(
   agentId: string,
   options: { keepDeferred?: boolean } = {},
 ): Promise<SessionMessage[]> {
-  const records = await store.readRecords(agentId);
+  return messagesFromRecords(await store.readRecords(agentId), options);
+}
+
+/** The reconstruction half of {@link readSessionMessages}, for a caller that already holds records. */
+export function messagesFromRecords(
+  records: readonly SessionRecord[],
+  options: { keepDeferred?: boolean } = {},
+): SessionMessage[] {
   const visible = options.keepDeferred === true ? records : withoutAbandonedCalls(records);
   return reconstructMessages(visible).map(narrowToSessionMessage);
 }
