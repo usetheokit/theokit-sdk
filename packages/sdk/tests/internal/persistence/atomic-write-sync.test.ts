@@ -2,7 +2,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { atomicWriteJson, atomicWriteJsonSync } from "../../src/persistence.js";
+import { atomicWriteJson, atomicWriteJsonSync } from "../../../src/persistence.js";
 
 describe("atomicWriteJsonSync / dirMode", () => {
   let dir: string;

@@ -15,7 +15,7 @@ vi.mock("node:fs", async (orig) => {
   };
 });
 
-import { ensureSecureDir, InsecureDirectoryError } from "../../src/persistence.js";
+import { ensureSecureDir, InsecureDirectoryError } from "../../../src/persistence.js";
 
 const posix = process.platform !== "win32";
 

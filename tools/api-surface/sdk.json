@@ -1312,13 +1312,21 @@
         "tier": "stable",
         "declaration": "export interface Score {\n    readonly score: number;\n    readonly reason?: string;\n}"
       },
+      "ScoreContext": {
+        "tier": "stable",
+        "declaration": "export interface ScoreContext {\n    readonly input: string;\n    readonly metadata?: Record<string, unknown>;\n    readonly toolCalls: readonly ScoredToolCall[];\n}"
+      },
+      "ScoredToolCall": {
+        "tier": "stable",
+        "declaration": "export interface ScoredToolCall {\n    readonly name: string;\n    readonly input: Record<string, unknown>;\n    readonly output?: string;\n    readonly isError: boolean;\n}"
+      },
       "Scorer": {
         "tier": "stable",
-        "declaration": "export type Scorer = (output: string, expected?: unknown) => Score | Promise<Score>;"
+        "declaration": "export type Scorer = (output: string, expected?: unknown, context?: ScoreContext) => Score | Promise<Score>;"
       },
       "Scorers": {
         "tier": "stable",
-        "declaration": "Scorers: {\n    exactMatch(opts?: ExactMatchOptions): NamedScorer;\n    containsExpected(opts?: ContainsExpectedOptions): NamedScorer;\n    regex(pattern: RegExp): NamedScorer;\n    levenshtein(opts?: LevenshteinOptions): NamedScorer;\n    numericDiff(opts?: NumericDiffOptions): NamedScorer;\n    embeddingSimilarity(opts: EmbeddingSimilarityOptions): NamedScorer;\n    llmJudge(opts: LlmJudgeOptions): NamedScorer;\n    verifyGate(opts: VerifyGateOptions): NamedScorer;\n    jsonShape<T extends ZodType>(schema: T, opts?: JsonShapeOptions): NamedScorer;\n}"
+        "declaration": "Scorers: {\n    exactMatch(opts?: ExactMatchOptions): NamedScorer;\n    containsExpected(opts?: ContainsExpectedOptions): NamedScorer;\n    regex(pattern: RegExp): NamedScorer;\n    levenshtein(opts?: LevenshteinOptions): NamedScorer;\n    numericDiff(opts?: NumericDiffOptions): NamedScorer;\n    embeddingSimilarity(opts: EmbeddingSimilarityOptions): NamedScorer;\n    llmJudge(opts: LlmJudgeOptions): NamedScorer;\n    verifyGate(opts: VerifyGateOptions): NamedScorer;\n    jsonShape<T extends ZodType>(schema: T, opts?: JsonShapeOptions): NamedScorer;\n    toolCallAccuracy(opts?: {\n        matchInput?: \"exact\" | \"subset\" | \"ignore\";\n        allowExtra?: boolean;\n    }): NamedScorer;\n    trajectory(opts?: {\n        order?: \"strict\" | \"subsequence\" | \"any\";\n    }): NamedScorer;\n}"
       },
       "VerifyGateOptions": {
         "tier": "stable",
@@ -1414,13 +1422,21 @@
         "tier": "stable",
         "declaration": "export interface Score {\n    readonly score: number;\n    readonly reason?: string;\n}"
       },
+      "ScoreContext": {
+        "tier": "stable",
+        "declaration": "export interface ScoreContext {\n    readonly input: string;\n    readonly metadata?: Record<string, unknown>;\n    readonly toolCalls: readonly ScoredToolCall[];\n}"
+      },
+      "ScoredToolCall": {
+        "tier": "stable",
+        "declaration": "export interface ScoredToolCall {\n    readonly name: string;\n    readonly input: Record<string, unknown>;\n    readonly output?: string;\n    readonly isError: boolean;\n}"
+      },
       "Scorer": {
         "tier": "stable",
-        "declaration": "export type Scorer = (output: string, expected?: unknown) => Score | Promise<Score>;"
+        "declaration": "export type Scorer = (output: string, expected?: unknown, context?: ScoreContext) => Score | Promise<Score>;"
       },
       "Scorers": {
         "tier": "stable",
-        "declaration": "Scorers: {\n    exactMatch(opts?: ExactMatchOptions): NamedScorer;\n    containsExpected(opts?: ContainsExpectedOptions): NamedScorer;\n    regex(pattern: RegExp): NamedScorer;\n    levenshtein(opts?: LevenshteinOptions): NamedScorer;\n    numericDiff(opts?: NumericDiffOptions): NamedScorer;\n    embeddingSimilarity(opts: EmbeddingSimilarityOptions): NamedScorer;\n    llmJudge(opts: LlmJudgeOptions): NamedScorer;\n    verifyGate(opts: VerifyGateOptions): NamedScorer;\n    jsonShape<T extends ZodType>(schema: T, opts?: JsonShapeOptions): NamedScorer;\n}"
+        "declaration": "Scorers: {\n    exactMatch(opts?: ExactMatchOptions): NamedScorer;\n    containsExpected(opts?: ContainsExpectedOptions): NamedScorer;\n    regex(pattern: RegExp): NamedScorer;\n    levenshtein(opts?: LevenshteinOptions): NamedScorer;\n    numericDiff(opts?: NumericDiffOptions): NamedScorer;\n    embeddingSimilarity(opts: EmbeddingSimilarityOptions): NamedScorer;\n    llmJudge(opts: LlmJudgeOptions): NamedScorer;\n    verifyGate(opts: VerifyGateOptions): NamedScorer;\n    jsonShape<T extends ZodType>(schema: T, opts?: JsonShapeOptions): NamedScorer;\n    toolCallAccuracy(opts?: {\n        matchInput?: \"exact\" | \"subset\" | \"ignore\";\n        allowExtra?: boolean;\n    }): NamedScorer;\n    trajectory(opts?: {\n        order?: \"strict\" | \"subsequence\" | \"any\";\n    }): NamedScorer;\n}"
       },
       "VerifyGateOptions": {
         "tier": "stable",
@@ -1986,7 +2002,7 @@
     "./persistence#import": {
       "AtomicWriteJsonOptions": {
         "tier": "stable",
-        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n}"
+        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n    dirMode?: number;\n}"
       },
       "FileLockOptions": {
         "tier": "stable",
@@ -1999,6 +2015,10 @@
       "InMemorySessionStore": {
         "tier": "stable",
         "declaration": "declare class InMemorySessionStore implements SessionStore {\n    #private;\n    readRecords(agentId: string): Promise<SessionRecord[]>;\n    appendRecords(agentId: string, records: readonly SessionRecord[]): Promise<void>;\n}"
+      },
+      "InsecureDirectoryError": {
+        "tier": "stable",
+        "declaration": "declare class InsecureDirectoryError extends TheokitAgentError {\n    readonly name: string;\n    readonly directory: string;\n    constructor(directory: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
       "InstanceLock": {
         "tier": "stable",
@@ -2116,6 +2136,10 @@
         "tier": "stable",
         "declaration": "declare function atomicWriteJson<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): Promise<void>;"
       },
+      "atomicWriteJsonSync": {
+        "tier": "stable",
+        "declaration": "declare function atomicWriteJsonSync<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): void;"
+      },
       "atomicWriteTempTarget": {
         "tier": "stable",
         "declaration": "declare function atomicWriteTempTarget(name: string): string | undefined;"
@@ -2131,6 +2155,10 @@
       "encodeProjectDir": {
         "tier": "stable",
         "declaration": "declare function encodeProjectDir(cwd: string): string;"
+      },
+      "ensureSecureDir": {
+        "tier": "stable",
+        "declaration": "declare function ensureSecureDir(filePath: string): void;"
       },
       "forkTranscript": {
         "tier": "stable",
@@ -2208,7 +2236,7 @@
     "./persistence#require": {
       "AtomicWriteJsonOptions": {
         "tier": "stable",
-        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n}"
+        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n    dirMode?: number;\n}"
       },
       "FileLockOptions": {
         "tier": "stable",
@@ -2221,6 +2249,10 @@
       "InMemorySessionStore": {
         "tier": "stable",
         "declaration": "declare class InMemorySessionStore implements SessionStore {\n    #private;\n    readRecords(agentId: string): Promise<SessionRecord[]>;\n    appendRecords(agentId: string, records: readonly SessionRecord[]): Promise<void>;\n}"
+      },
+      "InsecureDirectoryError": {
+        "tier": "stable",
+        "declaration": "declare class InsecureDirectoryError extends TheokitAgentError {\n    readonly name: string;\n    readonly directory: string;\n    constructor(directory: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
       "InstanceLock": {
         "tier": "stable",
@@ -2338,6 +2370,10 @@
         "tier": "stable",
         "declaration": "declare function atomicWriteJson<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): Promise<void>;"
       },
+      "atomicWriteJsonSync": {
+        "tier": "stable",
+        "declaration": "declare function atomicWriteJsonSync<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): void;"
+      },
       "atomicWriteTempTarget": {
         "tier": "stable",
         "declaration": "declare function atomicWriteTempTarget(name: string): string | undefined;"
@@ -2353,6 +2389,10 @@
       "encodeProjectDir": {
         "tier": "stable",
         "declaration": "declare function encodeProjectDir(cwd: string): string;"
+      },
+      "ensureSecureDir": {
+        "tier": "stable",
+        "declaration": "declare function ensureSecureDir(filePath: string): void;"
       },
       "forkTranscript": {
         "tier": "stable",
