@@ -3,13 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { readSessionHistory, readSessionMessages } from "../../src/index.js";
-import { FsSessionStore } from "../../src/internal/persistence/fs-session-store.js";
-import { transcriptPath } from "../../src/internal/persistence/session-transcript.js";
+import { readSessionHistory, readSessionMessages } from "../src/index.js";
+import { FsSessionStore } from "../src/internal/persistence/fs-session-store.js";
+import { transcriptPath } from "../src/internal/persistence/session-transcript.js";
 import {
   persistTurn,
   type TranscriptLocation,
-} from "../../src/internal/session/agent-session-store.js";
+} from "../src/internal/session/agent-session-store.js";
 
 describe("readSessionHistory (#1078)", () => {
   let sessionDir: string;
