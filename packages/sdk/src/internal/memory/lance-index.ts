@@ -407,6 +407,12 @@ export function lanceStoragePath(root: MemoryRoot): string {
   return join(root, "lance");
 }
 
+/**
+ * The namespace every Lance writer and reader in this package uses (the adapter's search, the
+ * SQLite migration). Nothing maps a tenant id to a namespace, so the forget path uses it too.
+ */
+export const DEFAULT_NAMESPACE = "default";
+
 /** Every `LanceIndex` currently open in this process. */
 const openIndexes = new Set<LanceIndex>();
 
@@ -420,7 +426,9 @@ const openIndexes = new Set<LanceIndex>();
  * `agent.memory.delete` passes the adapter's `MemoryId` (e.g. `"a:42"`), so a writer that indexes
  * an agent-memory fact must store it with `fact_id` = that MemoryId. Legacy chunks that carry no
  * `fact_id` (e.g. migrated from SQLite) are removed only when their exact id equals `factId`.
- * A failure is thrown after all matching indexes were attempted.
+ * Limits: no production code writes `fact_id` = MemoryId today (`LanceMemoryAdapter.sync` is a
+ * no-op), so only rows a consumer added via `addFacts` with that link are removed. Only indexes
+ * open in this process are cleaned; a closed index is not touched and keeps its rows.
  */
 export async function forgetFactInOpenIndexes(
   root: MemoryRoot,

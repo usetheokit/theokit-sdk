@@ -50,7 +50,8 @@ export function listMemoryFacts(
  * (source `memory`, the agent's namespace, `fact_id` equal to the MemoryId) from the Lance index
  * under the agent's own memory root, after the adapter delete. Lance rows with no `fact_id`
  * (legacy chunks migrated from SQLite) are removed only when their exact id equals the fact id;
- * otherwise they stay.
+ * otherwise they stay. Only a Lance index open in this process is cleaned, and no built-in
+ * writer links rows by `fact_id` yet, so rows a consumer added without that link stay.
  *
  * Two identical legacy bullets in one root share an id, so removing that id removes one of them
  * (the first); the second is still listed under the same id.

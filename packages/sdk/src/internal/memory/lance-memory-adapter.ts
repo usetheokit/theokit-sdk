@@ -32,7 +32,7 @@
 
 import type { IndexStatus, MemorySearchHit, SearchOptions } from "./index-manager-contract.js";
 import { type HybridWeights, resolveWeights } from "./index-manager-helpers.js";
-import type { LanceIndex } from "./lance-index.js";
+import { DEFAULT_NAMESPACE, type LanceIndex } from "./lance-index.js";
 import { type MemoryIndex, parseSearchOptions, type SyncResult } from "./memory-index.js";
 
 /**
@@ -44,7 +44,6 @@ import { type MemoryIndex, parseSearchOptions, type SyncResult } from "./memory-
  * v1.5 candidate: surface `namespace` in `SearchOptions` (additive — no
  * breaking change) so multi-tenant Lance consumers can scope queries.
  */
-const DEFAULT_NAMESPACE = "default";
 
 /**
  * Lance has no corpus to walk, and the result now SAYS so.

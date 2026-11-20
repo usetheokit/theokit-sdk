@@ -21,7 +21,7 @@ import type {
   MemoryTurnMessage,
 } from "../../types/memory-adapter.js";
 import { diag } from "../diagnostics.js";
-import { forgetFactInOpenIndexes } from "../memory/lance-index.js";
+import { DEFAULT_NAMESPACE, forgetFactInOpenIndexes } from "../memory/lance-index.js";
 import { createMemoryMirror, type MemoryMirror } from "../memory/mirror.js";
 import { resolveMemoryRoot } from "../memory/storage/memory-root.js";
 import type { PluginManager } from "../plugins/manager.js";
@@ -245,7 +245,7 @@ export function buildAgentMemory(
       await forgetFactInOpenIndexes(
         resolveMemoryRoot(workspaceCwd),
         id,
-        defaultContext?.tenantId ?? "default",
+        DEFAULT_NAMESPACE,
       );
     },
 

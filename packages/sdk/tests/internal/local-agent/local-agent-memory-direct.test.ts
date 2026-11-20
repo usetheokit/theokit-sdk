@@ -11,7 +11,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ConfigurationError } from "../../../src/errors.js";
 import { buildAgentMemory } from "../../../src/internal/local-agent/local-agent-memory-direct.js";
@@ -490,15 +490,29 @@ describe.skipIf(!isLanceAvailable())("buildAgentMemory — delete forgets the La
     expect(await ids(index)).toEqual([]);
   });
 
-  it("propagates a cleanup failure after the adapter already deleted", async () => {
+  it("uses the shared Lance namespace even when the context carries a tenantId", async () => {
     const { cwd, index } = await agentIndex();
+    await index.addFacts([row("a:42#0"), row("a:7#0", { fact_id: "a:7" })]);
+    const manager = await managerWith([makeAdapter({ id: "a" })]);
+    await buildAgentMemory(manager, cwd, { userId: "demo", tenantId: "acme" }).delete(
+      mkMemoryId("a", "42"),
+    );
+    expect(await ids(index)).toEqual(["a:7#0"]);
+  });
+
+  it("propagates a cleanup failure after the adapter already deleted", async () => {
+    const { cwd } = await agentIndex();
     const deleted: MemoryId[] = [];
     const manager = await managerWith([makeAdapter({ id: "a", onDelete: (i) => deleted.push(i) })]);
-    rmSync(join(cwd, ".theokit"), { recursive: true, force: true });
-    await expect(
-      buildAgentMemory(manager, cwd, demoCtx).delete(mkMemoryId("a", "42")),
-    ).rejects.toThrow(/lance error/i);
-    expect(deleted).toEqual(["a:42"]);
-    void index;
+    const spy = vi.spyOn(LanceIndex.prototype, "removeFacts").mockRejectedValue(new Error("boom"));
+    try {
+      await expect(
+        buildAgentMemory(manager, cwd, demoCtx).delete(mkMemoryId("a", "42")),
+      ).rejects.toThrow("boom");
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(deleted).toEqual(["a:42"]);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
