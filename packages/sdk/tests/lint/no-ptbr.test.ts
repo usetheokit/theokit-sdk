@@ -299,6 +299,13 @@ const NOT_PROSE =
  */
 const INLINE_CODE = /`[^`\n]*`/g;
 
+/**
+ * Markdown link destinations — `[text](https://…/commit/cada1234…)`. A destination is a URL, not
+ * prose: generated changelogs link commit hashes, and a hex hash can spell a lexicon word (`cada`).
+ * Only the `(…)` part is removed; the visible link text stays scanned.
+ */
+const LINK_DESTINATION = /\]\([^)\s]*(?:\s+"[^"\n]*")?\)/g;
+
 interface Offender {
   file: string;
   line: number;
@@ -391,7 +398,7 @@ function stripDiacritics(word: string): string {
 
 /** Every word-part of a line, with allowlisted loanwords already dropped. */
 function candidateParts(line: string): string[] {
-  return (line.replace(INLINE_CODE, " ").replace(NOT_PROSE, " ").match(WORD) ?? [])
+  return (line.replace(INLINE_CODE, " ").replace(LINK_DESTINATION, "] ").replace(NOT_PROSE, " ").match(WORD) ?? [])
     .filter((token) => !WORD_ALLOWLIST.has(token.toLowerCase()))
     .flatMap(identifierParts)
     .filter((part) => !WORD_ALLOWLIST.has(part.toLowerCase()));
@@ -421,6 +428,21 @@ function scanText(rel: string, text: string): Offender[] {
 
   return offenders;
 }
+
+describe("link destinations are not prose", () => {
+  it("ignores a commit hash inside a link destination", () => {
+    const line = "- [`4788a20`](https://github.com/usetheokit/theokit-sdk/commit/cada1234567) Thanks";
+    expect(classifyLine(line)).toBeUndefined();
+  });
+
+  it("still flags Portuguese link text", () => {
+    expect(classifyLine("[isso nao funciona](https://example.com)")?.words).toContain("nao");
+  });
+
+  it("still flags Portuguese prose beside a link", () => {
+    expect(classifyLine("[docs](https://example.com) isso nao funciona")?.words).toContain("nao");
+  });
+});
 
 /** Filenames themselves must be English — a test file name is documentation. */
 function scanFilename(rel: string): Offender | undefined {
