@@ -2070,7 +2070,7 @@
     "./persistence#import": {
       "AtomicWriteJsonOptions": {
         "tier": "stable",
-        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n}"
+        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n    dirMode?: number;\n}"
       },
       "FileLockOptions": {
         "tier": "stable",
@@ -2083,6 +2083,10 @@
       "InMemorySessionStore": {
         "tier": "stable",
         "declaration": "declare class InMemorySessionStore implements SessionStore {\n    #private;\n    readRecords(agentId: string): Promise<SessionRecord[]>;\n    appendRecords(agentId: string, records: readonly SessionRecord[]): Promise<void>;\n}"
+      },
+      "InsecureDirectoryError": {
+        "tier": "stable",
+        "declaration": "declare class InsecureDirectoryError extends TheokitAgentError {\n    readonly name = \"InsecureDirectoryError\";\n    readonly directory: string;\n    constructor(directory: string, detail: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
       "InstanceLock": {
         "tier": "stable",
@@ -2200,6 +2204,10 @@
         "tier": "stable",
         "declaration": "declare function atomicWriteJson<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): Promise<void>;"
       },
+      "atomicWriteJsonSync": {
+        "tier": "stable",
+        "declaration": "declare function atomicWriteJsonSync<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): void;"
+      },
       "atomicWriteTempTarget": {
         "tier": "stable",
         "declaration": "declare function atomicWriteTempTarget(name: string): string | undefined;"
@@ -2215,6 +2223,10 @@
       "encodeProjectDir": {
         "tier": "stable",
         "declaration": "declare function encodeProjectDir(cwd: string): string;"
+      },
+      "ensureSecureDir": {
+        "tier": "stable",
+        "declaration": "declare function ensureSecureDir(filePath: string): void;"
       },
       "forkTranscript": {
         "tier": "stable",
@@ -2292,7 +2304,7 @@
     "./persistence#require": {
       "AtomicWriteJsonOptions": {
         "tier": "stable",
-        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n}"
+        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n    dirMode?: number;\n}"
       },
       "FileLockOptions": {
         "tier": "stable",
@@ -2305,6 +2317,10 @@
       "InMemorySessionStore": {
         "tier": "stable",
         "declaration": "declare class InMemorySessionStore implements SessionStore {\n    #private;\n    readRecords(agentId: string): Promise<SessionRecord[]>;\n    appendRecords(agentId: string, records: readonly SessionRecord[]): Promise<void>;\n}"
+      },
+      "InsecureDirectoryError": {
+        "tier": "stable",
+        "declaration": "declare class InsecureDirectoryError extends TheokitAgentError {\n    readonly name = \"InsecureDirectoryError\";\n    readonly directory: string;\n    constructor(directory: string, detail: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
       "InstanceLock": {
         "tier": "stable",
@@ -2422,6 +2438,10 @@
         "tier": "stable",
         "declaration": "declare function atomicWriteJson<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): Promise<void>;"
       },
+      "atomicWriteJsonSync": {
+        "tier": "stable",
+        "declaration": "declare function atomicWriteJsonSync<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): void;"
+      },
       "atomicWriteTempTarget": {
         "tier": "stable",
         "declaration": "declare function atomicWriteTempTarget(name: string): string | undefined;"
@@ -2437,6 +2457,10 @@
       "encodeProjectDir": {
         "tier": "stable",
         "declaration": "declare function encodeProjectDir(cwd: string): string;"
+      },
+      "ensureSecureDir": {
+        "tier": "stable",
+        "declaration": "declare function ensureSecureDir(filePath: string): void;"
       },
       "forkTranscript": {
         "tier": "stable",
@@ -3270,19 +3294,23 @@
       },
       "TheokitErrorCode": {
         "tier": "stable",
-        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";"
+        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";",
+        "deprecatedSince": "2026-11-20"
       },
       "TheokitErrorEnvelope": {
         "tier": "stable",
-        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}"
+        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}",
+        "deprecatedSince": "2026-11-20"
       },
       "fromEnvelope": {
         "tier": "stable",
-        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;"
+        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;",
+        "deprecatedSince": "2026-11-20"
       },
       "toEnvelope": {
         "tier": "stable",
-        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;"
+        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;",
+        "deprecatedSince": "2026-11-20"
       }
     },
     "./server/errors-envelope#require": {
@@ -3292,19 +3320,23 @@
       },
       "TheokitErrorCode": {
         "tier": "stable",
-        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";"
+        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";",
+        "deprecatedSince": "2026-11-20"
       },
       "TheokitErrorEnvelope": {
         "tier": "stable",
-        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}"
+        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}",
+        "deprecatedSince": "2026-11-20"
       },
       "fromEnvelope": {
         "tier": "stable",
-        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;"
+        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;",
+        "deprecatedSince": "2026-11-20"
       },
       "toEnvelope": {
         "tier": "stable",
-        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;"
+        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;",
+        "deprecatedSince": "2026-11-20"
       }
     },
     "./skills#import": {
@@ -4162,7 +4194,7 @@
       },
       "AgentOptions": {
         "tier": "stable",
-        "declaration": "interface AgentOptions {\n    model?: string | ModelSelection;\n    apiKey?: string;\n    name?: string;\n    throwOnError?: boolean;\n    systemPrompt?: string | SystemPromptResolver;\n    sendDefaults?: Pick<SendOptions, \"toolResultGuard\" | \"pruneToolResults\" | \"perToolTimeoutMs\">;\n    local?: LocalOptions;\n    cloud?: CloudOptions;\n    mcpServers?: Record<string, McpServerConfig>;\n    mcpLifecycle?: \"run\" | \"session\";\n    agents?: Record<string, AgentDefinition>;\n    agentId?: string;\n    context?: ContextSettings;\n    providers?: ProviderRoutingSettings;\n    modelFallback?: ModelFallbackOptions;\n    plugins?: PluginsSettings | readonly Plugin[];\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n    skills?: SkillsSettings | SkillsResolver;\n    inputProcessors?: readonly Processor[];\n    outputProcessors?: readonly Processor[];\n    memory?: MemorySettings;\n    tools?: CustomTool[];\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n    reasoning?: boolean;\n    telemetry?: TelemetrySettings;\n    metadata?: Record<string, unknown>;\n    memoryContext?: MemoryContext;\n    maxRecallContextBytes?: number;\n    handoffs?: ReadonlyArray<SDKAgent | unknown>;\n    maxHandoffDepth?: number;\n    onBeforeCreate?: (event: {\n        conversationId: string;\n        userId?: string;\n    }) => Promise<void> | void;\n    sessionIdleResetMinutes?: number;\n    onBeforeSend?: (event: {\n        conversationId: string;\n        previousMessageCount: number;\n    }) => Promise<void> | void;\n    onToolStart?: (event: {\n        toolName: string;\n        args: unknown;\n        conversationId: string;\n        callId: string;\n    }) => void | Promise<void>;\n    onToolEnd?: (event: {\n        toolName: string;\n        args: unknown;\n        result: unknown;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n    }) => void | Promise<void>;\n    onToolError?: (event: {\n        toolName: string;\n        args: unknown;\n        error: Error;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n        attempt: number;\n    }) => void | Promise<void>;\n    budgetTracker?: BudgetTracker;\n    memoryProvider?: MemoryProvider;\n}"
+        "declaration": "interface AgentOptions {\n    model?: string | ModelSelection;\n    apiKey?: string;\n    name?: string;\n    throwOnError?: boolean;\n    systemPrompt?: string | SystemPromptResolver;\n    sendDefaults?: Pick<SendOptions, \"toolResultGuard\" | \"pruneToolResults\" | \"perToolTimeoutMs\">;\n    local?: LocalOptions;\n    cloud?: CloudOptions;\n    mcpServers?: Record<string, McpServerConfig>;\n    mcpLifecycle?: \"run\" | \"session\";\n    onMcpElicitation?: McpElicitationHandler;\n    agents?: Record<string, AgentDefinition>;\n    agentId?: string;\n    context?: ContextSettings;\n    providers?: ProviderRoutingSettings;\n    modelFallback?: ModelFallbackOptions;\n    plugins?: PluginsSettings | readonly Plugin[];\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n    skills?: SkillsSettings | SkillsResolver;\n    inputProcessors?: readonly Processor[];\n    outputProcessors?: readonly Processor[];\n    memory?: MemorySettings;\n    tools?: CustomTool[];\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n    reasoning?: boolean;\n    telemetry?: TelemetrySettings;\n    metadata?: Record<string, unknown>;\n    memoryContext?: MemoryContext;\n    maxRecallContextBytes?: number;\n    handoffs?: ReadonlyArray<SDKAgent | unknown>;\n    maxHandoffDepth?: number;\n    onBeforeCreate?: (event: {\n        conversationId: string;\n        userId?: string;\n    }) => Promise<void> | void;\n    sessionIdleResetMinutes?: number;\n    onBeforeSend?: (event: {\n        conversationId: string;\n        previousMessageCount: number;\n    }) => Promise<void> | void;\n    onToolStart?: (event: {\n        toolName: string;\n        args: unknown;\n        conversationId: string;\n        callId: string;\n    }) => void | Promise<void>;\n    onToolEnd?: (event: {\n        toolName: string;\n        args: unknown;\n        result: unknown;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n    }) => void | Promise<void>;\n    onToolError?: (event: {\n        toolName: string;\n        args: unknown;\n        error: Error;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n        attempt: number;\n    }) => void | Promise<void>;\n    budgetTracker?: BudgetTracker;\n    memoryProvider?: MemoryProvider;\n}"
       },
       "AgentPromptResult": {
         "tier": "stable",
@@ -4776,6 +4808,18 @@
       "McpAuthConfig": {
         "tier": "stable",
         "declaration": "interface McpAuthConfig {\n    CLIENT_ID: string;\n    CLIENT_SECRET?: string;\n    scopes?: string[];\n    oauth?: McpOAuthConfig;\n}"
+      },
+      "McpElicitationHandler": {
+        "tier": "stable",
+        "declaration": "type McpElicitationHandler = (request: McpElicitationRequest, signal: AbortSignal) => Promise<McpElicitationResult>;"
+      },
+      "McpElicitationRequest": {
+        "tier": "stable",
+        "declaration": "interface McpElicitationRequest {\n    readonly serverName: string;\n    readonly message: string;\n    readonly requestedSchema: Record<string, unknown>;\n}"
+      },
+      "McpElicitationResult": {
+        "tier": "stable",
+        "declaration": "type McpElicitationResult = {\n    readonly action: \"accept\";\n    readonly content: Record<string, unknown>;\n} | {\n    readonly action: \"decline\";\n} | {\n    readonly action: \"cancel\";\n};"
       },
       "McpHttpServerConfig": {
         "tier": "stable",
@@ -6101,7 +6145,7 @@
       },
       "AgentOptions": {
         "tier": "stable",
-        "declaration": "interface AgentOptions {\n    model?: string | ModelSelection;\n    apiKey?: string;\n    name?: string;\n    throwOnError?: boolean;\n    systemPrompt?: string | SystemPromptResolver;\n    sendDefaults?: Pick<SendOptions, \"toolResultGuard\" | \"pruneToolResults\" | \"perToolTimeoutMs\">;\n    local?: LocalOptions;\n    cloud?: CloudOptions;\n    mcpServers?: Record<string, McpServerConfig>;\n    mcpLifecycle?: \"run\" | \"session\";\n    agents?: Record<string, AgentDefinition>;\n    agentId?: string;\n    context?: ContextSettings;\n    providers?: ProviderRoutingSettings;\n    modelFallback?: ModelFallbackOptions;\n    plugins?: PluginsSettings | readonly Plugin[];\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n    skills?: SkillsSettings | SkillsResolver;\n    inputProcessors?: readonly Processor[];\n    outputProcessors?: readonly Processor[];\n    memory?: MemorySettings;\n    tools?: CustomTool[];\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n    reasoning?: boolean;\n    telemetry?: TelemetrySettings;\n    metadata?: Record<string, unknown>;\n    memoryContext?: MemoryContext;\n    maxRecallContextBytes?: number;\n    handoffs?: ReadonlyArray<SDKAgent | unknown>;\n    maxHandoffDepth?: number;\n    onBeforeCreate?: (event: {\n        conversationId: string;\n        userId?: string;\n    }) => Promise<void> | void;\n    sessionIdleResetMinutes?: number;\n    onBeforeSend?: (event: {\n        conversationId: string;\n        previousMessageCount: number;\n    }) => Promise<void> | void;\n    onToolStart?: (event: {\n        toolName: string;\n        args: unknown;\n        conversationId: string;\n        callId: string;\n    }) => void | Promise<void>;\n    onToolEnd?: (event: {\n        toolName: string;\n        args: unknown;\n        result: unknown;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n    }) => void | Promise<void>;\n    onToolError?: (event: {\n        toolName: string;\n        args: unknown;\n        error: Error;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n        attempt: number;\n    }) => void | Promise<void>;\n    budgetTracker?: BudgetTracker;\n    memoryProvider?: MemoryProvider;\n}"
+        "declaration": "interface AgentOptions {\n    model?: string | ModelSelection;\n    apiKey?: string;\n    name?: string;\n    throwOnError?: boolean;\n    systemPrompt?: string | SystemPromptResolver;\n    sendDefaults?: Pick<SendOptions, \"toolResultGuard\" | \"pruneToolResults\" | \"perToolTimeoutMs\">;\n    local?: LocalOptions;\n    cloud?: CloudOptions;\n    mcpServers?: Record<string, McpServerConfig>;\n    mcpLifecycle?: \"run\" | \"session\";\n    onMcpElicitation?: McpElicitationHandler;\n    agents?: Record<string, AgentDefinition>;\n    agentId?: string;\n    context?: ContextSettings;\n    providers?: ProviderRoutingSettings;\n    modelFallback?: ModelFallbackOptions;\n    plugins?: PluginsSettings | readonly Plugin[];\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n    skills?: SkillsSettings | SkillsResolver;\n    inputProcessors?: readonly Processor[];\n    outputProcessors?: readonly Processor[];\n    memory?: MemorySettings;\n    tools?: CustomTool[];\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n    reasoning?: boolean;\n    telemetry?: TelemetrySettings;\n    metadata?: Record<string, unknown>;\n    memoryContext?: MemoryContext;\n    maxRecallContextBytes?: number;\n    handoffs?: ReadonlyArray<SDKAgent | unknown>;\n    maxHandoffDepth?: number;\n    onBeforeCreate?: (event: {\n        conversationId: string;\n        userId?: string;\n    }) => Promise<void> | void;\n    sessionIdleResetMinutes?: number;\n    onBeforeSend?: (event: {\n        conversationId: string;\n        previousMessageCount: number;\n    }) => Promise<void> | void;\n    onToolStart?: (event: {\n        toolName: string;\n        args: unknown;\n        conversationId: string;\n        callId: string;\n    }) => void | Promise<void>;\n    onToolEnd?: (event: {\n        toolName: string;\n        args: unknown;\n        result: unknown;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n    }) => void | Promise<void>;\n    onToolError?: (event: {\n        toolName: string;\n        args: unknown;\n        error: Error;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n        attempt: number;\n    }) => void | Promise<void>;\n    budgetTracker?: BudgetTracker;\n    memoryProvider?: MemoryProvider;\n}"
       },
       "AgentPromptResult": {
         "tier": "stable",
@@ -6715,6 +6759,18 @@
       "McpAuthConfig": {
         "tier": "stable",
         "declaration": "interface McpAuthConfig {\n    CLIENT_ID: string;\n    CLIENT_SECRET?: string;\n    scopes?: string[];\n    oauth?: McpOAuthConfig;\n}"
+      },
+      "McpElicitationHandler": {
+        "tier": "stable",
+        "declaration": "type McpElicitationHandler = (request: McpElicitationRequest, signal: AbortSignal) => Promise<McpElicitationResult>;"
+      },
+      "McpElicitationRequest": {
+        "tier": "stable",
+        "declaration": "interface McpElicitationRequest {\n    readonly serverName: string;\n    readonly message: string;\n    readonly requestedSchema: Record<string, unknown>;\n}"
+      },
+      "McpElicitationResult": {
+        "tier": "stable",
+        "declaration": "type McpElicitationResult = {\n    readonly action: \"accept\";\n    readonly content: Record<string, unknown>;\n} | {\n    readonly action: \"decline\";\n} | {\n    readonly action: \"cancel\";\n};"
       },
       "McpHttpServerConfig": {
         "tier": "stable",
