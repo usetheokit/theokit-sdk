@@ -85,6 +85,14 @@ describe("mcp protocol version negotiation", () => {
     expect(client.protocolVersion).toBeUndefined();
   });
 
+  it("mcp_failed_initialize_leaves_no_live_child_and_retries_the_handshake", async () => {
+    const { client } = await stdioClient("2099-01-01");
+    await expect(client.initialize()).rejects.toMatchObject({ code: "mcp_protocol_unsupported" });
+    // A second call must handshake again (and be refused again), not return early on a live child.
+    await expect(client.initialize()).rejects.toMatchObject({ code: "mcp_protocol_unsupported" });
+    expect(client.protocolVersion).toBeUndefined();
+  });
+
   it("mcp_tolerates_an_answer_without_a_version", async () => {
     const { client } = await stdioClient("");
     await client.initialize();

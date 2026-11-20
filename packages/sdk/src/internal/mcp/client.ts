@@ -134,6 +134,8 @@ abstract class BaseMcpClient implements McpClient {
   protocolVersion: McpProtocolVersion | undefined;
 
   async initialize(): Promise<void> {
+    // A failed handshake must not leave a half-negotiated state behind.
+    this.protocolVersion = undefined;
     this.protocolVersion = await rpcInitialize(
       (method, params) => this.request(method, params),
       this.pinnedVersion,
@@ -280,7 +282,15 @@ class StdioMcpClient extends BaseMcpClient {
   override async initialize(): Promise<void> {
     if (this.child !== undefined) return;
     this.spawnChild();
-    await super.initialize();
+    try {
+      await super.initialize();
+    } catch (err) {
+      // A refused handshake leaves no live child: the next initialize() must re-handshake, not
+      // return early on a process the server never agreed to talk to us through. Transport
+      // failures keep the #59 drop/reconnect path, so only the refusal is torn down here.
+      if ((err as { code?: unknown }).code === "mcp_protocol_unsupported") await this.close();
+      throw err;
+    }
   }
 
   /** M2 #59 — ensure a live child before a request. Reconnect (bounded, with
@@ -552,6 +562,15 @@ class HttpMcpClient extends BaseMcpClient {
     if (this.sessionId !== undefined) return;
     const issued = response.headers.get("mcp-session-id");
     if (issued !== null && issued !== "") this.sessionId = issued;
+  }
+
+  override async initialize(): Promise<void> {
+    try {
+      await super.initialize();
+    } catch (err) {
+      this.sessionId = undefined;
+      throw err;
+    }
   }
 
   protected async request(method: string, params: Record<string, unknown>): Promise<unknown> {
