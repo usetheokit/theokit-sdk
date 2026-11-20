@@ -2552,6 +2552,14 @@
       }
     },
     "./retry#import": {
+      "CircuitBreaker": {
+        "tier": "stable",
+        "declaration": "export declare class CircuitBreaker {\n    private readonly opts;\n    private readonly states;\n    constructor(opts?: CircuitBreakerOptions);\n    shouldSkip(key: string): boolean;\n    recordSuccess(key: string): void;\n    recordTimeout(key: string): void;\n    private now;\n}"
+      },
+      "CircuitBreakerOptions": {
+        "tier": "stable",
+        "declaration": "export interface CircuitBreakerOptions {\n    maxTimeouts?: number;\n    cooldownMs?: number;\n    now?: () => number;\n}"
+      },
       "Retry": {
         "tier": "stable",
         "declaration": "export declare class Retry {\n    private constructor();\n    static run<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>;\n    static create<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>;\n}"
@@ -2562,6 +2570,14 @@
       }
     },
     "./retry#require": {
+      "CircuitBreaker": {
+        "tier": "stable",
+        "declaration": "export declare class CircuitBreaker {\n    private readonly opts;\n    private readonly states;\n    constructor(opts?: CircuitBreakerOptions);\n    shouldSkip(key: string): boolean;\n    recordSuccess(key: string): void;\n    recordTimeout(key: string): void;\n    private now;\n}"
+      },
+      "CircuitBreakerOptions": {
+        "tier": "stable",
+        "declaration": "export interface CircuitBreakerOptions {\n    maxTimeouts?: number;\n    cooldownMs?: number;\n    now?: () => number;\n}"
+      },
       "Retry": {
         "tier": "stable",
         "declaration": "export declare class Retry {\n    private constructor();\n    static run<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>;\n    static create<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>;\n}"
@@ -4695,7 +4711,7 @@
       },
       "McpHttpServerConfig": {
         "tier": "stable",
-        "declaration": "type McpHttpServerConfig = {\n    type?: \"http\" | \"sse\";\n    url: string;\n    headers?: Record<string, string>;\n    auth?: McpAuthConfig;\n    requestTimeoutMs?: number;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
+        "declaration": "type McpHttpServerConfig = {\n    type?: \"http\" | \"sse\";\n    url: string;\n    headers?: Record<string, string>;\n    auth?: McpAuthConfig;\n    requestTimeoutMs?: number;\n    protocolVersion?: \"2025-06-18\" | \"2025-03-26\" | \"2024-11-05\";\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
       },
       "McpOAuthConfig": {
         "tier": "stable",
@@ -4707,7 +4723,7 @@
       },
       "McpStdioServerConfig": {
         "tier": "stable",
-        "declaration": "type McpStdioServerConfig = {\n    type?: \"stdio\";\n    command: string;\n    args?: string[];\n    env?: Record<string, string>;\n    cwd?: string;\n    requestTimeoutMs?: number;\n    envPolicy?: EnvPolicy;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
+        "declaration": "type McpStdioServerConfig = {\n    type?: \"stdio\";\n    command: string;\n    args?: string[];\n    env?: Record<string, string>;\n    cwd?: string;\n    requestTimeoutMs?: number;\n    protocolVersion?: \"2025-06-18\" | \"2025-03-26\" | \"2024-11-05\";\n    envPolicy?: EnvPolicy;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
       },
       "Memory": {
         "tier": "stable",
@@ -5264,6 +5280,10 @@
       "SendOptions": {
         "tier": "stable",
         "declaration": "interface SendOptions {\n    queueMode?: QueueMode;\n    model?: string | ModelSelection;\n    origin?: MessageOrigin;\n    onRunEvent?: RunEventSink;\n    doomLoop?: false | DoomLoopThresholds;\n    systemPrompt?: string;\n    mcpServers?: Record<string, McpServerConfig>;\n    tools?: CustomTool[];\n    contextPaths?: readonly string[];\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n    onStep?: (args: {\n        step: ConversationStep;\n    }) => void | Promise<void>;\n    onDelta?: (args: {\n        update: InteractionUpdate;\n    }) => void | Promise<void>;\n    toolChoice?: \"auto\" | \"none\" | \"required\";\n    toolDecisions?: readonly ToolCallDecision[];\n    activeTools?: string[];\n    local?: {\n        force?: boolean;\n    };\n    signal?: AbortSignal;\n    context?: unknown;\n    perToolTimeoutMs?: number;\n    toolResultGuard?: ToolResultGuardOptions;\n    pruneToolResults?: PruneToolResultsOptions;\n    task?: true | {\n        id?: string;\n        meta?: Record<string, unknown>;\n    };\n    maxIterations?: number;\n    completionCheck?: CompletionCheck;\n}"
+      },
+      "SessionHistory": {
+        "tier": "stable",
+        "declaration": "interface SessionHistory {\n    readonly state: \"present\" | \"absent\" | \"unreadable\";\n    readonly messages: SessionMessage[];\n    readonly skippedLines: number;\n    readonly reason?: string;\n}"
       },
       "SessionLifecycleContext": {
         "tier": "stable",
@@ -5888,6 +5908,10 @@
       "readManagedSettingsDocument": {
         "tier": "stable",
         "declaration": "declare function readManagedSettingsDocument(root?: string, options?: ReadManagedSettingsDocumentOptions): ManagedSettingsDocument | null;"
+      },
+      "readSessionHistory": {
+        "tier": "stable",
+        "declaration": "declare function readSessionHistory(options: ReadSessionMessagesOptions): Promise<SessionHistory>;"
       },
       "readSessionMessages": {
         "tier": "stable",
@@ -6626,7 +6650,7 @@
       },
       "McpHttpServerConfig": {
         "tier": "stable",
-        "declaration": "type McpHttpServerConfig = {\n    type?: \"http\" | \"sse\";\n    url: string;\n    headers?: Record<string, string>;\n    auth?: McpAuthConfig;\n    requestTimeoutMs?: number;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
+        "declaration": "type McpHttpServerConfig = {\n    type?: \"http\" | \"sse\";\n    url: string;\n    headers?: Record<string, string>;\n    auth?: McpAuthConfig;\n    requestTimeoutMs?: number;\n    protocolVersion?: \"2025-06-18\" | \"2025-03-26\" | \"2024-11-05\";\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
       },
       "McpOAuthConfig": {
         "tier": "stable",
@@ -6638,7 +6662,7 @@
       },
       "McpStdioServerConfig": {
         "tier": "stable",
-        "declaration": "type McpStdioServerConfig = {\n    type?: \"stdio\";\n    command: string;\n    args?: string[];\n    env?: Record<string, string>;\n    cwd?: string;\n    requestTimeoutMs?: number;\n    envPolicy?: EnvPolicy;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
+        "declaration": "type McpStdioServerConfig = {\n    type?: \"stdio\";\n    command: string;\n    args?: string[];\n    env?: Record<string, string>;\n    cwd?: string;\n    requestTimeoutMs?: number;\n    protocolVersion?: \"2025-06-18\" | \"2025-03-26\" | \"2024-11-05\";\n    envPolicy?: EnvPolicy;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
       },
       "Memory": {
         "tier": "stable",
@@ -7195,6 +7219,10 @@
       "SendOptions": {
         "tier": "stable",
         "declaration": "interface SendOptions {\n    queueMode?: QueueMode;\n    model?: string | ModelSelection;\n    origin?: MessageOrigin;\n    onRunEvent?: RunEventSink;\n    doomLoop?: false | DoomLoopThresholds;\n    systemPrompt?: string;\n    mcpServers?: Record<string, McpServerConfig>;\n    tools?: CustomTool[];\n    contextPaths?: readonly string[];\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n    onStep?: (args: {\n        step: ConversationStep;\n    }) => void | Promise<void>;\n    onDelta?: (args: {\n        update: InteractionUpdate;\n    }) => void | Promise<void>;\n    toolChoice?: \"auto\" | \"none\" | \"required\";\n    toolDecisions?: readonly ToolCallDecision[];\n    activeTools?: string[];\n    local?: {\n        force?: boolean;\n    };\n    signal?: AbortSignal;\n    context?: unknown;\n    perToolTimeoutMs?: number;\n    toolResultGuard?: ToolResultGuardOptions;\n    pruneToolResults?: PruneToolResultsOptions;\n    task?: true | {\n        id?: string;\n        meta?: Record<string, unknown>;\n    };\n    maxIterations?: number;\n    completionCheck?: CompletionCheck;\n}"
+      },
+      "SessionHistory": {
+        "tier": "stable",
+        "declaration": "interface SessionHistory {\n    readonly state: \"present\" | \"absent\" | \"unreadable\";\n    readonly messages: SessionMessage[];\n    readonly skippedLines: number;\n    readonly reason?: string;\n}"
       },
       "SessionLifecycleContext": {
         "tier": "stable",
@@ -7819,6 +7847,10 @@
       "readManagedSettingsDocument": {
         "tier": "stable",
         "declaration": "declare function readManagedSettingsDocument(root?: string, options?: ReadManagedSettingsDocumentOptions): ManagedSettingsDocument | null;"
+      },
+      "readSessionHistory": {
+        "tier": "stable",
+        "declaration": "declare function readSessionHistory(options: ReadSessionMessagesOptions): Promise<SessionHistory>;"
       },
       "readSessionMessages": {
         "tier": "stable",
