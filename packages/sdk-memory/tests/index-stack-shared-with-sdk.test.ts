@@ -17,6 +17,7 @@ import { setDiagnosticsSink } from "@theokit/sdk";
 import * as sdk from "@theokit/sdk/internal/memory-store";
 import * as peer from "@theokit/sdk-memory";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { resetMigrationStateForTests } from "../src/internal/index/migration.js";
 
 /** Removes the FTS table behind an open index, so its next `MATCH` statement throws. */
 async function breakFts(cwd: string): Promise<void> {
@@ -45,7 +46,7 @@ describe("the index stack: one copy shared by sdk and sdk-memory", () => {
     expect(peer.isLanceAvailable).toBe(sdk.isLanceAvailable);
     expect(peer.migrateSqliteToLance).toBe(sdk.migrateSqliteToLance);
     expect(peer.migrateLegacyJson).toBe(sdk.migrateLegacyJson);
-    expect(peer.resetMigrationStateForTests).toBe(sdk.resetMigrationStateForTests);
+    expect(resetMigrationStateForTests).toBe(sdk.resetMigrationStateForTests);
     // `toBe(undefined)` on both sides would pass every line above.
     expect(typeof sdk.openLanceIndex).toBe("function");
     expect(typeof sdk.migrateLegacyJson).toBe("function");
@@ -131,10 +132,10 @@ describe("migrateLegacyJson: one per-process set of migrated keys", () => {
 
   beforeEach(async () => {
     cwd = await mkdtemp(join(tmpdir(), "sdk-memory-one-migration-set-"));
-    peer.resetMigrationStateForTests();
+    resetMigrationStateForTests();
   });
   afterEach(async () => {
-    peer.resetMigrationStateForTests();
+    resetMigrationStateForTests();
     await rm(cwd, { recursive: true, force: true });
   });
 
