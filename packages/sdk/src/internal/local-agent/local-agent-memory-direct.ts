@@ -246,6 +246,9 @@ export function buildAgentMemory(
       if (resolved === undefined) return null;
       return resolved.adapters[0] ?? null;
     },
+
+    // Replaced by `LocalAgent` when `memory.review` is configured.
+    reviewsIdle: () => Promise.resolve(),
   };
 }
 

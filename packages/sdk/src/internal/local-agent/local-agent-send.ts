@@ -8,6 +8,7 @@ import { anySignal } from "../concurrency/abort-utils.js";
 import { diagFailure } from "../diagnostics.js";
 import { emitRunEvent } from "../emit-run-event.js";
 import type { MemoryMirror } from "../memory/mirror.js";
+import type { TurnReviewQueue } from "../memory/review/turn-review.js";
 import type { PluginManager } from "../plugins/manager.js";
 import {
   type CompletionCheckDeps,
@@ -36,7 +37,11 @@ import {
 } from "../session/index.js";
 import type { TelemetryHandle } from "../telemetry/tracer.js";
 import { consumePending } from "./local-agent-invalidate.js";
-import { applyPreUserSendHook, wrapRunWithPostReplyHook } from "./local-agent-memory-hooks.js";
+import {
+  applyPreUserSendHook,
+  scheduleTurnReview,
+  wrapRunWithPostReplyHook,
+} from "./local-agent-memory-hooks.js";
 import { persistMemoryFactIfWritePrompt } from "./local-agent-runtime-extensions.js";
 import { runWithModelFallback } from "./model-fallback-run.js";
 
@@ -63,6 +68,8 @@ export interface SendLockedInputs {
   sessionStore?: SessionStore;
   /** Built-in memory ↔ adapter mirror, when `memory.mirror` is set. */
   memoryMirror?: MemoryMirror;
+  /** `memory.review` queue, when configured. */
+  turnReviews?: TurnReviewQueue;
   telemetry: TelemetryHandle;
   lifecycleAbortController: AbortController;
   runPreHook: (userText: string) => Promise<void>;
@@ -310,6 +317,7 @@ export async function executeSendLocked(
           onRunEvent: options.onRunEvent,
         })
       : run;
+  scheduleTurnReview({ queue: inputs.turnReviews, run: processedRun, userText });
   const hookedRun = wrapRunWithPostReplyHook({
     pluginManager: inputs.pluginManagerCode,
     agentId: inputs.agentId,
