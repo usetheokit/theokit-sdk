@@ -156,6 +156,12 @@ export class CloudAgent implements SDKAgent {
         { code: "cloud_custom_tools_rejected" },
       );
     }
+    // Deferred calls are read from the local transcript; the cloud transport cannot resume them.
+    if (options.toolDecisions !== undefined) {
+      throw new ConfigurationError("toolDecisions resumes local deferred tool calls only", {
+        code: "cloud_tool_decisions_rejected",
+      });
+    }
     // D370: Task wrapping is local-only in v1 (cloud runtime pre-release).
     if (options.task !== undefined) {
       const { UnsupportedTaskOperationError } = await import("../../errors.js");

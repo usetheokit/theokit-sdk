@@ -299,6 +299,7 @@ async function vetoFromPluginPreHook(dc: DispatchContext): Promise<LlmContentPar
     agentId: inputs.agentId,
     runId: inputs.runId,
     toolUseId: call.id,
+    ...approvalOnResume(inputs, call.id),
     // SE1 — thread the run's permission mode so a PermissionPlugin gates per-run.
     ...(inputs.permissionMode !== undefined ? { permissionMode: inputs.permissionMode } : {}),
     ...(inputs.conversation !== undefined ? { conversation: inputs.conversation } : {}),
@@ -605,4 +606,12 @@ function buildToolUseCompleted(
       exitCode,
     },
   };
+}
+
+/** `approvedOnResume` for a call a person approved when resuming it; nothing otherwise. */
+function approvalOnResume(inputs: AgentLoopInputs, toolUseId: string): { approvedOnResume?: true } {
+  const approved = inputs.resume?.decisions.some(
+    (d) => d.toolUseId === toolUseId && d.behavior === "allow",
+  );
+  return approved === true ? { approvedOnResume: true } : {};
 }

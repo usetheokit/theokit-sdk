@@ -1,6 +1,7 @@
 import { AgentDisposedError, ConfigurationError } from "../../errors.js";
 import type { AgentOptions, ModelSelection } from "../../types/agent.js";
-import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
+import type { DeferredToolCall, Run, SDKUserMessage, SendOptions } from "../../types/run.js";
+import type { SessionStore } from "../../types/session-store.js";
 import type { MemoryToolSpec } from "../agent-loop/types.js";
 import { anySignal } from "../concurrency/abort-utils.js";
 import { diagFailure } from "../diagnostics.js";
@@ -24,7 +25,14 @@ import { runInputProcessors } from "../runtime/processors/run-processors.js";
 import { createTripwireRun } from "../runtime/processors/tripwire-run.js";
 import { wrapRunWithOutputProcessors } from "../runtime/processors/wrap-output-run.js";
 import { safeCall } from "../runtime/system-prompt/safe-call.js";
-import { appendSessionMessage, clearSession, getSessionMessages } from "../session/index.js";
+import {
+  appendSessionMessage,
+  clearSession,
+  getSessionMessages,
+  matchToolDecisions,
+  readPendingToolCalls,
+  readSessionMessages,
+} from "../session/index.js";
 import type { TelemetryHandle } from "../telemetry/tracer.js";
 import { consumePending } from "./local-agent-invalidate.js";
 import {
@@ -54,6 +62,8 @@ export interface SendLockedInputs {
     typeof import("./local-agent-memory-provider.js").createLocalAgentMemoryProvider
   >;
   workspaceCwd: string;
+  /** Where the transcript lives; a resume reads its pending tool calls from it. */
+  sessionStore?: SessionStore;
   /** Built-in memory ↔ adapter mirror, when `memory.mirror` is set. */
   memoryMirror?: MemoryMirror;
   /** `memory.review` queue, when configured. */
@@ -109,6 +119,8 @@ export interface DispatchRunArgs {
   readonly memoryProviderOverride?: MemoryProvider | undefined;
   /** Model for this one dispatch (`modelFallback` attempts); the agent's own model when absent. */
   readonly model?: ModelSelection | undefined;
+  /** The deferred calls this dispatch resumes; the decisions are in `options.toolDecisions`. */
+  readonly resumeCalls?: ReadonlyArray<DeferredToolCall> | undefined;
 }
 
 /**
@@ -147,6 +159,28 @@ async function applyInputProcessors(
   return { userText: res.value, effectiveMessage };
 }
 
+/**
+ * Read and match the pending tool calls of a `toolDecisions` send. `undefined` when the send does not
+ * resume anything.
+ */
+async function prepareResume(
+  inputs: SendLockedInputs,
+  options: SendOptions,
+): Promise<readonly DeferredToolCall[] | undefined> {
+  if (options.toolDecisions === undefined) return undefined;
+  if (inputs.sessionStore === undefined) {
+    throw new ConfigurationError(
+      "toolDecisions needs a session store to read the deferred calls.",
+      {
+        code: "tool_decision_unsupported",
+      },
+    );
+  }
+  const pending = await readPendingToolCalls(inputs.sessionStore, inputs.agentId);
+  matchToolDecisions(pending, options.toolDecisions);
+  return pending;
+}
+
 const lastSendAt = new Map<string, number>();
 
 /** Clears the agent's conversation when it has been idle longer than `minutes`. */
@@ -177,6 +211,9 @@ export async function executeSendLocked(
     inputs.clearInvalidation,
     inputs.reload,
   );
+  // A resume is validated against the stored transcript before any side effect, so a bad one
+  // leaves the session untouched.
+  const resume = await prepareResume(inputs, options);
   // SE8 — normalize a bare-string send-model override to `{ id }`.
   const sendModel = normalizeModel(options.model);
   inputs.applyModelOverride(sendModel);
@@ -207,8 +244,15 @@ export async function executeSendLocked(
     sendOptions: options,
   });
 
-  const priorMessages = [...getSessionMessages(inputs.agentId)];
-  appendSessionMessage(inputs.agentId, { role: "user", text: userText });
+  // A resume replays the stored transcript, which ends on the unanswered tool calls; the in-memory
+  // cache holds text only. It adds no user message: the results of the calls are the new turn.
+  const priorMessages =
+    resume !== undefined
+      ? await readSessionMessages(inputs.sessionStore as SessionStore, inputs.agentId, {
+          keepDeferred: true,
+        })
+      : [...getSessionMessages(inputs.agentId)];
+  if (resume === undefined) appendSessionMessage(inputs.agentId, { role: "user", text: userText });
 
   // Where memory lives is `memory.directory`'s answer and nobody else's. It used to be
   // `local.sessionDir`'s — the option that names the TRANSCRIPT home — so one option answered two
@@ -256,6 +300,7 @@ export async function executeSendLocked(
     priorMessages,
     memoryTools,
     memoryProviderOverride: effectiveMemoryProvider,
+    ...(resume !== undefined ? { resumeCalls: resume } : {}),
   };
   const run = await dispatchWithFallback(inputs, dispatchArgs);
   // SE24 — output processors wrap INNER (they redact/block the model text) so the
@@ -393,4 +438,9 @@ function readMemoryForSend(
     [],
     "memory read",
   );
+}
+
+/** `resumed: true` when the send answers deferred tool calls, so post-run writes no user message. */
+export function resumedFlag(options: SendOptions): { resumed?: true } {
+  return options.toolDecisions !== undefined ? { resumed: true } : {};
 }

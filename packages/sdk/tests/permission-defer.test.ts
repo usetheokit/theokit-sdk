@@ -231,7 +231,7 @@ describe("deferred runs: persistence and repair", () => {
         hooksExecutor: hooks,
         contextWindow: 1000,
       });
-      const messages = await readSessionMessages(store, "a");
+      const messages = await readSessionMessages(store, "a", { keepDeferred: true });
       const parts = messages.flatMap((m) => m.parts ?? []);
       const useIds = parts.flatMap((p) => (p.type === "tool_use" ? [p.id] : []));
       const resultIds = parts.flatMap((p) => (p.type === "tool_result" ? [p.toolUseId] : []));
