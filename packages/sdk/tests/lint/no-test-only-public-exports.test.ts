@@ -7,18 +7,21 @@ import { describe, expect, it } from "vitest";
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const FORBIDDEN = /ForTests?$|^__?reset/;
 
-// `resetMigrationStateForTests` is re-exported by the semver-exempt `./internal/memory/storage`
-// shared-kernel channel, which @theokit/sdk-memory consumes and tests through. It is outside this
-// issue's scope; removing it means changing the satellite first, so it is allowlisted by name.
-const ALLOWED = new Set(["resetMigrationStateForTests"]);
+// Narrow, per-entry exemption (NOT granted by the issue; flagged for the owner). The semver-exempt
+// `./internal/memory-store` shared-kernel channel re-exports `resetMigrationStateForTests`, and
+// @theokit/sdk-memory re-exports and tests through it. Removing it needs a satellite change first.
+// It is exempt only on that one entry; any other entry resolving it fails.
+const ALLOWED_BY_ENTRY: Record<string, string> = {
+  "./internal/memory-store": "resetMigrationStateForTests",
+};
 
 type Conditions = { types?: string } | string;
-function declarationFiles(exportsMap: Record<string, unknown>): string[] {
-  const files: string[] = [];
-  for (const entry of Object.values(exportsMap)) {
+function declarationFiles(exportsMap: Record<string, unknown>): Map<string, string> {
+  const files = new Map<string, string>(); // declaration file -> entry key
+  for (const [key, entry] of Object.entries(exportsMap)) {
     if (typeof entry !== "object" || entry === null) continue;
     for (const cond of Object.values(entry as Record<string, Conditions>)) {
-      if (typeof cond === "object" && cond.types) files.push(cond.types);
+      if (typeof cond === "object" && cond.types) files.set(cond.types, key);
     }
   }
   return files;
@@ -45,7 +48,10 @@ describe("no published entry resolves a test-only export", () => {
   const manifest = JSON.parse(readFileSync(join(PKG_ROOT, "package.json"), "utf8")) as {
     exports: Record<string, unknown>;
   };
-  const files = declarationFiles(manifest.exports).map((f) => resolve(PKG_ROOT, f));
+  const entryByFile = new Map(
+    [...declarationFiles(manifest.exports)].map(([f, k]) => [resolve(PKG_ROOT, f), k]),
+  );
+  const files = [...entryByFile.keys()];
 
   it("every declared .d.ts / .d.cts exists (build the package first)", () => {
     expect(files.length).toBeGreaterThan(0);
@@ -56,7 +62,8 @@ describe("no published entry resolves a test-only export", () => {
     const offenders: string[] = [];
     for (const [file, names] of exportedNames(files)) {
       for (const n of names)
-        if (FORBIDDEN.test(n) && !ALLOWED.has(n)) offenders.push(`${file}: ${n}`);
+        if (FORBIDDEN.test(n) && ALLOWED_BY_ENTRY[entryByFile.get(file) ?? ""] !== n)
+          offenders.push(`${file}: ${n}`);
     }
     expect(offenders).toEqual([]);
   });
