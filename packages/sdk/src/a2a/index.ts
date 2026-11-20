@@ -7,6 +7,12 @@
 export type { ToolContextMessage } from "../types/agent-prims.js";
 export { AgentMailbox } from "./agent-mailbox.js";
 export {
+  A2AMailboxError,
+  createHttpMailboxHandler,
+  type HttpMailboxOptions,
+  httpMailboxTransport,
+} from "./http-mailbox.js";
+export {
   A2APeerNotRegisteredError,
   A2ARemoteRequestUnsupportedError,
   A2ARequestTimeoutError,

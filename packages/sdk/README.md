@@ -454,6 +454,27 @@ await b.pump(); // polls for every locally registered agent, delivers in order, 
 - `pump()` is not automatic: call it when you want waiting messages delivered. A handler failure is reported on diagnostics and does not stop the others.
 - `from` is self-asserted. The transport does not authenticate it; that is the job of a sealed transport.
 
+### HTTP store-and-forward mailbox
+
+For peers that are offline or behind NAT, serve a mailbox from any fetch-style server and point `httpMailboxTransport` at it:
+
+```ts
+import { MessageBus, createHttpMailboxHandler, httpMailboxTransport } from "@theokit/sdk/a2a";
+
+// server: handles POST <prefix>/put and POST <prefix>/take
+const handler = createHttpMailboxHandler({ token: process.env.MAILBOX_TOKEN!, persistPath: "./mailbox.json" });
+
+// client
+const bus = new MessageBus({
+  transport: httpMailboxTransport({ baseUrl: "https://host.example/mailbox", token: process.env.MAILBOX_TOKEN! }),
+});
+```
+
+- Defaults: 100 messages per recipient (a full queue answers 507), 256 KiB body cap (413). Non-POST answers 405 with `allow: POST`; a wrong token answers 401 before the body is read. The token is compared in constant time.
+- `persistPath` writes atomically with mode 0600. A file that fails its shape check is refused at start with `A2AMailboxError` and never overwritten. Handlers sharing one file are not coordinated.
+- `baseUrl` must be `https:`, or `http:` on `localhost`, `127.0.0.1` or `[::1]`; otherwise `ConfigurationError` (`a2a_mailbox_insecure_url`). A non-2xx answer rejects with `A2AMailboxError` carrying `status`.
+- **Shared-token limit:** one token guards the whole mailbox. Any holder can `take` any recipient's queue, draining other peers' messages, and `from` is self-asserted. Share the token only between peers that trust each other.
+
 ## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
 
 `AgentLike` (`agentId`, `send`, optional `dispose`) and `RunLike` (`status`, `stream`, `wait`, `cancel`) are the small ports `SDKAgent` and `Run` satisfy with no cast. Type a wrapper, failover decorator or test double against them instead of the full `SDKAgent`, or re-declaring a port that drifts. `RunLike.wait()` resolves the real `RunResult`, so `status` is `RunStatus` and a misspelled status such as `"completed"` fails to compile.
