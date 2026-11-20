@@ -98,12 +98,14 @@ describe("startFakeModelServer", () => {
   });
 
   it("refuses a non-loopback host", async () => {
-    await expect(startFakeModelServer({ host: "0.0.0.0" })).rejects.toThrow(/loopback/);
+    await expect(startFakeModelServer({ host: "0.0.0.0" })).rejects.toThrow(
+      /must be a loopback address/,
+    );
   });
 
   it("refuses connections after close()", async () => {
     const server = await startFakeModelServer();
     await server.close();
-    await expect(fetch(server.url)).rejects.toThrow();
+    await expect(fetch(server.url)).rejects.toThrow(/fetch failed/);
   });
 });

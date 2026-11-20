@@ -17,6 +17,7 @@ export interface FakeModelRequest {
   readonly error?: string;
 }
 
+/** A running fake model server; see {@link startFakeModelServer}. */
 export interface FakeModelServer {
   /** Pass as the agent's model: `{ id, url }` pointing at this server. */
   readonly model: ModelSelection;
@@ -27,6 +28,7 @@ export interface FakeModelServer {
   close(): Promise<void>;
 }
 
+/** Options for {@link startFakeModelServer}. */
 export interface FakeModelServerOptions {
   /** `"openai"`: `POST /v1/chat/completions` as SSE. `"ollama"`: `POST /api/chat` as NDJSON. Default `"openai"`. */
   wire?: "openai" | "ollama";
@@ -36,7 +38,7 @@ export interface FakeModelServerOptions {
   host?: string;
 }
 
-// TODO: scripted tool calls (out of scope here).
+// Scripted tool calls are not supported yet.
 
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
 

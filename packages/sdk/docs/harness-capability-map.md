@@ -1754,8 +1754,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | Symbol | Kind | Summary |
 |---|---|---|
 | `FakeModelRequest` | interface | One request body the fake server received. |
-| `FakeModelServer` | interface |  |
-| `FakeModelServerOptions` | interface |  |
+| `FakeModelServer` | interface | A running fake model server; see {@link startFakeModelServer } . |
+| `FakeModelServerOptions` | interface | Options for {@link startFakeModelServer } . |
 | `startFakeModelServer` | function | Start a local server that speaks a provider's chat wire protocol and answers with scripted text, so an agent can run end to end with no credential and no real model.  |
 
 ## `@theokit/sdk/workflow`
