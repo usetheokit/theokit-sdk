@@ -73,7 +73,9 @@ describe("helpers on a throwOnError agent whose provider answers 401", () => {
     clearAllSessions();
     invalidateRegistryHydration();
     await Agent.registry.evictAll();
-    await rm(root, { recursive: true, force: true });
+    // The cron fire builds its own agent that this test cannot dispose, so its registry may still
+    // be writing `.theokit/agents` while the folder goes; retry the ENOTEMPTY instead of failing.
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
