@@ -15,7 +15,8 @@ export function readmeModelIds(markdown: string): string[] {
   const blocks = markdown.matchAll(/```[^\n]*\n([\s\S]*?)```/g);
   for (const [, code = ""] of blocks) {
     const body = code.replace(/^\s*\/\/.*$/gm, "");
-    for (const m of body.matchAll(/\bmodel:\s*(?:\{\s*id:\s*)?"([^"]+)"/g)) ids.push(m[1] as string);
+    for (const m of body.matchAll(/\bmodel:\s*(?:\{\s*id:\s*)?"([^"]+)"/g))
+      ids.push(m[1] as string);
     for (const m of body.matchAll(/\bmodels:\s*\[([^\]]*)\]/g)) {
       for (const s of (m[1] as string).matchAll(/"([^"]+)"/g)) ids.push(s[1] as string);
     }
@@ -31,7 +32,8 @@ describe("README model ids", () => {
   });
 
   it("extracts object, string and list forms", () => {
-    const md = '```ts\nmodel: { id: "a/b" }\nmodel: "c/d"\nmodels: ["e/f", "g/h"]\n// model: "x/y"\n```';
+    const md =
+      '```ts\nmodel: { id: "a/b" }\nmodel: "c/d"\nmodels: ["e/f", "g/h"]\n// model: "x/y"\n```';
     expect(readmeModelIds(md)).toEqual(["a/b", "c/d", "e/f", "g/h"]);
   });
 
