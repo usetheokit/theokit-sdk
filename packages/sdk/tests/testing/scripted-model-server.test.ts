@@ -113,6 +113,7 @@ describe("startScriptedModelServer", () => {
       } catch (e) {
         return e;
       }
+      return undefined;
     })();
     expect(err).toBeInstanceOf(UnexpectedModelCallError);
     expect((err as UnexpectedModelCallError).code).toBe("unexpected_model_call");
@@ -133,6 +134,7 @@ describe("startScriptedModelServer", () => {
       } catch (e) {
         return e;
       }
+      return undefined;
     })();
     expect(err).toBeInstanceOf(UnconsumedModelStepsError);
     expect((err as UnconsumedModelStepsError).code).toBe("unconsumed_model_steps");
