@@ -22,6 +22,7 @@ function build(
     fn<number, number>(id, async (n, ctx) => {
       counts[id] = (counts[id] ?? 0) + 1;
       inputs[id] = n;
+      inputs[`${id}:count`] = ((ctx.state as { count: number } | undefined)?.count ?? 0) + 1;
       const state = { ...((ctx.state as { count: number } | undefined) ?? { count: 0 }) };
       state.count += 1;
       ctx.setState(state);
@@ -70,13 +71,34 @@ describe("workflow rerunFrom", () => {
 
   it("rerun_restores_the_state_of_that_point", async () => {
     for (const [, p] of await backends()) {
-      const wf = build(p, {}, {});
+      const inputs: Record<string, unknown> = {};
+      const wf = build(p, {}, inputs);
       const first = await wf.run(1);
       // count after s2 is 2, so s3 sees 3 → 20 + 3000
       expect(first.output).toBe(20 + 3000 + 1);
+      expect(inputs["s3:count"]).toBe(3);
+      inputs["s3:count"] = undefined;
       const again = await wf.rerunFrom({ runId: first.id, stepId: "s3" });
-      expect(again.output).toBe(first.output);
+      expect(inputs["s3:count"]).toBe(3);
+      // s3 sees count 3 (2 after s2, +1 in s3) — not 5 as a replayed final state would give
+      expect(again.output).toBe(20 + 3000 + 1);
     }
+  });
+
+  it("history_survives_path_like_step_and_run_ids", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wf-rerun-"));
+    onTestFinished(() => removeTempDirRobust(dir));
+    const wf = Workflow.create({
+      name: "rerun-paths",
+      persistence: { backend: "json", dir, durability: "step", keepHistory: true },
+    })
+      .then(fn<number, number>("a-b", async (n) => n + 1))
+      .then(fn<number, number>("c", async (n) => n + 1))
+      .commit();
+    const run = await wf.run(1, { runId: "r/../x" });
+    expect((await wf.history(run.id)).map((h) => h.stepId)).toEqual(["a-b", "c"]);
+    const { readdir } = await import("node:fs/promises");
+    expect(await readdir(dir)).toEqual(["r%2F..%2Fx"]);
   });
 
   it("rerun_leaves_the_original_history_intact", async () => {

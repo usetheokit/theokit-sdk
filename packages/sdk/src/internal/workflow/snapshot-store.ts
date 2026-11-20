@@ -124,16 +124,16 @@ class JsonFileWorkflowSnapshotStore implements WorkflowSnapshotStore {
 
   async appendHistory(index: number, record: WorkflowHistoryRecord): Promise<void> {
     const serialized = serializeRecord(record);
-    const runDir = join(this.dir, record.snapshot.runId);
+    const runDir = join(this.dir, encodeURIComponent(record.snapshot.runId));
     await mkdir(runDir, { recursive: true });
     await atomicWriteText(
-      join(runDir, `${index}-${record.snapshot.currentStepId}.json`),
+      join(runDir, `${index}-${encodeURIComponent(record.snapshot.currentStepId)}.json`),
       serialized,
     );
   }
 
   async loadHistory(runId: string): Promise<ReadonlyArray<WorkflowHistoryRecord>> {
-    const runDir = join(this.dir, runId);
+    const runDir = join(this.dir, encodeURIComponent(runId));
     let files: string[];
     try {
       files = await readdir(runDir);
