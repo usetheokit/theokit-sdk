@@ -656,6 +656,22 @@ const { name, run } = await set.resume(runId, { approved: true });
 
 A member with no snapshot for the id, or whose snapshot belongs to another workflow, is skipped. Any other error (a payload that fails validation, an I/O error) is rethrown at once and the remaining members are not tried. If no member owns the run, it throws `WorkflowSnapshotNotFoundError`. `WorkflowSet.of` throws `ConfigurationError` when two members share a name.
 
+## Experimental exports
+
+Every export is stable unless its declaration carries `@experimental`; experimental names may change in any release. The list below is checked against the committed surface baseline (`tools/api-surface/sdk.json`).
+
+### `@theokit/sdk/a2a`
+
+- `A2AIdentity`
+- `A2AUntrustedPeerError`
+- `SealedDropReason`
+- `SequenceStore`
+- `TrustedPeers`
+- `generateA2AIdentity`
+- `jsonSequenceStore`
+- `memorySequenceStore`
+- `sealedTransport`
+
 ## Status
 
 The full contract is defined by the exported TypeScript types; see [`CHANGELOG.md`](./CHANGELOG.md) for the release history.
