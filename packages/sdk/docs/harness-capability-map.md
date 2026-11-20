@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1527 export(s) across 58 entry point(s).
+1526 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -752,7 +752,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `removeFactEntry` | function | Remove one stored memory from the write root: the per-memory file and its `MEMORY.md` index line, or one legacy bullet inside `## Facts`.  |
 | `remPhase` | function | REM phase — single-link agglomerative clustering by cosine similarity. |
 | `renderDiaryEntry` | function | One diary entry as the markdown that gets appended: a timestamp heading, the short entry hash, and the counts the sweep produced.  |
-| `resetMigrationStateForTests` | function | Test-only — reset the in-process migration flag map. |
 | `resolveMaxFacts` | function | The ceiling a caller declared, or `undefined` when none was declared.  |
 | `resolveMemoryRoot` | function | The memory root for this agent: `memory.directory` when set, the project store otherwise.  |
 | `runActiveMemory` | function | Run one blocking recall before the system prompt is assembled, and report what happened.  |

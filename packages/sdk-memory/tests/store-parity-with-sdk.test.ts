@@ -65,7 +65,8 @@ describe("the store this package exposes and the SDK's", () => {
     );
     expect(shared.length).toBeGreaterThan(0);
     for (const name of shared) {
-      if (name === "LanceMemoryAdapter") continue;
+      // Not on the root: the test-only helper (#1111). LanceMemoryAdapter is the #1068 exception.
+      if (name === "LanceMemoryAdapter" || name === "resetMigrationStateForTests") continue;
       expect((peer as Record<string, unknown>)[name]).toBe((sdk as Record<string, unknown>)[name]);
     }
   });
