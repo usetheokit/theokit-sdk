@@ -118,6 +118,39 @@ export async function forkAgentImpl(
 }
 
 type ForkToolCall = ForkResult["toolCalls"][number];
+type TrackedCall = ForkToolCall & { hasInput: boolean };
+
+function parseToolEvent(
+  msg: unknown,
+):
+  | { name: string; id: string | undefined; input: Record<string, unknown> | undefined }
+  | undefined {
+  const m = msg as { type?: unknown; name?: unknown; call_id?: unknown; args?: unknown } | null;
+  if (m?.type !== "tool_call" || typeof m.name !== "string") return undefined;
+  const a = m.args;
+  const isObj = typeof a === "object" && a !== null && !Array.isArray(a);
+  return {
+    name: m.name,
+    id: typeof m.call_id === "string" ? m.call_id : undefined,
+    input: isObj ? (a as Record<string, unknown>) : undefined,
+  };
+}
+
+function recordToolEvent(
+  calls: TrackedCall[],
+  byId: Map<string, TrackedCall>,
+  ev: NonNullable<ReturnType<typeof parseToolEvent>>,
+): void {
+  const existing = ev.id === undefined ? undefined : byId.get(ev.id);
+  if (existing) {
+    if (!existing.hasInput && ev.input)
+      Object.assign(existing, { input: ev.input, hasInput: true });
+    return;
+  }
+  const entry = { name: ev.name, input: ev.input ?? {}, hasInput: ev.input !== undefined };
+  calls.push(entry);
+  if (ev.id !== undefined) byId.set(ev.id, entry);
+}
 
 /**
  * Drain the run stream and collect the tool calls. A call emits a `running`
@@ -127,26 +160,11 @@ type ForkToolCall = ForkResult["toolCalls"][number];
 async function collectToolCalls(run: unknown): Promise<ForkToolCall[]> {
   const stream = (run as { stream?: () => AsyncIterable<unknown> }).stream;
   if (typeof stream !== "function") return [];
-  const calls: ForkToolCall[] = [];
-  const byId = new Map<string, ForkToolCall & { hasInput: boolean }>();
+  const calls: TrackedCall[] = [];
+  const byId = new Map<string, TrackedCall>();
   for await (const msg of stream.call(run)) {
-    if (typeof msg !== "object" || msg === null) continue;
-    const m = msg as { type?: unknown; name?: unknown; call_id?: unknown; args?: unknown };
-    if (m.type !== "tool_call" || typeof m.name !== "string") continue;
-    const isObj = typeof m.args === "object" && m.args !== null && !Array.isArray(m.args);
-    const input = isObj ? (m.args as Record<string, unknown>) : {};
-    const id = typeof m.call_id === "string" ? m.call_id : undefined;
-    const existing = id === undefined ? undefined : byId.get(id);
-    if (existing) {
-      if (!existing.hasInput && isObj) {
-        existing.input = input;
-        existing.hasInput = true;
-      }
-      continue;
-    }
-    const entry = { name: m.name, input, hasInput: isObj };
-    calls.push(entry);
-    if (id !== undefined) byId.set(id, entry);
+    const ev = parseToolEvent(msg);
+    if (ev) recordToolEvent(calls, byId, ev);
   }
   return calls.map(({ name, input }) => ({ name, input }));
 }
