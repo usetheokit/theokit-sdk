@@ -1,6 +1,9 @@
 import { FsSessionStore } from "./internal/persistence/fs-session-store.js";
 import { resolveSessionDir } from "./internal/persistence/session-dir.js";
-import { readSessionMessages as readFromStore } from "./internal/session/agent-session-store.js";
+import {
+  messagesFromRecords,
+  readSessionMessages as readFromStore,
+} from "./internal/session/agent-session-store.js";
 import type { SessionMessage } from "./types/session-message.js";
 
 /** Which session to read, in the terms a host already has. */
@@ -49,4 +52,56 @@ export async function readSessionMessages(
   const cwd = options.cwd ?? process.cwd();
   const baseDir = resolveSessionDir({ sessionDir: options.sessionDir });
   return readFromStore(new FsSessionStore({ baseDir, cwd }), options.sessionId);
+}
+
+/** A stored session as a host sees it: found, not there, or there but not readable. */
+export interface SessionHistory {
+  readonly state: "present" | "absent" | "unreadable";
+  readonly messages: SessionMessage[];
+  /** Lines that were not valid records. A torn last line counts as 1. */
+  readonly skippedLines: number;
+  /** Set when state is "unreadable": the read or parse error, without file contents. */
+  readonly reason?: string;
+}
+
+/**
+ * Like {@link readSessionMessages}, but tells a session that does not exist (`absent`) from one
+ * that was read (`present`) and one that could not be (`unreadable`: a read error other than
+ * ENOENT, or a non-empty file with no valid record). Never throws for those cases.
+ */
+export async function readSessionHistory(
+  options: ReadSessionMessagesOptions,
+): Promise<SessionHistory> {
+  const cwd = options.cwd ?? process.cwd();
+  const baseDir = resolveSessionDir({ sessionDir: options.sessionDir });
+  const store = new FsSessionStore({ baseDir, cwd });
+  let read: Awaited<ReturnType<FsSessionStore["readHistory"]>>;
+  try {
+    read = await store.readHistory(options.sessionId);
+  } catch (cause) {
+    const code = (cause as NodeJS.ErrnoException).code;
+    return unreadable(
+      0,
+      code === undefined
+        ? "transcript could not be read"
+        : `transcript could not be read (${code})`,
+    );
+  }
+  if (read.absent) return { state: "absent", messages: [], skippedLines: 0 };
+  if (read.records.length === 0 && read.skippedLines > 0) {
+    return unreadable(read.skippedLines, "transcript has no valid record");
+  }
+  try {
+    return {
+      state: "present",
+      messages: messagesFromRecords(read.records),
+      skippedLines: read.skippedLines,
+    };
+  } catch {
+    return unreadable(read.skippedLines, "transcript records could not be reconstructed");
+  }
+}
+
+function unreadable(skippedLines: number, reason: string): SessionHistory {
+  return { state: "unreadable", messages: [], skippedLines, reason };
 }

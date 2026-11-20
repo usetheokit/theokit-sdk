@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-299 distinct code(s).
+303 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -67,7 +67,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `cron_no_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:257` +1 |
 | `cron_workflow_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:263` |
 | `decision_checksum_mismatch` | domain | — | `packages/sdk/src/decide.ts:59` |
-| `deferred_schema_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:352` |
+| `deferred_schema_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:359` |
 | `discovery_list_pattern_globbed` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-discovery-runner.ts:144` |
 | `duplicate_skill_name` | domain | ConfigurationError | `packages/sdk/src/define-skill-read-tool.ts:166` |
 | `duplicate_tool_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:214` |
@@ -98,9 +98,10 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `hooks_read_error` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:264` |
 | `hooks_unsupported_field` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:414` |
 | `hooks_unsupported_type` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/hooks/hooks-source.ts:430` |
+| `insecure_directory` | domain | — | `packages/sdk/src/internal/persistence/secure-dir.ts:11` |
 | `instance_locked` | domain | — | `packages/sdk/src/internal/persistence/instance-lock.ts:51` +1 |
 | `interactive_unavailable` | domain | InteractiveUnavailableError | `packages/sdk/src/interactive/types.ts:28` +1 |
-| `INTERNAL_SERVER_ERROR` | domain | — | `packages/sdk/src/server/errors-envelope.ts:100` |
+| `INTERNAL_SERVER_ERROR` | domain | — | `packages/sdk/src/server/errors-envelope.ts:106` |
 | `invalid_argument` | domain | TheokitAgentError | `packages/sdk/src/compaction.ts:79` |
 | `invalid_batch_item` | domain | ConfigurationError | `packages/sdk/src/internal/agent/batch.ts:67` |
 | `invalid_batch_size` | domain | ConfigurationError | `packages/sdk/src/internal/memory/migrate-sqlite-to-lance.ts:140` |
@@ -119,7 +120,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_local_registry` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:62` |
 | `invalid_mask_stream` | domain | ConfigurationError | `packages/sdk/src/security.ts:137` |
 | `invalid_max_iterations` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/real-local-run.ts:94` |
-| `invalid_mcp_tool_filter` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/tool-filter.ts:36` +1 |
+| `invalid_mcp_tool_filter` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/tool-filter.ts:37` +1 |
 | `invalid_memory_backend` | domain | ConfigurationError | `packages/sdk/src/internal/memory/index-manager-dispatch.ts:24` |
 | `invalid_memory_ceiling` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:23` +1 |
 | `invalid_memory_directory` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/memory-root.ts:161` |
@@ -151,11 +152,12 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `mcp_closed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:322` |
 | `mcp_config_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-dispatch.ts:158` |
 | `mcp_config_unreadable` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-dispatch.ts:148` |
-| `mcp_crashed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:237` |
-| `mcp_disconnected` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:250` +2 |
-| `mcp_http_error` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:519` +3 |
+| `mcp_crashed` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:230` |
+| `mcp_disconnected` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:243` +2 |
+| `mcp_http_error` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:526` +3 |
 | `mcp_not_init` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/client.ts:280` +2 |
-| `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:76` |
+| `mcp_protocol_unsupported` | domain | NetworkError | `packages/sdk/src/internal/mcp/protocol-version.ts:30` |
+| `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/rpc-helpers.ts:15` |
 | `memory_ceiling_reached` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:43` +1 |
 | `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:168` |
 | `memory_fact_ambiguous` | domain | — | `packages/sdk/src/errors.ts:528` +1 |
@@ -178,7 +180,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `network_error` | domain | NetworkError | `packages/sdk/src/internal/http.ts:99` |
 | `no_api_key` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-brave.ts:50` +1 |
 | `no_base_url` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-searxng.ts:35` |
-| `no_deferred_tool_calls` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:398` |
+| `no_deferred_tool_calls` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:405` |
 | `no_memory_adapter` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:181` +2 |
 | `no_provider_credential` | domain | ProviderCredentialError | `packages/sdk/src/internal/auth/resolve-provider-credential.ts:218` |
 | `no_such_session` | domain | NoSuchSessionError | `packages/sdk/src/interactive/types.ts:41` +1 |
@@ -230,7 +232,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `run_cancelled` | domain | — | `packages/sdk/src/errors.ts:737` |
 | `run_not_found` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:474` |
 | `runtime_exclusive` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:105` |
-| `sandbox_derived_helper_failed` | domain | ConfigurationError | `packages/sdk/src/sandbox/types.ts:236` +1 |
+| `sandbox_derived_helper_failed` | domain | ConfigurationError | `packages/sdk/src/sandbox/types.ts:251` +1 |
 | `sandbox_docker_error` | domain | SandboxDockerError | `packages/sdk/src/sandbox/docker-containers.ts:29` +1 |
 | `sandbox_not_available` | domain | SandboxNotAvailableError | `packages/sdk/src/sandbox/types.ts:110` +1 |
 | `sandbox_security` | domain | SandboxSecurityError | `packages/sdk/src/sandbox/types.ts:91` +1 |
@@ -266,10 +268,10 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `task_not_found` | domain | — | `packages/sdk/src/task-errors.ts:53` +1 |
 | `task_op_unsupported` | domain | — | `packages/sdk/src/task-errors.ts:73` +1 |
 | `timeout` | domain | — | `packages/sdk/src/internal/error-mappers/vertex.ts:55` |
-| `tool_decision_duplicate` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:411` |
-| `tool_decision_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:416` |
-| `tool_decision_missing` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:424` +1 |
-| `tool_decision_unknown` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:406` |
+| `tool_decision_duplicate` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:418` |
+| `tool_decision_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:423` |
+| `tool_decision_missing` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:431` +1 |
+| `tool_decision_unknown` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:413` |
 | `tool_decision_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-send.ts:174` +1 |
 | `tool_invalid_name` | domain | — | `packages/sdk/src/tool-name.ts:28` |
 | `tool_invalid_schema_type` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:272` |
@@ -280,6 +282,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `tool_reserved_name` | domain | — | `packages/sdk/src/tool-name.ts:37` |
 | `transport_failure` | domain | NetworkError | `packages/sdk/src/internal/llm/transport-error.ts:48` |
 | `transport_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:614` +1 |
+| `unconsumed_model_steps` | domain | UnconsumedModelStepsError | `packages/sdk/src/testing/scripted-model-server.ts:63` |
+| `unexpected_model_call` | domain | UnexpectedModelCallError | `packages/sdk/src/testing/scripted-model-server.ts:44` |
 | `unimplemented_budget_scope` | domain | ConfigurationError | `packages/sdk/src/internal/budget/registry.ts:60` +1 |
 | `unknown` | domain | AgentRunError, MemoryAdapterError, TheokitAgentError | `packages/memory-honcho/src/adapter.ts:264` +5 |
 | `unknown_agent` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:224` +1 |

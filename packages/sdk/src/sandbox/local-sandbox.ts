@@ -15,9 +15,10 @@
  * @public
  */
 
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { writeFile as fsWriteFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
+import { StringDecoder } from "node:string_decoder";
 
 import { resolveChildEnv } from "../internal/runtime/lifecycle/env-policy.js";
 import {
@@ -95,6 +96,81 @@ export class LocalSandbox extends SandboxBackend {
     });
   }
 
+  override async executeStreaming(
+    command: string,
+    opts?: { timeoutMs?: number; onStdoutLine?: (line: string) => void; signal?: AbortSignal },
+  ): Promise<ExecuteResult> {
+    const signal = opts?.signal;
+    if (signal?.aborted) {
+      return { stdout: "", stderr: "aborted", exitCode: 130, timedOut: false };
+    }
+    const timeout = opts?.timeoutMs ?? this.config.timeoutMs ?? 30_000;
+    const max = this.config.maxOutputBytes ?? 5 * 1024 * 1024;
+
+    return new Promise<ExecuteResult>((resolve) => {
+      const child = spawn("/bin/sh", ["-c", command], {
+        cwd: this.config.workDir,
+        env: resolveChildEnv({ policy: this.config.env }),
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: true, // own process group, so the kill reaches descendants
+      });
+      const out = new StreamCollector(max, opts?.onStdoutLine);
+      const err = new StreamCollector(max);
+      let timedOut = false;
+      let aborted = false;
+      let done = false;
+      const kill = (): void => {
+        try {
+          if (child.pid !== undefined) process.kill(-child.pid, "SIGKILL");
+        } catch {
+          child.kill("SIGKILL");
+        }
+      };
+      const onAbort = (): void => {
+        aborted = true;
+        kill();
+      };
+      const timer = setTimeout(() => {
+        timedOut = true;
+        kill();
+      }, timeout);
+      signal?.addEventListener("abort", onAbort, { once: true });
+      const finish = (code: number | null, spawnFailed: boolean): void => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", onAbort);
+        out.flush();
+        resolve(this.buildStreamResult(out, err, { code, spawnFailed, timedOut, aborted }));
+      };
+      const watch = (c: StreamCollector) => (chunk: Buffer) => {
+        if (c.push(chunk)) kill();
+      };
+      child.stdout.on("data", watch(out));
+      child.stderr.on("data", watch(err));
+      child.on("error", () => finish(1, true));
+      child.on("close", (code) => finish(code, false));
+    });
+  }
+
+  private buildStreamResult(
+    out: StreamCollector,
+    err: StreamCollector,
+    end: { code: number | null; spawnFailed: boolean; timedOut: boolean; aborted: boolean },
+  ): ExecuteResult {
+    const overflowed = out.overflowed || err.overflowed;
+    const clean = end.code === 0 && !end.aborted && !overflowed;
+    return {
+      stdout: this.markIfCut(this.truncateOutput(out.text), overflowed),
+      stderr: this.markIfCut(
+        this.truncateOutput(end.spawnFailed ? "spawn error" : err.text),
+        overflowed,
+      ),
+      exitCode: end.timedOut ? 124 : clean ? 0 : 1,
+      timedOut: end.timedOut,
+    };
+  }
+
   private buildResult(error: Error | null, stdout: string, stderr: string): ExecuteResult {
     const timedOut = error !== null && "killed" in error && (error as { killed: boolean }).killed;
     // #363 — the ONLY reliable signal that output was lost. Node caps the buffer AT `maxBuffer`, so
@@ -130,5 +206,46 @@ export class LocalSandbox extends SandboxBackend {
     const fullPath = path.startsWith("/") ? path : `${this.config.workDir}/${path}`;
     await mkdir(dirname(fullPath), { recursive: true });
     await fsWriteFile(fullPath, content, "utf-8");
+  }
+}
+
+/** Accumulates one stream up to a byte cap, optionally splitting it into lines as chunks arrive. */
+class StreamCollector {
+  text = "";
+  overflowed = false;
+  private bytes = 0;
+  private pending = "";
+  private readonly decoder = new StringDecoder("utf8");
+
+  constructor(
+    private readonly max: number,
+    private readonly onLine?: (line: string) => void,
+  ) {}
+
+  /** Returns true when the cap is exceeded and the child should be killed. */
+  push(chunk: Buffer): boolean {
+    if (this.overflowed) return true;
+    this.bytes += chunk.length;
+    const decoded = this.decoder.write(chunk);
+    this.text += decoded;
+    this.emit(decoded);
+    if (this.bytes > this.max) this.overflowed = true;
+    return this.overflowed;
+  }
+
+  /** Delivers a final unterminated line. */
+  flush(): void {
+    const tail = this.decoder.end();
+    this.text += tail;
+    this.emit(tail);
+    if (this.onLine && this.pending !== "") this.onLine(this.pending);
+    this.pending = "";
+  }
+
+  private emit(decoded: string): void {
+    if (!this.onLine) return;
+    const parts = (this.pending + decoded).split("\n");
+    this.pending = parts.pop() ?? "";
+    for (const p of parts) this.onLine(p.endsWith("\r") ? p.slice(0, -1) : p);
   }
 }

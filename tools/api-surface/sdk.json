@@ -2034,7 +2034,7 @@
     "./persistence#import": {
       "AtomicWriteJsonOptions": {
         "tier": "stable",
-        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n}"
+        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n    dirMode?: number;\n}"
       },
       "FileLockOptions": {
         "tier": "stable",
@@ -2047,6 +2047,10 @@
       "InMemorySessionStore": {
         "tier": "stable",
         "declaration": "declare class InMemorySessionStore implements SessionStore {\n    #private;\n    readRecords(agentId: string): Promise<SessionRecord[]>;\n    appendRecords(agentId: string, records: readonly SessionRecord[]): Promise<void>;\n}"
+      },
+      "InsecureDirectoryError": {
+        "tier": "stable",
+        "declaration": "declare class InsecureDirectoryError extends TheokitAgentError {\n    readonly name = \"InsecureDirectoryError\";\n    readonly directory: string;\n    constructor(directory: string, detail: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
       "InstanceLock": {
         "tier": "stable",
@@ -2164,6 +2168,10 @@
         "tier": "stable",
         "declaration": "declare function atomicWriteJson<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): Promise<void>;"
       },
+      "atomicWriteJsonSync": {
+        "tier": "stable",
+        "declaration": "declare function atomicWriteJsonSync<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): void;"
+      },
       "atomicWriteTempTarget": {
         "tier": "stable",
         "declaration": "declare function atomicWriteTempTarget(name: string): string | undefined;"
@@ -2179,6 +2187,10 @@
       "encodeProjectDir": {
         "tier": "stable",
         "declaration": "declare function encodeProjectDir(cwd: string): string;"
+      },
+      "ensureSecureDir": {
+        "tier": "stable",
+        "declaration": "declare function ensureSecureDir(filePath: string): void;"
       },
       "forkTranscript": {
         "tier": "stable",
@@ -2256,7 +2268,7 @@
     "./persistence#require": {
       "AtomicWriteJsonOptions": {
         "tier": "stable",
-        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n}"
+        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n    dirMode?: number;\n}"
       },
       "FileLockOptions": {
         "tier": "stable",
@@ -2269,6 +2281,10 @@
       "InMemorySessionStore": {
         "tier": "stable",
         "declaration": "declare class InMemorySessionStore implements SessionStore {\n    #private;\n    readRecords(agentId: string): Promise<SessionRecord[]>;\n    appendRecords(agentId: string, records: readonly SessionRecord[]): Promise<void>;\n}"
+      },
+      "InsecureDirectoryError": {
+        "tier": "stable",
+        "declaration": "declare class InsecureDirectoryError extends TheokitAgentError {\n    readonly name = \"InsecureDirectoryError\";\n    readonly directory: string;\n    constructor(directory: string, detail: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
       "InstanceLock": {
         "tier": "stable",
@@ -2386,6 +2402,10 @@
         "tier": "stable",
         "declaration": "declare function atomicWriteJson<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): Promise<void>;"
       },
+      "atomicWriteJsonSync": {
+        "tier": "stable",
+        "declaration": "declare function atomicWriteJsonSync<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): void;"
+      },
       "atomicWriteTempTarget": {
         "tier": "stable",
         "declaration": "declare function atomicWriteTempTarget(name: string): string | undefined;"
@@ -2401,6 +2421,10 @@
       "encodeProjectDir": {
         "tier": "stable",
         "declaration": "declare function encodeProjectDir(cwd: string): string;"
+      },
+      "ensureSecureDir": {
+        "tier": "stable",
+        "declaration": "declare function ensureSecureDir(filePath: string): void;"
       },
       "forkTranscript": {
         "tier": "stable",
@@ -2584,6 +2608,14 @@
       }
     },
     "./retry#import": {
+      "CircuitBreaker": {
+        "tier": "stable",
+        "declaration": "export declare class CircuitBreaker {\n    private readonly opts;\n    private readonly states;\n    constructor(opts?: CircuitBreakerOptions);\n    shouldSkip(key: string): boolean;\n    recordSuccess(key: string): void;\n    recordTimeout(key: string): void;\n    private now;\n}"
+      },
+      "CircuitBreakerOptions": {
+        "tier": "stable",
+        "declaration": "export interface CircuitBreakerOptions {\n    maxTimeouts?: number;\n    cooldownMs?: number;\n    now?: () => number;\n}"
+      },
       "Retry": {
         "tier": "stable",
         "declaration": "export declare class Retry {\n    private constructor();\n    static run<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>;\n    static create<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>;\n}"
@@ -2594,6 +2626,14 @@
       }
     },
     "./retry#require": {
+      "CircuitBreaker": {
+        "tier": "stable",
+        "declaration": "export declare class CircuitBreaker {\n    private readonly opts;\n    private readonly states;\n    constructor(opts?: CircuitBreakerOptions);\n    shouldSkip(key: string): boolean;\n    recordSuccess(key: string): void;\n    recordTimeout(key: string): void;\n    private now;\n}"
+      },
+      "CircuitBreakerOptions": {
+        "tier": "stable",
+        "declaration": "export interface CircuitBreakerOptions {\n    maxTimeouts?: number;\n    cooldownMs?: number;\n    now?: () => number;\n}"
+      },
       "Retry": {
         "tier": "stable",
         "declaration": "export declare class Retry {\n    private constructor();\n    static run<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>;\n    static create<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>;\n}"
@@ -2670,11 +2710,11 @@
       },
       "LinuxSandbox": {
         "tier": "stable",
-        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly egress;\n    private disposed;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean | {\n            allow: readonly EgressRule[];\n        };\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    dispose(): Promise<void>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    private egressFailure;\n}"
+        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly egress;\n    private disposed;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean | {\n            allow: readonly EgressRule[];\n        };\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    dispose(): Promise<void>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    executeStreaming(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    private plan;\n    private egressFailure;\n}"
       },
       "LocalSandbox": {
         "tier": "stable",
-        "declaration": "export declare class LocalSandbox extends SandboxBackend {\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    private buildResult;\n    private markIfCut;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n}"
+        "declaration": "export declare class LocalSandbox extends SandboxBackend {\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    executeStreaming(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    private buildStreamResult;\n    private buildResult;\n    private markIfCut;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n}"
       },
       "ProvisionRepoOptions": {
         "tier": "stable",
@@ -2686,7 +2726,7 @@
       },
       "SandboxBackend": {
         "tier": "stable",
-        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
+        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    executeStreaming?(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
       },
       "SandboxConfig": {
         "tier": "stable",
@@ -2894,11 +2934,11 @@
       },
       "LinuxSandbox": {
         "tier": "stable",
-        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly egress;\n    private disposed;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean | {\n            allow: readonly EgressRule[];\n        };\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    dispose(): Promise<void>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    private egressFailure;\n}"
+        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly egress;\n    private disposed;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean | {\n            allow: readonly EgressRule[];\n        };\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    dispose(): Promise<void>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    executeStreaming(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    private plan;\n    private egressFailure;\n}"
       },
       "LocalSandbox": {
         "tier": "stable",
-        "declaration": "export declare class LocalSandbox extends SandboxBackend {\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    private buildResult;\n    private markIfCut;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n}"
+        "declaration": "export declare class LocalSandbox extends SandboxBackend {\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    executeStreaming(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    private buildStreamResult;\n    private buildResult;\n    private markIfCut;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n}"
       },
       "ProvisionRepoOptions": {
         "tier": "stable",
@@ -2910,7 +2950,7 @@
       },
       "SandboxBackend": {
         "tier": "stable",
-        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
+        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    executeStreaming?(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
       },
       "SandboxConfig": {
         "tier": "stable",
@@ -3218,19 +3258,23 @@
       },
       "TheokitErrorCode": {
         "tier": "stable",
-        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";"
+        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";",
+        "deprecatedSince": "2026-11-20"
       },
       "TheokitErrorEnvelope": {
         "tier": "stable",
-        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}"
+        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}",
+        "deprecatedSince": "2026-11-20"
       },
       "fromEnvelope": {
         "tier": "stable",
-        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;"
+        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;",
+        "deprecatedSince": "2026-11-20"
       },
       "toEnvelope": {
         "tier": "stable",
-        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;"
+        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;",
+        "deprecatedSince": "2026-11-20"
       }
     },
     "./server/errors-envelope#require": {
@@ -3240,19 +3284,23 @@
       },
       "TheokitErrorCode": {
         "tier": "stable",
-        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";"
+        "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";",
+        "deprecatedSince": "2026-11-20"
       },
       "TheokitErrorEnvelope": {
         "tier": "stable",
-        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}"
+        "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}",
+        "deprecatedSince": "2026-11-20"
       },
       "fromEnvelope": {
         "tier": "stable",
-        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;"
+        "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;",
+        "deprecatedSince": "2026-11-20"
       },
       "toEnvelope": {
         "tier": "stable",
-        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;"
+        "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;",
+        "deprecatedSince": "2026-11-20"
       }
     },
     "./skills#import": {
@@ -3568,6 +3616,14 @@
         "tier": "stable",
         "declaration": "export interface FakeModelServerOptions {\n    wire?: \"openai\" | \"ollama\";\n    reply?: string | ((request: FakeModelRequest) => string);\n    host?: string;\n}"
       },
+      "ScriptedModelServer": {
+        "tier": "stable",
+        "declaration": "export interface ScriptedModelServer extends FakeModelServer {\n    assertConsumed(): void;\n}"
+      },
+      "ScriptedStep": {
+        "tier": "stable",
+        "declaration": "export type ScriptedStep = {\n    readonly text: string;\n} | {\n    readonly toolCalls: ReadonlyArray<{\n        readonly name: string;\n        readonly input: Record<string, unknown>;\n        readonly id?: string;\n    }>;\n    readonly text?: string;\n} | {\n    readonly error: {\n        readonly status: number;\n        readonly body?: unknown;\n        readonly retryAfterSeconds?: number;\n    };\n};"
+      },
       "SessionStoreConformanceCase": {
         "tier": "stable",
         "declaration": "export interface SessionStoreConformanceCase {\n    readonly name: string;\n    run(): Promise<void>;\n    readonly skipReason?: string;\n}"
@@ -3576,6 +3632,14 @@
         "tier": "stable",
         "declaration": "export interface SessionStoreFactory {\n    create(): Promise<SessionStore>;\n    createUnreachable?(): Promise<SessionStore>;\n    readonly sharesBackend?: boolean;\n    readonly exclusiveLeases?: boolean;\n}"
       },
+      "UnconsumedModelStepsError": {
+        "tier": "stable",
+        "declaration": "export declare class UnconsumedModelStepsError extends TheokitAgentError {\n    readonly name: string;\n    readonly code: \"unconsumed_model_steps\";\n    readonly remaining: number;\n    constructor(remaining: number);\n}"
+      },
+      "UnexpectedModelCallError": {
+        "tier": "stable",
+        "declaration": "export declare class UnexpectedModelCallError extends TheokitAgentError {\n    readonly name: string;\n    readonly code: \"unexpected_model_call\";\n    readonly callIndex: number;\n    constructor(callIndex: number, stepCount: number);\n}"
+      },
       "sessionStoreConformanceCases": {
         "tier": "stable",
         "declaration": "export declare function sessionStoreConformanceCases(factory: SessionStoreFactory): readonly SessionStoreConformanceCase[];"
@@ -3583,6 +3647,10 @@
       "startFakeModelServer": {
         "tier": "stable",
         "declaration": "export declare function startFakeModelServer(options?: FakeModelServerOptions): Promise<FakeModelServer>;"
+      },
+      "startScriptedModelServer": {
+        "tier": "stable",
+        "declaration": "export declare function startScriptedModelServer(options: {\n    steps: readonly ScriptedStep[];\n    wire?: \"openai\" | \"ollama\";\n}): Promise<ScriptedModelServer>;"
       }
     },
     "./testing#require": {
@@ -3598,6 +3666,14 @@
         "tier": "stable",
         "declaration": "export interface FakeModelServerOptions {\n    wire?: \"openai\" | \"ollama\";\n    reply?: string | ((request: FakeModelRequest) => string);\n    host?: string;\n}"
       },
+      "ScriptedModelServer": {
+        "tier": "stable",
+        "declaration": "export interface ScriptedModelServer extends FakeModelServer {\n    assertConsumed(): void;\n}"
+      },
+      "ScriptedStep": {
+        "tier": "stable",
+        "declaration": "export type ScriptedStep = {\n    readonly text: string;\n} | {\n    readonly toolCalls: ReadonlyArray<{\n        readonly name: string;\n        readonly input: Record<string, unknown>;\n        readonly id?: string;\n    }>;\n    readonly text?: string;\n} | {\n    readonly error: {\n        readonly status: number;\n        readonly body?: unknown;\n        readonly retryAfterSeconds?: number;\n    };\n};"
+      },
       "SessionStoreConformanceCase": {
         "tier": "stable",
         "declaration": "export interface SessionStoreConformanceCase {\n    readonly name: string;\n    run(): Promise<void>;\n    readonly skipReason?: string;\n}"
@@ -3606,6 +3682,14 @@
         "tier": "stable",
         "declaration": "export interface SessionStoreFactory {\n    create(): Promise<SessionStore>;\n    createUnreachable?(): Promise<SessionStore>;\n    readonly sharesBackend?: boolean;\n    readonly exclusiveLeases?: boolean;\n}"
       },
+      "UnconsumedModelStepsError": {
+        "tier": "stable",
+        "declaration": "export declare class UnconsumedModelStepsError extends TheokitAgentError {\n    readonly name: string;\n    readonly code: \"unconsumed_model_steps\";\n    readonly remaining: number;\n    constructor(remaining: number);\n}"
+      },
+      "UnexpectedModelCallError": {
+        "tier": "stable",
+        "declaration": "export declare class UnexpectedModelCallError extends TheokitAgentError {\n    readonly name: string;\n    readonly code: \"unexpected_model_call\";\n    readonly callIndex: number;\n    constructor(callIndex: number, stepCount: number);\n}"
+      },
       "sessionStoreConformanceCases": {
         "tier": "stable",
         "declaration": "export declare function sessionStoreConformanceCases(factory: SessionStoreFactory): readonly SessionStoreConformanceCase[];"
@@ -3613,6 +3697,10 @@
       "startFakeModelServer": {
         "tier": "stable",
         "declaration": "export declare function startFakeModelServer(options?: FakeModelServerOptions): Promise<FakeModelServer>;"
+      },
+      "startScriptedModelServer": {
+        "tier": "stable",
+        "declaration": "export declare function startScriptedModelServer(options: {\n    steps: readonly ScriptedStep[];\n    wire?: \"openai\" | \"ollama\";\n}): Promise<ScriptedModelServer>;"
       }
     },
     "./workflow#import": {
@@ -4687,7 +4775,7 @@
       },
       "McpHttpServerConfig": {
         "tier": "stable",
-        "declaration": "type McpHttpServerConfig = {\n    type?: \"http\" | \"sse\";\n    url: string;\n    headers?: Record<string, string>;\n    auth?: McpAuthConfig;\n    requestTimeoutMs?: number;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
+        "declaration": "type McpHttpServerConfig = {\n    type?: \"http\" | \"sse\";\n    url: string;\n    headers?: Record<string, string>;\n    auth?: McpAuthConfig;\n    requestTimeoutMs?: number;\n    protocolVersion?: \"2025-06-18\" | \"2025-03-26\" | \"2024-11-05\";\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
       },
       "McpOAuthConfig": {
         "tier": "stable",
@@ -4699,7 +4787,7 @@
       },
       "McpStdioServerConfig": {
         "tier": "stable",
-        "declaration": "type McpStdioServerConfig = {\n    type?: \"stdio\";\n    command: string;\n    args?: string[];\n    env?: Record<string, string>;\n    cwd?: string;\n    requestTimeoutMs?: number;\n    envPolicy?: EnvPolicy;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
+        "declaration": "type McpStdioServerConfig = {\n    type?: \"stdio\";\n    command: string;\n    args?: string[];\n    env?: Record<string, string>;\n    cwd?: string;\n    requestTimeoutMs?: number;\n    protocolVersion?: \"2025-06-18\" | \"2025-03-26\" | \"2024-11-05\";\n    envPolicy?: EnvPolicy;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
       },
       "Memory": {
         "tier": "stable",
@@ -5256,6 +5344,10 @@
       "SendOptions": {
         "tier": "stable",
         "declaration": "interface SendOptions {\n    queueMode?: QueueMode;\n    model?: string | ModelSelection;\n    origin?: MessageOrigin;\n    onRunEvent?: RunEventSink;\n    doomLoop?: false | DoomLoopThresholds;\n    systemPrompt?: string;\n    mcpServers?: Record<string, McpServerConfig>;\n    tools?: CustomTool[];\n    contextPaths?: readonly string[];\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n    onStep?: (args: {\n        step: ConversationStep;\n    }) => void | Promise<void>;\n    onDelta?: (args: {\n        update: InteractionUpdate;\n    }) => void | Promise<void>;\n    toolChoice?: \"auto\" | \"none\" | \"required\";\n    toolDecisions?: readonly ToolCallDecision[];\n    activeTools?: string[];\n    local?: {\n        force?: boolean;\n    };\n    signal?: AbortSignal;\n    context?: unknown;\n    perToolTimeoutMs?: number;\n    toolResultGuard?: ToolResultGuardOptions;\n    pruneToolResults?: PruneToolResultsOptions;\n    task?: true | {\n        id?: string;\n        meta?: Record<string, unknown>;\n    };\n    maxIterations?: number;\n    completionCheck?: CompletionCheck;\n}"
+      },
+      "SessionHistory": {
+        "tier": "stable",
+        "declaration": "interface SessionHistory {\n    readonly state: \"present\" | \"absent\" | \"unreadable\";\n    readonly messages: SessionMessage[];\n    readonly skippedLines: number;\n    readonly reason?: string;\n}"
       },
       "SessionLifecycleContext": {
         "tier": "stable",
@@ -5880,6 +5972,10 @@
       "readManagedSettingsDocument": {
         "tier": "stable",
         "declaration": "declare function readManagedSettingsDocument(root?: string, options?: ReadManagedSettingsDocumentOptions): ManagedSettingsDocument | null;"
+      },
+      "readSessionHistory": {
+        "tier": "stable",
+        "declaration": "declare function readSessionHistory(options: ReadSessionMessagesOptions): Promise<SessionHistory>;"
       },
       "readSessionMessages": {
         "tier": "stable",
@@ -6618,7 +6714,7 @@
       },
       "McpHttpServerConfig": {
         "tier": "stable",
-        "declaration": "type McpHttpServerConfig = {\n    type?: \"http\" | \"sse\";\n    url: string;\n    headers?: Record<string, string>;\n    auth?: McpAuthConfig;\n    requestTimeoutMs?: number;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
+        "declaration": "type McpHttpServerConfig = {\n    type?: \"http\" | \"sse\";\n    url: string;\n    headers?: Record<string, string>;\n    auth?: McpAuthConfig;\n    requestTimeoutMs?: number;\n    protocolVersion?: \"2025-06-18\" | \"2025-03-26\" | \"2024-11-05\";\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
       },
       "McpOAuthConfig": {
         "tier": "stable",
@@ -6630,7 +6726,7 @@
       },
       "McpStdioServerConfig": {
         "tier": "stable",
-        "declaration": "type McpStdioServerConfig = {\n    type?: \"stdio\";\n    command: string;\n    args?: string[];\n    env?: Record<string, string>;\n    cwd?: string;\n    requestTimeoutMs?: number;\n    envPolicy?: EnvPolicy;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
+        "declaration": "type McpStdioServerConfig = {\n    type?: \"stdio\";\n    command: string;\n    args?: string[];\n    env?: Record<string, string>;\n    cwd?: string;\n    requestTimeoutMs?: number;\n    protocolVersion?: \"2025-06-18\" | \"2025-03-26\" | \"2024-11-05\";\n    envPolicy?: EnvPolicy;\n    sequential?: boolean;\n    tools?: {\n        include?: string[];\n        exclude?: string[];\n    };\n};"
       },
       "Memory": {
         "tier": "stable",
@@ -7187,6 +7283,10 @@
       "SendOptions": {
         "tier": "stable",
         "declaration": "interface SendOptions {\n    queueMode?: QueueMode;\n    model?: string | ModelSelection;\n    origin?: MessageOrigin;\n    onRunEvent?: RunEventSink;\n    doomLoop?: false | DoomLoopThresholds;\n    systemPrompt?: string;\n    mcpServers?: Record<string, McpServerConfig>;\n    tools?: CustomTool[];\n    contextPaths?: readonly string[];\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n    onStep?: (args: {\n        step: ConversationStep;\n    }) => void | Promise<void>;\n    onDelta?: (args: {\n        update: InteractionUpdate;\n    }) => void | Promise<void>;\n    toolChoice?: \"auto\" | \"none\" | \"required\";\n    toolDecisions?: readonly ToolCallDecision[];\n    activeTools?: string[];\n    local?: {\n        force?: boolean;\n    };\n    signal?: AbortSignal;\n    context?: unknown;\n    perToolTimeoutMs?: number;\n    toolResultGuard?: ToolResultGuardOptions;\n    pruneToolResults?: PruneToolResultsOptions;\n    task?: true | {\n        id?: string;\n        meta?: Record<string, unknown>;\n    };\n    maxIterations?: number;\n    completionCheck?: CompletionCheck;\n}"
+      },
+      "SessionHistory": {
+        "tier": "stable",
+        "declaration": "interface SessionHistory {\n    readonly state: \"present\" | \"absent\" | \"unreadable\";\n    readonly messages: SessionMessage[];\n    readonly skippedLines: number;\n    readonly reason?: string;\n}"
       },
       "SessionLifecycleContext": {
         "tier": "stable",
@@ -7811,6 +7911,10 @@
       "readManagedSettingsDocument": {
         "tier": "stable",
         "declaration": "declare function readManagedSettingsDocument(root?: string, options?: ReadManagedSettingsDocumentOptions): ManagedSettingsDocument | null;"
+      },
+      "readSessionHistory": {
+        "tier": "stable",
+        "declaration": "declare function readSessionHistory(options: ReadSessionMessagesOptions): Promise<SessionHistory>;"
       },
       "readSessionMessages": {
         "tier": "stable",
