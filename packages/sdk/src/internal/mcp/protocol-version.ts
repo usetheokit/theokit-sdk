@@ -1,5 +1,6 @@
 import packageJson from "../../../package.json" with { type: "json" };
 import { NetworkError } from "../../errors.js";
+import { supportsElicitation } from "./elicitation.js";
 
 export const SUPPORTED_MCP_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"] as const;
 export type McpProtocolVersion = (typeof SUPPORTED_MCP_PROTOCOL_VERSIONS)[number];
@@ -15,10 +16,15 @@ export async function rpcInitialize(
   request: RpcRequester,
   name: string,
   offered: McpProtocolVersion,
+  elicitation = false,
 ): Promise<McpProtocolVersion | undefined> {
   const response = await request("initialize", {
     protocolVersion: offered,
-    capabilities: { tools: {} },
+    // Declared only with a handler and a revision that has it, so no server waits on a mute client.
+    capabilities: {
+      tools: {},
+      ...(elicitation && supportsElicitation(offered) ? { elicitation: {} } : {}),
+    },
     clientInfo: { name: "theokit-sdk", version: packageJson.version },
   });
   const answered = (response as { result?: { protocolVersion?: unknown } } | undefined)?.result
