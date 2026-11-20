@@ -401,6 +401,18 @@ await run.wait(); // the model continues with the results
 
 `allow` dispatches the stored call after the permission rules, floors and hooks run again on its input: an approval answers an `ask` and never overrides a current `deny`, a permission floor or another plugin's veto (the call then gets an error result). `deny` writes an error result with your `message` and runs nothing. An unknown or repeated `toolUseId`, a missing decision, nothing pending, or a stored call with an unsupported `schemaVersion` rejects with `ConfigurationError` (`tool_decision_unknown`, `tool_decision_duplicate`, `tool_decision_missing`, `no_deferred_tool_calls`, `deferred_schema_unsupported`) and leaves the session unchanged. A normal send while calls are pending abandons them; the unanswered calls are left out of the history so the session is not blocked. Local runtime only.
 
+## `@theokit/sdk/auth`: choosing a provider credential
+
+`resolveProviderCredential({ env, model?, store?, providers?, pinnedEnvVar? })` returns
+`{ provider, apiKey, origin, baseUrl }`. Rules, in order:
+
+1. `pinnedEnvVar` set: that variable is used; empty or missing throws `pinned_credential_missing`.
+2. The model names a provider (`openai/gpt-4o-mini`): that provider's credential (env, then `store`) is used. None throws `model_provider_without_credential` and never falls back to another provider.
+3. A bare model id or no model: the first candidate by `priority` with a credential. None throws `no_provider_credential`, listing the variables checked.
+4. A key whose prefix names a different vendor than the provider it was found for throws `credential_provider_mismatch`.
+
+`DEFAULT_PROVIDER_CANDIDATES` is the one default order: `openrouter` (`OPENROUTER_API_KEY`), `anthropic` (`ANTHROPIC_API_KEY`), `openai` (`OPENAI_API_KEY`). It matches the chain `@theokit/agents` already uses. Errors are `ProviderCredentialError`; messages name variables, never values.
+
 ## `@theokit/sdk/persistence`: named profiles
 
 `resolveProfile(name, { profilesRoot?, appDirectories? })` maps a profile name to `<profilesRoot>/<name>` (default `getProfilesRoot()`, `~/.theokit/profiles`) and returns `directory`, `directories` and `env` (`THEOKIT_HOME` and `THEOKIT_AUTH_HOME` set to the profile directory, plus one entry per `appDirectories` item, joined under the profile). Names must match `^[a-z0-9][a-z0-9-]{0,15}$`, otherwise `ConfigurationError` code `profile_name_invalid` (the name is not echoed). App directory values must be relative and free of `..`. It touches no disk.
