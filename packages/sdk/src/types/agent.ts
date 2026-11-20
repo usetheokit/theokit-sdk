@@ -257,6 +257,12 @@ export interface LocalOptions {
    * so `--continue` interop is preserved (a store may also mirror to `~/.claude`).
    */
   sessionStore?: import("./session-store.js").SessionStore;
+  /**
+   * When `false`, this agent is not written to `<cwd>/.theokit/agents/registry.json`, neither by its
+   * own registration nor by a save another agent triggers. It stays in this process's in-memory
+   * registry, so `Agent.list` and `Agent.get` still see it until the process ends. Default `true`.
+   */
+  registry?: boolean;
 }
 
 /**

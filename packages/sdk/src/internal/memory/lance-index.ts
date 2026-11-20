@@ -160,7 +160,9 @@ export class LanceIndex {
     private readonly embeddingDim: number,
     /** Identity of the storage the table lives in; instances sharing it share one write queue. */
     private readonly queueKey: string = `anonymous:${nextAnonymousKey++}`,
-  ) {}
+  ) {
+    openIndexes.add(this);
+  }
 
   /**
    * Adds and removals on one storage path run one at a time, in call order, even across several
@@ -324,7 +326,13 @@ export class LanceIndex {
     });
   }
 
+  /** True when this index's storage lives at `path` (a resolved absolute path). */
+  storedAt(path: string): boolean {
+    return this.queueKey === path;
+  }
+
   async close(): Promise<void> {
+    openIndexes.delete(this);
     // Lance auto-closes on GC; no explicit shutdown needed.
   }
 }
@@ -397,4 +405,39 @@ export function isLanceAvailable(): boolean {
  */
 export function lanceStoragePath(root: MemoryRoot): string {
   return join(root, "lance");
+}
+
+/**
+ * The namespace every Lance writer and reader in this package uses (the adapter's search, the
+ * SQLite migration). Nothing maps a tenant id to a namespace, so the forget path uses it too.
+ */
+export const DEFAULT_NAMESPACE = "default";
+
+/** Every `LanceIndex` currently open in this process. */
+const openIndexes = new Set<LanceIndex>();
+
+/**
+ * Called by `agent.memory.delete` with the agent's memory root: removes the fact's rows (source
+ * `memory`, the given namespace) from the Lance index stored under THAT root only, via
+ * `removeFacts`, which runs after any add already queued on the same storage path. Another agent's
+ * index (a different root) is never touched. No-op when no index is open on the root.
+ *
+ * Association: `factId` is matched against the rows' `fact_id` (exact `id` for rows without one).
+ * `agent.memory.delete` passes the adapter's `MemoryId` (e.g. `"a:42"`), so a writer that indexes
+ * an agent-memory fact must store it with `fact_id` = that MemoryId. Legacy chunks that carry no
+ * `fact_id` (e.g. migrated from SQLite) are removed only when their exact id equals `factId`.
+ * Limits: no production code writes `fact_id` = MemoryId today (`LanceMemoryAdapter.sync` is a
+ * no-op), so only rows a consumer added via `addFacts` with that link are removed. Only indexes
+ * open in this process are cleaned; a closed index is not touched and keeps its rows.
+ */
+export async function forgetFactInOpenIndexes(
+  root: MemoryRoot,
+  factId: string,
+  namespace: string,
+): Promise<void> {
+  const path = resolve(lanceStoragePath(root));
+  // Instances on one path share a table; one removal covers them all.
+  const target = [...openIndexes].find((i) => i.storedAt(path));
+  if (target === undefined) return;
+  await target.removeFacts([factId], { namespace, source: "memory" });
 }
