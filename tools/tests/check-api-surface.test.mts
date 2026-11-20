@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -192,5 +192,24 @@ describe("main, end to end in a git repository", () => {
     sh(r.root, "update-ref", "refs/remotes/origin/workspace", "HEAD");
     writeFileSync(join(r.root, "index.d.ts"), `${BASE}export declare const extra: number;\n`);
     expect(main([], r.opts("2026-11-20"))).toBe(1);
+  });
+
+  it("test_a_missing_baseline_fails_check_and_is_created_by_write", () => {
+    const r = repo(BASE);
+    const o = r.opts("2026-11-20");
+    rmSync(o.baselinePath);
+    expect(main([], o)).toBe(1);
+    expect(main(["--write"], o)).toBe(0);
+    expect(existsSync(o.baselinePath)).toBe(true);
+  });
+
+  it("test_an_unreadable_or_invalid_baseline_propagates", () => {
+    const r = repo(BASE);
+    const o = r.opts("2026-11-20");
+    writeFileSync(o.baselinePath, "{not json");
+    expect(() => main([], o)).toThrow();
+    rmSync(o.baselinePath);
+    mkdirSync(o.baselinePath);
+    expect(() => main([], o)).toThrow();
   });
 });
