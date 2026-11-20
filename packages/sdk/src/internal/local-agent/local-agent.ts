@@ -81,6 +81,7 @@ import {
 import { type DispatchRunArgs, executeSendLocked } from "./local-agent-send.js";
 import { registerRunAsTask } from "./local-agent-task-wrap.js";
 import { reportUnknownLocalOptions } from "./local-option-keys.js";
+import { applySendDefaults } from "./send-defaults.js";
 import {
   type ActiveTurn,
   type CollectBatch,
@@ -711,26 +712,6 @@ function callerView(run: Run, throwOnError: boolean | undefined): Run {
 
 function resolveCwd(cwd: string | string[] | undefined): string {
   return (Array.isArray(cwd) ? cwd[0] : cwd) ?? process.cwd();
-}
-
-const SEND_DEFAULT_KEYS = ["toolResultGuard", "pruneToolResults", "perToolTimeoutMs"] as const;
-
-/**
- * Merge `AgentOptions.sendDefaults` under the call's options, per key. A call key set to
- * `undefined` does not remove the default.
- */
-function applySendDefaults(
-  defaults: AgentOptions["sendDefaults"],
-  callOptions: SendOptions,
-): SendOptions {
-  if (defaults === undefined) return callOptions;
-  const merged: SendOptions = { ...callOptions };
-  for (const key of SEND_DEFAULT_KEYS) {
-    if (merged[key] === undefined && defaults[key] !== undefined) {
-      (merged as Record<string, unknown>)[key] = defaults[key];
-    }
-  }
-  return merged;
 }
 
 function includesSetting(options: AgentOptions, source: string): boolean {
