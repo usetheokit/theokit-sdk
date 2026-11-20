@@ -442,6 +442,7 @@ export type {
   AgentToolDescription,
   CustomTool,
   MemoryMirrorOptions,
+  MemoryReviewOptions,
   MemorySettings,
   ModelFallbackOptions,
   SDKAgent,
