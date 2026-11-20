@@ -71,6 +71,14 @@ describe("the store this package exposes and the SDK's", () => {
     }
   });
 
+  // #1069 — the active-memory recall and the two memory tools: the issue's named references.
+  it("test_active_memory_and_the_memory_tools_are_the_sdks_references", () => {
+    for (const name of ["runActiveMemory", "createMemorySearchTool", "createMemoryGetTool"]) {
+      expect(typeof (sdk as Record<string, unknown>)[name]).toBe("function");
+      expect((peer as Record<string, unknown>)[name]).toBe((sdk as Record<string, unknown>)[name]);
+    }
+  });
+
   // The one name that is not the same reference (#1068), and the reason it cannot drift the way a
   // same-named wrapper does. This package published `LanceMemoryAdapter.unwrap()`; the SDK's adapter
   // refuses to carry it (`tests/lint/adapter-is-the-boundary.test.ts` there). So the class here

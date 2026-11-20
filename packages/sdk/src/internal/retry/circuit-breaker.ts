@@ -11,8 +11,6 @@
  * the counter immediately.
  *
  * Per-key isolation so two agents in the same process don't share a counter.
- *
- * @internal
  */
 
 export interface CircuitBreakerOptions {

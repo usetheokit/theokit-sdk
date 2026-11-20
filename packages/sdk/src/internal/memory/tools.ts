@@ -15,8 +15,6 @@ import { readMemoryFileBounded } from "./storage/reader.js";
  * Each tool is exposed as a `MemoryTool` (name + description + JSON schema +
  * async execute). The agent-loop integration wires them via the existing
  * `ResolvedTool` interface in `tool-dispatch.ts`.
- *
- * @internal
  */
 
 export interface MemoryToolJson {
