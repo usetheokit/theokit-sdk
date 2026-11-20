@@ -2,9 +2,9 @@ import { expect, it } from "vitest";
 import { readRootFile } from "./lockfile-versions.mts";
 
 /*
- * GHSA-fc5q-39xc-vjpf (picomatch <=4.0.7) has no patched release, so `quality:audit` ignores it in
- * `pnpm-workspace.yaml`. This guard keeps that exception to this one advisory and keeps the audit
- * scripts running, so it cannot grow into a blanket ignore.
+ * GHSA-fc5q-39xc-vjpf (picomatch <=4.0.7) is fixed by the patched picomatch copies behind `pnpm.overrides`, so
+ * `pnpm-workspace.yaml` must not ignore it. This guard keeps the exception list to the braces
+ * advisory and keeps the audit scripts running.
  */
 
 const ADVISORY = "GHSA-fc5q-39xc-vjpf";
@@ -33,11 +33,11 @@ function ignoredAdvisories(): string[] {
   return ids;
 }
 
-it("ignores the picomatch advisory and nothing beyond the known two", () => {
+it("does not ignore the picomatch advisory and ignores nothing beyond the braces one", () => {
   const ignored = ignoredAdvisories();
 
-  expect(ignored).toContain(ADVISORY);
-  expect(ignored).toEqual(["GHSA-vfj7-8cjw-p6xm", ADVISORY]);
+  expect(ignored).not.toContain(ADVISORY);
+  expect(ignored).toEqual(["GHSA-vfj7-8cjw-p6xm"]);
 });
 
 it("keeps both audit passes in quality:audit", () => {
