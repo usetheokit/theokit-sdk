@@ -433,6 +433,22 @@ function scanText(rel: string, text: string): Offender[] {
   return offenders;
 }
 
+describe("link destinations are not prose", () => {
+  it("ignores a commit hash inside a link destination", () => {
+    const line =
+      "- [`4788a20`](https://github.com/usetheokit/theokit-sdk/commit/cada1234567) Thanks";
+    expect(classifyLine(line)).toBeUndefined();
+  });
+
+  it("still flags Portuguese link text", () => {
+    expect(classifyLine("[isso nao funciona](https://example.com)")?.words).toContain("nao");
+  });
+
+  it("still flags Portuguese prose beside a link", () => {
+    expect(classifyLine("[docs](https://example.com) isso nao funciona")?.words).toContain("nao");
+  });
+});
+
 /** Filenames themselves must be English — a test file name is documentation. */
 function scanFilename(rel: string): Offender | undefined {
   const base = rel.split(sep).pop() ?? rel;
@@ -496,6 +512,22 @@ describe("codebase is English-only (no PT-BR)", () => {
     },
     SWEEP_TIMEOUT_MS,
   );
+});
+
+describe("URLs are not prose", () => {
+  const URL_LINE =
+    "- [`4788a20`](https://github.com/usetheokit/theokit-sdk/commit/4788a20cada0123) Thanks!";
+
+  it("does not flag a lexicon token inside a URL", () => {
+    expect(classifyLine(URL_LINE)).toBeUndefined();
+  });
+
+  it("still flags Portuguese prose next to a URL", () => {
+    const hit = classifyLine("Veja https://example.com/cada isso nao funciona");
+    expect(hit?.tier).toBe("lexicon");
+    expect(hit?.words).toContain("nao");
+    expect(hit?.words).not.toContain("cada");
+  });
 });
 
 /**
