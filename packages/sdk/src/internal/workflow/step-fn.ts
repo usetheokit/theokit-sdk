@@ -50,10 +50,12 @@ export async function runFnStep(
   step: FnStep,
   input: unknown,
   ctx: StepContext,
+  topLevel = false,
 ): Promise<StepResult> {
   const startedAt = Date.now();
-  // D238: saga engine not implemented in v1 — surface intent loudly.
-  if (step.compensate !== undefined) {
+  // Compensation runs only for top-level steps (the executor owns the reverse pass); a nested
+  // `compensate` is refused loudly rather than silently ignored.
+  if (step.compensate !== undefined && !topLevel) {
     return failedFnResult(
       step.id,
       0,

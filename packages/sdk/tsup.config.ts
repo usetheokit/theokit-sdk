@@ -68,6 +68,8 @@ export default defineConfig({
     // new `internal/*` sub-path: that convention is being retired (`internal/persistence` was removed in the
     // next major in favour of the public barrel), so a new one would extend a shape the package is
     // withdrawing.
+    // #1088: credential-free fake model server for agent tests; DTS via tsc.
+    "testing/index": "src/testing/index.ts",
     "mcp-auth": "src/mcp-auth.ts",
     "mcp-events": "src/mcp-events.ts",
     "internal/security/index": "src/internal/security/index.ts",

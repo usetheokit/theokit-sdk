@@ -3523,6 +3523,42 @@
         "declaration": "export declare function getTaskStoreFor(options: TaskStoreOptions): TaskStore;"
       }
     },
+    "./testing#import": {
+      "FakeModelRequest": {
+        "tier": "stable",
+        "declaration": "export interface FakeModelRequest {\n    readonly model?: string;\n    readonly stream?: boolean;\n    readonly messages: ReadonlyArray<{\n        readonly role: string;\n        readonly content: unknown;\n    }>;\n    readonly tools?: unknown;\n    readonly error?: string;\n}"
+      },
+      "FakeModelServer": {
+        "tier": "stable",
+        "declaration": "export interface FakeModelServer {\n    readonly model: ModelSelection;\n    readonly url: string;\n    readonly requests: readonly FakeModelRequest[];\n    close(): Promise<void>;\n}"
+      },
+      "FakeModelServerOptions": {
+        "tier": "stable",
+        "declaration": "export interface FakeModelServerOptions {\n    wire?: \"openai\" | \"ollama\";\n    reply?: string | ((request: FakeModelRequest) => string);\n    host?: string;\n}"
+      },
+      "startFakeModelServer": {
+        "tier": "stable",
+        "declaration": "export declare function startFakeModelServer(options?: FakeModelServerOptions): Promise<FakeModelServer>;"
+      }
+    },
+    "./testing#require": {
+      "FakeModelRequest": {
+        "tier": "stable",
+        "declaration": "export interface FakeModelRequest {\n    readonly model?: string;\n    readonly stream?: boolean;\n    readonly messages: ReadonlyArray<{\n        readonly role: string;\n        readonly content: unknown;\n    }>;\n    readonly tools?: unknown;\n    readonly error?: string;\n}"
+      },
+      "FakeModelServer": {
+        "tier": "stable",
+        "declaration": "export interface FakeModelServer {\n    readonly model: ModelSelection;\n    readonly url: string;\n    readonly requests: readonly FakeModelRequest[];\n    close(): Promise<void>;\n}"
+      },
+      "FakeModelServerOptions": {
+        "tier": "stable",
+        "declaration": "export interface FakeModelServerOptions {\n    wire?: \"openai\" | \"ollama\";\n    reply?: string | ((request: FakeModelRequest) => string);\n    host?: string;\n}"
+      },
+      "startFakeModelServer": {
+        "tier": "stable",
+        "declaration": "export declare function startFakeModelServer(options?: FakeModelServerOptions): Promise<FakeModelServer>;"
+      }
+    },
     "./workflow#import": {
       "AgentStep": {
         "tier": "stable",
@@ -3531,6 +3567,10 @@
       "BranchStep": {
         "tier": "stable",
         "declaration": "interface BranchStep {\n    readonly kind: \"branch\";\n    readonly id: string;\n    readonly predicates: ReadonlyArray<readonly [\n        (input: unknown) => boolean | Promise<boolean>,\n        ReadonlyArray<Step>\n    ]>;\n    readonly fallback?: ReadonlyArray<Step>;\n}"
+      },
+      "CompensationResult": {
+        "tier": "stable",
+        "declaration": "interface CompensationResult {\n    readonly stepId: string;\n    readonly status: \"compensated\" | \"failed\";\n    readonly error?: {\n        name: string;\n        message: string;\n    };\n}"
       },
       "DowhileStep": {
         "tier": "stable",
@@ -3602,7 +3642,7 @@
       },
       "WorkflowEvent": {
         "tier": "stable",
-        "declaration": "type WorkflowEvent = {\n    readonly type: \"step_started\";\n    readonly stepId: string;\n} | {\n    readonly type: \"step_completed\";\n    readonly stepId: string;\n    readonly output: unknown;\n} | {\n    readonly type: \"step_failed\";\n    readonly stepId: string;\n    readonly error: {\n        readonly name: string;\n        readonly message: string;\n    };\n} | {\n    readonly type: \"workflow_suspended\";\n    readonly stepId: string;\n} | {\n    readonly type: \"workflow_completed\";\n};"
+        "declaration": "type WorkflowEvent = {\n    readonly type: \"step_started\";\n    readonly stepId: string;\n} | {\n    readonly type: \"step_completed\";\n    readonly stepId: string;\n    readonly output: unknown;\n} | {\n    readonly type: \"step_failed\";\n    readonly stepId: string;\n    readonly error: {\n        readonly name: string;\n        readonly message: string;\n    };\n} | {\n    readonly type: \"step_compensated\";\n    readonly stepId: string;\n} | {\n    readonly type: \"step_compensation_failed\";\n    readonly stepId: string;\n    readonly error: {\n        readonly name: string;\n        readonly message: string;\n    };\n} | {\n    readonly type: \"workflow_suspended\";\n    readonly stepId: string;\n} | {\n    readonly type: \"workflow_completed\";\n};"
       },
       "WorkflowInputError": {
         "tier": "stable",
@@ -3654,7 +3694,7 @@
       },
       "WorkflowRun": {
         "tier": "stable",
-        "declaration": "interface WorkflowRun<TOutput = unknown> {\n    readonly id: string;\n    readonly name: string;\n    readonly status: \"running\" | \"completed\" | \"failed\" | \"suspended\" | \"cancelled\";\n    readonly output?: TOutput;\n    readonly error?: {\n        name: string;\n        message: string;\n    };\n    readonly startedAt: number;\n    readonly endedAt?: number;\n    readonly stepResults: ReadonlyArray<StepResult>;\n}"
+        "declaration": "interface WorkflowRun<TOutput = unknown> {\n    readonly id: string;\n    readonly name: string;\n    readonly status: \"running\" | \"completed\" | \"failed\" | \"suspended\" | \"cancelled\";\n    readonly output?: TOutput;\n    readonly error?: {\n        name: string;\n        message: string;\n    };\n    readonly startedAt: number;\n    readonly endedAt?: number;\n    readonly stepResults: ReadonlyArray<StepResult>;\n    readonly compensation?: ReadonlyArray<CompensationResult>;\n}"
       },
       "WorkflowRunOptions": {
         "tier": "stable",
@@ -3698,7 +3738,7 @@
       },
       "fn": {
         "tier": "stable",
-        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n}): FnStep;"
+        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n    compensate?: FnStep[\"compensate\"];\n}): FnStep;"
       },
       "workflowAsTool": {
         "tier": "stable",
@@ -3722,6 +3762,10 @@
         "tier": "stable",
         "declaration": "interface BranchStep {\n    readonly kind: \"branch\";\n    readonly id: string;\n    readonly predicates: ReadonlyArray<readonly [\n        (input: unknown) => boolean | Promise<boolean>,\n        ReadonlyArray<Step>\n    ]>;\n    readonly fallback?: ReadonlyArray<Step>;\n}"
       },
+      "CompensationResult": {
+        "tier": "stable",
+        "declaration": "interface CompensationResult {\n    readonly stepId: string;\n    readonly status: \"compensated\" | \"failed\";\n    readonly error?: {\n        name: string;\n        message: string;\n    };\n}"
+      },
       "DowhileStep": {
         "tier": "stable",
         "declaration": "interface DowhileStep {\n    readonly kind: \"dowhile\";\n    readonly id: string;\n    readonly step: Step;\n    readonly condFn: (output: unknown, iteration: number) => boolean | Promise<boolean>;\n    readonly maxIterations?: number;\n}"
@@ -3792,7 +3836,7 @@
       },
       "WorkflowEvent": {
         "tier": "stable",
-        "declaration": "type WorkflowEvent = {\n    readonly type: \"step_started\";\n    readonly stepId: string;\n} | {\n    readonly type: \"step_completed\";\n    readonly stepId: string;\n    readonly output: unknown;\n} | {\n    readonly type: \"step_failed\";\n    readonly stepId: string;\n    readonly error: {\n        readonly name: string;\n        readonly message: string;\n    };\n} | {\n    readonly type: \"workflow_suspended\";\n    readonly stepId: string;\n} | {\n    readonly type: \"workflow_completed\";\n};"
+        "declaration": "type WorkflowEvent = {\n    readonly type: \"step_started\";\n    readonly stepId: string;\n} | {\n    readonly type: \"step_completed\";\n    readonly stepId: string;\n    readonly output: unknown;\n} | {\n    readonly type: \"step_failed\";\n    readonly stepId: string;\n    readonly error: {\n        readonly name: string;\n        readonly message: string;\n    };\n} | {\n    readonly type: \"step_compensated\";\n    readonly stepId: string;\n} | {\n    readonly type: \"step_compensation_failed\";\n    readonly stepId: string;\n    readonly error: {\n        readonly name: string;\n        readonly message: string;\n    };\n} | {\n    readonly type: \"workflow_suspended\";\n    readonly stepId: string;\n} | {\n    readonly type: \"workflow_completed\";\n};"
       },
       "WorkflowInputError": {
         "tier": "stable",
@@ -3844,7 +3888,7 @@
       },
       "WorkflowRun": {
         "tier": "stable",
-        "declaration": "interface WorkflowRun<TOutput = unknown> {\n    readonly id: string;\n    readonly name: string;\n    readonly status: \"running\" | \"completed\" | \"failed\" | \"suspended\" | \"cancelled\";\n    readonly output?: TOutput;\n    readonly error?: {\n        name: string;\n        message: string;\n    };\n    readonly startedAt: number;\n    readonly endedAt?: number;\n    readonly stepResults: ReadonlyArray<StepResult>;\n}"
+        "declaration": "interface WorkflowRun<TOutput = unknown> {\n    readonly id: string;\n    readonly name: string;\n    readonly status: \"running\" | \"completed\" | \"failed\" | \"suspended\" | \"cancelled\";\n    readonly output?: TOutput;\n    readonly error?: {\n        name: string;\n        message: string;\n    };\n    readonly startedAt: number;\n    readonly endedAt?: number;\n    readonly stepResults: ReadonlyArray<StepResult>;\n    readonly compensation?: ReadonlyArray<CompensationResult>;\n}"
       },
       "WorkflowRunOptions": {
         "tier": "stable",
@@ -3888,7 +3932,7 @@
       },
       "fn": {
         "tier": "stable",
-        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n}): FnStep;"
+        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n    compensate?: FnStep[\"compensate\"];\n}): FnStep;"
       },
       "workflowAsTool": {
         "tier": "stable",
@@ -4062,7 +4106,7 @@
       },
       "Budget": {
         "tier": "stable",
-        "declaration": "declare class Budget {\n    private constructor();\n    static create(options: BudgetOptions): BudgetHandle;\n    static get(name: string): BudgetHandle | undefined;\n    static list(): readonly BudgetHandle[];\n    static delete(name: string): boolean;\n    static snapshot(): readonly BudgetSnapshot[];\n}",
+        "declaration": "declare class Budget {\n    private constructor();\n    static create(options: BudgetOptions): BudgetHandle;\n    static get(name: string): BudgetHandle | undefined;\n    static list(): readonly BudgetHandle[];\n    static delete(name: string): boolean;\n    static snapshot(): readonly BudgetSnapshot[];\n    static reserve(name: string, estimatedUsd: number): BudgetReservation;\n}",
         "deprecatedSince": "2026-11-20"
       },
       "BudgetCheck": {
@@ -4093,13 +4137,17 @@
         "tier": "stable",
         "declaration": "interface BudgetOptions {\n    readonly name: string;\n    readonly scope: BudgetScope;\n    readonly limits: ReadonlyArray<BudgetLimit>;\n    readonly mode?: BudgetMode;\n    readonly onThreshold?: (event: BudgetThresholdEvent) => void | Promise<void>;\n    readonly onExceed?: (event: BudgetExceedEvent) => void | Promise<void>;\n}"
       },
+      "BudgetReservation": {
+        "tier": "stable",
+        "declaration": "interface BudgetReservation {\n    readonly budgetName: string;\n    readonly estimatedUsd: number;\n    settle(actualUsd: number): Promise<void>;\n    release(): void;\n}"
+      },
       "BudgetScope": {
         "tier": "stable",
         "declaration": "type BudgetScope = \"agent\" | \"call\" | \"process\";"
       },
       "BudgetSnapshot": {
         "tier": "stable",
-        "declaration": "interface BudgetSnapshot {\n    readonly name: string;\n    readonly window: BudgetWindow;\n    readonly spentUsd: number;\n    readonly limitUsd: number;\n    readonly ratio: number;\n}"
+        "declaration": "interface BudgetSnapshot {\n    readonly name: string;\n    readonly window: BudgetWindow;\n    readonly spentUsd: number;\n    readonly limitUsd: number;\n    readonly ratio: number;\n    readonly heldUsd: number;\n}"
       },
       "BudgetThresholdEvent": {
         "tier": "stable",
@@ -5671,7 +5719,7 @@
       },
       "fn": {
         "tier": "stable",
-        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n}): FnStep;"
+        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n    compensate?: FnStep[\"compensate\"];\n}): FnStep;"
       },
       "foldLayers": {
         "tier": "stable",
@@ -5989,7 +6037,7 @@
       },
       "Budget": {
         "tier": "stable",
-        "declaration": "declare class Budget {\n    private constructor();\n    static create(options: BudgetOptions): BudgetHandle;\n    static get(name: string): BudgetHandle | undefined;\n    static list(): readonly BudgetHandle[];\n    static delete(name: string): boolean;\n    static snapshot(): readonly BudgetSnapshot[];\n}",
+        "declaration": "declare class Budget {\n    private constructor();\n    static create(options: BudgetOptions): BudgetHandle;\n    static get(name: string): BudgetHandle | undefined;\n    static list(): readonly BudgetHandle[];\n    static delete(name: string): boolean;\n    static snapshot(): readonly BudgetSnapshot[];\n    static reserve(name: string, estimatedUsd: number): BudgetReservation;\n}",
         "deprecatedSince": "2026-11-20"
       },
       "BudgetCheck": {
@@ -6020,13 +6068,17 @@
         "tier": "stable",
         "declaration": "interface BudgetOptions {\n    readonly name: string;\n    readonly scope: BudgetScope;\n    readonly limits: ReadonlyArray<BudgetLimit>;\n    readonly mode?: BudgetMode;\n    readonly onThreshold?: (event: BudgetThresholdEvent) => void | Promise<void>;\n    readonly onExceed?: (event: BudgetExceedEvent) => void | Promise<void>;\n}"
       },
+      "BudgetReservation": {
+        "tier": "stable",
+        "declaration": "interface BudgetReservation {\n    readonly budgetName: string;\n    readonly estimatedUsd: number;\n    settle(actualUsd: number): Promise<void>;\n    release(): void;\n}"
+      },
       "BudgetScope": {
         "tier": "stable",
         "declaration": "type BudgetScope = \"agent\" | \"call\" | \"process\";"
       },
       "BudgetSnapshot": {
         "tier": "stable",
-        "declaration": "interface BudgetSnapshot {\n    readonly name: string;\n    readonly window: BudgetWindow;\n    readonly spentUsd: number;\n    readonly limitUsd: number;\n    readonly ratio: number;\n}"
+        "declaration": "interface BudgetSnapshot {\n    readonly name: string;\n    readonly window: BudgetWindow;\n    readonly spentUsd: number;\n    readonly limitUsd: number;\n    readonly ratio: number;\n    readonly heldUsd: number;\n}"
       },
       "BudgetThresholdEvent": {
         "tier": "stable",
@@ -7598,7 +7650,7 @@
       },
       "fn": {
         "tier": "stable",
-        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n}): FnStep;"
+        "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n    compensate?: FnStep[\"compensate\"];\n}): FnStep;"
       },
       "foldLayers": {
         "tier": "stable",
