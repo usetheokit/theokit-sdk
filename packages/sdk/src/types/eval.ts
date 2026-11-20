@@ -40,11 +40,33 @@ export interface Score {
   readonly reason?: string;
 }
 
+/** One tool call the run made, as a scorer sees it. */
+export interface ScoredToolCall {
+  readonly name: string;
+  readonly input: Record<string, unknown>;
+  /** The tool's result as text; absent when the call never completed. */
+  readonly output?: string;
+  readonly isError: boolean;
+}
+
+/** What the runner knows about the row beyond the final text. */
+export interface ScoreContext {
+  readonly input: string;
+  readonly metadata?: Record<string, unknown>;
+  /** In call order, across the whole run. */
+  readonly toolCalls: readonly ScoredToolCall[];
+}
+
 /**
  * Scorer signature (D207). Returns `Score` synchronously OR via Promise —
- * the runner always awaits.
+ * the runner always awaits. The runner passes a {@link ScoreContext} as the
+ * third argument; a scorer that takes fewer parameters is unaffected.
  */
-export type Scorer = (output: string, expected?: unknown) => Score | Promise<Score>;
+export type Scorer = (
+  output: string,
+  expected?: unknown,
+  context?: ScoreContext,
+) => Score | Promise<Score>;
 
 /** A named scorer — produced by every `Scorers.*` factory. */
 export interface NamedScorer {

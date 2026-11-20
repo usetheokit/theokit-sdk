@@ -104,4 +104,4 @@ The codemod does **not**:
 
 ## License
 
-MIT.
+Apache-2.0.
