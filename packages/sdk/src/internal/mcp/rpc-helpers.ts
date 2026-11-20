@@ -27,3 +27,10 @@ export function isAbortLike(cause: unknown): boolean {
   const name = (cause as { name: unknown }).name;
   return name === "TimeoutError" || name === "AbortError";
 }
+
+/** The `capabilities` object of an `initialize` response; `{}` when the server sent none. @internal */
+export function capabilitiesOf(response: unknown): Record<string, unknown> {
+  const caps = (response as { result?: { capabilities?: unknown } } | undefined)?.result
+    ?.capabilities;
+  return typeof caps === "object" && caps !== null ? (caps as Record<string, unknown>) : {};
+}

@@ -1,5 +1,5 @@
 /**
- * Public MCP connection: `connectMcpServer` hands an app a connected client for a server's tools,
+ * Public MCP connection (`@theokit/sdk/mcp`): `connectMcpServer` hands an app a connected client for a server's tools,
  * resources and prompts. Nothing is injected into an agent's context; the app decides what to use.
  *
  * @packageDocumentation

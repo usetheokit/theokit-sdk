@@ -15,7 +15,7 @@ import {
   rpcInitialize,
   SUPPORTED_MCP_PROTOCOL_VERSIONS,
 } from "./protocol-version.js";
-import { isAbortLike, mcpTimeoutError, reconnectDelay } from "./rpc-helpers.js";
+import { capabilitiesOf, isAbortLike, mcpTimeoutError, reconnectDelay } from "./rpc-helpers.js";
 import { withToolFilter } from "./tool-filter.js";
 
 /**
@@ -33,12 +33,14 @@ import { withToolFilter } from "./tool-filter.js";
 export type { McpProtocolVersion };
 export { SUPPORTED_MCP_PROTOCOL_VERSIONS };
 
+/** A tool a server lists in `tools/list`. */
 export interface McpTool {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
 }
 
+/** The result of a `tools/call`. */
 export interface McpToolCallResult {
   content: Array<{ type: "text"; text: string }>;
   isError?: boolean;
@@ -80,11 +82,6 @@ const MAX_RECONNECT_ATTEMPTS = 2;
 
 type RpcRequester = (method: string, params: Record<string, unknown>) => Promise<unknown>;
 
-async function rpcListTools(request: RpcRequester): Promise<McpTool[]> {
-  const response = await request("tools/list", {});
-  return (response as { result?: { tools?: McpTool[] } }).result?.tools ?? [];
-}
-
 async function rpcCallTool(
   request: RpcRequester,
   name: string,
@@ -121,12 +118,7 @@ abstract class BaseMcpClient implements McpClient {
     this.protocolVersion = await rpcInitialize(
       async (method, params) => {
         const response = await this.request(method, params);
-        if (method === "initialize") {
-          const caps = (response as { result?: { capabilities?: unknown } } | undefined)?.result
-            ?.capabilities;
-          this.serverCapabilities =
-            typeof caps === "object" && caps !== null ? (caps as Record<string, unknown>) : {};
-        }
+        if (method === "initialize") this.serverCapabilities = capabilitiesOf(response);
         return response;
       },
       this.name,
@@ -134,8 +126,9 @@ abstract class BaseMcpClient implements McpClient {
     );
   }
 
-  listTools(): Promise<McpTool[]> {
-    return rpcListTools((method, params) => this.request(method, params));
+  async listTools(): Promise<McpTool[]> {
+    const response = await this.request("tools/list", {});
+    return (response as { result?: { tools?: McpTool[] } }).result?.tools ?? [];
   }
 
   call(method: string, params: Record<string, unknown>): Promise<unknown> {

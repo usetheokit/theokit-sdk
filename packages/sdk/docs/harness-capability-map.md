@@ -1435,8 +1435,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `McpPromptMessage` | interface | One message of a rendered prompt. |
 | `McpResource` | interface | A resource a server publishes. |
 | `McpResourceContents` | interface | One content block of a resource read: `text` or base64 `blob`. |
-| `McpTool` | interface |  |
-| `McpToolCallResult` | interface |  |
+| `McpTool` | interface | A tool a server lists in `tools/list`. |
+| `McpToolCallResult` | interface | The result of a `tools/call`. |
 
 ## `@theokit/sdk/mcp-auth`
 
