@@ -110,6 +110,23 @@ When every model fails the run ends `error` and `RunResult.error.cause` is a
 This differs from `providers.fallback`, which only picks another provider when a route has none
 available. It does not resend a run that failed.
 
+## Budgets: reserving in-flight spend
+
+`Budget.reserve` holds an estimate so concurrent calls cannot all pass a preflight that none has paid for:
+
+```ts
+const hold = Budget.reserve("copilot", 0.6); // throws BudgetExceededError in block mode if it would not fit
+try {
+  const actualUsd = await runCall();
+  await hold.settle(actualUsd); // charges the ledger, fires threshold callbacks, drops the hold
+} catch (err) {
+  hold.release(); // drops the hold without charging; no-op after settle
+  throw err;
+}
+```
+
+Open holds count in `preflightCheck` and show as `heldUsd` in `Budget.snapshot()`.
+
 ## Install
 
 ```bash
@@ -686,6 +703,24 @@ try {
 
 LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
 
+## Workflow compensation (saga rollback)
+
+A top-level `fn` step can declare `compensate(input, output, error)`. When a later top-level step fails (after its retries), the executor calls `compensate` on every earlier completed step that declares one, in reverse completion order. Each call gets that step's own input and output and the error that failed the run.
+
+```ts
+Workflow.create({ name: "checkout" })
+  .then(fn("book", bookRoom, { compensate: (_in, booking) => cancelBooking(booking) }))
+  .then(fn("charge", chargeCard, { compensate: (_in, receipt) => refund(receipt) }))
+  .then(fn("notify", sendEmail)) // if this throws, `charge` then `book` are compensated
+  .commit();
+```
+
+- A `compensate` that throws is recorded as `"failed"` and the pass continues. The run stays `status: "failed"` with the original step error.
+- `run.compensation` lists `{ stepId, status: "compensated" | "failed", error? }` in call order; it is absent when nothing was compensated.
+- `Workflow.stream()` emits `step_compensated` or `step_compensation_failed` for each call.
+- The failing step does not compensate itself, and a cancelled run (abort signal) does not compensate.
+- Limits: `compensate` on a step nested in `parallel`, `branch`, `foreach` or `dowhile` fails with `WorkflowCompensateNotImplementedError`; `agent` steps cannot compensate; after `resume()` only steps completed since the resume are compensated; a compensation pass is not persisted across a crash.
+
 ## Crash recovery: `durability: "step"` and `listRuns()`
 
 By default a workflow writes a snapshot only when a step calls `suspend()`. Set `persistence: { backend: "json", dir, durability: "step" }` and the run is also checkpointed after every completed top-level step (not the children of `parallel`, `branch` or `foreach`). A completed run deletes its checkpoint; a failed or cancelled run keeps it. After a crash, `Workflow.resume({ workflow, runId })` continues from the step after the last checkpoint, and `workflow.listRuns()` returns `{ runId, status: "suspended" | "running", currentStepId, updatedAt }` for the snapshots the store holds for that workflow name. `durability: "step"` with `backend: "memory"` is allowed (useful in tests) but does not survive a restart. A crash between a step's side effect and its checkpoint can repeat that step. The run lock is still per process: it does not stop a second process from resuming the same run.
@@ -714,6 +749,27 @@ const { name, run } = await set.resume(runId, { approved: true });
 ```
 
 A member with no snapshot for the id, or whose snapshot belongs to another workflow, is skipped. Any other error (a payload that fails validation, an I/O error) is rethrown at once and the remaining members are not tried. If no member owns the run, it throws `WorkflowSnapshotNotFoundError`. `WorkflowSet.of` throws `ConfigurationError` when two members share a name.
+
+## `@theokit/sdk/testing`: a fake model server
+
+`startFakeModelServer` starts a server on a free loopback port that speaks a provider's chat wire and answers with scripted text, so an agent runs end to end with no real model. It imports no test runner.
+
+```ts
+import { Agent } from "@theokit/sdk";
+import { startFakeModelServer } from "@theokit/sdk/testing";
+
+const server = await startFakeModelServer({ reply: "pong" }); // wire: "openai" (default) | "ollama"
+const agent = await Agent.create({
+  apiKey: "local", // any non-empty placeholder: it selects the real runtime and is never checked
+  model: server.model, // { id: "lmstudio/fake-model", url } (or "ollama/..." for wire "ollama")
+  local: { cwd: process.cwd() },
+});
+await (await agent.send("hi")).wait();
+console.log(server.requests); // every request body received
+await server.close();
+```
+
+`reply` may also be `(request) => string`. A body that is not JSON gets HTTP 400 and is recorded with `messages: []` and an `error` string. `host` accepts loopback addresses only. Scripted tool calls are not supported yet.
 
 ## Experimental exports
 

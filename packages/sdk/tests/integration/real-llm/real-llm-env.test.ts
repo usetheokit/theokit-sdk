@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Agent } from "../../../src/index.js";
 import { useTempCwd } from "../../helpers/temp-workspace.js";
@@ -87,6 +87,42 @@ describe("the OpenRouter fallback routes where it says it does", () => {
 
     const agent = await Agent.create({ apiKey: handle.apiKey, model: { id: handle.model } });
     await agent.dispose();
+  });
+
+  it("sends the anthropic fallback request to OpenRouter with the OpenRouter key", async () => {
+    process.env.OPENROUTER_API_KEY = FAKE_OPENROUTER_KEY;
+    const handle = resolveRealLlmEnv("anthropic");
+    const seen: { url: string; auth: string | null; model: unknown }[] = [];
+    vi.stubGlobal("fetch", async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const headers = new Headers(init?.headers);
+      const body = typeof init?.body === "string" ? JSON.parse(init.body) : {};
+      seen.push({ url, auth: headers.get("authorization"), model: body.model });
+      return new Response('data: {"choices":[{"delta":{"content":"hi"}}]}\n\ndata: [DONE]\n\n', {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      });
+    });
+    try {
+      const agent = await Agent.create({
+        apiKey: handle.apiKey,
+        model: { id: handle.model },
+        local: { cwd: process.cwd() },
+      });
+      try {
+        await (await agent.send("hi")).wait();
+      } finally {
+        await agent.dispose();
+      }
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    const chat = seen.filter((r) => r.url.endsWith("/chat/completions"));
+    expect(chat.length).toBeGreaterThan(0);
+    expect(chat[0]?.url).toContain("openrouter.ai");
+    expect(chat[0]?.auth).toBe(`Bearer ${FAKE_OPENROUTER_KEY}`);
+    expect(chat[0]?.model).toBe("anthropic/claude-haiku-4.5");
   });
 
   it("names OpenRouter in the model id, so the route does not depend on the key's prefix", () => {

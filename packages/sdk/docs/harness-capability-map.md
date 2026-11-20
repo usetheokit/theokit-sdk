@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1504 export(s) across 57 entry point(s).
+1510 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -107,6 +107,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `BudgetLimit` | interface | A single limit; stacked in an array (D384, ANY exceeded blocks). |
 | `BudgetMode` | type | Enforcement mode (D383).  |
 | `BudgetOptions` | interface | Options for `Budget.create`. |
+| `BudgetReservation` | interface | An in-flight estimate held against a budget by `Budget.reserve`. |
 | `BudgetScope` | type | Accounting scope for a budget.  |
 | `BudgetSnapshot` | interface | Per-window snapshot returned by `Budget.snapshot()`. |
 | `BudgetThresholdEvent` | interface | Threshold event emitted at 80% and 95% in `warn` and `block` modes. |
@@ -1720,6 +1721,15 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `JsonFileTaskStore` | class | Opt-in `TaskStore` that keeps one JSON file per task under `dir`, so another process can read the registry off disk.  |
 | `TaskStore` | interface | Storage interface used by `TaskRegistry`. |
 
+## `@theokit/sdk/testing`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `FakeModelRequest` | interface | One request body the fake server received. |
+| `FakeModelServer` | interface | A running fake model server; see {@link startFakeModelServer } . |
+| `FakeModelServerOptions` | interface | Options for {@link startFakeModelServer } . |
+| `startFakeModelServer` | function | Start a local server that speaks a provider's chat wire protocol and answers with scripted text, so an agent can run end to end with no credential and no real model.  |
+
 ## `@theokit/sdk/workflow`
 
 | Symbol | Kind | Summary |
@@ -1728,6 +1738,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AgentStep` | interface | An agent.send-driven step. |
 | `BranchStep` | interface | First-match-wins predicates + optional fallback. |
 | `cloneWorkflow` | function | SE30 — clone a committed workflow under a new id/name.  |
+| `CompensationResult` | interface | The outcome of one `compensate` call. |
 | `DowhileStep` | interface | Loop a step until condFn returns false. |
 | `fn` | function | Build a `FnStep`.  |
 | `FnStep` | interface | A pure function step. |
@@ -1745,7 +1756,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WorkflowAsToolSpec` | interface | Spec for {@link workflowAsTool } .  |
 | `WorkflowBuilder` | class | Fluent step accumulator returned by {@link Workflow.create } .  |
 | `WorkflowCheckpoint` | interface | One retained checkpoint of a run: the output and shared state right after `stepId` completed. |
-| `WorkflowCompensateNotImplementedError` | class | D238 — saga engine not yet implemented. |
+| `WorkflowCompensateNotImplementedError` | class | D238 — a `compensate` on a step nested in parallel/branch/foreach/dowhile (top-level steps are supported). |
 | `WorkflowDescription` | interface | theokit#161 — the read-only shape of a committed workflow.  |
 | `WorkflowDuplicateStepIdError` | class | Thrown by `.commit()` when one step id appears twice anywhere in the workflow — including inside a parallel branch, a branch predicate, the fallback, and the inner step of a `foreach` or `dowhile`.  |
 | `WorkflowEvent` | type | SE28 — a step-level workflow event emitted by `Workflow.stream()` as top-level steps run.  |

@@ -13,6 +13,7 @@ import type {
   BudgetSnapshot,
   BudgetWindow,
 } from "../../types/budget.js";
+import { __resetHoldsForTests, clearHolds, heldUsd } from "./holds.js";
 import { spentIn } from "./ledger.js";
 
 const NAME_GRAMMAR = /^[a-z0-9][a-z0-9_-]*$/;
@@ -21,6 +22,7 @@ const registry = new Map<string, BudgetOptions>();
 
 export function __resetRegistryForTests(): void {
   registry.clear();
+  __resetHoldsForTests();
 }
 
 export function validateBudgetName(name: string): void {
@@ -87,6 +89,7 @@ export function listBudgets(): readonly BudgetHandle[] {
 }
 
 export function deleteBudget(name: string): boolean {
+  clearHolds(name);
   return registry.delete(name);
 }
 
@@ -101,6 +104,7 @@ export function snapshotAll(): readonly BudgetSnapshot[] {
         spentUsd: spent,
         limitUsd: lim.limitUsd,
         ratio: lim.limitUsd > 0 ? spent / lim.limitUsd : 0,
+        heldUsd: heldUsd(opts.name),
       });
     }
   }
