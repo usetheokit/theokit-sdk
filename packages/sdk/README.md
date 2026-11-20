@@ -514,6 +514,19 @@ try {
 
 LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
 
+## Resuming a workflow run by id: `WorkflowSet`
+
+When an app runs several workflows that suspend, the run id is the only token you hand out. `WorkflowSet.of([...]).resume(runId, payload)` finds the workflow that owns it:
+
+```ts
+import { WorkflowSet } from "@theokit/sdk/workflow";
+
+const set = WorkflowSet.of([refunds, invoices]);
+const { name, run } = await set.resume(runId, { approved: true });
+```
+
+A member with no snapshot for the id, or whose snapshot belongs to another workflow, is skipped. Any other error (a payload that fails validation, an I/O error) is rethrown at once and the remaining members are not tried. If no member owns the run, it throws `WorkflowSnapshotNotFoundError`. `WorkflowSet.of` throws `ConfigurationError` when two members share a name.
+
 ## Status
 
 The full contract is defined by the exported TypeScript types; see [`CHANGELOG.md`](./CHANGELOG.md) for the release history.
