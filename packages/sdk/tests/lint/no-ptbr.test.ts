@@ -514,6 +514,22 @@ describe("codebase is English-only (no PT-BR)", () => {
   );
 });
 
+describe("URLs are not prose", () => {
+  const URL_LINE =
+    "- [`4788a20`](https://github.com/usetheokit/theokit-sdk/commit/4788a20cada0123) Thanks!";
+
+  it("does not flag a lexicon token inside a URL", () => {
+    expect(classifyLine(URL_LINE)).toBeUndefined();
+  });
+
+  it("still flags Portuguese prose next to a URL", () => {
+    const hit = classifyLine("Veja https://example.com/cada isso nao funciona");
+    expect(hit?.tier).toBe("lexicon");
+    expect(hit?.words).toContain("nao");
+    expect(hit?.words).not.toContain("cada");
+  });
+});
+
 /**
  * B-128 regression — proves the traversal itself, on a disposable scratch git repo rather than on
  * this repository. Two claims, one per test:
