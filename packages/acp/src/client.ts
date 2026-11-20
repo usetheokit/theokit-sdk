@@ -33,6 +33,7 @@ export { AcpAgentSpawnError };
 
 const DEFAULT_INITIALIZE_TIMEOUT_MS = 10_000;
 
+/** Options for {@link connectAcpAgent}. */
 export interface ConnectAcpAgentOptions {
   /** Absolute path, or a bare name resolved on the absolute entries of `env.PATH` only. */
   command: string;
@@ -45,6 +46,7 @@ export interface ConnectAcpAgentOptions {
   initializeTimeoutMs?: number;
 }
 
+/** A live connection to a spawned ACP agent, with one session already created. */
 export interface AcpAgentConnection {
   /**
    * Send one prompt and stream the agent's session updates until the turn ends. One prompt at a time
