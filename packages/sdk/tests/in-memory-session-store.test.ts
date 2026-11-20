@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { Agent, InMemorySessionStore, type SessionRecord } from "../src/index.js";
+import {
+  Agent,
+  InMemorySessionStore,
+  type SessionRecord,
+  type SessionStore,
+} from "../src/index.js";
 import { InMemorySessionStore as FromPersistence } from "../src/persistence.js";
 
 const rec = (uuid: string, text: string): SessionRecord => ({
@@ -35,7 +40,7 @@ describe("InMemorySessionStore", () => {
   it("keeps records across dispose so the same instance can resume", async () => {
     const store = new InMemorySessionStore();
     await store.appendRecords("a", [rec("1", "one")]);
-    await store.dispose?.();
+    await (store as SessionStore).dispose?.();
     expect(await store.readRecords("a")).toHaveLength(1);
   });
 
