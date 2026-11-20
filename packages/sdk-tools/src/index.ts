@@ -162,3 +162,8 @@ export {
   XwdNotWrittenError,
   xwdToPng,
 } from "./xwd.js";
+export {
+  type ResolvedWebSearch,
+  resolveWebSearchAdapter,
+  type WebSearchProvider,
+} from "./web-search-from-env.js";

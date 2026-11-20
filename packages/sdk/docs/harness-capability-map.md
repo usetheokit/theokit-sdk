@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1476 export(s) across 57 entry point(s).
+1479 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -880,6 +880,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `RepoMapOptions` | interface | Repo-map / env-context builders for orienting an LLM coding agent (M3-3).  |
 | `resolveAndScreen` | function | Resolve `host` to ALL its addresses and screen each.  |
 | `ResolveAndScreenOptions` | interface | Options for {@link resolveAndScreen } . |
+| `ResolvedWebSearch` | interface |  |
+| `resolveWebSearchAdapter` | function | Choose a web search adapter from `env` (never reads `process.env`). |
 | `screenedFetch` | function | Fetch `url` with SSRF screening: screens the host (unless `allowPrivateHosts`), sets `redirect:"manual"`, and re-screens every redirect hop (rejecting a hop to a blocked host or a non-http(s) targe... |
 | `ScreenedFetchOptions` | interface | Options for {@link screenedFetch } . |
 | `SessionArtifactStore` | interface | A generic, id-keyed, atomic artifact store.  |
@@ -898,6 +900,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `TruncationResult` | interface | What {@link truncateOutput } returns.  |
 | `VitestSummary` | interface | The fields lifted from vitest's JSON report.  |
 | `WebSearchCallback` | type | The search provider {@link createWebSearchTool } calls.  |
+| `WebSearchProvider` | type | `resolveWebSearchAdapter(env)` — pick a web search adapter from environment variables.  |
 | `WebSearchResult` | interface | `web_search` — built-in tool for coding agents.  |
 | `withDefaultGuidance` | function | `withToolResultGuidance` pre-bound to {@link DEFAULT_TOOL_GUIDANCE } . |
 | `withDescription` | function | Return a new `CustomTool` with `description` replaced.  |
