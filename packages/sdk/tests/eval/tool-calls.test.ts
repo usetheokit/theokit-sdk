@@ -110,6 +110,15 @@ describe("Scorers.toolCallAccuracy", () => {
     expect(r).toEqual({ score: 0, reason: "unexpected_tool_call:delete" });
   });
 
+  it("exact input matching ignores key order but not distinct keys", () => {
+    const sc = Scorers.toolCallAccuracy({ matchInput: "exact" });
+    const want = { toolCalls: [{ name: "a", input: { b: 1, a: { y: 2, x: 1 }, B: 3 } }] };
+    const score = (input: unknown) =>
+      (sc.score("", want, ctx([["a", input]])) as { score: number }).score;
+    expect(score({ B: 3, a: { x: 1, y: 2 }, b: 1 })).toBe(1);
+    expect(score({ b: 1, a: { y: 2, x: 1 }, C: 3 })).toBe(0);
+  });
+
   it("matchInput exact vs ignore and metadata fallback", () => {
     const want = { toolCalls: [{ name: "a", input: { x: 1 } }] };
     const calls = ctx([["a", { x: 1, y: 2 }]]);
