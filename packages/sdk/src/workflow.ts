@@ -501,7 +501,7 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
    * A completed run keeps its history.
    */
   async history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>> {
-    const { workflowHistory } = await import("./internal/workflow/executor.js");
+    const { workflowHistory } = await import("./internal/workflow/rerun.js");
     return workflowHistory(this._options, runId);
   }
 
@@ -513,7 +513,7 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
    * history (needs `persistence: { durability: "step", keepHistory: true }`).
    */
   async rerunFrom<TO = TOutput>(opts: WorkflowRerunOptions): Promise<WorkflowRun<TO>> {
-    const { rerunWorkflowFrom } = await import("./internal/workflow/executor.js");
+    const { rerunWorkflowFrom } = await import("./internal/workflow/rerun.js");
     return rerunWorkflowFrom<TO>(this._options, this._steps, opts);
   }
 
