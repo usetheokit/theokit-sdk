@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Agent } from "../../src/agent.js";
+import { createTurnReviewQueue } from "../../src/internal/memory/review/turn-review.js";
 import { setDiagnosticsSink } from "../../src/internal/diagnostics.js";
 import type { AgentOptions } from "../../src/types/agent.js";
 import {
@@ -23,6 +24,7 @@ interface Stub {
   mainBodies: string[];
   reviewerTools: string[][];
   events: string[];
+  followUps: string[];
 }
 
 /** Anthropic wire stub: a request that offers `save_memory` is the reviewer, anything else the chat. */
@@ -33,6 +35,7 @@ function startStub(opts: { facts: () => string; reviewDelayMs?: number; mainDela
     mainBodies: [],
     reviewerTools: [],
     events: [],
+    followUps: [],
   };
   let reviewNo = 0;
   stub.server = createServer((req, res) => {
@@ -60,6 +63,7 @@ function startStub(opts: { facts: () => string; reviewDelayMs?: number; mainDela
   async function respondReviewer(raw: string, tools: string[], res: Res): Promise<void> {
     res.setHeader("content-type", "text/event-stream");
     if (raw.includes("tool_result")) {
+      stub.followUps.push(raw);
       await sleep(opts.reviewDelayMs ?? 0);
       stub.events.push(`end:${reviewNo}`);
       res.end(textReply("done"));
@@ -152,7 +156,7 @@ describe("memory.review", () => {
     await boot({ facts: () => "user is in UTC-3" });
     const alice = await create("alice");
     await (await alice.send("I work in UTC-3")).wait();
-    await alice.memory?.reviewsIdle();
+    await alice.memory?.reviewsIdle?.();
     await alice.dispose();
 
     expect(stub.reviewerTools).toEqual([["save_memory"]]);
@@ -174,7 +178,7 @@ describe("memory.review", () => {
     const runs = [];
     for (const text of ["one", "two", "three"]) runs.push(await agent.send(text));
     await Promise.all(runs.map((r) => r.wait()));
-    await agent.memory?.reviewsIdle();
+    await agent.memory?.reviewsIdle?.();
     await agent.dispose();
     expect(stub.events).toEqual(["start:1", "end:1", "start:2", "end:2", "start:3", "end:3"]);
   });
@@ -187,7 +191,7 @@ describe("memory.review", () => {
     const cancelled = await agent.send("cancel me");
     await cancelled.cancel();
     expect((await cancelled.wait()).status).toBe("cancelled");
-    await agent.memory?.reviewsIdle();
+    await agent.memory?.reviewsIdle?.();
     await agent.dispose();
     expect(stub.reviewerTools).toEqual([]);
   });
@@ -197,7 +201,7 @@ describe("memory.review", () => {
     const agent = await create("alice");
     const run = await agent.send("THROW-REVIEW please");
     await expect(run.wait()).resolves.toMatchObject({ status: "finished" });
-    await agent.memory?.reviewsIdle();
+    await agent.memory?.reviewsIdle?.();
     const next = await agent.send("and again");
     await expect(next.wait()).resolves.toMatchObject({ status: "finished" });
     const report = messages.find((m) => m.includes("memory review failed"));
@@ -209,11 +213,14 @@ describe("memory.review", () => {
     await boot({ facts: () => "z".repeat(501) });
     const agent = await create("alice");
     await (await agent.send("long")).wait();
-    await agent.memory?.reviewsIdle();
+    await agent.memory?.reviewsIdle?.();
     await agent.dispose();
     const again = await create("alice", false);
     await (await again.send("hello")).wait();
     await again.dispose();
+    expect(stub.followUps).toHaveLength(1);
+    expect(stub.followUps[0]).toMatch(/"is_error":\s*true/);
+    expect(stub.followUps[0]).toContain("501 characters");
     expect(stub.mainBodies.at(-1)).not.toContain("zzzzzzzzzz");
   });
 
@@ -226,5 +233,33 @@ describe("memory.review", () => {
     await (await again.send("hello")).wait();
     await again.dispose();
     expect(stub.mainBodies.at(-1)).toContain("user likes tea");
+  });
+
+  it("forwards providers, modelFallback and apiKey to the reviewer agent", async () => {
+    const seen: AgentOptions[] = [];
+    const providers = { routes: { "x/*": "openrouter" } };
+    const modelFallback = { models: ["claude-haiku-4-5"] };
+    const options = {
+      apiKey: "k",
+      model: { id: "m" },
+      providers,
+      modelFallback,
+    } as unknown as AgentOptions;
+    const queue = createTurnReviewQueue(
+      {
+        agentId: "a",
+        workspaceCwd: root,
+        options,
+        create: async (o) => {
+          seen.push(o);
+          throw new Error("stop");
+        },
+      },
+      { after: "turn" },
+      { enabled: true },
+    );
+    queue.enqueue({ prompt: "p", reply: "r" });
+    await queue.idle();
+    expect(seen[0]).toMatchObject({ apiKey: "k", providers, modelFallback });
   });
 });

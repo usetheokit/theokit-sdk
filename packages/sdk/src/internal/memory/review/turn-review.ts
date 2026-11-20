@@ -82,6 +82,10 @@ function reviewerOptions(
   const { options } = deps;
   return {
     ...(options.apiKey !== undefined ? { apiKey: options.apiKey } : {}),
+    // Routing and fallback decide how a model id reaches its provider; without them a custom-routed
+    // agent's reviewer would fail every turn.
+    ...(options.providers !== undefined ? { providers: options.providers } : {}),
+    ...(options.modelFallback !== undefined ? { modelFallback: options.modelFallback } : {}),
     model:
       review.model !== undefined ? { id: review.model } : (options.model as AgentOptions["model"]),
     agentId: `${deps.agentId}-review-${n}`,
@@ -183,7 +187,7 @@ export function createAgentTurnReviews(
   agentId: string,
   workspaceCwd: string,
   options: AgentOptions,
-  agentMemory?: { reviewsIdle(): Promise<void> },
+  agentMemory?: { reviewsIdle?: () => Promise<void> },
 ): TurnReviewQueue | undefined {
   const memory = options.memory;
   if (memory?.enabled !== true || memory.review === undefined) return undefined;

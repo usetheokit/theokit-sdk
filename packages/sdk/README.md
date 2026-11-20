@@ -192,7 +192,7 @@ const agent = await Agent.create({
     review: { after: "turn" },
   },
 });
-await agent.memory.reviewsIdle(); // wait for queued reviews, e.g. in tests or at shutdown
+await agent.memory.reviewsIdle?.(); // wait for queued reviews, e.g. in tests or at shutdown
 ```
 
 - A review is queued after each run that ends `finished` with a reply; runs that end `error` or `cancelled` queue none. The turn is passed to the reviewer inside `<turn>` tags, and the default instructions say to treat it as data.
