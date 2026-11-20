@@ -3523,6 +3523,42 @@
         "declaration": "export declare function getTaskStoreFor(options: TaskStoreOptions): TaskStore;"
       }
     },
+    "./testing#import": {
+      "FakeModelRequest": {
+        "tier": "stable",
+        "declaration": "export interface FakeModelRequest {\n    readonly model?: string;\n    readonly stream?: boolean;\n    readonly messages: ReadonlyArray<{\n        readonly role: string;\n        readonly content: unknown;\n    }>;\n    readonly tools?: unknown;\n    readonly error?: string;\n}"
+      },
+      "FakeModelServer": {
+        "tier": "stable",
+        "declaration": "export interface FakeModelServer {\n    readonly model: ModelSelection;\n    readonly url: string;\n    readonly requests: readonly FakeModelRequest[];\n    close(): Promise<void>;\n}"
+      },
+      "FakeModelServerOptions": {
+        "tier": "stable",
+        "declaration": "export interface FakeModelServerOptions {\n    wire?: \"openai\" | \"ollama\";\n    reply?: string | ((request: FakeModelRequest) => string);\n    host?: string;\n}"
+      },
+      "startFakeModelServer": {
+        "tier": "stable",
+        "declaration": "export declare function startFakeModelServer(options?: FakeModelServerOptions): Promise<FakeModelServer>;"
+      }
+    },
+    "./testing#require": {
+      "FakeModelRequest": {
+        "tier": "stable",
+        "declaration": "export interface FakeModelRequest {\n    readonly model?: string;\n    readonly stream?: boolean;\n    readonly messages: ReadonlyArray<{\n        readonly role: string;\n        readonly content: unknown;\n    }>;\n    readonly tools?: unknown;\n    readonly error?: string;\n}"
+      },
+      "FakeModelServer": {
+        "tier": "stable",
+        "declaration": "export interface FakeModelServer {\n    readonly model: ModelSelection;\n    readonly url: string;\n    readonly requests: readonly FakeModelRequest[];\n    close(): Promise<void>;\n}"
+      },
+      "FakeModelServerOptions": {
+        "tier": "stable",
+        "declaration": "export interface FakeModelServerOptions {\n    wire?: \"openai\" | \"ollama\";\n    reply?: string | ((request: FakeModelRequest) => string);\n    host?: string;\n}"
+      },
+      "startFakeModelServer": {
+        "tier": "stable",
+        "declaration": "export declare function startFakeModelServer(options?: FakeModelServerOptions): Promise<FakeModelServer>;"
+      }
+    },
     "./workflow#import": {
       "AgentStep": {
         "tier": "stable",
