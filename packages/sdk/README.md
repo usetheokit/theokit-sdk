@@ -221,6 +221,26 @@ const decision = await runPreToolCall(plugins, { name, args, agentId, runId });
 A plugin handler that throws is not turned into a veto: the exception propagates, as it does in the
 agent loop. `guardTools` passes no `conversation`; use `runPreToolCall` to supply one.
 
+## Tool-result guard and `sendDefaults`
+
+`SendOptions.toolResultGuard` (`{ delimit, redactPii }`) wraps or redacts tool output before the model sees it, and `SendOptions.pruneToolResults` stubs results older than `olderThanRounds` rounds. Both are read per send, so a missed call site runs unguarded. Set them once on the agent instead:
+
+```ts
+const agent = await Agent.create({
+  model: "anthropic/claude-sonnet-4-6",
+  local: { cwd: process.cwd() },
+  sendDefaults: {
+    toolResultGuard: { delimit: true }, // tool output arrives inside <untrusted-tool-output>
+    pruneToolResults: { olderThanRounds: 3 },
+  },
+});
+
+await agent.send("summarise the page"); // guarded
+await agent.send("raw", { toolResultGuard: { redactPii: true } }); // this call's guard replaces the default
+```
+
+`sendDefaults` accepts `toolResultGuard`, `pruneToolResults` and `perToolTimeoutMs`, applies to local agents, and also covers `fork()`, `generate()`, `runUntil()` and the `*ToCompletion` helpers. It merges per key: a key the send passes wins. Passing a key as `undefined` explicitly does **not** remove the default. An invalid `pruneToolResults` fails at `Agent.create` (and `Agent.resume`) with `ConfigurationError` code `invalid_prune_tool_results`. The defaults are persisted, so a disk-backed `Agent.resume` keeps them.
+
 ## Explain skills
 
 `explainSkills` from `@theokit/sdk/skills` reports what an agent would see, from the same walk the

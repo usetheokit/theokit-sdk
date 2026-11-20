@@ -14,6 +14,7 @@ import type {
 import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
 import type { AgentOperation } from "../../types/sdk-agent.js";
 import type { SessionStore } from "../../types/session-store.js";
+import { validatePruneToolResults } from "../agent-loop/prune-tool-results.js";
 import { diagFailure } from "../diagnostics.js";
 import { generateLocalAgentId } from "../ids.js";
 import type { MemoryMirror } from "../memory/mirror.js";
@@ -310,7 +311,9 @@ export class LocalAgent implements SDKAgent {
     return agentGenerate(this, this.model, apiKey, local, message, options);
   }
 
-  async send(message: string | SDKUserMessage, options: SendOptions = {}): Promise<Run> {
+  async send(message: string | SDKUserMessage, callOptions: SendOptions = {}): Promise<Run> {
+    const options = applySendDefaults(this.options.sendDefaults, callOptions);
+    validatePruneToolResults(options.pruneToolResults);
     // Per-call tools get the creation-time checks (cloud agents reject them in CloudAgent.send);
     // #381 — with the agent's withhold list. Also validates `doomLoop.window` (#1031).
     validateSendOptions(options, this.options.withheldBuiltinTools);
@@ -708,6 +711,26 @@ function callerView(run: Run, throwOnError: boolean | undefined): Run {
 
 function resolveCwd(cwd: string | string[] | undefined): string {
   return (Array.isArray(cwd) ? cwd[0] : cwd) ?? process.cwd();
+}
+
+const SEND_DEFAULT_KEYS = ["toolResultGuard", "pruneToolResults", "perToolTimeoutMs"] as const;
+
+/**
+ * Merge `AgentOptions.sendDefaults` under the call's options, per key. A call key set to
+ * `undefined` does not remove the default.
+ */
+function applySendDefaults(
+  defaults: AgentOptions["sendDefaults"],
+  callOptions: SendOptions,
+): SendOptions {
+  if (defaults === undefined) return callOptions;
+  const merged: SendOptions = { ...callOptions };
+  for (const key of SEND_DEFAULT_KEYS) {
+    if (merged[key] === undefined && defaults[key] !== undefined) {
+      (merged as Record<string, unknown>)[key] = defaults[key];
+    }
+  }
+  return merged;
 }
 
 function includesSetting(options: AgentOptions, source: string): boolean {
