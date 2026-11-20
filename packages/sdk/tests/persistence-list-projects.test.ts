@@ -4,13 +4,13 @@ import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { Agent, type AgentOptions, ConfigurationError } from "../../src/index.js";
+import { Agent, type AgentOptions, ConfigurationError } from "../src/index.js";
 import {
   encodeProjectDir,
   listProjects,
   listSessions,
   sessionUuidFor,
-} from "../../src/persistence.js";
+} from "../src/persistence.js";
 
 const KEY = "sk-or-stub-0000000000";
 const sse = (payload: unknown): string => `data: ${JSON.stringify(payload)}\n\n`;
