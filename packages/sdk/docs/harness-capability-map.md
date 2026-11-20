@@ -628,7 +628,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ceilingReachedError` | function | The refusal of a new fact at a store's declared ceiling: where the store is, how many facts it holds, the ceiling, and what to consolidate.  |
 | `chunkMarkdown` | function | Split a markdown document into heading- and paragraph-aligned chunks. |
 | `ChunkMarkdownOptions` | interface | Split a markdown document into semantically meaningful chunks (ADR D1 of memory-system-peer-project-parity).  |
-| `CircuitBreaker` | class |  |
+| `CircuitBreaker` | class | Consecutive-failure circuit breaker — a cross-cutting resilience primitive.  |
 | `CircuitBreakerOptions` | interface | Options for {@link CircuitBreaker } . |
 | `claudeProjectMemoryDir` | function | Where the Claude Code CLI keeps THIS project's memories.  |
 | `Cluster` | interface | A group of semantically similar facts, with the text chosen to represent them. |
@@ -1578,7 +1578,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
-| `CircuitBreaker` | class |  |
+| `CircuitBreaker` | class | Consecutive-failure circuit breaker — a cross-cutting resilience primitive.  |
 | `CircuitBreakerOptions` | interface | Options for {@link CircuitBreaker } . |
 | `Retry` | class | SE36 — replaces `withRetry` (ADR 0015 / ADR-P2).  |
 | `RetryOptions` | interface | Options for {@link withRetry } .  |

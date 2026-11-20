@@ -1,20 +1,3 @@
-/**
- * Consecutive-failure circuit breaker — a cross-cutting resilience primitive.
- *
- * Used by Active Memory recall (timeout-driven) and the LLM credential pool
- * (429/terminal-failure-driven). Domain-neutral: it counts consecutive
- * failure events per key and trips after N, staying open for `cooldownMs`.
- *
- * Mirrors peer-project's `circuitBreakerMaxTimeouts` + `circuitBreakerCooldownMs`
- * config: after N consecutive timeouts the breaker trips and `shouldSkip`
- * returns `true` until `cooldownMs` has elapsed. A successful recall resets
- * the counter immediately.
- *
- * Per-key isolation so two agents in the same process don't share a counter.
- *
- * @public
- */
-
 /** Options for {@link CircuitBreaker}. */
 export interface CircuitBreakerOptions {
   /** Consecutive timeouts that trip the breaker. Default 3. */
@@ -33,6 +16,22 @@ interface KeyState {
 const DEFAULT_MAX_TIMEOUTS = 3;
 const DEFAULT_COOLDOWN_MS = 60_000;
 
+/**
+ * Consecutive-failure circuit breaker — a cross-cutting resilience primitive.
+ *
+ * Used by Active Memory recall (timeout-driven) and the LLM credential pool
+ * (429/terminal-failure-driven). Domain-neutral: it counts consecutive
+ * failure events per key and trips after N, staying open for `cooldownMs`.
+ *
+ * Mirrors peer-project's `circuitBreakerMaxTimeouts` + `circuitBreakerCooldownMs`
+ * config: after N consecutive timeouts the breaker trips and `shouldSkip`
+ * returns `true` until `cooldownMs` has elapsed. A successful recall resets
+ * the counter immediately.
+ *
+ * Per-key isolation so two agents in the same process don't share a counter.
+ *
+ * @public
+ */
 export class CircuitBreaker {
   private readonly states = new Map<string, KeyState>();
 
