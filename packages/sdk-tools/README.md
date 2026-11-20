@@ -154,3 +154,16 @@ rather than the version someone wrote a page about.
 ## License
 
 Apache-2.0.
+
+## Choosing a web search adapter from the environment
+
+`resolveWebSearchAdapter(env, { fetchImpl? })` picks one adapter from the `env` you pass (it never reads `process.env`) and returns `{ adapter, provider, secrets, offReason }`. Pass `secrets` to your output mask; wrap `adapter` with `createWebSearchTool({ search: adapter })`.
+
+Precedence (blank values count as unset):
+
+1. `THEOKIT_SEARCH` — `brave`, `tavily`, `searxng:<http(s) url>`, `generic` or `off`. Wins over everything below.
+2. `BRAVE_API_KEY` → Brave.
+3. `TAVILY_API_KEY` → Tavily.
+4. `THEOKIT_SEARCH_API_URL` + `THEOKIT_SEARCH_API_KEY` → generic HTTP.
+
+With none set, `adapter` is undefined and `offReason` names the variables that would turn search on. A half-configured generic pair, an explicit choice missing its key, an invalid `searxng:` URL or an unknown `THEOKIT_SEARCH` value throws `ConfigurationError` naming the variable, never its value.
