@@ -1,13 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { __resetSnapshotStoresForTests } from "../../src/internal/workflow/snapshot-store.js";
 
-import {
-  __resetSnapshotStoresForTests,
-  fn,
-  Workflow,
-  WorkflowToolError,
-  workflowAsTool,
-} from "../../src/workflow.js";
+import { fn, Workflow, WorkflowToolError, workflowAsTool } from "../../src/workflow.js";
 
 /**
  * SE19 — `workflowAsTool(workflow, spec)` exposes a `Workflow` as an agent

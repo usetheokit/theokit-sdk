@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { ZodError, z } from "zod";
+import { __resetSnapshotStoresForTests } from "../../src/internal/workflow/snapshot-store.js";
 
 import {
-  __resetSnapshotStoresForTests,
   fn,
   Workflow,
   WorkflowResumeStepNotFoundError,

@@ -6,13 +6,13 @@ import { describe, expect, it } from "vitest";
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 /**
- * `@theokit/sdk` publishes four `./internal/*` subpaths. That is deliberate:
+ * `@theokit/sdk` publishes three `./internal/*` subpaths. That is deliberate:
  * the word `internal` in a specifier is the warning that the surface is
  * semver-exempt, and satellites in this monorepo consume them on that footing.
  *
- * The risk is not the four. It is a fifth appearing because it was convenient,
+ * The risk is not the three. It is a fifth appearing because it was convenient,
  * with nobody deciding whether it is a raw channel that also needs a stable
- * facade (`persistence`, `security` have one) or a satellite-only channel that
+ * facade (`security` has one) or a satellite-only channel that
  * must NOT have one (`memory-adapters`, `memory-store` — a facade there would
  * promise a stability their surface does not have).
  *
@@ -42,7 +42,7 @@ describe("every published internal subpath is a declared decision", () => {
     expect(
       subpaths.length,
       "no ./internal/* subpath was found; the exports field or this filter changed",
-    ).toBeGreaterThanOrEqual(4);
+    ).toBeGreaterThanOrEqual(3);
   });
 
   it("names each one in src/internal/README.md", () => {
