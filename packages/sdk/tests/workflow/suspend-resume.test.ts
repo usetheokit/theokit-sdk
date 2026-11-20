@@ -4,9 +4,9 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { __resetSnapshotStoresForTests } from "../../src/internal/workflow/snapshot-store.js";
 
 import {
-  __resetSnapshotStoresForTests,
   fn,
   Workflow,
   WorkflowNotSerializableError,

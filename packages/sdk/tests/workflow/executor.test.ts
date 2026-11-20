@@ -4,8 +4,9 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { __resetSnapshotStoresForTests } from "../../src/internal/workflow/snapshot-store.js";
 
-import { __resetSnapshotStoresForTests, fn, Workflow } from "../../src/workflow.js";
+import { fn, Workflow } from "../../src/workflow.js";
 
 describe("workflow executor — sequential", () => {
   it("runs steps in order and propagates output -> input", async () => {
