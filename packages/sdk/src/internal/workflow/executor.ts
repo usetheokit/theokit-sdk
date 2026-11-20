@@ -9,8 +9,6 @@
  */
 
 import type {
-  CompensationResult,
-  FnStep,
   Step,
   StepContext,
   StepResult,
@@ -31,6 +29,7 @@ import {
 } from "../../workflow-errors.js";
 import { combineSignals, makeStepContext, WorkflowSuspendedSentinel } from "./ctx.js";
 import { errToShape } from "./error-shape.js";
+import { type Compensable, settleStep } from "./executor-compensation.js";
 import {
   abortRun,
   assembleRun,
@@ -231,76 +230,6 @@ function handleStepOutcome<TO>(
   return { acc: outcome.result.output };
 }
 
-/** A completed top-level fn step that declared `compensate`, with what it needs to undo. */
-interface Compensable {
-  step: FnStep;
-  input: unknown;
-  output: unknown;
-}
-
-function errorFromShape(shape: { name: string; message: string } | undefined): Error {
-  const err = new Error(shape?.message ?? "step failed");
-  if (shape !== undefined) err.name = shape.name;
-  return err;
-}
-
-/** Call each `compensate` in reverse completion order; a throwing one is recorded, not fatal. */
-async function runCompensation(
-  done: ReadonlyArray<Compensable>,
-  error: Error,
-  onStepEvent?: (event: WorkflowEvent) => void,
-): Promise<CompensationResult[]> {
-  const results: CompensationResult[] = [];
-  for (const { step, input, output } of [...done].reverse()) {
-    try {
-      await step.compensate?.(input, output, error);
-      results.push({ stepId: step.id, status: "compensated" });
-      onStepEvent?.({ type: "step_compensated", stepId: step.id });
-    } catch (err) {
-      const shape = errToShape(err);
-      results.push({ stepId: step.id, status: "failed", error: shape });
-      onStepEvent?.({ type: "step_compensation_failed", stepId: step.id, error: shape });
-    }
-  }
-  return results;
-}
-
-/** Compensate after a failed (not cancelled) top-level step; returns the run with `compensation`. */
-async function failWithCompensation<TO>(
-  run: WorkflowRun<TO>,
-  done: ReadonlyArray<Compensable>,
-  signal: AbortSignal,
-  onStepEvent?: (event: WorkflowEvent) => void,
-): Promise<WorkflowRun<TO>> {
-  if (done.length === 0 || signal.aborted) return run;
-  const compensation = await runCompensation(done, errorFromShape(run.error), onStepEvent);
-  return { ...run, compensation };
-}
-
-/** Settle one step: compensate on a failed step, else record a compensable completion. */
-async function settleStep<TO>(
-  handled: { terminal: WorkflowRun<TO> } | { acc: unknown },
-  args: {
-    outcome: { kind: "ok"; result: StepResult } | { kind: "terminal"; run: WorkflowRun<TO> };
-    step: Step;
-    input: unknown;
-    done: Compensable[];
-    signal: AbortSignal;
-    onStepEvent?: (event: WorkflowEvent) => void;
-  },
-): Promise<{ terminal: WorkflowRun<TO> } | { acc: unknown }> {
-  const { outcome, step, done } = args;
-  if ("terminal" in handled) {
-    if (outcome.kind !== "ok" || outcome.result.status !== "failed") return handled;
-    const run = await failWithCompensation(handled.terminal, done, args.signal, args.onStepEvent);
-    return { terminal: run };
-  }
-  if (step.kind === "fn" && step.compensate !== undefined) {
-    done.push({ step, input: args.input, output: handled.acc });
-  }
-  return handled;
-}
-
 /** `durability: "step"` — write a v3 "running" snapshot after a completed top-level step. */
 async function checkpointStep<TO>(
   params: LoopParams,
@@ -340,6 +269,37 @@ async function clearCheckpoint(options: WorkflowOptions, runId: string): Promise
   await getSnapshotStoreFor(options).delete(runId);
 }
 
+/** Terminal path: validate the output schema, clear the checkpoint, assemble the run. */
+async function finishRun<TO>(
+  params: LoopParams,
+  stepResults: StepResult[],
+  acc: unknown,
+): Promise<WorkflowRun<TO>> {
+  const { options, runId, startedAt, onStepEvent } = params;
+  // SE27 — validate the whole-workflow output only on the terminal completed path.
+  const outputIssues = validateWorkflowSchema(options.outputSchema, acc);
+  if (outputIssues !== undefined) {
+    return assembleRun<TO>({
+      runId,
+      name: options.name,
+      status: "failed",
+      stepResults,
+      startedAt,
+      error: errToShape(new WorkflowOutputError(options.name, outputIssues)),
+    });
+  }
+  await clearCheckpoint(options, runId);
+  onStepEvent?.({ type: "workflow_completed" });
+  return assembleRun<TO>({
+    runId,
+    name: options.name,
+    status: "completed",
+    output: acc as TO,
+    stepResults,
+    startedAt,
+  });
+}
+
 async function runStepsLoop<TO>(params: LoopParams): Promise<WorkflowRun<TO>> {
   const { options, steps, ctx, runId, startedAt, signal, onStepEvent } = params;
   // M3 #62 — seed with prior step outputs so a resumed workflow is not lossy.
@@ -373,28 +333,7 @@ async function runStepsLoop<TO>(params: LoopParams): Promise<WorkflowRun<TO>> {
     const failed = await checkpointStep<TO>(params, step, stepResults, acc);
     if (failed !== undefined) return failed;
   }
-  // SE27 — validate the whole-workflow output only on the terminal completed path.
-  const outputIssues = validateWorkflowSchema(options.outputSchema, acc);
-  if (outputIssues !== undefined) {
-    return assembleRun<TO>({
-      runId,
-      name: options.name,
-      status: "failed",
-      stepResults,
-      startedAt,
-      error: errToShape(new WorkflowOutputError(options.name, outputIssues)),
-    });
-  }
-  await clearCheckpoint(options, runId);
-  onStepEvent?.({ type: "workflow_completed" });
-  return assembleRun<TO>({
-    runId,
-    name: options.name,
-    status: "completed",
-    output: acc as TO,
-    stepResults,
-    startedAt,
-  });
+  return finishRun<TO>(params, stepResults, acc);
 }
 
 /** M3 #62 — internal-only resume seam: prior step outputs are NOT on the public
