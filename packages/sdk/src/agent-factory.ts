@@ -1,4 +1,5 @@
 import { Agent } from "./agent.js";
+import { ConfigurationError } from "./errors.js";
 import type { AgentOptions, SDKAgent } from "./types/agent.js";
 
 /**
@@ -21,6 +22,19 @@ export interface AgentFactory {
 }
 
 /**
+ * Config form of {@link AgentFactory.create}: base `defaults` that per-session
+ * overrides may change, and `pinned` options they cannot.
+ *
+ * @public
+ */
+export interface AgentFactoryConfig {
+  /** Base options; per-session overrides win over these. */
+  defaults?: Partial<AgentOptions>;
+  /** Applied after every override; an override cannot change these. `local`, `memory`, `cloud` and `sendDefaults` merge key by key with pinned keys winning; `withheldBuiltinTools` is a union. */
+  pinned?: Partial<AgentOptions>;
+}
+
+/**
  * Capture a common {@link AgentOptions} prefix and produce per-session agents
  * with focused overrides. Useful for chat-bot patterns where most config is
  * shared across users/sessions.
@@ -39,12 +53,63 @@ export interface AgentFactory {
  *
  * @public
  */
-function createAgentFactory(common: Partial<AgentOptions>): AgentFactory {
-  return {
-    forSession: (agentId, overrides) => Agent.create(mergeAgentOptions(common, overrides, agentId)),
-    getOrCreate: (agentId, overrides) =>
-      Agent.getOrCreate(agentId, mergeAgentOptions(common, overrides, agentId)),
+function createAgentFactory(
+  common: Partial<AgentOptions>,
+  pinned?: Partial<AgentOptions>,
+): AgentFactory {
+  const build = (agentId: string, overrides?: Partial<AgentOptions>): AgentOptions => {
+    const merged = mergeAgentOptions(common, overrides, agentId);
+    return pinned === undefined ? merged : applyPinned(merged, pinned, agentId);
   };
+  return {
+    forSession: (agentId, overrides) => Agent.create(build(agentId, overrides)),
+    getOrCreate: (agentId, overrides) => Agent.getOrCreate(agentId, build(agentId, overrides)),
+  };
+}
+
+/** Lay `pinned` over an already merged option set; pinned keys always win. @internal */
+function applyPinned(
+  merged: AgentOptions,
+  pinned: Partial<AgentOptions>,
+  agentId: string,
+): AgentOptions {
+  const out: Partial<AgentOptions> = { ...merged, ...pinned };
+  if (pinned.local !== undefined) out.local = { ...(merged.local ?? {}), ...pinned.local };
+  if (pinned.cloud !== undefined) out.cloud = { ...(merged.cloud ?? {}), ...pinned.cloud };
+  if (pinned.memory !== undefined) out.memory = pinMemory(merged.memory, pinned.memory);
+  if (pinned.sendDefaults !== undefined) {
+    out.sendDefaults = { ...(merged.sendDefaults ?? {}), ...pinned.sendDefaults };
+  }
+  if (pinned.withheldBuiltinTools !== undefined) {
+    out.withheldBuiltinTools = [
+      ...new Set([...pinned.withheldBuiltinTools, ...(merged.withheldBuiltinTools ?? [])]),
+    ];
+  }
+  out.agentId = agentId;
+  return out as AgentOptions;
+}
+
+function pinMemory(
+  base: AgentOptions["memory"],
+  pinned: NonNullable<AgentOptions["memory"]>,
+): AgentOptions["memory"] {
+  return { ...(base ?? {}), ...pinned, enabled: pinned.enabled ?? base?.enabled ?? false };
+}
+
+/** Tell the config overload from the legacy common-options one; throws on a mixed shape. @internal */
+function isFactoryConfig(
+  arg: Partial<AgentOptions> | AgentFactoryConfig,
+): arg is AgentFactoryConfig {
+  const keys = Object.keys(arg);
+  const isConfig = keys.includes("defaults") || keys.includes("pinned");
+  if (!isConfig) return false;
+  const mixed = keys.find((k) => k !== "defaults" && k !== "pinned");
+  if (mixed !== undefined) {
+    throw new ConfigurationError(
+      `AgentFactory.create: "${mixed}" cannot be mixed with "defaults"/"pinned"; put it inside defaults or pinned.`,
+    );
+  }
+  return true;
 }
 
 /**
@@ -103,7 +168,10 @@ function deepMergeCloud(
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: SE36 namespace class merges with the `AgentFactory` instance interface (ADR 0015) — intentional; `create()` returns the interface type, `new` is blocked by the private ctor.
 export class AgentFactory {
   private constructor() {}
-  static create(common: Partial<AgentOptions>): AgentFactory {
-    return createAgentFactory(common);
+  static create(common: Partial<AgentOptions>): AgentFactory;
+  static create(config: AgentFactoryConfig): AgentFactory;
+  static create(arg: Partial<AgentOptions> | AgentFactoryConfig): AgentFactory {
+    if (isFactoryConfig(arg)) return createAgentFactory(arg.defaults ?? {}, arg.pinned ?? {});
+    return createAgentFactory(arg as Partial<AgentOptions>);
   }
 }
