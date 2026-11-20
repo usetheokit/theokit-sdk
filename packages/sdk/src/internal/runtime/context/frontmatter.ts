@@ -39,50 +39,159 @@ export function splitFrontmatter(raw: string): FrontmatterSplit {
   });
 }
 
+/**
+ * How the loaders' dialects differ. The defaults are the public {@link parseFrontmatterYaml}.
+ *
+ * @internal
+ */
+export interface YamlDialect {
+  /** Skip a line with no usable `key:` instead of throwing `frontmatter_invalid`. */
+  readonly lenient?: boolean;
+  /** Keep surrounding quotes on scalars and inline/block list items. */
+  readonly keepQuotes?: boolean;
+  /** A bare `key:` with no items is `undefined` rather than `[]`. */
+  readonly bareKeyUndefined?: boolean;
+  /**
+   * Rule-file dialect: indented `k: v` lines under a bare key form a nested map, integers only
+   * (no floats), and list items are scalar-coerced.
+   */
+  readonly rich?: boolean;
+}
+
+type Item = string | number | boolean;
+
 function unquote(s: string): string {
   return s.replace(/^["']|["']$/g, "");
 }
 
-function parseScalar(raw: string): string | number | boolean {
+function parseScalar(raw: string, d: YamlDialect): Item {
   if (raw === "true") return true;
   if (raw === "false") return false;
-  const n = Number(raw);
-  if (raw !== "" && Number.isFinite(n) && raw === String(n)) return n;
-  return unquote(raw);
+  if (d.rich === true) {
+    if (/^-?\d+$/.test(raw)) return Number.parseInt(raw, 10);
+  } else {
+    const n = Number(raw);
+    if (raw !== "" && Number.isFinite(n) && raw === String(n)) return n;
+  }
+  return d.keepQuotes === true ? raw : unquote(raw);
 }
 
-function parseValue(raw: string): FrontmatterScalar {
+function parseItem(raw: string, d: YamlDialect): Item {
+  if (d.rich === true) return parseScalar(unquote(raw), d);
+  return d.keepQuotes === true ? raw : unquote(raw);
+}
+
+function parseValue(raw: string, d: YamlDialect): unknown {
   if (raw.startsWith("[") && raw.endsWith("]")) {
     return raw
       .slice(1, -1)
       .split(",")
-      .map((s) => unquote(s.trim()))
-      .filter((s) => s.length > 0);
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+      .map((s) => parseItem(s, d));
   }
-  return parseScalar(raw);
+  return parseScalar(raw, d);
 }
 
 function isSkippable(trimmed: string): boolean {
   return trimmed === "" || trimmed.startsWith("#");
 }
 
-/** Collect the `- item` lines after a bare `key:`; returns the items and the next index. */
-function collectList(lines: string[], start: number): { items: string[]; end: number } {
-  const items: string[] = [];
+interface Collected {
+  readonly items: Item[];
+  readonly nested: Record<string, Item>;
+  readonly end: number;
+}
+
+/** The `k: v` pair on an indented line under a bare key (rich dialect only), if it is one. */
+function nestedEntry(line: string, t: string, d: YamlDialect): [string, Item] | undefined {
+  if (d.rich !== true || !/^\s/.test(line) || !t.includes(":")) return undefined;
+  const c = t.indexOf(":");
+  return [t.slice(0, c).trim(), parseScalar(t.slice(c + 1).trim(), d)];
+}
+
+/** Collect what follows a bare `key:`: `- item` lines, or (rich dialect) indented `k: v` lines. */
+function collectBlock(lines: string[], start: number, d: YamlDialect): Collected {
+  const items: Item[] = [];
+  const nested: Record<string, Item> = {};
   let j = start;
   for (; j < lines.length; j += 1) {
-    const t = (lines[j] ?? "").trim();
+    const line = lines[j] ?? "";
+    const t = line.trim();
     if (isSkippable(t)) continue;
-    if (!t.startsWith("- ")) break;
-    items.push(unquote(t.slice(2).trim()));
+    const entry = nestedEntry(line, t, d);
+    if (t.startsWith("- ")) items.push(parseItemValue(t.slice(2).trim(), d));
+    else if (entry !== undefined) nested[entry[0]] = entry[1];
+    else break;
   }
-  return { items, end: j };
+  return { items, nested, end: j };
+}
+
+function parseItemValue(item: string, d: YamlDialect): Item {
+  return d.rich === true ? parseScalar(item, d) : parseItem(item, d);
 }
 
 function invalid(lineNo: number, text: string): ConfigurationError {
-  return new ConfigurationError(`Invalid frontmatter YAML at line ${lineNo}: ${text}`, {
+  return new ConfigurationError(`Invalid YAML at line ${lineNo}: ${text}`, {
     code: "frontmatter_invalid",
   });
+}
+
+/** Split a line into key and raw value; undefined when it has no usable `key:`. */
+function splitEntry(trimmed: string): { key: string; rest: string } | undefined {
+  const colon = trimmed.indexOf(":");
+  const key = colon === -1 ? "" : trimmed.slice(0, colon).trim();
+  return key === "" ? undefined : { key, rest: trimmed.slice(colon + 1).trim() };
+}
+
+/** The value of a bare `key:` and the index to resume at. */
+function bareKeyValue(
+  lines: string[],
+  start: number,
+  d: YamlDialect,
+): { value: unknown; next: number } {
+  const block = collectBlock(lines, start, d);
+  if (Object.keys(block.nested).length > 0) return { value: block.nested, next: block.end };
+  if (block.items.length === 0 && d.bareKeyUndefined === true) {
+    return { value: undefined, next: start };
+  }
+  return { value: block.items, next: block.end };
+}
+
+/** The value after `key:` (inline, or the block below a bare key) and the index to resume at. */
+function entryValue(
+  rest: string,
+  lines: string[],
+  next: number,
+  d: YamlDialect,
+): { value: unknown; next: number } {
+  return rest === "" ? bareKeyValue(lines, next, d) : { value: parseValue(rest, d), next };
+}
+
+/**
+ * The one YAML-subset engine; the loaders differ only in the {@link YamlDialect} they pass.
+ *
+ * @internal
+ * @throws ConfigurationError code `frontmatter_invalid` naming the 1-based line number (unless lenient).
+ */
+export function parseYamlSubset(yaml: string, d: YamlDialect = {}): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const lines = yaml.split(/\r?\n/);
+  let i = 0;
+  while (i < lines.length) {
+    const trimmed = (lines[i] ?? "").trim();
+    i += 1;
+    if (isSkippable(trimmed)) continue;
+    const entry = splitEntry(trimmed);
+    if (entry === undefined) {
+      if (d.lenient === true) continue;
+      throw invalid(i, trimmed);
+    }
+    const read = entryValue(entry.rest, lines, i, d);
+    out[entry.key] = read.value;
+    i = read.next;
+  }
+  return out;
 }
 
 /**
@@ -92,25 +201,5 @@ function invalid(lineNo: number, text: string): ConfigurationError {
  * @throws ConfigurationError code `frontmatter_invalid` naming the 1-based line number.
  */
 export function parseFrontmatterYaml(yaml: string): Record<string, FrontmatterScalar> {
-  const out: Record<string, FrontmatterScalar> = {};
-  const lines = yaml.split(/\r?\n/);
-  let i = 0;
-  while (i < lines.length) {
-    const lineNo = i + 1;
-    const trimmed = (lines[i] ?? "").trim();
-    i += 1;
-    if (isSkippable(trimmed)) continue;
-    const colon = trimmed.indexOf(":");
-    const key = colon === -1 ? "" : trimmed.slice(0, colon).trim();
-    if (key === "") throw invalid(lineNo, trimmed);
-    const rest = trimmed.slice(colon + 1).trim();
-    if (rest !== "") {
-      out[key] = parseValue(rest);
-      continue;
-    }
-    const list = collectList(lines, i);
-    out[key] = list.items;
-    i = list.end;
-  }
-  return out;
+  return parseYamlSubset(yaml) as Record<string, FrontmatterScalar>;
 }

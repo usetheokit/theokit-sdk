@@ -49,3 +49,25 @@ describe("parseFrontmatterYaml", () => {
     }
   });
 });
+
+describe("loaders on the shared splitter", () => {
+  it("skill: CRLF and end-of-file closing fence parse; unterminated keeps missing_frontmatter", async () => {
+    const { parseSkillFrontmatter, stripSkillFrontmatter } = await import(
+      "../../src/internal/runtime/skills/skill-frontmatter.js"
+    );
+    const crlf = "---\r\nname: s\r\ndescription: d\r\n---\r\nbody\r\n";
+    expect(parseSkillFrontmatter(crlf, "fb").name).toBe("s");
+    expect(stripSkillFrontmatter(crlf)).toBe("body");
+    expect(stripSkillFrontmatter("---\nname: s\n---")).toBe("");
+    expect(() => parseSkillFrontmatter("---\nname: s\n", "fb")).toThrow(
+      expect.objectContaining({ code: "missing_frontmatter" }),
+    );
+  });
+  it("markdown config: unterminated keeps <prefix>_missing_frontmatter", async () => {
+    const mod = await import("../../src/internal/runtime/context/context-yaml-lite.js");
+    expect(mod.splitFrontmatter("---\nname: x\n").yaml).toBeUndefined();
+    expect(() => mod.parseSimpleYaml("no colon")).toThrow(
+      expect.objectContaining({ code: "frontmatter_invalid" }),
+    );
+  });
+});
