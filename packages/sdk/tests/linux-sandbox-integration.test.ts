@@ -482,3 +482,31 @@ describe("#385 — a command that spawns a child keeps the PARENT's stdout", () 
     expect(r.exitCode).toBe(0);
   });
 });
+
+describe("LinuxSandbox.executeStreaming keeps the confinement of execute", () => {
+  itLive("blocks writes outside the workspace and still streams lines", async () => {
+    const sbx = new LinuxSandbox({ workDir, timeoutMs: 10_000 }, { mode: "workspace-write" });
+    const lines: string[] = [];
+    const r = await sbx.executeStreaming("echo before; touch /usr/m53-stream-fail; echo after", {
+      onStdoutLine: (l) => lines.push(l),
+    });
+    expect(lines).toEqual(["before", "after"]);
+    expect(existsSync("/usr/m53-stream-fail")).toBe(false);
+    expect(r.stderr).not.toBe("");
+  });
+
+  itLive("allows writes in cwd and blocks the network like execute", async () => {
+    const sbx = new LinuxSandbox({ workDir, timeoutMs: 10_000 }, { mode: "workspace-write" });
+    const ok = await sbx.executeStreaming("touch ./m53-stream-ok.txt && echo WROTE");
+    expect(ok.stdout).toContain("WROTE");
+    const net = await sbx.executeStreaming("cat /proc/net/route | wc -l");
+    expect(Number(net.stdout.trim())).toBeLessThanOrEqual(1);
+  });
+
+  it("danger-full-access runs the command unwrapped", async () => {
+    const sbx = new LinuxSandbox({ workDir }, { mode: "danger-full-access" });
+    expect(sbx.wrapCommand("true")).toBeNull();
+    const r = await sbx.executeStreaming("echo plain");
+    expect(r).toMatchObject({ stdout: "plain\n", exitCode: 0 });
+  });
+});

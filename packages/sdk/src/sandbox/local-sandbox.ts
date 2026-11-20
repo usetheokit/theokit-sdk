@@ -205,10 +205,11 @@ class StreamingRun {
         this.feed(this.decoder.write(chunk));
       });
       child.stderr.on("data", (chunk: Buffer) => this.collect(this.err, chunk));
-      child.on("error", () => {
+      child.on("error", (e) => {
+        const message = Buffer.from(`spawn error: ${e.message}`);
         resolve({
           out: { chunks: [], bytes: 0 },
-          err: { chunks: [Buffer.from("spawn error")], bytes: 11 },
+          err: { chunks: [message], bytes: message.length },
           exitCode: 1,
           timedOut: false,
         });

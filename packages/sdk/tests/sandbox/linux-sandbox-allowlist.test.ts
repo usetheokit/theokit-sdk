@@ -88,6 +88,16 @@ describe("LinuxSandbox network allowlist", () => {
     expect(r.stdout).toBe("");
   });
 
+  it("executeStreaming refuses to run after dispose and never calls back", async () => {
+    const sb = sandbox([{ host: "127.0.0.1" }]);
+    await sb.dispose();
+    const lines: string[] = [];
+    const r = await sb.executeStreaming("echo ran", { onStdoutLine: (l) => lines.push(l) });
+    expect(r).toMatchObject({ stdout: "", exitCode: 1, timedOut: false });
+    expect(r.stderr).toContain("sandbox disposed");
+    expect(lines).toEqual([]);
+  });
+
   live("linux_sandbox_allowlist_reaches_listed_host", async () => {
     const srv = await testServer();
     try {

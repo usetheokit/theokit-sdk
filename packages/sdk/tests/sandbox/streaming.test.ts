@@ -31,9 +31,12 @@ describe("executeStreaming", () => {
   it("keeps multibyte characters whole and reports failure and stderr", async () => {
     const sb = new LocalSandbox({});
     const lines: string[] = [];
-    const r = await sb.executeStreaming?.("printf 'naïve\\n'; echo bad >&2; exit 3", {
-      onStdoutLine: (l) => lines.push(l),
-    });
+    const r = await sb.executeStreaming?.(
+      "printf 'na\\303'; sleep 0.3; printf '\\257ve\\n'; echo bad >&2; exit 3",
+      {
+        onStdoutLine: (l) => lines.push(l),
+      },
+    );
     expect(lines).toEqual(["naïve"]);
     expect(r).toMatchObject({ exitCode: 1, stderr: "bad\n" });
   });
@@ -85,5 +88,12 @@ describe("executeStreaming", () => {
       async uploadFile() {}
     }
     expect(new Plain().executeStreaming).toBeUndefined();
+  });
+
+  it("reports the cause when the command cannot be spawned", async () => {
+    const sb = new LocalSandbox({ workDir: "/nonexistent-dir-for-streaming-test" });
+    const r = await sb.executeStreaming?.("true");
+    expect(r?.exitCode).toBe(1);
+    expect(r?.stderr).toContain("ENOENT");
   });
 });
