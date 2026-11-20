@@ -85,6 +85,22 @@ describe("workflow rerunFrom", () => {
     }
   });
 
+  it("history_of_a_json_suffixed_run_id_is_not_listed_as_a_snapshot", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wf-rerun-"));
+    onTestFinished(() => removeTempDirRobust(dir));
+    const wf = Workflow.create({
+      name: "rerun-json-suffix",
+      persistence: { backend: "json", dir, durability: "step", keepHistory: true },
+    })
+      .then(fn<number, number>("a", async (n) => n + 1))
+      .then(fn<number, number>("b", async (n) => n + 1))
+      .commit();
+    const run = await wf.run(1, { runId: "x.json" });
+    expect((await wf.history(run.id)).map((h) => h.stepId)).toEqual(["a", "b"]);
+    const { readdir } = await import("node:fs/promises");
+    expect(await readdir(dir)).toEqual(["history"]);
+  });
+
   it("history_survives_path_like_step_and_run_ids", async () => {
     const dir = await mkdtemp(join(tmpdir(), "wf-rerun-"));
     onTestFinished(() => removeTempDirRobust(dir));
@@ -98,7 +114,8 @@ describe("workflow rerunFrom", () => {
     const run = await wf.run(1, { runId: "r/../x" });
     expect((await wf.history(run.id)).map((h) => h.stepId)).toEqual(["a-b", "c"]);
     const { readdir } = await import("node:fs/promises");
-    expect(await readdir(dir)).toEqual(["r%2F..%2Fx"]);
+    expect(await readdir(dir)).toEqual(["history"]);
+    expect(await readdir(join(dir, "history"))).toEqual(["r%2F..%2Fx"]);
   });
 
   it("rerun_leaves_the_original_history_intact", async () => {

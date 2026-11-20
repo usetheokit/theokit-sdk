@@ -122,9 +122,14 @@ class JsonFileWorkflowSnapshotStore implements WorkflowSnapshotStore {
     return join(this.dir, `${runId}.json`);
   }
 
+  /** History lives under `history/` so a run id ending in `.json` can never look like a snapshot file to `list()`. */
+  private runDir(runId: string): string {
+    return join(this.dir, "history", encodeURIComponent(runId));
+  }
+
   async appendHistory(index: number, record: WorkflowHistoryRecord): Promise<void> {
     const serialized = serializeRecord(record);
-    const runDir = join(this.dir, encodeURIComponent(record.snapshot.runId));
+    const runDir = this.runDir(record.snapshot.runId);
     await mkdir(runDir, { recursive: true });
     await atomicWriteText(
       join(runDir, `${index}-${encodeURIComponent(record.snapshot.currentStepId)}.json`),
@@ -133,7 +138,7 @@ class JsonFileWorkflowSnapshotStore implements WorkflowSnapshotStore {
   }
 
   async loadHistory(runId: string): Promise<ReadonlyArray<WorkflowHistoryRecord>> {
-    const runDir = join(this.dir, encodeURIComponent(runId));
+    const runDir = this.runDir(runId);
     let files: string[];
     try {
       files = await readdir(runDir);
