@@ -653,6 +653,18 @@ const agent = await Agent.create({
 
 A call to a filtered-out tool is refused in the client with a tool error naming the tool and the server; nothing is sent to the server. An `include` name the server does not list produces one diagnostics warning. A malformed filter makes `Agent.create` throw a `ConfigurationError` with code `invalid_mcp_tool_filter`.
 
+## MCP servers: protocol version
+
+The MCP client speaks the `2025-06-18`, `2025-03-26` and `2024-11-05` revisions. `initialize` offers the newest, and the client keeps the revision the server answers. A server that answers any other revision is refused with a `NetworkError` with code `mcp_protocol_unsupported`. Over HTTP, every request after `initialize` carries an `MCP-Protocol-Version` header with the negotiated revision.
+
+Set `protocolVersion` on a server to offer an older revision, for a server that misbehaves on the newest:
+
+```ts
+mcpServers: {
+  legacy: { command: "node", args: ["server.js"], protocolVersion: "2025-03-26" },
+}
+```
+
 ## Reading the managed settings document
 
 `readManagedSettings()` returns only the four keys the SDK enforces. An app with its own keys (model, sandbox mode, approval policy) that an operator imposes through `managed-settings.json` can read the whole file with `readManagedSettingsDocument()` from `@theokit/sdk`:

@@ -3,6 +3,7 @@ import { isAbsolute } from "node:path";
 import { ConfigurationError, NetworkError } from "../../errors.js";
 import type {
   McpHttpServerConfig,
+  McpProtocolVersion,
   McpServerConfig,
   McpStdioServerConfig,
 } from "../../types/mcp.js";
@@ -11,10 +12,14 @@ import { safePathJoin } from "../security/path-guard.js";
 import { DEFAULT_MCP_TIMEOUT_MS, handshakeAwareTimeout } from "./handshake-timeout.js";
 import { resolveBearer } from "./oauth-bearer.js";
 import { withToolFilter } from "./tool-filter.js";
+import pkg from "../../../package.json" with { type: "json" };
 
 /**
- * Real MCP client implementing the subset of the 2024-11-05 spec used by the
- * SDK agent loop: `initialize`, `tools/list`, `tools/call`. Both stdio and
+ * Real MCP client implementing the subset of the 2025-06-18, 2025-03-26 and
+ * 2024-11-05 revisions used by the SDK agent loop. `initialize` offers the
+ * newest supported revision (or the one pinned by `protocolVersion`) and keeps
+ * the revision the server answers; HTTP requests then carry `MCP-Protocol-Version`.
+ * Methods: `initialize`, `tools/list`, `tools/call`. Both stdio and
  * http transports are wired; sse uses the same wire format as http with a
  * streaming response handled identically by the JSON-RPC reader.
  *
@@ -32,8 +37,18 @@ export interface McpToolCallResult {
   isError?: boolean;
 }
 
+/** MCP revisions this client speaks, newest first. */
+export const SUPPORTED_MCP_PROTOCOL_VERSIONS = [
+  "2025-06-18",
+  "2025-03-26",
+  "2024-11-05",
+] as const satisfies readonly McpProtocolVersion[];
+export type { McpProtocolVersion };
+
 export interface McpClient {
   readonly name: string;
+  /** The version the server agreed to in `initialize`; undefined before it. */
+  readonly protocolVersion?: McpProtocolVersion;
   /** `true` when the server's config sets `sequential`: the loop runs its calls one at a time. */
   readonly sequential?: boolean;
   initialize(): Promise<void>;
@@ -91,12 +106,30 @@ function isAbortLike(cause: unknown): boolean {
 
 type RpcRequester = (method: string, params: Record<string, unknown>) => Promise<unknown>;
 
-async function rpcInitialize(request: RpcRequester): Promise<void> {
-  await request("initialize", {
-    protocolVersion: "2024-11-05",
+/**
+ * Run the `initialize` handshake and return the version the server agreed to.
+ * A server that answers a version outside the supported list is refused. A reply that names no
+ * version at all (a non-conforming server) is tolerated and yields `undefined`.
+ */
+async function rpcInitialize(
+  request: RpcRequester,
+  offered: McpProtocolVersion,
+): Promise<McpProtocolVersion | undefined> {
+  const response = await request("initialize", {
+    protocolVersion: offered,
     capabilities: { tools: {} },
-    clientInfo: { name: "theokit-sdk", version: "0.0.0" },
+    clientInfo: { name: "theokit-sdk", version: pkg.version },
   });
+  const answered = (response as { result?: { protocolVersion?: unknown } } | undefined)?.result
+    ?.protocolVersion;
+  if (answered === undefined) return undefined;
+  if (SUPPORTED_MCP_PROTOCOL_VERSIONS.includes(answered as McpProtocolVersion)) {
+    return answered as McpProtocolVersion;
+  }
+  throw new NetworkError(
+    `MCP server answered protocol version ${String(answered)}, which this client does not support (offered ${offered}; supported: ${SUPPORTED_MCP_PROTOCOL_VERSIONS.join(", ")})`,
+    { code: "mcp_protocol_unsupported" },
+  );
 }
 
 async function rpcListTools(request: RpcRequester): Promise<McpTool[]> {
@@ -127,8 +160,18 @@ abstract class BaseMcpClient implements McpClient {
 
   protected abstract request(method: string, params: Record<string, unknown>): Promise<unknown>;
 
-  initialize(): Promise<void> {
-    return rpcInitialize((method, params) => this.request(method, params));
+  /** Version offered in `initialize`: the config pin, else the newest supported. */
+  protected abstract readonly pinnedVersion: McpProtocolVersion | undefined;
+
+  protocolVersion: McpProtocolVersion | undefined;
+
+  async initialize(): Promise<void> {
+    this.protocolVersion = undefined;
+    const offered = this.pinnedVersion ?? SUPPORTED_MCP_PROTOCOL_VERSIONS[0];
+    this.protocolVersion = await rpcInitialize(
+      (method, params) => this.request(method, params),
+      offered,
+    );
   }
 
   listTools(): Promise<McpTool[]> {
@@ -191,6 +234,10 @@ class StdioMcpClient extends BaseMcpClient {
 
   get sequential(): boolean {
     return this.config.sequential === true;
+  }
+
+  protected get pinnedVersion(): McpProtocolVersion | undefined {
+    return this.config.protocolVersion;
   }
 
   private get timeoutMs(): number {
@@ -267,7 +314,15 @@ class StdioMcpClient extends BaseMcpClient {
   override async initialize(): Promise<void> {
     if (this.child !== undefined) return;
     this.spawnChild();
-    await super.initialize();
+    try {
+      await super.initialize();
+    } catch (err) {
+      // A refused handshake leaves a live child nobody will talk to: release it so a retry re-spawns.
+      if (err instanceof NetworkError && err.code === "mcp_protocol_unsupported") {
+        await this.close();
+      }
+      throw err;
+    }
   }
 
   /** M2 #59 — ensure a live child before a request. Reconnect (bounded, with
@@ -466,6 +521,10 @@ class HttpMcpClient extends BaseMcpClient {
     return this.config.sequential === true;
   }
 
+  protected get pinnedVersion(): McpProtocolVersion | undefined {
+    return this.config.protocolVersion;
+  }
+
   close(): Promise<void> {
     return Promise.resolve();
   }
@@ -490,6 +549,10 @@ class HttpMcpClient extends BaseMcpClient {
       // Present only for a STATEFUL server. For a stateless one nothing is sent — inventing a
       // header would trade one broken transport for another.
       ...(this.sessionId !== undefined ? { "mcp-session-id": this.sessionId } : {}),
+      // Sent on every request after `initialize` (MCP 2025-06-18, HTTP transport).
+      ...(this.protocolVersion !== undefined
+        ? { "mcp-protocol-version": this.protocolVersion }
+        : {}),
       ...(bearer !== undefined ? { authorization: bearer } : {}),
       ...(this.config.headers ?? {}),
     };

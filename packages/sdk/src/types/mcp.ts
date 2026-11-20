@@ -6,6 +6,13 @@
 import type { EnvPolicy } from "./env-policy.js";
 
 /**
+ * MCP protocol revisions the SDK client speaks.
+ *
+ * @public
+ */
+export type McpProtocolVersion = "2025-06-18" | "2025-03-26" | "2024-11-05";
+
+/**
  * MCP server configuration accepted by `Agent.create()` and `agent.send()`.
  *
  * @public
@@ -23,6 +30,12 @@ export type McpStdioServerConfig = {
    * of hanging the agent loop forever. Default 30_000.
    */
   requestTimeoutMs?: number;
+  /**
+   * Pin the MCP protocol revision offered in `initialize`, for a server that misbehaves on the
+   * newest. Default: the newest supported (`"2025-06-18"`). The server may still answer any
+   * supported revision.
+   */
+  protocolVersion?: McpProtocolVersion;
   /**
    * #54 — env inherit/scrub policy for the spawned MCP server process. Defaults
    * to `"inherit-scrubbed"` (drop secret-like host vars: `*KEY*`/`*SECRET*`/
@@ -103,6 +116,12 @@ export type McpHttpServerConfig = {
    * `NetworkError` (`code: "mcp_timeout"`). Default 30_000.
    */
   requestTimeoutMs?: number;
+  /**
+   * Pin the MCP protocol revision offered in `initialize`, for a server that misbehaves on the
+   * newest. Default: the newest supported (`"2025-06-18"`). The server may still answer any
+   * supported revision.
+   */
+  protocolVersion?: McpProtocolVersion;
   /**
    * Run the calls a model makes to this server's tools in ONE step one at a time, in the order the
    * model listed them, instead of at once. Set it for a stateful server whose tools act on shared
