@@ -73,12 +73,14 @@ export async function* readSseData(body: ReadableStream<Uint8Array>): AsyncGener
   }
 }
 
+/** A tool an MCP server advertises through `tools/list`. */
 export interface McpTool {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
 }
 
+/** The result of an MCP `tools/call`. */
 export interface McpToolCallResult {
   content: Array<{ type: "text"; text: string }>;
   isError?: boolean;

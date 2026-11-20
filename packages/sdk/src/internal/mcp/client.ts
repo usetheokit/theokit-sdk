@@ -30,6 +30,7 @@ import {
   mcpTimeoutError,
   reconnectDelay,
   rpcCallTool,
+  rpcListTools,
 } from "./rpc-helpers.js";
 import { withToolFilter } from "./tool-filter.js";
 
@@ -124,9 +125,8 @@ abstract class BaseMcpClient implements McpClient {
     );
   }
 
-  async listTools(): Promise<McpTool[]> {
-    const response = await this.request("tools/list", {});
-    return (response as { result?: { tools?: McpTool[] } }).result?.tools ?? [];
+  listTools(): Promise<McpTool[]> {
+    return rpcListTools((method, params) => this.request(method, params));
   }
 
   call(method: string, params: Record<string, unknown>): Promise<unknown> {
