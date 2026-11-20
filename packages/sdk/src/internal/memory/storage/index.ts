@@ -16,6 +16,13 @@
  * `package.json` `exports`, so the names below must survive into the published declarations.
  */
 
+// #1069 — the active-memory recall and the `memory_search` / `memory_get` tools, shared with
+// `@theokit/sdk-memory` for the same reason as the cluster above (the satellite's copies drifted).
+export {
+  type ActiveMemoryOptions,
+  type RunActiveMemoryArgs,
+  runActiveMemory,
+} from "../active-memory.js";
 // The index and store leaves (#1065): written twice before, now one copy each. None holds
 // module-level state, so a re-export does not merge two runtime states.
 export {
@@ -102,6 +109,14 @@ export {
 } from "../migration.js";
 export { loadSqliteVecExtension } from "../sqlite-vec-loader.js";
 export {
+  createMemoryGetTool,
+  createMemorySearchTool,
+  type MemoryGetToolOptions,
+  type MemorySearchToolOptions,
+  type MemoryTool,
+  type MemoryToolJson,
+} from "../tools.js";
+export {
   createVectorIndex,
   dropVectorIndex,
   type EmbedAllArgs,
@@ -175,18 +190,3 @@ export {
 } from "./session-summary-writer.js";
 export { type ActiveMemoryTranscript, persistActiveMemoryTranscript } from "./transcript-store.js";
 export { discoverWikiFiles, type WikiFile, wikiDir } from "./wiki-loader.js";
-// #1069 — the active-memory recall and the `memory_search` / `memory_get` tools, shared with
-// `@theokit/sdk-memory` for the same reason as the cluster above (the satellite's copies drifted).
-export {
-  type ActiveMemoryOptions,
-  type RunActiveMemoryArgs,
-  runActiveMemory,
-} from "../active-memory.js";
-export {
-  createMemoryGetTool,
-  createMemorySearchTool,
-  type MemoryGetToolOptions,
-  type MemorySearchToolOptions,
-  type MemoryTool,
-  type MemoryToolJson,
-} from "../tools.js";
