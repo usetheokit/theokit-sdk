@@ -19,6 +19,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { describe, expect, expectTypeOf, it } from "vitest";
+// `@theokit/sdk/internal/persistence` is no longer published; the supported primitives come from
+// the public `persistence` barrel and the internal-only ones from their source modules.
 import {
   atomicWriteJson,
   atomicWriteText,
@@ -36,10 +39,9 @@ import {
   withCwdMutex,
   withFileLock,
   writeVersionedJson,
-} from "@theokit/sdk/internal/persistence";
-import { describe, expect, expectTypeOf, it } from "vitest";
+} from "../../src/internal/persistence/index.js";
 
-describe("@theokit/sdk/internal/persistence sub-path (Stage 3 prep — iter 32)", () => {
+describe("internal/persistence barrel (in-repo only, no longer a published sub-path)", () => {
   // B-061. This file used to open with `test_subpath_resolves_at_import_time`, whose body was
   // `expect(true).toBe(true)`. The repair replaced it with a presence check over all 16 imported
   // names — and review showed every one of those names is already asserted, more strongly

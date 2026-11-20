@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1540 export(s) across 59 entry point(s).
+1506 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -19,15 +19,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `PermissionMode` | type | How tool calls are gated before they execute (D355).  |
 | `PromptTooLargeError` | class | Raised when a prompt's accumulated size passes `maxPromptBytes` (D360).  |
 | `serveAcp` | function | Serve `options.agent` to an ACP host over JSON-RPC on stdio, blocking until the input stream ends.  |
-
-## `@theokit/acp/client`
-
-| Symbol | Kind | Summary |
-|---|---|---|
-| `AcpAgentConnection` | interface | A live connection to a spawned ACP agent, with one session already created. |
-| `AcpAgentSpawnError` | class | The agent child could not be started, was refused before starting, or exited when it should not have. |
-| `connectAcpAgent` | function | Spawn an ACP agent, run `initialize` and `session/new`, and return a handle for prompting it. |
-| `ConnectAcpAgentOptions` | interface | Options for {@link connectAcpAgent } . |
 
 ## `@theokit/cli`
 
@@ -1394,47 +1385,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `writeEmbeddingIdentity` | function | Persist the embedding identity in the `meta` table. |
 | `writeSessionSummary` | function | Write a session summary file.  |
 
-## `@theokit/sdk/internal/persistence`
-
-| Symbol | Kind | Summary |
-|---|---|---|
-| `appendJsonl` | function | Append one record as a whole `\n`-terminated JSON line.  |
-| `applyWalWithFallback` | function | Apply WAL mode with DELETE fallback.  |
-| `atomicWriteJson` | function | Typed JSON atomic write helper.  |
-| `AtomicWriteJsonOptions` | interface | Options for `atomicWriteJson`. |
-| `atomicWriteText` | function | Atomic text write.  |
-| `casUpdate` | function | Run an UPDATE and report whether it changed exactly the number of rows you expected — the optimistic-concurrency equivalent of taking a lock.  |
-| `containsCjk` | function | Report whether `text` holds at least one Chinese, Japanese or Korean character.  |
-| `createExclusive` | function | Create `path` holding `data`, but only if it does not exist yet.  |
-| `CreateExclusiveOptions` | interface | O_EXCL exclusive file creation (ADR D82).  |
-| `displayTheokitHome` | function | The same path `getTheokitHome(cwd)` returns, shortened for display: the home directory prefix collapses to `~`, so `/home/ada/.theokit` prints as `~/.theokit`.  |
-| `FileLockOptions` | interface | Retry and staleness tuning for `withFileLock`.  |
-| `getProfilesRoot` | function | The directory holding every profile: always `~/.theokit/profiles`, from `os.homedir()`.  |
-| `getTheokitHome` | function | Resolve the directory cwd-anchored SDK state lives in.  |
-| `isCorruptionError` | function | True when an open error indicates an unreadable / corrupt database file. |
-| `JsonlParseError` | class | Raised when a JSONL line is not valid JSON or is not a JSON object.  |
-| `loadJsonl` | function | Parse a JSONL file into rows.  |
-| `migrateSchema` | function | Bring a SQLite database's `user_version` up to `currentVersion` by running the steps that sit between the two.  |
-| `MigrateSchemaOptions` | interface | Arguments to `migrateSchema`.  |
-| `MigrateSchemaResult` | interface | What `migrateSchema` did.  |
-| `Migration` | interface | One forward migration step.  |
-| `openSqliteResilient` | function | Open a SQLite file with WAL (+ DELETE fallback) and corruption recovery. |
-| `OpenSqliteResilientOptions` | interface | Input to {@link openSqliteResilient } .  |
-| `PersistenceSchema` | const | `persistence?` opt-in JSON disk backend with `dir` required when chosen.  |
-| `readJsonlIds` | function | Read the set of keys from an existing JSONL file for which `keyFn(parsed)` returns a non-empty string.  |
-| `readVersionedJson` | function | Read a versioned JSON file, migrating or falling back rather than failing.  |
-| `ReadVersionedJsonOptions` | interface | Arguments to `readVersionedJson`.  |
-| `replaceFileAtomic` | function | Atomic file replacement: write content to a per-call unique tmp path, fsync, then rename over the target.  |
-| `ResilientSqliteDb` | interface | Minimal SQLite handle surface every driver (`better-sqlite3`) exposes. |
-| `sanitizeFts5Query` | function | Six-step FTS5 query sanitizer.  |
-| `SqliteLike` | interface | The three `better-sqlite3` methods this module actually uses, declared structurally so nothing here imports the driver.  |
-| `VersionedJsonFile` | interface | The on-disk envelope: the payload under `data`, its schema version alongside it.  |
-| `VersionedJsonMigrate` | type | Upgrade callback for `readVersionedJson`, invoked only when the stored version is BELOW the current one.  |
-| `WalApplyResult` | interface | What journal mode a connection ended up in after `applyWalWithFallback`.  |
-| `withCwdMutex` | function | Run `fn` after every earlier `withCwdMutex` call for the same `key` has settled, and return what `fn` returns.  |
-| `withFileLock` | function | Run `fn` while holding an OS-level cross-process lock on `path`.  |
-| `writeVersionedJson` | function | Write `data` wrapped in the version envelope, replacing the file atomically.  |
-
 ## `@theokit/sdk/internal/security`
 
 | Symbol | Kind | Summary |
@@ -1692,10 +1642,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AuthProviderNotFoundError` | class | Thrown at `startSignIn(providerName, ...)` or `finishSignIn(providerName, ...)` when the named provider is not registered in `providers[]`. |
 | `AuthResult` | interface | Per ADR D9 — provider profile types are provider-specific (not unified).  |
 | `AuthSecretTooShortError` | class | T5.1 — Typed error thrown when an OAuth tx-cookie secret has < 32 bytes of entropy.  |
+| `clearTransactionCookie` | function | Appends a deleting `Set-Cookie` line for the transaction cookie to `headers`. |
 | `DefineAuthOptions` | interface | `defineAuth(opts)` configuration shape — Path C (Hybrid).  |
 | `OAuthTransaction` | interface | Per ADR D5 — OAuth transaction state stored in encrypted HttpOnly cookie (cookie-state pattern).  |
+| `readTransactionCookie` | function | Reads the transaction from a Web `Request`.  |
 | `SessionManager` | interface | SessionManager contract (matches theokit/packages/theo/src/server/auth/session.ts:49).  |
 | `validateReturnTo` | function | Clamp a caller-supplied `returnTo` to a same-origin destination, falling back to `'/'` for anything else.  |
+| `writeTransactionCookie` | function | Web `Headers` counterpart of the Node cookie write: appends the encrypted transaction cookie (`__Host-theo_oauth_tx`, HttpOnly, Secure, SameSite=Lax, Path=/, Max-Age=600) to `headers`, replacing an... |
 
 ## `@theokit/sdk/server/errors-envelope`
 
@@ -1767,11 +1720,19 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `JsonFileTaskStore` | class | Opt-in `TaskStore` that keeps one JSON file per task under `dir`, so another process can read the registry off disk.  |
 | `TaskStore` | interface | Storage interface used by `TaskRegistry`. |
 
+## `@theokit/sdk/testing`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `FakeModelRequest` | interface | One request body the fake server received. |
+| `FakeModelServer` | interface | A running fake model server; see {@link startFakeModelServer } . |
+| `FakeModelServerOptions` | interface | Options for {@link startFakeModelServer } . |
+| `startFakeModelServer` | function | Start a local server that speaks a provider's chat wire protocol and answers with scripted text, so an agent can run end to end with no credential and no real model.  |
+
 ## `@theokit/sdk/workflow`
 
 | Symbol | Kind | Summary |
 |---|---|---|
-| `__resetSnapshotStoresForTests` | function | Test seam — clear in-memory store between tests. |
 | `agentStep` | function | Build an `AgentStep`.  |
 | `AgentStep` | interface | An agent.send-driven step. |
 | `BranchStep` | interface | First-match-wins predicates + optional fallback. |

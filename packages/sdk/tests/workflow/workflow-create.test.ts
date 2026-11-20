@@ -5,16 +5,10 @@
 
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-
 import { ConfigurationError } from "../../src/errors.js";
+import { __resetSnapshotStoresForTests } from "../../src/internal/workflow/snapshot-store.js";
 
-import {
-  __resetSnapshotStoresForTests,
-  agentStep,
-  fn,
-  Workflow,
-  WorkflowDuplicateStepIdError,
-} from "../../src/workflow.js";
+import { agentStep, fn, Workflow, WorkflowDuplicateStepIdError } from "../../src/workflow.js";
 
 /**
  * Returns the value a thrower threw, so a test can interrogate it beyond its class.
