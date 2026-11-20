@@ -5,7 +5,6 @@
  * `reference/peer-project/extensions/openai/memory-embedding-adapter.ts` so
  * adding a new provider becomes one new file under `adapters/`.
  *
- * @internal
  */
 
 export interface MemoryEmbeddingProviderAdapter {

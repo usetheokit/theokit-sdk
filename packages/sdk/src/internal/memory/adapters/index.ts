@@ -25,7 +25,47 @@
 // leading comment range is scanned as TEXT, so merely mentioning it here would delete the exports.
 export { globalEmbeddingCache, LruEmbeddingCache } from "../embedding-cache.js";
 export {
+  azureOpenAiMemoryEmbeddingProviderAdapter,
+  DEFAULT_AZURE_OPENAI_EMBEDDING_MODEL,
+} from "./azure-openai-embedding.js";
+export {
+  cohereMemoryEmbeddingProviderAdapter,
+  DEFAULT_COHERE_EMBEDDING_MODEL,
+} from "./cohere-embedding.js";
+export {
+  DEFAULT_DEEPINFRA_EMBEDDING_MODEL,
+  deepinfraMemoryEmbeddingProviderAdapter,
+} from "./deepinfra-embedding.js";
+export {
+  DEFAULT_GEMINI_EMBEDDING_MODEL,
+  geminiMemoryEmbeddingProviderAdapter,
+} from "./gemini-embedding.js";
+export {
+  DEFAULT_JINA_EMBEDDING_MODEL,
+  jinaMemoryEmbeddingProviderAdapter,
+} from "./jina-embedding.js";
+export {
+  DEFAULT_MISTRAL_EMBEDDING_MODEL,
+  mistralMemoryEmbeddingProviderAdapter,
+} from "./mistral-embedding.js";
+export {
+  DEFAULT_OLLAMA_EMBEDDING_MODEL,
+  ollamaMemoryEmbeddingProviderAdapter,
+} from "./ollama-embedding.js";
+export {
   createOpenAiCompatibleRuntime,
   type EmbeddingDialect,
   type OpenAiCompatibleConfig,
 } from "./openai-compatible.js";
+export {
+  DEFAULT_OPENAI_EMBEDDING_MODEL,
+  openAiMemoryEmbeddingProviderAdapter,
+} from "./openai-embedding.js";
+export {
+  DEFAULT_OPENROUTER_EMBEDDING_MODEL,
+  openRouterMemoryEmbeddingProviderAdapter,
+} from "./openrouter-embedding.js";
+export {
+  DEFAULT_VOYAGE_EMBEDDING_MODEL,
+  voyageMemoryEmbeddingProviderAdapter,
+} from "./voyage-embedding.js";

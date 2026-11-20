@@ -306,13 +306,27 @@ export class LinuxSandbox extends LocalSandbox {
   }
 
   override async execute(command: string, opts?: { timeoutMs?: number }): Promise<ExecuteResult> {
+    const plan = await this.plan(command);
+    return "result" in plan ? plan.result : super.execute(plan.command, opts);
+  }
+
+  override async executeStreaming(
+    command: string,
+    opts?: { timeoutMs?: number; onStdoutLine?: (line: string) => void; signal?: AbortSignal },
+  ): Promise<ExecuteResult> {
+    const plan = await this.plan(command);
+    return "result" in plan ? plan.result : super.executeStreaming(plan.command, opts);
+  }
+
+  /** The command to run (wrapped unless danger-full-access), or a failure result when the egress proxy is down. */
+  private async plan(command: string): Promise<{ command: string } | { result: ExecuteResult }> {
     const wrapped = this.wrapCommand(command);
-    if (wrapped === null) return super.execute(command, opts); // danger-full-access: plain local
-    if (this.egress) {
-      const failure = await this.egressFailure();
-      if (failure) return { stdout: "", stderr: failure, exitCode: 1, timedOut: false };
+    if (wrapped === null) return { command };
+    const failure = this.egress ? await this.egressFailure() : undefined;
+    if (failure) {
+      return { result: { stdout: "", stderr: failure, exitCode: 1, timedOut: false } };
     }
-    return super.execute(wrapped, opts);
+    return { command: wrapped };
   }
 
   /** Why a command must not run under the allowlist, or `undefined` once the proxy is listening. */
