@@ -3,6 +3,7 @@ import net from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { type EgressProxy, startEgressProxy } from "../../src/sandbox/index.js";
+import { isRestrictedAddress } from "../../src/sandbox/egress-proxy.js";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -61,7 +62,11 @@ describe("egress proxy", () => {
     const get = (url: string): Promise<{ status: number; body: string }> =>
       new Promise((resolve, reject) => {
         const req = http.request(
-          { socketPath: p.socketPath, path: url, headers: { host: new URL(url).host } },
+          {
+            socketPath: p.socketPath,
+            path: url,
+            headers: { host: new URL(url).host },
+          },
           (res) => {
             let body = "";
             res.on("data", (d) => {
@@ -72,7 +77,10 @@ describe("egress proxy", () => {
         );
         req.on("error", reject).end();
       });
-    expect(await get(`http://127.0.0.1:${port}/x`)).toEqual({ status: 200, body: "hello" });
+    expect(await get(`http://127.0.0.1:${port}/x`)).toEqual({
+      status: 200,
+      body: "hello",
+    });
     expect((await get("http://127.0.0.1:1/x")).status).toBe(403);
     expect(p.denied).toHaveLength(1);
   });
@@ -102,6 +110,71 @@ describe("egress proxy", () => {
   it("close removes the socket", async () => {
     const p = await startEgressProxy({ allow: [] });
     await p.close();
-    await expect(connectVia(p, "x:1")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(connectVia(p, "x:1")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+});
+
+describe("restricted address ranges", () => {
+  const blocked = [
+    // [first, last] of each restricted range
+    ["0.0.0.0", "0.255.255.255"],
+    ["10.0.0.0", "10.255.255.255"],
+    ["100.64.0.0", "100.127.255.255"],
+    ["127.0.0.0", "127.255.255.255"],
+    ["169.254.0.0", "169.254.255.255"],
+    ["172.16.0.0", "172.31.255.255"],
+    ["192.0.0.0", "192.0.0.255"],
+    ["192.168.0.0", "192.168.255.255"],
+    ["198.18.0.0", "198.19.255.255"],
+    ["224.0.0.0", "239.255.255.255"],
+    ["240.0.0.0", "255.255.255.255"],
+    ["::", "::"],
+    ["::1", "::1"],
+    ["fe80::", "febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff"],
+    ["fc00::", "fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"],
+    ["ff00::", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"],
+    ["64:ff9b::", "64:ff9b::ffff:ffff"],
+    ["::ffff:0:0", "::ffff:ffff:ffff"],
+  ] as const;
+  const allowed = [
+    "1.0.0.1",
+    "9.255.255.255",
+    "11.0.0.0",
+    "100.63.255.255",
+    "100.128.0.0",
+    "126.255.255.255",
+    "128.0.0.0",
+    "169.253.255.255",
+    "169.255.0.0",
+    "172.15.255.255",
+    "172.32.0.0",
+    "191.255.255.255",
+    "192.0.1.0",
+    "192.167.255.255",
+    "192.169.0.0",
+    "198.17.255.255",
+    "198.20.0.0",
+    "223.255.255.255",
+    "8.8.8.8",
+    "2001:4860:4860::8888",
+    "fec0::",
+    "fbff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+    "fe00::",
+    "feff::",
+    "64:ff9a:ffff:ffff:ffff:ffff:ffff:ffff",
+    "64:ff9c::",
+    "::2",
+    "::1:0:0",
+    "::fffe:ffff:ffff",
+    "::1:0:0:0",
+  ];
+
+  it.each(blocked.flat())("blocks %s", (addr) => {
+    expect(isRestrictedAddress(addr)).toBe(true);
+  });
+  it.each(allowed)("allows %s", (addr) => {
+    expect(isRestrictedAddress(addr)).toBe(false);
   });
 });

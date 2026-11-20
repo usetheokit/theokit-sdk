@@ -57,10 +57,14 @@ const RESTRICTED_V6: readonly (readonly [readonly number[], number])[] = [
   [[0x64, 0xff9b, 0, 0, 0, 0, 0, 0], 96], // NAT64
   [[0, 0, 0, 0, 0, 0xffff, 0, 0], 96], // IPv4-mapped in hex form; the dotted form is unwrapped first
 ];
-const restricted = new net.BlockList();
-for (const [a, p] of RESTRICTED_V4) restricted.addSubnet(a.join("."), p, "ipv4");
-for (const [a, p] of RESTRICTED_V6)
-  restricted.addSubnet(a.map((n) => n.toString(16)).join(":"), p, "ipv6");
+// Separate lists per family: Node's BlockList matches an IPv4 address against an IPv6-mapped
+// subnet, so one shared list would treat every IPv4 address as restricted.
+const restrictedV4 = new net.BlockList();
+const restrictedV6 = new net.BlockList();
+for (const [a, p] of RESTRICTED_V4) restrictedV4.addSubnet(a.join("."), p, "ipv4");
+for (const [a, p] of RESTRICTED_V6) {
+  restrictedV6.addSubnet(a.map((n) => n.toString(16)).join(":"), p, "ipv6");
+}
 
 const MAPPED = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i;
 
@@ -73,9 +77,11 @@ function normalizeHost(host: string): string {
   return MAPPED.exec(h)?.[1] ?? h;
 }
 
-function isRestrictedAddress(addr: string): boolean {
+/** @internal exported for tests */
+export function isRestrictedAddress(addr: string): boolean {
   const family = net.isIP(addr);
-  return family === 0 || restricted.check(addr, family === 6 ? "ipv6" : "ipv4");
+  if (family === 0) return true;
+  return family === 6 ? restrictedV6.check(addr, "ipv6") : restrictedV4.check(addr, "ipv4");
 }
 
 function hostMatches(ruleHost: string, host: string): boolean {
