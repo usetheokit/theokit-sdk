@@ -110,6 +110,19 @@ When every model fails the run ends `error` and `RunResult.error.cause` is a
 This differs from `providers.fallback`, which only picks another provider when a route has none
 available. It does not resend a run that failed.
 
+### Retry and CircuitBreaker
+
+`@theokit/sdk/retry` exports `Retry.run(fn, options)` for retrying transient failures, and `CircuitBreaker` for skipping a flaky key. After `maxTimeouts` (default 3) consecutive `recordTimeout(key)` calls, `shouldSkip(key)` is true for `cooldownMs` (default 60000); `recordSuccess(key)` resets it, and other keys are unaffected. `@theokit/sdk-memory` re-exports the same class.
+
+```ts
+import { CircuitBreaker } from "@theokit/sdk/retry";
+
+const breaker = new CircuitBreaker({ maxTimeouts: 3, cooldownMs: 30_000 });
+if (!breaker.shouldSkip("remote")) {
+  // call the remote; on a timeout: breaker.recordTimeout("remote")
+}
+```
+
 ## Budgets: reserving in-flight spend
 
 `Budget.reserve` holds an estimate so concurrent calls cannot all pass a preflight that none has paid for:
