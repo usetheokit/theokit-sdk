@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-298 distinct code(s).
+300 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -229,7 +229,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `run_cancelled` | domain | — | `packages/sdk/src/errors.ts:737` |
 | `run_not_found` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:474` |
 | `runtime_exclusive` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:105` |
-| `sandbox_derived_helper_failed` | domain | ConfigurationError | `packages/sdk/src/sandbox/types.ts:236` +1 |
+| `sandbox_derived_helper_failed` | domain | ConfigurationError | `packages/sdk/src/sandbox/types.ts:251` +1 |
 | `sandbox_docker_error` | domain | SandboxDockerError | `packages/sdk/src/sandbox/docker-containers.ts:29` +1 |
 | `sandbox_not_available` | domain | SandboxNotAvailableError | `packages/sdk/src/sandbox/types.ts:110` +1 |
 | `sandbox_security` | domain | SandboxSecurityError | `packages/sdk/src/sandbox/types.ts:91` +1 |
@@ -279,6 +279,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `tool_reserved_name` | domain | — | `packages/sdk/src/tool-name.ts:37` |
 | `transport_failure` | domain | NetworkError | `packages/sdk/src/internal/llm/transport-error.ts:48` |
 | `transport_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:614` +1 |
+| `unconsumed_model_steps` | domain | UnconsumedModelStepsError | `packages/sdk/src/testing/scripted-model-server.ts:63` |
+| `unexpected_model_call` | domain | UnexpectedModelCallError | `packages/sdk/src/testing/scripted-model-server.ts:44` |
 | `unimplemented_budget_scope` | domain | ConfigurationError | `packages/sdk/src/internal/budget/registry.ts:60` +1 |
 | `unknown` | domain | AgentRunError, MemoryAdapterError, TheokitAgentError | `packages/memory-honcho/src/adapter.ts:264` +5 |
 | `unknown_agent` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:224` +1 |

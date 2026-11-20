@@ -33,31 +33,36 @@ export interface EgressProxy {
 
 const DEFAULT_PORTS: readonly number[] = [80, 443];
 
-const RESTRICTED_V4: readonly [string, number][] = [
-  ["0.0.0.0", 8],
-  ["10.0.0.0", 8],
-  ["100.64.0.0", 10],
-  ["127.0.0.0", 8],
-  ["169.254.0.0", 16],
-  ["172.16.0.0", 12],
-  ["192.0.0.0", 24],
-  ["192.168.0.0", 16],
-  ["198.18.0.0", 15],
-  ["224.0.0.0", 4],
-  ["240.0.0.0", 4],
+// Prefixes are kept as numeric components (octets / 16-bit groups) and joined into the address
+// text only when the blocklists are built.
+const RESTRICTED_V4: readonly (readonly [readonly number[], number])[] = [
+  [[0, 0, 0, 0], 8],
+  [[10, 0, 0, 0], 8],
+  [[100, 64, 0, 0], 10],
+  [[127, 0, 0, 0], 8],
+  [[169, 254, 0, 0], 16],
+  [[172, 16, 0, 0], 12],
+  [[192, 0, 0, 0], 24],
+  [[192, 168, 0, 0], 16],
+  [[198, 18, 0, 0], 15],
+  [[224, 0, 0, 0], 4],
+  [[240, 0, 0, 0], 4],
 ];
-const RESTRICTED_V6: readonly [string, number][] = [
-  ["::", 128],
-  ["::1", 128],
-  ["fe80::", 10],
-  ["fc00::", 7],
-  ["ff00::", 8],
-  ["64:ff9b::", 96],
-  ["::ffff:0:0", 96], // IPv4-mapped in hex form; the dotted form is unwrapped first
+const RESTRICTED_V6: readonly (readonly [readonly number[], number])[] = [
+  [[0, 0, 0, 0, 0, 0, 0, 0], 128], // unspecified
+  [[0, 0, 0, 0, 0, 0, 0, 1], 128], // loopback
+  [[0xfe80, 0, 0, 0, 0, 0, 0, 0], 10],
+  [[0xfc00, 0, 0, 0, 0, 0, 0, 0], 7],
+  [[0xff00, 0, 0, 0, 0, 0, 0, 0], 8],
+  [[0x64, 0xff9b, 0, 0, 0, 0, 0, 0], 96],
+  [[0, 0, 0, 0, 0, 0xffff, 0, 0], 96], // IPv4-mapped in hex form; the dotted form is unwrapped first
 ];
-const restricted = new net.BlockList();
-for (const [a, p] of RESTRICTED_V4) restricted.addSubnet(a, p, "ipv4");
-for (const [a, p] of RESTRICTED_V6) restricted.addSubnet(a, p, "ipv6");
+const restrictedV4 = new net.BlockList();
+for (const [o, p] of RESTRICTED_V4) restrictedV4.addSubnet(o.join("."), p, "ipv4");
+const restrictedV6 = new net.BlockList();
+for (const [g, p] of RESTRICTED_V6) {
+  restrictedV6.addSubnet(g.map((x) => x.toString(16)).join(":"), p, "ipv6");
+}
 
 const MAPPED = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i;
 
@@ -72,7 +77,8 @@ function normalizeHost(host: string): string {
 
 function isRestrictedAddress(addr: string): boolean {
   const family = net.isIP(addr);
-  return family === 0 || restricted.check(addr, family === 6 ? "ipv6" : "ipv4");
+  if (family === 0) return true;
+  return family === 6 ? restrictedV6.check(addr, "ipv6") : restrictedV4.check(addr, "ipv4");
 }
 
 function hostMatches(ruleHost: string, host: string): boolean {
