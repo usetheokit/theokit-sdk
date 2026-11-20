@@ -2646,7 +2646,7 @@
       },
       "ProvisionRepoOptions": {
         "tier": "stable",
-        "declaration": "export interface ProvisionRepoOptions {\n    readonly repoUrl: string;\n    readonly ref: string;\n    readonly instanceId: string;\n}"
+        "declaration": "export interface ProvisionRepoOptions {\n    readonly repoUrl: string;\n    readonly ref: string;\n    readonly instanceId: string;\n    readonly timeoutMs?: number;\n    readonly attempts?: number;\n}"
       },
       "RepoProvisionError": {
         "tier": "stable",
@@ -2870,7 +2870,7 @@
       },
       "ProvisionRepoOptions": {
         "tier": "stable",
-        "declaration": "export interface ProvisionRepoOptions {\n    readonly repoUrl: string;\n    readonly ref: string;\n    readonly instanceId: string;\n}"
+        "declaration": "export interface ProvisionRepoOptions {\n    readonly repoUrl: string;\n    readonly ref: string;\n    readonly instanceId: string;\n    readonly timeoutMs?: number;\n    readonly attempts?: number;\n}"
       },
       "RepoProvisionError": {
         "tier": "stable",
