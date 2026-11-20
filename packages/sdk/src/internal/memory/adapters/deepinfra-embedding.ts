@@ -10,7 +10,6 @@ import { createOpenAiCompatibleRuntime } from "./openai-compatible.js";
  *
  * Honors `DEEPINFRA_API_KEY` and `DEEPINFRA_API_BASE_URL`.
  *
- * @internal
  */
 
 export const DEFAULT_DEEPINFRA_EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5";
@@ -28,6 +27,7 @@ const DIMENSION_BY_MODEL: Record<string, number> = {
   "thenlper/gte-base": 768,
 };
 
+/** Embedding provider adapter `deepinfra`: an OpenAI-compatible runtime factory with its default model and priority. */
 export const deepinfraMemoryEmbeddingProviderAdapter: MemoryEmbeddingProviderAdapter = {
   id: "deepinfra",
   defaultModel: DEFAULT_DEEPINFRA_EMBEDDING_MODEL,
