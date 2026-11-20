@@ -1,6 +1,6 @@
 {
   "name": "@theokit/sdk",
-  "version": "5.31.0",
+  "version": "5.32.0",
   "description": "TypeScript SDK for the Theo agent harness — same surface, local or cloud.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/usetheokit/theokit-sdk#readme",
@@ -56,6 +56,16 @@
       "require": {
         "types": "./dist/compaction.d.cts",
         "default": "./dist/compaction.cjs"
+      }
+    },
+    "./testing": {
+      "import": {
+        "types": "./dist/testing/index.d.ts",
+        "default": "./dist/testing/index.js"
+      },
+      "require": {
+        "types": "./dist/testing/index.d.cts",
+        "default": "./dist/testing/index.cjs"
       }
     },
     "./context": {
@@ -286,16 +296,6 @@
       "require": {
         "types": "./dist/mcp-events.d.cts",
         "default": "./dist/mcp-events.cjs"
-      }
-    },
-    "./internal/persistence": {
-      "import": {
-        "types": "./dist/internal/persistence/index.d.ts",
-        "default": "./dist/internal/persistence/index.js"
-      },
-      "require": {
-        "types": "./dist/internal/persistence/index.d.cts",
-        "default": "./dist/internal/persistence/index.cjs"
       }
     },
     "./internal/security": {

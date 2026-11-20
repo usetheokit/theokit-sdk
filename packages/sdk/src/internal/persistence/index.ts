@@ -2,16 +2,12 @@
  * Barrel for persistence primitives shared across subsystems
  * (memory, runtime, cron, mcp).
  *
- * @deprecated SE43 DoD#2 — the `@theokit/sdk/internal/persistence` public export
- * is deprecated. Import the shared kernel primitives from the sanctioned public
- * barrel `@theokit/sdk/persistence` instead. This alias re-exports the FULL current
- * surface UNCHANGED for one release (external back-compat, EC-1); it is scheduled
- * for removal in a future major. See `final_report.md § MEDIUM — internal/persistence`.
+ * No longer published: the `@theokit/sdk/internal/persistence` subpath was removed in the next
+ * major. Consumers import the supported primitives from `@theokit/sdk/persistence`. This barrel is
+ * now an in-repo module only.
  *
- * Semver-exempt: everything reachable through this sub-path is an internal primitive and is NOT
- * covered by the package's semver contract. It is nonetheless declared in `package.json` `exports`,
- * so it MUST be emitted into the published declarations — a tag that erased it here would break
- * every consumer the back-compat alias exists to serve.
+ * Everything reachable through this barrel is an internal primitive and is NOT covered by the
+ * package's semver contract.
  */
 
 export type { AtomicWriteJsonOptions } from "./atomic-write.js";

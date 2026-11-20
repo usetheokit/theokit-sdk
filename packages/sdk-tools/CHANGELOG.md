@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.34.0
+
+### Minor Changes
+
+- [#1309](https://github.com/usetheokit/theokit-sdk/pull/1309) [`4b3208d`](https://github.com/usetheokit/theokit-sdk/commit/4b3208d1ffdb14ce6805fbf22136c11362bdbcd7) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `createComputerTool` and `CreateComputerToolOptions`: an X11 computer-use tool (screenshot, mouse_move, left_click, type) through `xdotool`, with no shell, a minimal environment, validated text and coordinates, serialized pointer actions, and a bounded screenshot description.
+
+- [#1322](https://github.com/usetheokit/theokit-sdk/pull/1322) [`ba49e0e`](https://github.com/usetheokit/theokit-sdk/commit/ba49e0e286723553342472496d61448b309d24e2) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `resolveWebSearchAdapter(env)` to pick a Brave, SearXNG, Tavily or generic HTTP web search adapter from environment variables, with the credentials to mask ([#1046](https://github.com/usetheokit/theokit-sdk/issues/1046)).
+
 ## 0.33.0
 
 ### Minor Changes

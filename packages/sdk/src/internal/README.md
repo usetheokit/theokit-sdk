@@ -46,7 +46,7 @@ it carries three distinct meanings, none of which was written down, which is the
 | # | Shape | What `internal` marks | Count |
 |---|---|---|---|
 | 1 | `src/index.ts` re-exports from `./internal/…` | the SYMBOL is public at a stable specifier (`@theokit/sdk`); only its MODULE PATH is not an import contract | 12 |
-| 2 | a published `./internal/*` subpath | the surface is deliberately **semver-exempt** — the word `internal` in the specifier IS the warning | 4 |
+| 2 | a published `./internal/*` subpath | the surface is deliberately **semver-exempt** — the word `internal` in the specifier IS the warning | 3 |
 | 3 | everything else | genuinely private | the rest |
 
 **(1) is not a leak.** `BudgetTracker`, `MemoryProvider`, `withCwdMutex` and the other nine are public
@@ -55,15 +55,17 @@ breaking anyone, because nobody may import that path. Moving the twelve files to
 publish twelve module paths that are currently free to move; adding twelve one-line facade files at
 `src/` root would add indirection and change nothing about where the code lives.
 
-**(2) is an escape hatch, and the four are not alike.** `persistence` and `security` also have a
-STABLE facade at `src/persistence.ts` / `src/security.ts` — the subpath is the raw channel and the
-facade is the semver-protected promotion of the parts consumers asked for. `memory-adapters` and
+**(2) is an escape hatch, and the three are not alike.** `security` also has a
+STABLE facade at `src/security.ts` — the subpath is the raw channel and the
+facade is the semver-protected promotion of the parts consumers asked for. (`persistence` used to be a
+fourth; its `./internal/persistence` subpath was removed in the next major, and `@theokit/sdk/persistence`
+is the supported replacement.) `memory-adapters` and
 `memory-store` deliberately have no facade: they are shared-kernel channels to `@theokit/sdk-memory`,
 whose surface moves per release, and `tests/peer-range-floors.test.ts` pins the exact SDK floor each
 satellite needs precisely because there is no stable contract. A facade there would promise stability
 the design refuses to give.
 
-So the risk is not the four that exist — it is a fifth appearing without anyone deciding which kind it
+So the risk is not the three that exist — it is a fifth appearing without anyone deciding which kind it
 is. `tests/lint/internal-subpaths-are-declared.test.ts` holds that line: every `./internal/*` subpath
 in `package.json` must be listed above with its kind, and a new one fails until someone writes down
 which it is.
