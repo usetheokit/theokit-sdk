@@ -13,8 +13,10 @@ import { createGenericHttpSearchAdapter } from "./web-search-http.js";
 import { createSearxngWebSearchAdapter } from "./web-search-searxng.js";
 import { createTavilyWebSearchAdapter } from "./web-search-tavily.js";
 
+/** Which adapter `resolveWebSearchAdapter` chose. */
 export type WebSearchProvider = "brave" | "searxng" | "tavily" | "generic";
 
+/** Result of `resolveWebSearchAdapter`: the adapter (if any), its provider, secrets and off reason. */
 export interface ResolvedWebSearch {
   /** Undefined when search is off. */
   adapter?: WebSearchCallback;
