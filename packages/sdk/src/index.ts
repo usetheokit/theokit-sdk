@@ -92,6 +92,8 @@ export {
   type ErrorCode,
   type ErrorMetadata,
   IntegrationNotConnectedError,
+  type ModelFallbackAttempt,
+  ModelFallbackExhaustedError,
   InvalidTaskIdError,
   isTransientError,
   MemoryAdapterError,
@@ -441,6 +443,7 @@ export type {
   CustomTool,
   MemoryMirrorOptions,
   MemorySettings,
+  ModelFallbackOptions,
   SDKAgent,
 } from "./types/agent.js";
 export type { AgentLike, RunLike } from "./types/agent-like.js";
