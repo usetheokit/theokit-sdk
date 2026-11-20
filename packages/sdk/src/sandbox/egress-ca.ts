@@ -4,13 +4,7 @@
 // dropped by `destroy()`. Certificates are built by hand in DER (X.509 v3, ECDSA P-256 / SHA-256):
 // node:crypto signs but has no certificate builder, and this avoids a dependency.
 
-import {
-  generateKeyPairSync,
-  type KeyObject,
-  randomBytes,
-  sign,
-  X509Certificate,
-} from "node:crypto";
+import { generateKeyPairSync, type KeyObject, randomBytes, sign } from "node:crypto";
 import net from "node:net";
 
 const DAY_MS = 86_400_000;
@@ -154,9 +148,4 @@ export class EgressCa {
     this.signer = undefined;
     this.leaves.clear();
   }
-}
-
-/** Parse check used by tests and by callers wanting to fail early. */
-export function parseCertificate(pem: string): X509Certificate {
-  return new X509Certificate(pem);
 }

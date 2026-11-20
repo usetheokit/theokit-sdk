@@ -21,34 +21,15 @@ import tls from "node:tls";
 import { EgressCa } from "./egress-ca.js";
 import {
   BAD_HEADER_VALUE,
+  type CredentialRule,
+  type EgressRule,
   hostMatches,
   normalizeHost,
   validateCredentialRules,
 } from "./egress-credential-rules.js";
 
+export type { CredentialRule, EgressRule } from "./egress-credential-rules.js";
 export { validateCredentialRules } from "./egress-credential-rules.js";
-
-/** One destination the proxy lets through. */
-export interface EgressRule {
-  /** `"registry.npmjs.org"`, `"*.github.com"` (subdomains only), or an IP literal, listed exactly. */
-  readonly host: string;
-  /** Allowed destination ports. Default `[80, 443]`. */
-  readonly ports?: readonly number[];
-}
-
-/** A credential the proxy adds to requests for one host, so the sandbox only holds `placeholder`. */
-export interface CredentialRule {
-  /** Host the credential is for; must also be allowed by an `EgressRule`. */
-  readonly host: string;
-  /** Header the credential goes in, e.g. `"authorization"`. */
-  readonly header: string;
-  /** Read on the host for every request. Never logged, never written into the sandbox. */
-  readonly value: () => string | Promise<string>;
-  /** What the sandbox sees, e.g. `"THEOKIT_PLACEHOLDER_GITHUB"`. Replaced by `value()` in `header`. */
-  readonly placeholder: string;
-  /** Environment variable set to `placeholder` inside the sandbox. */
-  readonly envVar?: string;
-}
 
 /** A running egress proxy. */
 export interface EgressProxy {
