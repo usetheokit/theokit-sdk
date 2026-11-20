@@ -1312,13 +1312,21 @@
         "tier": "stable",
         "declaration": "export interface Score {\n    readonly score: number;\n    readonly reason?: string;\n}"
       },
+      "ScoreContext": {
+        "tier": "stable",
+        "declaration": "export interface ScoreContext {\n    readonly input: string;\n    readonly metadata?: Record<string, unknown>;\n    readonly toolCalls: readonly ScoredToolCall[];\n}"
+      },
+      "ScoredToolCall": {
+        "tier": "stable",
+        "declaration": "export interface ScoredToolCall {\n    readonly name: string;\n    readonly input: Record<string, unknown>;\n    readonly output?: string;\n    readonly isError: boolean;\n}"
+      },
       "Scorer": {
         "tier": "stable",
-        "declaration": "export type Scorer = (output: string, expected?: unknown) => Score | Promise<Score>;"
+        "declaration": "export type Scorer = (output: string, expected?: unknown, context?: ScoreContext) => Score | Promise<Score>;"
       },
       "Scorers": {
         "tier": "stable",
-        "declaration": "Scorers: {\n    exactMatch(opts?: ExactMatchOptions): NamedScorer;\n    containsExpected(opts?: ContainsExpectedOptions): NamedScorer;\n    regex(pattern: RegExp): NamedScorer;\n    levenshtein(opts?: LevenshteinOptions): NamedScorer;\n    numericDiff(opts?: NumericDiffOptions): NamedScorer;\n    embeddingSimilarity(opts: EmbeddingSimilarityOptions): NamedScorer;\n    llmJudge(opts: LlmJudgeOptions): NamedScorer;\n    verifyGate(opts: VerifyGateOptions): NamedScorer;\n    jsonShape<T extends ZodType>(schema: T, opts?: JsonShapeOptions): NamedScorer;\n}"
+        "declaration": "Scorers: {\n    exactMatch(opts?: ExactMatchOptions): NamedScorer;\n    containsExpected(opts?: ContainsExpectedOptions): NamedScorer;\n    regex(pattern: RegExp): NamedScorer;\n    levenshtein(opts?: LevenshteinOptions): NamedScorer;\n    numericDiff(opts?: NumericDiffOptions): NamedScorer;\n    embeddingSimilarity(opts: EmbeddingSimilarityOptions): NamedScorer;\n    llmJudge(opts: LlmJudgeOptions): NamedScorer;\n    verifyGate(opts: VerifyGateOptions): NamedScorer;\n    jsonShape<T extends ZodType>(schema: T, opts?: JsonShapeOptions): NamedScorer;\n    toolCallAccuracy(opts?: {\n        matchInput?: \"exact\" | \"subset\" | \"ignore\";\n        allowExtra?: boolean;\n    }): NamedScorer;\n    trajectory(opts?: {\n        order?: \"strict\" | \"subsequence\" | \"any\";\n    }): NamedScorer;\n}"
       },
       "VerifyGateOptions": {
         "tier": "stable",
@@ -1414,13 +1422,21 @@
         "tier": "stable",
         "declaration": "export interface Score {\n    readonly score: number;\n    readonly reason?: string;\n}"
       },
+      "ScoreContext": {
+        "tier": "stable",
+        "declaration": "export interface ScoreContext {\n    readonly input: string;\n    readonly metadata?: Record<string, unknown>;\n    readonly toolCalls: readonly ScoredToolCall[];\n}"
+      },
+      "ScoredToolCall": {
+        "tier": "stable",
+        "declaration": "export interface ScoredToolCall {\n    readonly name: string;\n    readonly input: Record<string, unknown>;\n    readonly output?: string;\n    readonly isError: boolean;\n}"
+      },
       "Scorer": {
         "tier": "stable",
-        "declaration": "export type Scorer = (output: string, expected?: unknown) => Score | Promise<Score>;"
+        "declaration": "export type Scorer = (output: string, expected?: unknown, context?: ScoreContext) => Score | Promise<Score>;"
       },
       "Scorers": {
         "tier": "stable",
-        "declaration": "Scorers: {\n    exactMatch(opts?: ExactMatchOptions): NamedScorer;\n    containsExpected(opts?: ContainsExpectedOptions): NamedScorer;\n    regex(pattern: RegExp): NamedScorer;\n    levenshtein(opts?: LevenshteinOptions): NamedScorer;\n    numericDiff(opts?: NumericDiffOptions): NamedScorer;\n    embeddingSimilarity(opts: EmbeddingSimilarityOptions): NamedScorer;\n    llmJudge(opts: LlmJudgeOptions): NamedScorer;\n    verifyGate(opts: VerifyGateOptions): NamedScorer;\n    jsonShape<T extends ZodType>(schema: T, opts?: JsonShapeOptions): NamedScorer;\n}"
+        "declaration": "Scorers: {\n    exactMatch(opts?: ExactMatchOptions): NamedScorer;\n    containsExpected(opts?: ContainsExpectedOptions): NamedScorer;\n    regex(pattern: RegExp): NamedScorer;\n    levenshtein(opts?: LevenshteinOptions): NamedScorer;\n    numericDiff(opts?: NumericDiffOptions): NamedScorer;\n    embeddingSimilarity(opts: EmbeddingSimilarityOptions): NamedScorer;\n    llmJudge(opts: LlmJudgeOptions): NamedScorer;\n    verifyGate(opts: VerifyGateOptions): NamedScorer;\n    jsonShape<T extends ZodType>(schema: T, opts?: JsonShapeOptions): NamedScorer;\n    toolCallAccuracy(opts?: {\n        matchInput?: \"exact\" | \"subset\" | \"ignore\";\n        allowExtra?: boolean;\n    }): NamedScorer;\n    trajectory(opts?: {\n        order?: \"strict\" | \"subsequence\" | \"any\";\n    }): NamedScorer;\n}"
       },
       "VerifyGateOptions": {
         "tier": "stable",
@@ -5405,6 +5421,10 @@
         "tier": "stable",
         "declaration": "declare class ToolError extends TheokitAgentError {\n    readonly name: string;\n    readonly content: string | ToolResultContentBlock[];\n    constructor(content: string | ToolResultContentBlock[], options?: {\n        code?: string;\n        cause?: unknown;\n        metadata?: ErrorMetadata;\n    });\n}"
       },
+      "ToolNameProblem": {
+        "tier": "stable",
+        "declaration": "type ToolNameProblem = \"tool_missing_name\" | \"tool_invalid_name\" | \"tool_reserved_name\";"
+      },
       "ToolResult": {
         "tier": "stable",
         "declaration": "interface ToolResult {\n    callId: string;\n    name: string;\n    result: string;\n    isError: boolean;\n}"
@@ -5540,6 +5560,10 @@
       "chargeAndCheckThresholds": {
         "tier": "stable",
         "declaration": "declare function chargeAndCheckThresholds(name: string, actualUsd: number): Promise<void>;"
+      },
+      "checkToolName": {
+        "tier": "stable",
+        "declaration": "declare function checkToolName(name: string, options?: {\n    withheldBuiltins?: readonly BuiltinToolName[];\n}): {\n    ok: true;\n} | {\n    ok: false;\n    code: ToolNameProblem;\n    message: string;\n};"
       },
       "computeCost": {
         "tier": "stable",
@@ -7324,6 +7348,10 @@
         "tier": "stable",
         "declaration": "declare class ToolError extends TheokitAgentError {\n    readonly name: string;\n    readonly content: string | ToolResultContentBlock[];\n    constructor(content: string | ToolResultContentBlock[], options?: {\n        code?: string;\n        cause?: unknown;\n        metadata?: ErrorMetadata;\n    });\n}"
       },
+      "ToolNameProblem": {
+        "tier": "stable",
+        "declaration": "type ToolNameProblem = \"tool_missing_name\" | \"tool_invalid_name\" | \"tool_reserved_name\";"
+      },
       "ToolResult": {
         "tier": "stable",
         "declaration": "interface ToolResult {\n    callId: string;\n    name: string;\n    result: string;\n    isError: boolean;\n}"
@@ -7459,6 +7487,10 @@
       "chargeAndCheckThresholds": {
         "tier": "stable",
         "declaration": "declare function chargeAndCheckThresholds(name: string, actualUsd: number): Promise<void>;"
+      },
+      "checkToolName": {
+        "tier": "stable",
+        "declaration": "declare function checkToolName(name: string, options?: {\n    withheldBuiltins?: readonly BuiltinToolName[];\n}): {\n    ok: true;\n} | {\n    ok: false;\n    code: ToolNameProblem;\n    message: string;\n};"
       },
       "computeCost": {
         "tier": "stable",
