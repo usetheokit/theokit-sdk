@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1527 export(s) across 58 entry point(s).
+1528 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -107,6 +107,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `BudgetLimit` | interface | A single limit; stacked in an array (D384, ANY exceeded blocks). |
 | `BudgetMode` | type | Enforcement mode (D383).  |
 | `BudgetOptions` | interface | Options for `Budget.create`. |
+| `BudgetReservation` | interface | An in-flight estimate held against a budget by `Budget.reserve`. |
 | `BudgetScope` | type | Accounting scope for a budget.  |
 | `BudgetSnapshot` | interface | Per-window snapshot returned by `Budget.snapshot()`. |
 | `BudgetThresholdEvent` | interface | Threshold event emitted at 80% and 95% in `warn` and `block` modes. |

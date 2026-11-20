@@ -95,6 +95,23 @@ When every model fails the run ends `error` and `RunResult.error.cause` is a
 This differs from `providers.fallback`, which only picks another provider when a route has none
 available. It does not resend a run that failed.
 
+## Budgets: reserving in-flight spend
+
+`Budget.reserve` holds an estimate so concurrent calls cannot all pass a preflight that none has paid for:
+
+```ts
+const hold = Budget.reserve("copilot", 0.6); // throws BudgetExceededError in block mode if it would not fit
+try {
+  const actualUsd = await runCall();
+  await hold.settle(actualUsd); // charges the ledger, fires threshold callbacks, drops the hold
+} catch (err) {
+  hold.release(); // drops the hold without charging; no-op after settle
+  throw err;
+}
+```
+
+Open holds count in `preflightCheck` and show as `heldUsd` in `Budget.snapshot()`.
+
 ## Install
 
 ```bash
