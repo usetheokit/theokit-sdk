@@ -8,6 +8,13 @@
  * cluster / desktop. When it is unavailable the backend throws the SDK's typed
  * `InteractiveUnavailableError`.
  */
+
+export {
+  type ConfinedPtyBackendOptions,
+  type ConfinementProbeResult,
+  createConfinedPtyBackend,
+  probeConfinement,
+} from "./confined-pty-backend.js";
 export {
   clampYield,
   MaxSessionsError,

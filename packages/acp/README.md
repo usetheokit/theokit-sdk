@@ -2,7 +2,9 @@
 
 Agent Client Protocol (ACP) server adapter for [`@theokit/sdk`](https://www.npmjs.com/package/@theokit/sdk).
 
-Exposes a `SDKAgent` over stdio JSON-RPC so any [ACP-compatible host](https://agentclientprotocol.com) can drive it as a coding agent — without writing any glue code.
+Exposes an agent over stdio JSON-RPC so any [ACP-compatible host](https://agentclientprotocol.com) can drive it as a coding agent — without writing any glue code.
+
+`serveAcp` takes any `AgentLike` (from `@theokit/sdk`) or a `(sessionId) => AgentLike` factory, so a wrapper around an `SDKAgent` needs no cast; an `SDKAgent` still works. `dispose` is optional. With `permissionDefault: "ask"` or `"deny"` the agent must also expose a `pluginManager()`; otherwise `session/new` fails closed with `permission_enforcement_unavailable`.
 
 ```bash
 npm i @theokit/acp @theokit/sdk @agentclientprotocol/sdk
