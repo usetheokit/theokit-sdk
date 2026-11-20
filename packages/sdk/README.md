@@ -392,6 +392,26 @@ process.once("SIGTERM", async () => {
 
 Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must share one pid namespace (not containers or hosts sharing a volume). The lock needs a filesystem with hard links; without one the call rejects with `InstanceLockedError`.
 
+## Defer a tool call for approval
+
+A permission gate can hand a call to a person instead of waiting on a live Promise. Return `defer` from `canUseTool` (or `{ defer: true, reason }` from a `pre_tool_call` handler, which also receives `toolUseId`):
+
+```ts
+const plugin = createPermissionPlugin(engine, {
+  canUseTool: () => ({ behavior: "defer", reason: "needs a person" }),
+});
+const result = await (await agent.send("deploy")).wait();
+if (result.status === "deferred") {
+  for (const call of result.deferredToolCalls ?? []) {
+    // { toolUseId, toolName, input, deferredAt, reason, schemaVersion: 1 }
+  }
+}
+```
+
+The deferred call is not dispatched, the other calls of the step finish, and the transcript ends on the unanswered `tool_use`.
+
+Answering a deferred call (resume) is not part of this release.
+
 ## `@theokit/sdk/auth`: choosing a provider credential
 
 `resolveProviderCredential({ env, model?, store?, providers?, pinnedEnvVar? })` returns
