@@ -432,9 +432,7 @@ const openIndexes = new Set<LanceIndex>();
  */
 export async function forgetFactInOpenIndexes(factId: string): Promise<void> {
   const results = await Promise.allSettled(
-    [...openIndexes].map((i) =>
-      i.removeFactChunks(factId, { source: "memory" }),
-    ),
+    [...openIndexes].map((i) => i.removeFactChunks(factId, { source: "memory" })),
   );
   const failed = results.find((r) => r.status === "rejected");
   if (failed?.status === "rejected") throw failed.reason;
