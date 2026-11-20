@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1530 export(s) across 58 entry point(s).
+1536 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -117,6 +117,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `BUILTIN_TOOL_NAMES` | const | The names of the tools the SDK declares on its own initiative (and reserves against custom tools).  |
 | `BuiltinToolName` | type | A tool the SDK declares to the model on its own initiative — not one the consumer passed in {@link AgentOptions.tools } , and not one an MCP server exposed.  |
 | `chargeAndCheckThresholds` | function | Charge the budget + dispatch threshold/exceed callbacks (EC-8 isolated).  |
+| `checkToolName` | function | Checks a custom tool name against the SDK's rules without throwing, so a framework that compiles tools from configuration can reject a bad name before it constructs an `Agent`.  |
 | `CloudEnv` | interface | Cloud execution environment. |
 | `CloudOptions` | interface | Cloud agent configuration. |
 | `CloudRepo` | interface | Repo to clone into a cloud agent's VM. |
@@ -173,6 +174,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `DefineToolSpec` | interface | Spec accepted by {@link Tool.create } .  |
 | `describeAction` | function | Read back the action a tool declared, if any.  |
 | `describeCredential` | function | Turn a resolved credential into something you can show a user.  |
+| `diag` | function | Emits a library diagnostic message.  |
+| `diagFailure` | function | Emits a diagnostic that reports a USER-VISIBLE FAILURE, and is never silently dropped.  |
 | `DiagnosticsSink` | type | Receives each diagnostic message already formatted, with the trailing `\n`. |
 | `DoomLoopThresholds` | interface | Doom-loop guard thresholds (see {@link SendOptions.doomLoop } ).  |
 | `DreamingSweepOptions` | interface | Inputs for {@link Memory.runDreamingSweep } .  |
@@ -501,6 +504,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ToolContext` | interface | #65 — a 2nd argument passed to a tool handler, carrying the run's cancellation signal (ties into #58) so a cooperative tool can stop when the run is cancelled.  |
 | `ToolContextMessage` | interface | SE12 — a read-only, text-only projection of one turn of the run's conversation, exposed to a tool handler via `ctx.messages`.  |
 | `ToolError` | class | Thrown from a tool `handler` to surface a failure to the model.  |
+| `ToolNameProblem` | type | Why a custom tool name is refused.  |
 | `ToolResult` | interface | Result of a tool invocation.  |
 | `ToolResultContentBlock` | type | SE7 — structured content a tool result may carry: text and/or images.  |
 | `ToolResultGuardOptions` | interface | Options for the tool-result guard (spotlighting + PII redaction on tool output).  |
@@ -1206,6 +1210,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `NamedScorer` | interface | A named scorer — produced by every `Scorers.*` factory. |
 | `PerScorerStats` | interface | Per-scorer breakdown computed across all rows. |
 | `Score` | interface | Outcome of a single scoring decision.  |
+| `ScoreContext` | interface | What the runner knows about the row beyond the final text. |
+| `ScoredToolCall` | interface | One tool call the run made, as a scorer sees it. |
 | `Scorer` | type | Scorer signature (D207).  |
 | `Scorers` | const | The built-in scorer factories for {@link Eval } .  |
 | `VerifyGateOptions` | interface | Options for `Scorers.verifyGate` (M6-2) — grade a patch by running the project's tests in a provisioned repo and reading the exit code. |
