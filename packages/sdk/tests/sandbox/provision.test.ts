@@ -131,4 +131,94 @@ describe("provisionRepo (M6-3)", () => {
     ).rejects.toBeInstanceOf(RepoProvisionError);
     expect(existsSync(marker)).toBe(false); // payload never executed
   });
+
+  describe("timeoutMs and attempts", () => {
+    function wrap(sb: LocalSandbox, failClones: number) {
+      const calls: { command: string; opts?: { timeoutMs?: number } }[] = [];
+      let failed = 0;
+      const backend = Object.create(sb) as LocalSandbox;
+      backend.execute = async (command: string, o?: { timeoutMs?: number }) => {
+        calls.push({ command, ...(o ? { opts: o } : {}) });
+        if (command.includes(" clone ") && failed < failClones) {
+          failed++;
+          // leave a partial directory behind, like a stalled clone
+          mkdirSync(join(work, "inst-r"), { recursive: true });
+          return { exitCode: 1, stdout: "", stderr: "timed out" } as never;
+        }
+        return sb.execute(command, o);
+      };
+      return { backend, calls };
+    }
+
+    it("forwards timeoutMs to the clone only", async () => {
+      const { backend, calls } = wrap(new LocalSandbox({ workDir: work }), 0);
+      await provisionRepo(backend, {
+        repoUrl: source,
+        ref: headSha,
+        instanceId: "inst-r",
+        timeoutMs: 5000,
+      });
+      expect(calls.find((c) => c.command.includes(" clone "))?.opts).toEqual({ timeoutMs: 5000 });
+      expect(calls.filter((c) => c.opts).length).toBe(1);
+    });
+
+    it("retries after removing the partial directory", async () => {
+      const { backend } = wrap(new LocalSandbox({ workDir: work }), 1);
+      const { repoDir } = await provisionRepo(backend, {
+        repoUrl: source,
+        ref: headSha,
+        instanceId: "inst-r",
+        attempts: 2,
+      });
+      expect(existsSync(join(repoDir, "README.md"))).toBe(true);
+    });
+
+    it("fails after exhausting attempts", async () => {
+      const { backend, calls } = wrap(new LocalSandbox({ workDir: work }), 5);
+      await expect(
+        provisionRepo(backend, {
+          repoUrl: source,
+          ref: headSha,
+          instanceId: "inst-r",
+          attempts: 2,
+        }),
+      ).rejects.toThrow(/clone failed: timed out/);
+      expect(calls.filter((c) => c.command.includes(" clone ")).length).toBe(2);
+    });
+
+    it("does not retry by default", async () => {
+      const { backend, calls } = wrap(new LocalSandbox({ workDir: work }), 5);
+      await expect(
+        provisionRepo(backend, { repoUrl: source, ref: headSha, instanceId: "inst-r" }),
+      ).rejects.toThrow(/clone failed/);
+      expect(calls.filter((c) => c.command.includes(" clone ")).length).toBe(1);
+    });
+
+    it("refuses to retry over a pre-existing directory", async () => {
+      mkdirSync(join(work, "inst-r"));
+      const { backend } = wrap(new LocalSandbox({ workDir: work }), 0);
+      await expect(
+        provisionRepo(backend, {
+          repoUrl: source,
+          ref: headSha,
+          instanceId: "inst-r",
+          attempts: 2,
+        }),
+      ).rejects.toThrow(/already exists/);
+    });
+
+    it("rejects invalid options", async () => {
+      const sandbox = new LocalSandbox({ workDir: work });
+      for (const bad of [
+        { attempts: 0 },
+        { attempts: 1.5 },
+        { timeoutMs: 0 },
+        { timeoutMs: Infinity },
+      ]) {
+        await expect(
+          provisionRepo(sandbox, { repoUrl: source, ref: headSha, instanceId: "inst-o", ...bad }),
+        ).rejects.toBeInstanceOf(RepoProvisionError);
+      }
+    });
+  });
 });
