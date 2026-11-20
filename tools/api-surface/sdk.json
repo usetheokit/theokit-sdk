@@ -2574,7 +2574,7 @@
     "./sandbox#import": {
       "BwrapArgvOptions": {
         "tier": "stable",
-        "declaration": "export interface BwrapArgvOptions {\n    cwd: string;\n    network?: boolean;\n    gitDirExists?: boolean;\n    env?: Record<string, string>;\n    denyReadPaths?: readonly string[];\n}"
+        "declaration": "export interface BwrapArgvOptions {\n    cwd: string;\n    network?: boolean;\n    gitDirExists?: boolean;\n    env?: Record<string, string>;\n    denyReadPaths?: readonly string[];\n    roBinds?: readonly string[];\n}"
       },
       "BwrapDetection": {
         "tier": "stable",
@@ -2586,7 +2586,7 @@
       },
       "CreateSandboxBackendOptions": {
         "tier": "stable",
-        "declaration": "export interface CreateSandboxBackendOptions {\n    mode: SandboxMode;\n    workDir?: string;\n    network?: boolean;\n    timeoutMs?: number;\n    denyReadPaths?: readonly string[];\n    detect?: () => BwrapDetection;\n    warn?: (message: string) => void;\n}"
+        "declaration": "export interface CreateSandboxBackendOptions {\n    mode: SandboxMode;\n    workDir?: string;\n    network?: boolean | {\n        allow: readonly EgressRule[];\n    };\n    timeoutMs?: number;\n    denyReadPaths?: readonly string[];\n    detect?: () => BwrapDetection;\n    warn?: (message: string) => void;\n}"
       },
       "DockerRunResult": {
         "tier": "stable",
@@ -2620,6 +2620,14 @@
         "tier": "stable",
         "declaration": "E2B_CA_BUNDLE = \"/etc/ssl/certs/ca-certificates.crt\""
       },
+      "EgressProxy": {
+        "tier": "stable",
+        "declaration": "export interface EgressProxy {\n    readonly socketPath: string;\n    readonly denied: readonly {\n        host: string;\n        port: number;\n        at: number;\n    }[];\n    close(): Promise<void>;\n}"
+      },
+      "EgressRule": {
+        "tier": "stable",
+        "declaration": "export interface EgressRule {\n    readonly host: string;\n    readonly ports?: readonly number[];\n}"
+      },
       "ExecuteResult": {
         "tier": "stable",
         "declaration": "export interface ExecuteResult {\n    stdout: string;\n    stderr: string;\n    exitCode: number;\n    timedOut: boolean;\n}"
@@ -2630,7 +2638,7 @@
       },
       "LinuxSandbox": {
         "tier": "stable",
-        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean;\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<import(\"./chunk\").ExecuteResult>;\n}"
+        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly egress;\n    private disposed;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean | {\n            allow: readonly EgressRule[];\n        };\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    dispose(): Promise<void>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    private egressFailure;\n}"
       },
       "LocalSandbox": {
         "tier": "stable",
@@ -2774,9 +2782,13 @@
         "tier": "stable",
         "declaration": "export declare function shellEscapePosix(arg: string): string;"
       },
+      "startEgressProxy": {
+        "tier": "stable",
+        "declaration": "export declare function startEgressProxy(options: {\n    allow: readonly EgressRule[];\n    socketPath?: string;\n}): Promise<EgressProxy>;"
+      },
       "wrapCommandForSandbox": {
         "tier": "stable",
-        "declaration": "export declare function wrapCommandForSandbox(mode: SandboxMode, opts: {\n    cwd: string;\n    network?: boolean;\n    env?: Record<string, string>;\n    bin?: string;\n    seccompPath?: string;\n    seccompProgram?: Uint8Array;\n    denyReadPaths?: readonly string[];\n}, command: string): string | null;"
+        "declaration": "export declare function wrapCommandForSandbox(mode: SandboxMode, opts: {\n    cwd: string;\n    network?: boolean;\n    env?: Record<string, string>;\n    bin?: string;\n    seccompPath?: string;\n    seccompProgram?: Uint8Array;\n    denyReadPaths?: readonly string[];\n    egress?: {\n        socketPath: string;\n    };\n}, command: string): string | null;"
       },
       "writableRootsFor": {
         "tier": "stable",
@@ -2786,7 +2798,7 @@
     "./sandbox#require": {
       "BwrapArgvOptions": {
         "tier": "stable",
-        "declaration": "export interface BwrapArgvOptions {\n    cwd: string;\n    network?: boolean;\n    gitDirExists?: boolean;\n    env?: Record<string, string>;\n    denyReadPaths?: readonly string[];\n}"
+        "declaration": "export interface BwrapArgvOptions {\n    cwd: string;\n    network?: boolean;\n    gitDirExists?: boolean;\n    env?: Record<string, string>;\n    denyReadPaths?: readonly string[];\n    roBinds?: readonly string[];\n}"
       },
       "BwrapDetection": {
         "tier": "stable",
@@ -2798,7 +2810,7 @@
       },
       "CreateSandboxBackendOptions": {
         "tier": "stable",
-        "declaration": "export interface CreateSandboxBackendOptions {\n    mode: SandboxMode;\n    workDir?: string;\n    network?: boolean;\n    timeoutMs?: number;\n    denyReadPaths?: readonly string[];\n    detect?: () => BwrapDetection;\n    warn?: (message: string) => void;\n}"
+        "declaration": "export interface CreateSandboxBackendOptions {\n    mode: SandboxMode;\n    workDir?: string;\n    network?: boolean | {\n        allow: readonly EgressRule[];\n    };\n    timeoutMs?: number;\n    denyReadPaths?: readonly string[];\n    detect?: () => BwrapDetection;\n    warn?: (message: string) => void;\n}"
       },
       "DockerRunResult": {
         "tier": "stable",
@@ -2832,6 +2844,14 @@
         "tier": "stable",
         "declaration": "E2B_CA_BUNDLE = \"/etc/ssl/certs/ca-certificates.crt\""
       },
+      "EgressProxy": {
+        "tier": "stable",
+        "declaration": "export interface EgressProxy {\n    readonly socketPath: string;\n    readonly denied: readonly {\n        host: string;\n        port: number;\n        at: number;\n    }[];\n    close(): Promise<void>;\n}"
+      },
+      "EgressRule": {
+        "tier": "stable",
+        "declaration": "export interface EgressRule {\n    readonly host: string;\n    readonly ports?: readonly number[];\n}"
+      },
       "ExecuteResult": {
         "tier": "stable",
         "declaration": "export interface ExecuteResult {\n    stdout: string;\n    stderr: string;\n    exitCode: number;\n    timedOut: boolean;\n}"
@@ -2842,7 +2862,7 @@
       },
       "LinuxSandbox": {
         "tier": "stable",
-        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean;\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<import(\"./chunk\").ExecuteResult>;\n}"
+        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly egress;\n    private disposed;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean | {\n            allow: readonly EgressRule[];\n        };\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    dispose(): Promise<void>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    private egressFailure;\n}"
       },
       "LocalSandbox": {
         "tier": "stable",
@@ -2986,9 +3006,13 @@
         "tier": "stable",
         "declaration": "export declare function shellEscapePosix(arg: string): string;"
       },
+      "startEgressProxy": {
+        "tier": "stable",
+        "declaration": "export declare function startEgressProxy(options: {\n    allow: readonly EgressRule[];\n    socketPath?: string;\n}): Promise<EgressProxy>;"
+      },
       "wrapCommandForSandbox": {
         "tier": "stable",
-        "declaration": "export declare function wrapCommandForSandbox(mode: SandboxMode, opts: {\n    cwd: string;\n    network?: boolean;\n    env?: Record<string, string>;\n    bin?: string;\n    seccompPath?: string;\n    seccompProgram?: Uint8Array;\n    denyReadPaths?: readonly string[];\n}, command: string): string | null;"
+        "declaration": "export declare function wrapCommandForSandbox(mode: SandboxMode, opts: {\n    cwd: string;\n    network?: boolean;\n    env?: Record<string, string>;\n    bin?: string;\n    seccompPath?: string;\n    seccompProgram?: Uint8Array;\n    denyReadPaths?: readonly string[];\n    egress?: {\n        socketPath: string;\n    };\n}, command: string): string | null;"
       },
       "writableRootsFor": {
         "tier": "stable",
