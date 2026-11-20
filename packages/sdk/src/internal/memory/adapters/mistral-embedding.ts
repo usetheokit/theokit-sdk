@@ -8,7 +8,6 @@ import { createOpenAiCompatibleRuntime } from "./openai-compatible.js";
  *
  * Mirrors `reference/peer-project/extensions/mistral/memory-embedding-adapter.ts`.
  *
- * @internal
  */
 
 export const DEFAULT_MISTRAL_EMBEDDING_MODEL = "mistral-embed";

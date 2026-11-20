@@ -5,7 +5,6 @@ import { createOpenAiCompatibleRuntime } from "./openai-compatible.js";
  * T4.10 — Jina AI embedding adapter. Jina's embedding API is
  * OpenAI-compatible at `https://api.jina.ai/v1/embeddings`.
  *
- * @internal
  */
 
 export const DEFAULT_JINA_EMBEDDING_MODEL = "jina-embeddings-v3";

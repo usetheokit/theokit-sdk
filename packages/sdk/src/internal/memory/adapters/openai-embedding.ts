@@ -5,7 +5,6 @@ import { createOpenAiCompatibleRuntime } from "./openai-compatible.js";
  * OpenAI embedding adapter (ADR D3) — built on the shared OpenAI-compatible
  * factory. Native fetch only.
  *
- * @internal
  */
 
 export const DEFAULT_OPENAI_EMBEDDING_MODEL = "text-embedding-3-small";

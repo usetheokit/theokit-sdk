@@ -8,7 +8,6 @@ import { createOpenAiCompatibleRuntime } from "./openai-compatible.js";
  *
  * Honors `VOYAGE_API_KEY` and `VOYAGE_API_BASE_URL`.
  *
- * @internal
  */
 
 export const DEFAULT_VOYAGE_EMBEDDING_MODEL = "voyage-3-lite";

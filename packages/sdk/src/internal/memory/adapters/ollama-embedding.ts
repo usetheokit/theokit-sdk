@@ -28,7 +28,6 @@
  * factory's EC-4 contract. Future model versions with different
  * dimensions are added to the table here without breaking changes.
  *
- * @internal
  */
 
 import type { MemoryEmbeddingProviderAdapter } from "../embedding-adapter.js";

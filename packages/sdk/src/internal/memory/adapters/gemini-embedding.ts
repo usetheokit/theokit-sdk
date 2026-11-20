@@ -9,7 +9,6 @@ import { createOpenAiCompatibleRuntime } from "./openai-compatible.js";
  * (`POST /v1beta/models/{model}:embedContent`), but the OpenAI-compat
  * surface (`/v1/embeddings`) is available for embedding models.
  *
- * @internal
  */
 
 export const DEFAULT_GEMINI_EMBEDDING_MODEL = "text-embedding-004";

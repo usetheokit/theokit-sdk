@@ -5,7 +5,6 @@ import { createOpenAiCompatibleRuntime } from "./openai-compatible.js";
  * T4.10 — Cohere embedding adapter. Cohere's v2 embed API is
  * OpenAI-compatible at `/v2/embed` with the same request/response shape.
  *
- * @internal
  */
 
 export const DEFAULT_COHERE_EMBEDDING_MODEL = "embed-english-v3.0";

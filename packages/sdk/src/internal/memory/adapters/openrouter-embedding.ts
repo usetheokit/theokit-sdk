@@ -10,7 +10,6 @@ import { createOpenAiCompatibleRuntime } from "./openai-compatible.js";
  * Honors `OPENROUTER_API_KEY` and `OPENROUTER_API_BASE_URL`. Default base
  * URL is `https://openrouter.ai/api`.
  *
- * @internal
  */
 
 export const DEFAULT_OPENROUTER_EMBEDDING_MODEL = "openai/text-embedding-3-small";

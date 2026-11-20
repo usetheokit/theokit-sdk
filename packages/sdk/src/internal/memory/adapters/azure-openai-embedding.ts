@@ -13,7 +13,6 @@ import { OPENAI_EMBEDDING_DIMENSIONS } from "./openai-embedding.js";
  * (the resource URL without the `/openai/...` suffix) and appends the
  * embeddings path at request time.
  *
- * @internal
  */
 
 export const DEFAULT_AZURE_OPENAI_EMBEDDING_MODEL = "text-embedding-3-small";
