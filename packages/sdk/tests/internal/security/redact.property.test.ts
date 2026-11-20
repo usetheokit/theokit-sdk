@@ -33,6 +33,9 @@ const generators: Array<{ label: string; gen: fc.Arbitrary<string> }> = [
   { label: "sntrys_", gen: fc.stringMatching(/^sntrys_[A-Za-z0-9]{40}$/) },
   { label: "sk_live_", gen: fc.stringMatching(/^sk_live_[A-Za-z0-9]{20,40}$/) },
   { label: "rk_live_", gen: fc.stringMatching(/^rk_live_[A-Za-z0-9]{20,40}$/) },
+  { label: "whsec_", gen: fc.stringMatching(/^whsec_[A-Za-z0-9]{20,40}$/) },
+  { label: "sk_test_", gen: fc.stringMatching(/^sk_test_[A-Za-z0-9]{20,40}$/) },
+  { label: "rk_test_", gen: fc.stringMatching(/^rk_test_[A-Za-z0-9]{20,40}$/) },
 ];
 
 describe("redactSecrets — adversarial property tests (T1.5.1)", () => {
