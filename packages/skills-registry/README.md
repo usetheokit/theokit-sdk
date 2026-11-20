@@ -53,3 +53,20 @@ await publishSkill("https://registry.example", pkg, { token }); // PUT /v1/skill
 ## Errors
 
 `SkillsRegistryError.code`: `invalid_name`, `invalid_version`, `not_found`, `unreachable`, `too_large`, `digest_mismatch`, `unsafe_path`, `invalid_skill_md`, `invalid_package`, `insecure_url`, `install_failed`, `unauthorized`, `version_exists`, `rejected`.
+
+## Running a registry
+
+```ts
+import { createServer } from "node:http";
+import { createSkillsRegistryHandler } from "@theokit/skills-registry";
+
+const handler = createSkillsRegistryHandler({ dir: "/var/lib/skills", token: process.env.PUBLISH_TOKEN! });
+// `handler` is `(request: Request) => Promise<Response>`: mount it in any fetch-style server.
+```
+
+- Routes: `GET /v1/skills?q=`, `GET /v1/skills/<name>`, `GET /v1/skills/<name>/<version>/package`, `PUT /v1/skills/<name>/<version>`.
+- Versions are immutable: a second publish answers 409 and the stored bytes stay. Each version is stored with its sha256, written at publish.
+- Publish needs `Authorization: Bearer <token>` (wrong token: 401 with `www-authenticate: Bearer`). A body over `maxPackageBytes` answers 413; an invalid package answers 400. `maxPackageBytes` can only lower the 1 MiB ceiling.
+- A handler failure answers 500 and calls `onError(error, { method, path })`; the default writes one stderr line with the token redacted.
+
+**Warning:** the handler binds nowhere; it listens where you mount it, so bind to loopback or put your own access control in front. The token protects publish only: search, listings and package downloads are open to anyone who can reach the handler.
