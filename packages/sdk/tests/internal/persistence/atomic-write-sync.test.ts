@@ -31,7 +31,7 @@ describe("atomicWriteJsonSync", () => {
     // target is a directory, so rename fails after the temp was written
     const target = join(dir, "t");
     atomicWriteJsonSync(join(target, "x.json"), {});
-    expect(() => atomicWriteJsonSync(target, {})).toThrow();
+    expect(() => atomicWriteJsonSync(target, {})).toThrow(/EISDIR|ENOTEMPTY|EEXIST|EPERM/);
     expect(readdirSync(dir)).toEqual(["t"]);
   });
 
