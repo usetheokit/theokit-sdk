@@ -24,6 +24,13 @@ export type McpStdioServerConfig = {
    */
   requestTimeoutMs?: number;
   /**
+   * Pin the MCP protocol revision `initialize` offers, for a server that misbehaves on the newest.
+   * Default: the newest supported (`"2025-06-18"`). The server may still answer an older supported
+   * revision; an answer outside `"2025-06-18" | "2025-03-26" | "2024-11-05"` rejects `initialize`
+   * with `NetworkError` code `mcp_protocol_unsupported`.
+   */
+  protocolVersion?: "2025-06-18" | "2025-03-26" | "2024-11-05";
+  /**
    * #54 — env inherit/scrub policy for the spawned MCP server process. Defaults
    * to `"inherit-scrubbed"` (drop secret-like host vars: `*KEY*`/`*SECRET*`/
    * `*TOKEN*`/`*PASSWORD*`/`*_AUTH*`/…) so a third-party MCP server binary cannot
@@ -103,6 +110,13 @@ export type McpHttpServerConfig = {
    * `NetworkError` (`code: "mcp_timeout"`). Default 30_000.
    */
   requestTimeoutMs?: number;
+  /**
+   * Pin the MCP protocol revision `initialize` offers, for a server that misbehaves on the newest.
+   * Default: the newest supported (`"2025-06-18"`). The server may still answer an older supported
+   * revision; an answer outside `"2025-06-18" | "2025-03-26" | "2024-11-05"` rejects `initialize`
+   * with `NetworkError` code `mcp_protocol_unsupported`.
+   */
+  protocolVersion?: "2025-06-18" | "2025-03-26" | "2024-11-05";
   /**
    * Run the calls a model makes to this server's tools in ONE step one at a time, in the order the
    * model listed them, instead of at once. Set it for a stateful server whose tools act on shared
