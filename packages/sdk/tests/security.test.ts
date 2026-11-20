@@ -22,7 +22,11 @@ describe("Security.redact (public API)", () => {
   });
 
   it("leaves URLs and addresses without a userinfo password unchanged", () => {
-    for (const text of ["https://example.com/path@v2", "user@example.com", "https://user@example.com/"]) {
+    for (const text of [
+      "https://example.com/path@v2",
+      "user@example.com",
+      "https://user@example.com/",
+    ]) {
       expect(Security.redact(text)).toBe(text);
     }
   });
