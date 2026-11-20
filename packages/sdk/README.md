@@ -647,7 +647,7 @@ The full contract is defined by the exported TypeScript types; see [`CHANGELOG.m
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+Apache-2.0 — see [LICENSE](./LICENSE).
 
 ## Loading a project `.env` safely
 
