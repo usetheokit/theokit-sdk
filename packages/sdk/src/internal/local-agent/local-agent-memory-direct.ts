@@ -127,7 +127,6 @@ export function buildAgentMemory(
   workspaceCwd: string,
   defaultContext: MemoryContext | undefined,
   resolver: AdapterResolver = createAdapterResolver(pluginManager, workspaceCwd),
-  forgetFromIndex: (id: MemoryId, namespace: string) => Promise<void> = forgetFactInOpenIndexes,
 ): AgentMemory {
   async function ensure(): Promise<ResolvedAdapters> {
     return resolver.ensure();
@@ -239,7 +238,7 @@ export function buildAgentMemory(
       }
       await target.delete(id);
       // Drop the fact's Lance chunks (source "memory", the agent's namespace) so it is not searchable.
-      await forgetFromIndex(id, defaultContext?.tenantId ?? "default");
+      await forgetFactInOpenIndexes(id, defaultContext?.tenantId ?? "default");
     },
 
     adapter(): MemoryAdapter | null {
