@@ -7,7 +7,12 @@
  */
 
 import type { ZodType } from "zod";
-import type { StepResult, WorkflowOptions, WorkflowRun } from "../../types/workflow.js";
+import type {
+  CompensationResult,
+  StepResult,
+  WorkflowOptions,
+  WorkflowRun,
+} from "../../types/workflow.js";
 import { WorkflowStateError } from "../../workflow-errors.js";
 import type { StateController } from "./ctx.js";
 
@@ -19,6 +24,7 @@ export interface AssembleParams<TO> {
   startedAt: number;
   output?: TO;
   error?: { name: string; message: string };
+  compensation?: ReadonlyArray<CompensationResult>;
 }
 
 export function assembleRun<TO>(params: AssembleParams<TO>): WorkflowRun<TO> {
@@ -31,6 +37,7 @@ export function assembleRun<TO>(params: AssembleParams<TO>): WorkflowRun<TO> {
     stepResults: params.stepResults,
     ...(params.output !== undefined ? { output: params.output } : {}),
     ...(params.error !== undefined ? { error: params.error } : {}),
+    ...(params.compensation !== undefined ? { compensation: params.compensation } : {}),
   };
 }
 
