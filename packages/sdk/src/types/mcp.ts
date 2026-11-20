@@ -143,3 +143,40 @@ export type McpHttpServerConfig = {
  * @public
  */
 export type McpServerConfig = McpStdioServerConfig | McpHttpServerConfig;
+
+/**
+ * A server's request for user input in the middle of a tool call (MCP elicitation, 2025-06-18).
+ *
+ * @public
+ */
+export interface McpElicitationRequest {
+  /** The configured name of the MCP server that asks. */
+  readonly serverName: string;
+  /** The question to show the user. */
+  readonly message: string;
+  /** JSON Schema of the answer: a flat object of primitive properties, per the spec. */
+  readonly requestedSchema: Record<string, unknown>;
+}
+
+/**
+ * The answer to an {@link McpElicitationRequest}. `accept` carries the content; it is checked
+ * against `requestedSchema` (required keys present, primitive types match) before it is sent.
+ *
+ * @public
+ */
+export type McpElicitationResult =
+  | { readonly action: "accept"; readonly content: Record<string, unknown> }
+  | { readonly action: "decline" }
+  | { readonly action: "cancel" };
+
+/**
+ * Answers MCP elicitation requests. The signal aborts when the run is cancelled or the client
+ * closes. A handler that throws answers `cancel` and the error is reported on the diagnostics
+ * channel.
+ *
+ * @public
+ */
+export type McpElicitationHandler = (
+  request: McpElicitationRequest,
+  signal: AbortSignal,
+) => Promise<McpElicitationResult>;
