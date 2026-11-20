@@ -107,6 +107,9 @@ It never falls over on `cancelled`, on a `ConfigurationError`, or after output h
 When every model fails the run ends `error` and `RunResult.error.cause` is a
 `ModelFallbackExhaustedError` naming each model and its code; its own `cause` is the primary's error.
 
+This differs from `providers.fallback`, which only picks another provider when a route has none
+available. It does not resend a run that failed.
+
 ### Retry and CircuitBreaker
 
 `@theokit/sdk/retry` exports `Retry.run(fn, options)` for retrying transient failures, and `CircuitBreaker` for skipping a flaky key. After `maxTimeouts` (default 3) consecutive `recordTimeout(key)` calls, `shouldSkip(key)` is true for `cooldownMs` (default 60000); `recordSuccess(key)` resets it, and other keys are unaffected. `@theokit/sdk-memory` re-exports the same class.
@@ -119,9 +122,6 @@ if (!breaker.shouldSkip("remote")) {
   // call the remote; on a timeout: breaker.recordTimeout("remote")
 }
 ```
-
-This differs from `providers.fallback`, which only picks another provider when a route has none
-available. It does not resend a run that failed.
 
 ## Budgets: reserving in-flight spend
 
