@@ -2,9 +2,10 @@ import http from "node:http";
 import https from "node:https";
 import net from "node:net";
 import tls from "node:tls";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { EgressCa } from "../../src/sandbox/egress-ca.js";
+import { setUpstreamCaForTests } from "../../src/sandbox/egress-proxy.js";
 import { type EgressProxy, startEgressProxy } from "../../src/sandbox/index.js";
 
 const cleanups: (() => Promise<void>)[] = [];
@@ -113,6 +114,8 @@ describe("egress proxy credential injection", () => {
   const REAL = "real-secret-value-9f3a";
   const PLACEHOLDER = "THEOKIT_PLACEHOLDER_GITHUB";
   const upstreamCa = new EgressCa();
+  beforeEach(() => setUpstreamCaForTests(upstreamCa.certPem));
+  afterEach(() => setUpstreamCaForTests(undefined));
 
   async function httpsServer(seen: http.IncomingHttpHeaders[]): Promise<number> {
     const leaf = upstreamCa.issue("127.0.0.1");
@@ -139,7 +142,6 @@ describe("egress proxy credential injection", () => {
           placeholder: PLACEHOLDER,
         },
       ],
-      upstreamCa: upstreamCa.certPem,
       log: (l) => lines.push(l),
     });
     cleanups.push(() => p.close());
@@ -260,12 +262,12 @@ describe("egress proxy credential injection", () => {
   it("refuses an upstream whose certificate does not verify", async () => {
     const seen: http.IncomingHttpHeaders[] = [];
     const port = await httpsServer(seen);
+    setUpstreamCaForTests(undefined); // the test upstream's CA is unknown, so verification fails
     const p = await startEgressProxy({
       allow: [{ host: "127.0.0.1", ports: [port] }],
       credentials: [
         { host: "127.0.0.1", header: "authorization", value: () => REAL, placeholder: PLACEHOLDER },
       ],
-      // no upstreamCa: the test upstream's CA is unknown, so verification fails
     });
     cleanups.push(() => p.close());
     const r = await getVia(p, "127.0.0.1", port, { authorization: PLACEHOLDER });
@@ -288,7 +290,6 @@ describe("egress proxy credential injection", () => {
           placeholder: PLACEHOLDER,
         },
       ],
-      upstreamCa: upstreamCa.certPem,
     });
     cleanups.push(() => p.close());
     const r = await getVia(p, "127.0.0.1", port, {});

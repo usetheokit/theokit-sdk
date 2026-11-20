@@ -102,8 +102,6 @@ export function wrapCommandForSandbox(
 export interface NetworkAllowlist {
   readonly allow: readonly EgressRule[];
   readonly credentials?: readonly CredentialRule[];
-  /** PEM of a CA to trust for the proxy's upstream TLS instead of the default roots (private upstreams). */
-  readonly upstreamCa?: string;
 }
 
 /** The environment a confined command starts with: base, proxy variables, then credential variables. */
@@ -218,7 +216,6 @@ export class LinuxSandbox extends LocalSandbox {
         | {
             allow: readonly EgressRule[];
             credentials?: readonly CredentialRule[];
-            upstreamCa?: string;
           };
       bin?: string;
       env?: Record<string, string>;
@@ -233,7 +230,7 @@ export class LinuxSandbox extends LocalSandbox {
     this.network = typeof opts.network === "boolean" && opts.network;
     this.networkPolicy = policyFor(opts.mode, this.network, allow);
     this.egress = allow
-      ? startProxyFor(allow, list?.credentials ?? [], list?.upstreamCa)
+      ? startProxyFor(allow, list?.credentials ?? [])
       : undefined;
     this.cwd = config.workDir ?? process.cwd();
     // MEDIUM-1: run the VALIDATED absolute binary from detection (anti-hijack), never bare `bwrap`
@@ -514,7 +511,6 @@ export interface CreateSandboxBackendOptions {
     | {
         allow: readonly EgressRule[];
         credentials?: readonly CredentialRule[];
-        upstreamCa?: string;
       };
   timeoutMs?: number;
   /** Paths the shell cannot read. Never degrades to unconfined: throws `TypeError` or `SandboxNotAvailableError`. */

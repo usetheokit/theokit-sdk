@@ -75,7 +75,6 @@ export function proxyEnv(): Record<string, string> {
 export function startProxyFor(
   allow: readonly EgressRule[],
   credentials: readonly CredentialRule[],
-  upstreamCa: string | undefined,
 ): {
   socketPath: string;
   dir: string;
@@ -83,7 +82,7 @@ export function startProxyFor(
 } {
   const dir = mkdtempSync(join(tmpdir(), "theokit-egress-"));
   const socketPath = join(dir, "proxy.sock");
-  const ready = startEgressProxy({ allow, credentials, socketPath, upstreamCa }).then((proxy) => {
+  const ready = startEgressProxy({ allow, credentials, socketPath }).then((proxy) => {
     if (proxy.caCertPem) {
       // System roots stay trusted, so a command's other HTTPS traffic still verifies.
       const pem = `${tls.rootCertificates.join("\n")}\n${proxy.caCertPem}`;

@@ -382,6 +382,13 @@ function headerTexts(headers: http.IncomingHttpHeaders): string[] {
  * socket (its directory must exist and is left alone on close); by default a private temp
  * directory is created and removed on close.
  */
+let upstreamCaForTests: string | undefined;
+
+/** Test seam, deliberately not re-exported from the entry point: the upstream roots a proxy started next trusts. */
+export function setUpstreamCaForTests(pem: string | undefined): void {
+  upstreamCaForTests = pem;
+}
+
 export async function startEgressProxy(options: {
   allow: readonly EgressRule[];
   /** Credentials added for their hosts; see `CredentialRule`. HTTPS to those hosts is terminated here. */
@@ -389,8 +396,6 @@ export async function startEgressProxy(options: {
   socketPath?: string;
   /** Receives one secret-free line per notable event (a `credential_misroute`). Default: none. */
   log?: (line: string) => void;
-  /** PEM of an extra CA to trust for upstream TLS, replacing the default roots (private upstreams, tests). */
-  upstreamCa?: string;
 }): Promise<EgressProxy> {
   const credentials = options.credentials ?? [];
   validateCredentialRules(options.allow, credentials);
@@ -399,7 +404,7 @@ export async function startEgressProxy(options: {
     credentials,
     ca,
     log: options.log ?? (() => undefined),
-    upstreamCa: options.upstreamCa,
+    upstreamCa: upstreamCaForTests,
   });
   const dir = options.socketPath ? undefined : mkdtempSync(join(tmpdir(), "theokit-egress-"));
   const socketPath = options.socketPath ?? join(dir as string, "proxy.sock");

@@ -7,6 +7,7 @@ import { networkInterfaces } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { EgressCa } from "../../src/sandbox/egress-ca.js";
+import { setUpstreamCaForTests } from "../../src/sandbox/egress-proxy.js";
 import {
   createSandboxBackend,
   LinuxSandbox,
@@ -129,6 +130,7 @@ describe("LinuxSandbox network allowlist", () => {
   live("real_value_never_reaches_the_sandbox", async () => {
     const REAL = "real-secret-value-4c1d";
     const upstreamCa = new EgressCa();
+    setUpstreamCaForTests(upstreamCa.certPem);
     const leaf = upstreamCa.issue("127.0.0.1");
     const seen: (string | undefined)[] = [];
     const server = https.createServer({ key: leaf.key, cert: leaf.cert }, (req, res) => {
@@ -146,7 +148,6 @@ describe("LinuxSandbox network allowlist", () => {
           bin,
           network: {
             allow: [{ host: "127.0.0.1", ports: [port] }],
-            upstreamCa: upstreamCa.certPem,
             credentials: [
               {
                 host: "127.0.0.1",
@@ -170,6 +171,7 @@ describe("LinuxSandbox network allowlist", () => {
       expect(seen[0]).toBe(`Bearer ${REAL}`);
       expect(r.stdout + r.stderr).not.toContain(REAL);
     } finally {
+      setUpstreamCaForTests(undefined);
       await new Promise<void>((r) => server.close(() => r()));
     }
   });
