@@ -38,6 +38,8 @@ export interface FakeModelServerOptions {
   host?: string;
 }
 
+// Scripted tool calls are not supported yet.
+
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
 
 function isLoopback(host: string): boolean {
@@ -71,71 +73,39 @@ function parseRequest(raw: string): FakeModelRequest | { error: string } {
   }
 }
 
-/** What a wire writer sends for one model turn. */
-export interface ModelAnswer {
-  readonly text?: string;
-  readonly toolCalls?: ReadonlyArray<{
-    readonly name: string;
-    readonly input: Record<string, unknown>;
-    readonly id?: string;
-  }>;
-}
-
-const USAGE = { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 };
-
-function openAiToolCalls(answer: ModelAnswer): unknown[] {
-  return (answer.toolCalls ?? []).map((call, index) => ({
-    index,
-    id: call.id ?? `call_${index + 1}`,
-    type: "function",
-    function: { name: call.name, arguments: JSON.stringify(call.input) },
-  }));
-}
-
-function writeOpenAi(
-  res: ServerResponse,
-  model: string,
-  answer: ModelAnswer,
-  stream: boolean,
-): void {
+function writeOpenAi(res: ServerResponse, model: string, text: string, stream: boolean): void {
   const base = { id: "chatcmpl-fake", object: "chat.completion.chunk", created: 0, model };
-  const toolCalls = openAiToolCalls(answer);
-  const finish = toolCalls.length > 0 ? "tool_calls" : "stop";
-  const text = answer.text ?? "";
   if (!stream) {
     res.writeHead(200, { "content-type": "application/json" });
-    const message: Record<string, unknown> = { role: "assistant", content: text };
-    if (toolCalls.length > 0) message.tool_calls = toolCalls;
     res.end(
       JSON.stringify({
         ...base,
         object: "chat.completion",
-        choices: [{ index: 0, message, finish_reason: finish }],
-        usage: USAGE,
+        choices: [
+          { index: 0, message: { role: "assistant", content: text }, finish_reason: "stop" },
+        ],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
       }),
     );
     return;
   }
   res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
-  const frame = (delta: unknown, finishReason: string | null, extra?: object) =>
-    `data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta, finish_reason: finishReason }], ...extra })}\n\n`;
+  const frame = (delta: unknown, finish: string | null, extra?: object) =>
+    `data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta, finish_reason: finish }], ...extra })}\n\n`;
   res.write(frame({ role: "assistant", content: "" }, null));
-  if (text !== "") res.write(frame({ content: text }, null));
-  if (toolCalls.length > 0) res.write(frame({ tool_calls: toolCalls }, null));
-  res.write(frame({}, finish, { usage: USAGE }));
+  res.write(frame({ content: text }, null));
+  res.write(
+    frame({}, "stop", { usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }),
+  );
   res.end("data: [DONE]\n\n");
 }
 
-function writeOllama(res: ServerResponse, model: string, answer: ModelAnswer): void {
+function writeOllama(res: ServerResponse, model: string, text: string): void {
   res.writeHead(200, { "content-type": "application/x-ndjson" });
   const at = "1970-01-01T00:00:00Z";
-  const message: Record<string, unknown> = { role: "assistant", content: answer.text ?? "" };
-  if (answer.toolCalls !== undefined && answer.toolCalls.length > 0) {
-    message.tool_calls = answer.toolCalls.map((call) => ({
-      function: { name: call.name, arguments: call.input },
-    }));
-  }
-  res.write(`${JSON.stringify({ model, created_at: at, message, done: false })}\n`);
+  res.write(
+    `${JSON.stringify({ model, created_at: at, message: { role: "assistant", content: text }, done: false })}\n`,
+  );
   res.end(
     `${JSON.stringify({
       model,
@@ -149,32 +119,30 @@ function writeOllama(res: ServerResponse, model: string, answer: ModelAnswer): v
   );
 }
 
-/** Write one model turn in the wire's format. */
-export function writeAnswer(
-  wire: "openai" | "ollama",
-  res: ServerResponse,
-  request: FakeModelRequest,
-  answer: ModelAnswer,
-): void {
-  const model = request.model ?? "fake";
-  if (wire === "openai") writeOpenAi(res, model, answer, request.stream === true);
-  else writeOllama(res, model, answer);
-}
-
 function resolveReply(reply: FakeModelServerOptions["reply"], request: FakeModelRequest): string {
   if (typeof reply === "function") return reply(request);
   return reply ?? "ok";
 }
 
-/** Shared server shell: loopback check, routing, request log, close. */
-export async function startModelServer(
-  label: string,
-  wire: "openai" | "ollama",
-  host: string,
-  respond: (request: FakeModelRequest, res: ServerResponse, requests: FakeModelRequest[]) => void,
+/**
+ * Start a local server that speaks a provider's chat wire protocol and answers with scripted text,
+ * so an agent can run end to end with no credential and no real model.
+ *
+ * Listens on an OS-assigned port, on loopback only.
+ *
+ * @example
+ * const server = await startFakeModelServer({ reply: "hello" });
+ * const agent = await Agent.create({ model: server.model, local: { cwd } });
+ * // ...
+ * await server.close();
+ */
+export async function startFakeModelServer(
+  options: FakeModelServerOptions = {},
 ): Promise<FakeModelServer> {
+  const wire = options.wire ?? "openai";
+  const host = options.host ?? "127.0.0.1";
   if (!isLoopback(host)) {
-    throw new Error(`${label}: host must be a loopback address, got "${host}"`);
+    throw new Error(`startFakeModelServer: host must be a loopback address, got "${host}"`);
   }
   const path = wire === "openai" ? "/v1/chat/completions" : "/api/chat";
   const requests: FakeModelRequest[] = [];
@@ -193,7 +161,10 @@ export async function startModelServer(
       return;
     }
     requests.push(parsed);
-    respond(parsed, res, requests);
+    const text = resolveReply(options.reply, parsed);
+    const model = parsed.model ?? "fake";
+    if (wire === "openai") writeOpenAi(res, model, text, parsed.stream === true);
+    else writeOllama(res, model, text);
   };
 
   const server = createServer((req, res) => {
@@ -221,29 +192,4 @@ export async function startModelServer(
         server.closeAllConnections();
       }),
   };
-}
-
-/**
- * Start a local server that speaks a provider's chat wire protocol and answers with scripted text,
- * so an agent can run end to end with no credential and no real model.
- *
- * Listens on an OS-assigned port, on loopback only.
- *
- * @example
- * const server = await startFakeModelServer({ reply: "hello" });
- * const agent = await Agent.create({ model: server.model, local: { cwd } });
- * // ...
- * await server.close();
- */
-export async function startFakeModelServer(
-  options: FakeModelServerOptions = {},
-): Promise<FakeModelServer> {
-  const wire = options.wire ?? "openai";
-  return startModelServer(
-    "startFakeModelServer",
-    wire,
-    options.host ?? "127.0.0.1",
-    (request, res) =>
-      writeAnswer(wire, res, request, { text: resolveReply(options.reply, request) }),
-  );
 }

@@ -802,34 +802,7 @@ console.log(server.requests); // every request body received
 await server.close();
 ```
 
-`reply` may also be `(request) => string`. A body that is not JSON gets HTTP 400 and is recorded with `messages: []` and an `error` string. `host` accepts loopback addresses only.
-
-### Scripted turns: tool calls, errors and drift
-
-`startScriptedModelServer` answers a fixed sequence of turns (`{ text }`, `{ toolCalls }`, or `{ error: { status, body?, retryAfterSeconds? } }`), one per model request. A request after the last step answers 500 and `assertConsumed()` throws `UnexpectedModelCallError` (code `unexpected_model_call`, naming the call); steps left over make it throw `UnconsumedModelStepsError` (code `unconsumed_model_steps`). `close()` never throws. `wire` is `"openai"` (default) or `"ollama"`; the ollama parser numbers tool calls itself, so a step's `id` is ignored there.
-
-```ts
-import { Agent } from "@theokit/sdk";
-import { startScriptedModelServer } from "@theokit/sdk/testing";
-
-const server = await startScriptedModelServer({
-  steps: [{ toolCalls: [{ name: "add", input: { a: 1, b: 2 } }] }, { text: "3" }],
-});
-try {
-  const agent = await Agent.create({
-    apiKey: "local",
-    model: server.model,
-    local: { cwd: process.cwd() },
-    tools: [{ name: "add", description: "Add", inputSchema: { type: "object" },
-      handler: (i) => String(Number(i.a) + Number(i.b)) }],
-  });
-  await (await agent.send("1 + 2?")).wait();
-  console.log(server.requests[1]); // carries the tool result "3"
-  server.assertConsumed(); // fails if the loop made more or fewer calls
-} finally {
-  await server.close();
-}
-```
+`reply` may also be `(request) => string`. A body that is not JSON gets HTTP 400 and is recorded with `messages: []` and an `error` string. `host` accepts loopback addresses only. Scripted tool calls are not supported yet.
 
 ## Experimental exports
 

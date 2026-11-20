@@ -10,13 +10,6 @@ export type {
 } from "./fake-model-server.js";
 export { startFakeModelServer } from "./fake-model-server.js";
 export {
-  type ScriptedModelServer,
-  type ScriptedStep,
-  startScriptedModelServer,
-  UnconsumedModelStepsError,
-  UnexpectedModelCallError,
-} from "./scripted-model-server.js";
-export {
   type SessionStoreConformanceCase,
   type SessionStoreFactory,
   sessionStoreConformanceCases,
