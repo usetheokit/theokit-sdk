@@ -17,11 +17,15 @@ const REQUIRED_PRIMITIVES = [
   "PersistenceSchema",
   "atomicWriteText",
   "atomicWriteJson",
+  "atomicWriteJsonSync",
+  "ensureSecureDir",
+  "InsecureDirectoryError",
   "acquireInstanceLock",
   "InstanceLockedError",
   "resolveProfile",
   "applyProfile",
   "getProfilesRoot",
+  "listProjects",
   "ProfileConflictError",
 ] as const;
 

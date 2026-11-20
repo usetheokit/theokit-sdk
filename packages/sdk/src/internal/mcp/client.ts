@@ -8,34 +8,52 @@ import type {
 } from "../../types/mcp.js";
 import { resolveChildEnv } from "../runtime/lifecycle/env-policy.js";
 import { safePathJoin } from "../security/path-guard.js";
+import {
+  asServerRequest,
+  ElicitationScope,
+  type McpClientHooks,
+  type ServerRequest,
+} from "./elicitation.js";
 import { DEFAULT_MCP_TIMEOUT_MS, handshakeAwareTimeout } from "./handshake-timeout.js";
+import { postAnswer, readEventStreamReply } from "./http-sse.js";
 import { resolveBearer } from "./oauth-bearer.js";
+import {
+  type McpProtocolVersion,
+  rpcInitialize,
+  SUPPORTED_MCP_PROTOCOL_VERSIONS,
+} from "./protocol-version.js";
+import {
+  isAbortLike,
+  type McpTool,
+  type McpToolCallResult,
+  mcpTimeoutError,
+  reconnectDelay,
+  rpcCallTool,
+  rpcListTools,
+} from "./rpc-helpers.js";
 import { withToolFilter } from "./tool-filter.js";
 
 /**
- * Real MCP client implementing the subset of the 2024-11-05 spec used by the
- * SDK agent loop: `initialize`, `tools/list`, `tools/call`. Both stdio and
+ * Real MCP client implementing the subset of the MCP spec used by the SDK agent loop:
+ * `initialize`, `tools/list`, `tools/call`. Revisions 2025-06-18, 2025-03-26 and 2024-11-05 are
+ * supported: `initialize` offers the newest (or the server's pinned `protocolVersion`) and keeps
+ * the revision the server answers; an answer outside the list is refused. Over http the negotiated
+ * revision is sent as `MCP-Protocol-Version` on every request after `initialize`. Both stdio and
  * http transports are wired; sse uses the same wire format as http with a
  * streaming response handled identically by the JSON-RPC reader.
  *
  * @internal
  */
 
-export interface McpTool {
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-}
-
-export interface McpToolCallResult {
-  content: Array<{ type: "text"; text: string }>;
-  isError?: boolean;
-}
+export type { McpProtocolVersion, McpTool, McpToolCallResult };
+export { SUPPORTED_MCP_PROTOCOL_VERSIONS };
 
 export interface McpClient {
   readonly name: string;
   /** `true` when the server's config sets `sequential`: the loop runs its calls one at a time. */
   readonly sequential?: boolean;
+  /** The version the server agreed to in `initialize`; undefined before it. */
+  readonly protocolVersion?: McpProtocolVersion;
   initialize(): Promise<void>;
   listTools(): Promise<McpTool[]>;
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult>;
@@ -48,10 +66,11 @@ export function createMcpClient(
   name: string,
   config: McpServerConfig,
   fetchImpl: typeof fetch = fetch,
+  hooks: McpClientHooks = {},
 ): McpClient {
   const client: McpClient = isStdio(config)
-    ? new StdioMcpClient(name, config)
-    : new HttpMcpClient(name, config as McpHttpServerConfig, fetchImpl);
+    ? new StdioMcpClient(name, config, hooks)
+    : new HttpMcpClient(name, config as McpHttpServerConfig, fetchImpl, hooks);
   return withToolFilter(client, name, config.tools);
 }
 
@@ -60,62 +79,7 @@ const MAX_STDIO_BUFFER_BYTES = 8 * 1024 * 1024;
 
 /** M2 #59 — reconnect-after-drop bounds. Base for the full-jitter backoff between
  * reconnect attempts, and the max attempts before surfacing a typed error. */
-const RECONNECT_BASE_MS = 250;
 const MAX_RECONNECT_ATTEMPTS = 2;
-
-/** M2 #59 — full-jitter backoff (AWS Brooker 2015) for the Nth reconnect attempt,
- * then a plain delay. MCP requests carry no AbortSignal so the delay is unabortable. */
-function reconnectDelay(attempt: number): Promise<void> {
-  const ceiling = RECONNECT_BASE_MS * 2 ** attempt;
-  const ms = Math.floor(Math.random() * ceiling);
-  return ms <= 0 ? Promise.resolve() : new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Typed timeout error shared by both transports (#59). */
-function mcpTimeoutError(name: string, timeoutMs: number): NetworkError {
-  return new NetworkError(`MCP ${name} request timed out after ${timeoutMs}ms`, {
-    code: "mcp_timeout",
-  });
-}
-
-/**
- * True when a rejected fetch was aborted by our `AbortSignal.timeout` (#59).
- * `AbortSignal.timeout` rejects with a `DOMException` (name `TimeoutError`),
- * which is not always `instanceof Error`, so we inspect `.name` directly.
- */
-function isAbortLike(cause: unknown): boolean {
-  if (typeof cause !== "object" || cause === null || !("name" in cause)) return false;
-  const name = (cause as { name: unknown }).name;
-  return name === "TimeoutError" || name === "AbortError";
-}
-
-type RpcRequester = (method: string, params: Record<string, unknown>) => Promise<unknown>;
-
-async function rpcInitialize(request: RpcRequester): Promise<void> {
-  await request("initialize", {
-    protocolVersion: "2024-11-05",
-    capabilities: { tools: {} },
-    clientInfo: { name: "theokit-sdk", version: "0.0.0" },
-  });
-}
-
-async function rpcListTools(request: RpcRequester): Promise<McpTool[]> {
-  const response = await request("tools/list", {});
-  return (response as { result?: { tools?: McpTool[] } }).result?.tools ?? [];
-}
-
-async function rpcCallTool(
-  request: RpcRequester,
-  name: string,
-  args: Record<string, unknown>,
-): Promise<McpToolCallResult> {
-  const response = await request("tools/call", { name, arguments: args });
-  const result = (response as { result?: McpToolCallResult }).result;
-  if (result === undefined) {
-    return { content: [{ type: "text", text: "MCP returned empty result" }], isError: true };
-  }
-  return result;
-}
 
 /** Shared base wiring `initialize` / `listTools` / `callTool` onto an
  * abstract RPC `request` implementation. Subclasses define the transport.
@@ -123,12 +87,33 @@ async function rpcCallTool(
 abstract class BaseMcpClient implements McpClient {
   abstract readonly name: string;
 
+  protocolVersion: McpProtocolVersion | undefined;
+
+  protected readonly elicitation: ElicitationScope;
+
+  protected constructor(hooks: McpClientHooks) {
+    this.elicitation = new ElicitationScope(
+      () => this.name,
+      () => this.protocolVersion,
+      hooks,
+    );
+  }
+
+  /** The pinned revision from the server config, if any. */
+  protected abstract readonly pinnedVersion: McpProtocolVersion | undefined;
+
   abstract close(): Promise<void>;
 
   protected abstract request(method: string, params: Record<string, unknown>): Promise<unknown>;
 
-  initialize(): Promise<void> {
-    return rpcInitialize((method, params) => this.request(method, params));
+  async initialize(): Promise<void> {
+    this.protocolVersion = undefined;
+    this.protocolVersion = await rpcInitialize(
+      (method, params) => this.request(method, params),
+      this.name,
+      this.pinnedVersion ?? SUPPORTED_MCP_PROTOCOL_VERSIONS[0],
+      this.elicitation.hooks.onElicitation !== undefined,
+    );
   }
 
   listTools(): Promise<McpTool[]> {
@@ -184,9 +169,14 @@ class StdioMcpClient extends BaseMcpClient {
   constructor(
     name: string,
     private readonly config: McpStdioServerConfig,
+    hooks: McpClientHooks,
   ) {
-    super();
+    super(hooks);
     this.name = name;
+  }
+
+  protected get pinnedVersion(): McpProtocolVersion | undefined {
+    return this.config.protocolVersion;
   }
 
   get sequential(): boolean {
@@ -267,7 +257,14 @@ class StdioMcpClient extends BaseMcpClient {
   override async initialize(): Promise<void> {
     if (this.child !== undefined) return;
     this.spawnChild();
-    await super.initialize();
+    try {
+      await super.initialize();
+    } catch (err) {
+      // A refused revision leaves a live child that would make the next initialize() a no-op.
+      if (err instanceof NetworkError && err.code === "mcp_protocol_unsupported")
+        await this.close();
+      throw err;
+    }
   }
 
   /** M2 #59 — ensure a live child before a request. Reconnect (bounded, with
@@ -318,6 +315,7 @@ class StdioMcpClient extends BaseMcpClient {
   }
 
   async close(): Promise<void> {
+    this.elicitation.abort();
     // #59 — settle in-flight requests instead of leaking their timers/promises.
     this.rejectAllPending(new NetworkError(`MCP ${this.name} closed`, { code: "mcp_closed" }));
     // Clear the ref BEFORE kill so the exit handler's `this.child === child`
@@ -362,12 +360,20 @@ class StdioMcpClient extends BaseMcpClient {
   }
 
   private handleLine(line: string): void {
-    let message: { id?: number };
+    let message: { id?: unknown; method?: unknown };
     try {
-      message = JSON.parse(line) as { id?: number };
+      message = JSON.parse(line) as { id?: unknown; method?: unknown };
     } catch {
       return;
     }
+    // A message with `method` is the SERVER talking: a request (with `id`) or a notification. It is
+    // never the reply to a client request, whatever its `id` is.
+    const serverRequest = asServerRequest(message);
+    if (serverRequest !== undefined) {
+      void this.answerOnStdio(serverRequest);
+      return;
+    }
+    if (typeof message.method === "string") return;
     if (typeof message.id !== "number") return;
     const entry = this.pending.get(message.id);
     // #59 — a late reply after timeout finds no entry → no-op (never double-settles).
@@ -375,6 +381,11 @@ class StdioMcpClient extends BaseMcpClient {
     this.pending.delete(message.id);
     clearTimeout(entry.timer);
     entry.resolve(message);
+  }
+
+  private async answerOnStdio(request: ServerRequest): Promise<void> {
+    const response = await this.elicitation.answer(request);
+    this.child?.stdin.write(`${JSON.stringify(response)}\n`);
   }
 
   protected request(method: string, params: Record<string, unknown>): Promise<unknown> {
@@ -456,10 +467,15 @@ class HttpMcpClient extends BaseMcpClient {
     name: string,
     private readonly config: McpHttpServerConfig,
     fetchImpl: typeof fetch = fetch,
+    hooks: McpClientHooks = {},
   ) {
-    super();
+    super(hooks);
     this.name = name;
     this.fetchImpl = fetchImpl;
+  }
+
+  protected get pinnedVersion(): McpProtocolVersion | undefined {
+    return this.config.protocolVersion;
   }
 
   get sequential(): boolean {
@@ -467,6 +483,7 @@ class HttpMcpClient extends BaseMcpClient {
   }
 
   close(): Promise<void> {
+    this.elicitation.abort();
     return Promise.resolve();
   }
 
@@ -490,6 +507,9 @@ class HttpMcpClient extends BaseMcpClient {
       // Present only for a STATEFUL server. For a stateless one nothing is sent — inventing a
       // header would trade one broken transport for another.
       ...(this.sessionId !== undefined ? { "mcp-session-id": this.sessionId } : {}),
+      ...(this.protocolVersion !== undefined
+        ? { "mcp-protocol-version": this.protocolVersion }
+        : {}),
       ...(bearer !== undefined ? { authorization: bearer } : {}),
       ...(this.config.headers ?? {}),
     };
@@ -506,18 +526,24 @@ class HttpMcpClient extends BaseMcpClient {
    * Only the `data:` payload is JSON; `event:` / `id:` / `retry:` lines and comments are framing.
    * A single JSON-RPC reply arrives as one event, so the FIRST parseable `data:` is the answer.
    */
-  private async readBody(response: Response): Promise<unknown> {
+  private async readBody(response: Response, id: number): Promise<unknown> {
     const contentType = response.headers.get("content-type") ?? "";
-    if (!contentType.includes("text/event-stream")) return (await response.json()) as unknown;
-    const text = await response.text();
-    for (const line of text.split(/\r?\n/)) {
-      if (!line.startsWith("data:")) continue;
-      const payload = line.slice(5).trim();
-      if (payload === "") continue;
-      return JSON.parse(payload) as unknown;
+    if (!contentType.includes("text/event-stream") || response.body === null) {
+      return (await response.json()) as unknown;
     }
-    throw new NetworkError(`MCP ${this.name} returned an event stream with no data payload`, {
-      code: "mcp_http_error",
+    return readEventStreamReply(this.name, response.body, id, (request) =>
+      this.answerOverHttp(request),
+    );
+  }
+
+  /** POST the answer to a server request to the same endpoint, with the session header. */
+  private async answerOverHttp(request: ServerRequest): Promise<void> {
+    const body = JSON.stringify(await this.elicitation.answer(request));
+    await postAnswer(this.fetchImpl, this.config.url, {
+      name: this.name,
+      headers: await this.buildHeaders(),
+      body,
+      timeoutMs: this.config.requestTimeoutMs ?? DEFAULT_MCP_TIMEOUT_MS,
     });
   }
 
@@ -564,7 +590,7 @@ class HttpMcpClient extends BaseMcpClient {
     }
     this.captureSession(response);
     try {
-      return await this.readBody(response);
+      return await this.readBody(response, id);
     } catch (cause) {
       // #59 — the body read is bounded by the SAME `AbortSignal.timeout`. A
       // server that returns headers then stalls the body aborts here; map that
