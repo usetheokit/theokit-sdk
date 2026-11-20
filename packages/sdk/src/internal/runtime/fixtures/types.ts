@@ -51,6 +51,8 @@ export interface FixtureScript {
   /** Doom-loop guard: true when the loop stopped on identical-repeat tool calls. Copied from
    *  `AgentLoopOutput.stoppedByDoomLoop` onto `RunResult.stoppedByDoomLoop`. */
   stoppedByDoomLoop?: boolean;
+  /** Tool calls a gate deferred; set with `finalStatus: "deferred"`. */
+  deferredToolCalls?: readonly import("../../../types/run.js").DeferredToolCall[];
   /**
    * SE3 — provenance of the turn (captured from `SendOptions.origin` at run
    * construction). Copied onto `RunResult.origin` by `applyScriptMetrics`.
