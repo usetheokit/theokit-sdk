@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1530 export(s) across 58 entry point(s).
+1538 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -117,6 +117,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `BUILTIN_TOOL_NAMES` | const | The names of the tools the SDK declares on its own initiative (and reserves against custom tools).  |
 | `BuiltinToolName` | type | A tool the SDK declares to the model on its own initiative — not one the consumer passed in {@link AgentOptions.tools } , and not one an MCP server exposed.  |
 | `chargeAndCheckThresholds` | function | Charge the budget + dispatch threshold/exceed callbacks (EC-8 isolated).  |
+| `checkToolName` | function | Checks a custom tool name against the SDK's rules without throwing, so a framework that compiles tools from configuration can reject a bad name before it constructs an `Agent`.  |
 | `CloudEnv` | interface | Cloud execution environment. |
 | `CloudOptions` | interface | Cloud agent configuration. |
 | `CloudRepo` | interface | Repo to clone into a cloud agent's VM. |
@@ -503,6 +504,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ToolContext` | interface | #65 — a 2nd argument passed to a tool handler, carrying the run's cancellation signal (ties into #58) so a cooperative tool can stop when the run is cancelled.  |
 | `ToolContextMessage` | interface | SE12 — a read-only, text-only projection of one turn of the run's conversation, exposed to a tool handler via `ctx.messages`.  |
 | `ToolError` | class | Thrown from a tool `handler` to surface a failure to the model.  |
+| `ToolNameProblem` | type | Why a custom tool name is refused.  |
 | `ToolResult` | interface | Result of a tool invocation.  |
 | `ToolResultContentBlock` | type | SE7 — structured content a tool result may carry: text and/or images.  |
 | `ToolResultGuardOptions` | interface | Options for the tool-result guard (spotlighting + PII redaction on tool output).  |
@@ -1622,6 +1624,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `E2BSandbox` | class | Sandbox backend that runs commands in an E2B sandbox. |
 | `E2BSandboxConfig` | interface | Configuration for {@link E2BSandbox } . |
 | `E2BSandboxHandle` | interface | The slice of an `e2b` `Sandbox` that {@link E2BSandbox } uses. |
+| `EgressProxy` | interface | A running egress proxy. |
+| `EgressRule` | interface | One destination the proxy lets through. |
 | `ExecuteResult` | interface | What a {@link SandboxBackend } returns for one command.  |
 | `interactiveWrapCommand` | function | The composition the interactive path needs — the counterpart of `createSandboxBackend`.  |
 | `InteractiveWrapOptions` | interface | Options for `interactiveWrapCommand`, the PTY counterpart of `createSandboxBackend`.  |
@@ -1653,6 +1657,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SeccompOptions` | interface | Input to {@link buildSeccompFilter } — the one axis the generated cBPF program varies on.  |
 | `seccompPathForArch` | function | M63 — the restricted-network seccomp program is DETERMINISTIC, so write it ONCE per process and reuse the path across every LinuxSandbox (no per-instance temp accumulation).  |
 | `shellEscapePosix` | function | Quotes `arg` as one word for POSIX `sh`, for a command line you build yourself and hand to `SandboxBackend.execute`.  |
+| `startEgressProxy` | function | Start a proxy on a Unix socket that lets through only `allow`.  |
 | `wrapCommandForSandbox` | function | M57 — the single source of truth for the sandbox command wrap.  |
 | `writableRootsFor` | function | U-6 — the roots a mode may write to, answerable WITHOUT spawning anything.  |
 
@@ -1677,10 +1682,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AuthProviderNotFoundError` | class | Thrown at `startSignIn(providerName, ...)` or `finishSignIn(providerName, ...)` when the named provider is not registered in `providers[]`. |
 | `AuthResult` | interface | Per ADR D9 — provider profile types are provider-specific (not unified).  |
 | `AuthSecretTooShortError` | class | T5.1 — Typed error thrown when an OAuth tx-cookie secret has < 32 bytes of entropy.  |
+| `clearTransactionCookie` | function | Appends a deleting `Set-Cookie` line for the transaction cookie to `headers`. |
 | `DefineAuthOptions` | interface | `defineAuth(opts)` configuration shape — Path C (Hybrid).  |
 | `OAuthTransaction` | interface | Per ADR D5 — OAuth transaction state stored in encrypted HttpOnly cookie (cookie-state pattern).  |
+| `readTransactionCookie` | function | Reads the transaction from a Web `Request`.  |
 | `SessionManager` | interface | SessionManager contract (matches theokit/packages/theo/src/server/auth/session.ts:49).  |
 | `validateReturnTo` | function | Clamp a caller-supplied `returnTo` to a same-origin destination, falling back to `'/'` for anything else.  |
+| `writeTransactionCookie` | function | Web `Headers` counterpart of the Node cookie write: appends the encrypted transaction cookie (`__Host-theo_oauth_tx`, HttpOnly, Secure, SameSite=Lax, Path=/, Max-Age=600) to `headers`, replacing an... |
 
 ## `@theokit/sdk/server/errors-envelope`
 
