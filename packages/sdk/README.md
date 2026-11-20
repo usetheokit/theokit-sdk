@@ -815,7 +815,34 @@ console.log(server.requests); // every request body received
 await server.close();
 ```
 
-`reply` may also be `(request) => string`. A body that is not JSON gets HTTP 400 and is recorded with `messages: []` and an `error` string. `host` accepts loopback addresses only. Scripted tool calls are not supported yet.
+`reply` may also be `(request) => string`. A body that is not JSON gets HTTP 400 and is recorded with `messages: []` and an `error` string. `host` accepts loopback addresses only.
+
+### Scripted turns: tool calls, errors and drift
+
+`startScriptedModelServer` answers a fixed sequence of turns (`{ text }`, `{ toolCalls }`, or `{ error: { status, body?, retryAfterSeconds? } }`), one per model request. A request after the last step answers 500 and `assertConsumed()` throws `UnexpectedModelCallError` (code `unexpected_model_call`, naming the call); steps left over make it throw `UnconsumedModelStepsError` (code `unconsumed_model_steps`). `close()` never throws. `wire` is `"openai"` (default) or `"ollama"`; the ollama parser numbers tool calls itself, so a step's `id` is ignored there.
+
+```ts
+import { Agent } from "@theokit/sdk";
+import { startScriptedModelServer } from "@theokit/sdk/testing";
+
+const server = await startScriptedModelServer({
+  steps: [{ toolCalls: [{ name: "add", input: { a: 1, b: 2 } }] }, { text: "3" }],
+});
+try {
+  const agent = await Agent.create({
+    apiKey: "local",
+    model: server.model,
+    local: { cwd: process.cwd() },
+    tools: [{ name: "add", description: "Add", inputSchema: { type: "object" },
+      handler: (i) => String(Number(i.a) + Number(i.b)) }],
+  });
+  await (await agent.send("1 + 2?")).wait();
+  console.log(server.requests[1]); // carries the tool result "3"
+  server.assertConsumed(); // fails if the loop made more or fewer calls
+} finally {
+  await server.close();
+}
+```
 
 ## Experimental exports
 
@@ -878,6 +905,14 @@ const agent = await Agent.create({
 ```
 
 A call to a filtered-out tool is refused in the client with a tool error naming the tool and the server; nothing is sent to the server. An `include` name the server does not list produces one diagnostics warning. A malformed filter makes `Agent.create` throw a `ConfigurationError` with code `invalid_mcp_tool_filter`.
+
+### MCP protocol revisions
+
+The MCP client supports the `2025-06-18`, `2025-03-26` and `2024-11-05` revisions. `initialize` offers the newest and keeps the revision the server answers; over HTTP that revision is then sent as `MCP-Protocol-Version` on every request. A server that answers a revision outside the list makes `initialize` reject with a `NetworkError` of code `mcp_protocol_unsupported`. To pin an older revision for a server that misbehaves on the newest, set `protocolVersion` on the server:
+
+```ts
+mcpServers: { legacy: { url: "https://mcp.example.com", protocolVersion: "2025-03-26" } }
+```
 
 ## Reading the managed settings document
 

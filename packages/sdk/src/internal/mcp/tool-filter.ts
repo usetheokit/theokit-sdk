@@ -15,6 +15,7 @@ import { diag } from "../diagnostics.js";
 interface FilterableClient {
   readonly name: string;
   readonly sequential?: boolean;
+  readonly protocolVersion?: string;
   initialize(): Promise<void>;
   listTools(): Promise<Array<{ name: string }>>;
   callTool(name: string, args: Record<string, unknown>): Promise<unknown>;
@@ -93,6 +94,9 @@ export function withToolFilter<C extends FilterableClient>(
     },
     get sequential() {
       return client.sequential;
+    },
+    get protocolVersion() {
+      return client.protocolVersion;
     },
     initialize: () => client.initialize(),
     close: () => client.close(),
