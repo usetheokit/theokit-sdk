@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1517 export(s) across 58 entry point(s).
+1537 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -621,7 +621,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `appendFactToMarkdown` | function | Write a fact as its own memory file and point the `MEMORY.md` index at it.  |
 | `asMemoryRoot` | function | Treat a directory as a memory root without resolving one.  |
 | `assertValidBackend` | function | EC-1: runtime guard for `opts.backend`.  |
-| `azureOpenAiMemoryEmbeddingProviderAdapter` | const | Azure OpenAI embeddings.  |
+| `azureOpenAiMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `azureOpenAi`: an OpenAI-compatible runtime factory with its default model and priority. |
 | `buildErrorMetadata` | function | Build an `ErrorMetadata` object with all optional fields included conditionally (no `undefined` keys in the output). |
 | `CategorizedFact` | interface | A fact stored under a typed category.  |
 | `CategorizedMemory` | interface | A typed, category-partitioned markdown memory store. |
@@ -633,7 +633,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `claudeProjectMemoryDir` | function | Where the Claude Code CLI keeps THIS project's memories.  |
 | `Cluster` | interface | A group of semantically similar facts, with the text chosen to represent them. |
 | `ClusterResult` | interface | What clustering produced: the clusters and how many facts the per-sweep cap left out. |
-| `cohereMemoryEmbeddingProviderAdapter` | const | Cohere embeddings.  |
+| `cohereMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `cohere`: an OpenAI-compatible runtime factory with its default model and priority. |
 | `collectMarkdownFiles` | function | Every markdown file the memory corpus holds: the index, the per-memory files, `notes/`, `wiki/` and `sessions/`, each tagged with the bucket `memory_search`'s `corpus` filters on.  |
 | `CreateAdapterOptions` | interface | Per-call overrides handed to {@link MemoryEmbeddingProviderAdapter.create } .  |
 | `createCategorizedMemory` | function | Create a typed categorized memory store over the closed `categories` taxonomy.  |
@@ -644,16 +644,16 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `createOpenAiCompatibleRuntime` | function | Build an {@link EmbeddingRuntime } for a provider that speaks the OpenAI embedding wire — or, through `cfg.dialect`, one that deviates from it in a known way.  |
 | `createVectorIndex` | function | Create the `embeddings` vec0 table for vectors of the given dimension. |
 | `DedupResult` | interface | Dreaming/REM phase logic.  |
-| `deepinfraMemoryEmbeddingProviderAdapter` | const | Open-weight embedding models (BGE, E5, GTE, MiniLM) hosted by DeepInfra.  |
+| `deepinfraMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `deepinfra`: an OpenAI-compatible runtime factory with its default model and priority. |
 | `deepPhase` | function | Deep phase — render consolidated markdown for the dreamed note. |
-| `DEFAULT_AZURE_OPENAI_EMBEDDING_MODEL` | const | Azure OpenAI embedding adapter.  |
-| `DEFAULT_COHERE_EMBEDDING_MODEL` | const | Cohere embedding adapter — `POST /v2/embed` at `https://api.cohere.com`.  |
+| `DEFAULT_AZURE_OPENAI_EMBEDDING_MODEL` | const | T4.10 — Azure OpenAI embedding adapter.  |
+| `DEFAULT_COHERE_EMBEDDING_MODEL` | const | T4.10 — Cohere embedding adapter.  |
 | `DEFAULT_DEEPINFRA_EMBEDDING_MODEL` | const | DeepInfra embedding adapter — hosts open-source embedding models (BGE, E5, Jina, etc.) at pay-per-token.  |
-| `DEFAULT_GEMINI_EMBEDDING_MODEL` | const | Google Gemini embedding adapter — the OpenAI-compatible surface at `https://generativelanguage.googleapis.com/v1/embeddings`.  |
-| `DEFAULT_JINA_EMBEDDING_MODEL` | const | Jina AI embedding adapter — OpenAI-compatible at `https://api.jina.ai/v1/embeddings`.  |
+| `DEFAULT_GEMINI_EMBEDDING_MODEL` | const | T4.10 — Google Gemini embedding adapter.  |
+| `DEFAULT_JINA_EMBEDDING_MODEL` | const | T4.10 — Jina AI embedding adapter.  |
 | `DEFAULT_MEMORY_READ_LINES` | const | Bounded read with truncation info (ADR D5 — `memory_get` foundation).  |
 | `DEFAULT_MISTRAL_EMBEDDING_MODEL` | const | Mistral embedding adapter — OpenAI-compatible REST surface (`POST /v1/embeddings` against `https://api.mistral.ai`).  |
-| `DEFAULT_OLLAMA_EMBEDDING_MODEL` | const | Model used when the caller names none: `nomic-embed-text`, 768 dimensions, roughly 274MB to pull.  |
+| `DEFAULT_OLLAMA_EMBEDDING_MODEL` | const | Default embedding model id for the Ollama adapter. |
 | `DEFAULT_OPENAI_EMBEDDING_MODEL` | const | OpenAI embedding adapter (ADR D3) — built on the shared OpenAI-compatible factory.  |
 | `DEFAULT_OPENROUTER_EMBEDDING_MODEL` | const | OpenRouter embedding adapter — routes through OpenRouter's `POST /api/v1/embeddings` endpoint (OpenAI-compatible request/response shape).  |
 | `DEFAULT_VOYAGE_EMBEDDING_MODEL` | const | Voyage AI embedding adapter — `POST /v1/embeddings` at `https://api.voyageai.com` with the OpenAI-compatible `{ model, input }` request shape.  |
@@ -676,7 +676,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `entryHash` | function | A stable hash of one entry's counts, so two sweeps that did the same work read as the same work.  |
 | `FactEntryInfo` | interface | What {@link listFactEntries } reports for one stored memory. |
 | `factsBlockRange` | function | Offsets of the text between the `## Facts` heading and the next h1/h2 heading (or the end). |
-| `geminiMemoryEmbeddingProviderAdapter` | const | Google Gemini embeddings through Google's OpenAI-compatible surface at `/v1beta/openai/embeddings`.  |
+| `geminiMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `gemini`: an OpenAI-compatible runtime factory with its default model and priority. |
 | `identityMatches` | function | Whether two embedding identities describe the same vector space. |
 | `indexBudgetWarning` | function | What to say about an index that the interop partner will truncate, or `undefined` when there is nothing true to say.  |
 | `IndexManager` | class | The default memory index: SQLite for storage, FTS5 for text matching, and sqlite-vec for vectors when an embedding runtime is supplied.  |
@@ -684,7 +684,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `InMemoryMarkdownProviderOptions` | interface | Options for {@link createInMemoryMarkdownProvider } . |
 | `isLanceAvailable` | function | Test helper for {@link LanceIndex } : indicates whether the Lance module is loadable in the current environment.  |
 | `isSqliteVecLoaded` | function | Check whether sqlite-vec is loaded by running a tiny version query. |
-| `jinaMemoryEmbeddingProviderAdapter` | const | Jina AI embeddings, over the standard OpenAI wire.  |
+| `jinaMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `jina`: an OpenAI-compatible runtime factory with its default model and priority. |
 | `LanceFactRecord` | interface | One row of the Lance `facts` table, as it is stored.  |
 | `LanceIndex` | class | Lance-backed memory index.  |
 | `LanceMemoryAdapter` | class | Presents a `LanceIndex` as a `MemoryIndex`, so a consumer written against the SQLite index runs unchanged on `backend: "lance"`.  |
@@ -727,18 +727,18 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MigrateResult` | interface | Outcome of {@link migrateSqliteToLance } .  |
 | `migrateSqliteToLance` | function | Run the migration.  |
 | `MigrationResult` | interface | Outcome of {@link migrateLegacyJson } .  |
-| `mistralMemoryEmbeddingProviderAdapter` | const | Mistral embeddings, over the standard OpenAI wire.  |
+| `mistralMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `mistral`: an OpenAI-compatible runtime factory with its default model and priority. |
 | `NoteFile` | interface | One note discovered under `notes/`: its file name without the `.md` suffix, and its absolute path. |
 | `notesDir` | function | Path to `<memory root>/notes`, where per-topic notes and the consolidated notes a dreaming sweep writes live.  |
-| `ollamaMemoryEmbeddingProviderAdapter` | const | Embeddings from a local Ollama instance — the only adapter in the catalog with `transport: "local"`, and the one to choose when the corpus must not leave the machine or when there is no API key to ... |
+| `ollamaMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `ollama`: an OpenAI-compatible runtime factory with its default model and priority. |
 | `OpenAiCompatibleConfig` | interface | What one provider adapter tells {@link createOpenAiCompatibleRuntime } about its wire: where to POST, which environment variables carry the key and the base URL, which model to use by default, and ... |
-| `openAiMemoryEmbeddingProviderAdapter` | const | OpenAI embeddings — `text-embedding-3-small` (1536), `text-embedding-3-large` (3072) and `text-embedding-ada-002` (1536).  |
+| `openAiMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `openAi`: an OpenAI-compatible runtime factory with its default model and priority. |
 | `OpenDbOptions` | interface | Options for opening the memory index database. |
 | `OpenIndexOptions` | interface | Options for `IndexManager.open`.  |
 | `openLanceIndex` | function | Lance-path open.  |
 | `OpenLanceOptions` | interface | Options for `LanceIndex.open`.  |
 | `openMemoryDb` | function | Open (creating if needed) the memory index database and apply the schema pragmas. |
-| `openRouterMemoryEmbeddingProviderAdapter` | const | Embeddings routed through OpenRouter, which lets one key reach several upstream providers.  |
+| `openRouterMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `openRouter`: an OpenAI-compatible runtime factory with its default model and priority. |
 | `packVector` | function | Pack a Float32Array into a Buffer suitable for sqlite-vec BLOB binding. |
 | `parseRetryAfter` | function | Parse `retry-after` header in numeric-seconds form.  |
 | `parseSearchOptions` | function | Common search-options parser used by both `IndexManager.search` and `LanceMemoryAdapter.search`.  |
@@ -777,7 +777,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `VALID_BACKENDS` | const | Valid backend identifiers — runtime guard against TS-narrowing escapes (EC-1). |
 | `VectorHitRow` | interface | One nearest-neighbour row returned by a vector search. |
 | `vectorSearch` | function | Run a nearest-neighbour search over the stored embeddings. |
-| `voyageMemoryEmbeddingProviderAdapter` | const | Voyage AI embeddings, over the standard OpenAI wire.  |
+| `voyageMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `voyage`: an OpenAI-compatible runtime factory with its default model and priority. |
 | `wikiDir` | function | `<memory root>/wiki`.  |
 | `WikiFile` | interface | Wiki supplement discovery (ADR Phase 10 of memory-system-peer-project-parity).  |
 | `writeEmbeddingIdentity` | function | Persist the embedding identity in the `meta` table. |
@@ -1260,11 +1260,31 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
+| `azureOpenAiMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `azureOpenAi`: an OpenAI-compatible runtime factory with its default model and priority. |
+| `cohereMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `cohere`: an OpenAI-compatible runtime factory with its default model and priority. |
 | `createOpenAiCompatibleRuntime` | function | Build an {@link EmbeddingRuntime } for a provider that speaks the OpenAI embedding wire — or, through `cfg.dialect`, one that deviates from it in a known way.  |
+| `deepinfraMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `deepinfra`: an OpenAI-compatible runtime factory with its default model and priority. |
+| `DEFAULT_AZURE_OPENAI_EMBEDDING_MODEL` | const | T4.10 — Azure OpenAI embedding adapter.  |
+| `DEFAULT_COHERE_EMBEDDING_MODEL` | const | T4.10 — Cohere embedding adapter.  |
+| `DEFAULT_DEEPINFRA_EMBEDDING_MODEL` | const | DeepInfra embedding adapter — hosts open-source embedding models (BGE, E5, Jina, etc.) at pay-per-token.  |
+| `DEFAULT_GEMINI_EMBEDDING_MODEL` | const | T4.10 — Google Gemini embedding adapter.  |
+| `DEFAULT_JINA_EMBEDDING_MODEL` | const | T4.10 — Jina AI embedding adapter.  |
+| `DEFAULT_MISTRAL_EMBEDDING_MODEL` | const | Mistral embedding adapter — OpenAI-compatible REST surface (`POST /v1/embeddings` against `https://api.mistral.ai`).  |
+| `DEFAULT_OLLAMA_EMBEDDING_MODEL` | const | Default embedding model id for the Ollama adapter. |
+| `DEFAULT_OPENAI_EMBEDDING_MODEL` | const | OpenAI embedding adapter (ADR D3) — built on the shared OpenAI-compatible factory.  |
+| `DEFAULT_OPENROUTER_EMBEDDING_MODEL` | const | OpenRouter embedding adapter — routes through OpenRouter's `POST /api/v1/embeddings` endpoint (OpenAI-compatible request/response shape).  |
+| `DEFAULT_VOYAGE_EMBEDDING_MODEL` | const | Voyage AI embedding adapter — `POST /v1/embeddings` at `https://api.voyageai.com` with the OpenAI-compatible `{ model, input }` request shape.  |
 | `EmbeddingDialect` | interface | theokit#159 — the three points where a provider may deviate from the OpenAI embedding wire.  |
+| `geminiMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `gemini`: an OpenAI-compatible runtime factory with its default model and priority. |
 | `globalEmbeddingCache` | const | T4.4 — Process-wide singleton embedding cache (DR4 finding #4).  |
+| `jinaMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `jina`: an OpenAI-compatible runtime factory with its default model and priority. |
 | `LruEmbeddingCache` | class | Bounded in-memory LRU cache for embeddings, keyed by `sha256(text)` (or any stable key the caller chooses).  |
+| `mistralMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `mistral`: an OpenAI-compatible runtime factory with its default model and priority. |
+| `ollamaMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `ollama`: an OpenAI-compatible runtime factory with its default model and priority. |
 | `OpenAiCompatibleConfig` | interface | What one provider adapter tells {@link createOpenAiCompatibleRuntime } about its wire: where to POST, which environment variables carry the key and the base URL, which model to use by default, and ... |
+| `openAiMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `openAi`: an OpenAI-compatible runtime factory with its default model and priority. |
+| `openRouterMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `openRouter`: an OpenAI-compatible runtime factory with its default model and priority. |
+| `voyageMemoryEmbeddingProviderAdapter` | const | Embedding provider adapter `voyage`: an OpenAI-compatible runtime factory with its default model and priority. |
 
 ## `@theokit/sdk/internal/memory-store`
 
