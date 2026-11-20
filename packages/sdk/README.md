@@ -686,6 +686,24 @@ try {
 
 LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
 
+## Workflow compensation (saga rollback)
+
+A top-level `fn` step can declare `compensate(input, output, error)`. When a later top-level step fails (after its retries), the executor calls `compensate` on every earlier completed step that declares one, in reverse completion order. Each call gets that step's own input and output and the error that failed the run.
+
+```ts
+Workflow.create({ name: "checkout" })
+  .then(fn("book", bookRoom, { compensate: (_in, booking) => cancelBooking(booking) }))
+  .then(fn("charge", chargeCard, { compensate: (_in, receipt) => refund(receipt) }))
+  .then(fn("notify", sendEmail)) // if this throws, `charge` then `book` are compensated
+  .commit();
+```
+
+- A `compensate` that throws is recorded as `"failed"` and the pass continues. The run stays `status: "failed"` with the original step error.
+- `run.compensation` lists `{ stepId, status: "compensated" | "failed", error? }` in call order; it is absent when nothing was compensated.
+- `Workflow.stream()` emits `step_compensated` or `step_compensation_failed` for each call.
+- The failing step does not compensate itself, and a cancelled run (abort signal) does not compensate.
+- Limits: `compensate` on a step nested in `parallel`, `branch`, `foreach` or `dowhile` fails with `WorkflowCompensateNotImplementedError`; `agent` steps cannot compensate; after `resume()` only steps completed since the resume are compensated; a compensation pass is not persisted across a crash.
+
 ## Crash recovery: `durability: "step"` and `listRuns()`
 
 By default a workflow writes a snapshot only when a step calls `suspend()`. Set `persistence: { backend: "json", dir, durability: "step" }` and the run is also checkpointed after every completed top-level step (not the children of `parallel`, `branch` or `foreach`). A completed run deletes its checkpoint; a failed or cancelled run keeps it. After a crash, `Workflow.resume({ workflow, runId })` continues from the step after the last checkpoint, and `workflow.listRuns()` returns `{ runId, status: "suspended" | "running", currentStepId, updatedAt }` for the snapshots the store holds for that workflow name. `durability: "step"` with `backend: "memory"` is allowed (useful in tests) but does not survive a restart. A crash between a step's side effect and its checkpoint can repeat that step. The run lock is still per process: it does not stop a second process from resuming the same run.

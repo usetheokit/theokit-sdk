@@ -29,6 +29,7 @@ import {
 } from "../../workflow-errors.js";
 import { combineSignals, makeStepContext, WorkflowSuspendedSentinel } from "./ctx.js";
 import { errToShape } from "./error-shape.js";
+import { type Compensable, settleStep } from "./executor-compensation.js";
 import {
   abortRun,
   assembleRun,
@@ -135,12 +136,16 @@ async function runOneStep<T>(args: {
   });
   let result: StepResult;
   try {
-    result = await dispatchStep(args.step, args.acc, {
-      ctx: args.ctx,
-      options: args.options,
-      prevStepResults: args.stepResults,
-      dispatch: dispatchStep,
-    });
+    // Top-level fn steps may declare `compensate`; nested ones still go through dispatchStep.
+    result =
+      args.step.kind === "fn"
+        ? await runFnStep(args.step, args.acc, args.ctx, true)
+        : await dispatchStep(args.step, args.acc, {
+            ctx: args.ctx,
+            options: args.options,
+            prevStepResults: args.stepResults,
+            dispatch: dispatchStep,
+          });
   } catch (err) {
     if (err instanceof WorkflowSuspendedSentinel) {
       const outcome = await handleSuspend<T>(err, { ...args, stepSpan, stepCtx: args.ctx });
@@ -264,31 +269,13 @@ async function clearCheckpoint(options: WorkflowOptions, runId: string): Promise
   await getSnapshotStoreFor(options).delete(runId);
 }
 
-async function runStepsLoop<TO>(params: LoopParams): Promise<WorkflowRun<TO>> {
-  const { options, steps, ctx, runId, startedAt, signal, onStepEvent } = params;
-  // M3 #62 — seed with prior step outputs so a resumed workflow is not lossy.
-  const stepResults: StepResult[] = [...(params.initialStepResults ?? [])];
-  const loop = { stepResults, runId, name: options.name, startedAt };
-  let acc: unknown = params.input;
-  for (const step of steps) {
-    if (signal.aborted) return abortRun<TO>(options.name, runId, startedAt, stepResults, signal);
-    onStepEvent?.({ type: "step_started", stepId: step.id });
-    const outcome = await runOneStep<TO>({
-      step,
-      acc,
-      ctx,
-      options,
-      stepResults,
-      runId,
-      name: options.name,
-      startedAt,
-    });
-    const handled = handleStepOutcome<TO>(outcome, step, loop, onStepEvent);
-    if ("terminal" in handled) return handled.terminal;
-    acc = handled.acc;
-    const failed = await checkpointStep<TO>(params, step, stepResults, acc);
-    if (failed !== undefined) return failed;
-  }
+/** Terminal path: validate the output schema, clear the checkpoint, assemble the run. */
+async function finishRun<TO>(
+  params: LoopParams,
+  stepResults: StepResult[],
+  acc: unknown,
+): Promise<WorkflowRun<TO>> {
+  const { options, runId, startedAt, onStepEvent } = params;
   // SE27 — validate the whole-workflow output only on the terminal completed path.
   const outputIssues = validateWorkflowSchema(options.outputSchema, acc);
   if (outputIssues !== undefined) {
@@ -311,6 +298,42 @@ async function runStepsLoop<TO>(params: LoopParams): Promise<WorkflowRun<TO>> {
     stepResults,
     startedAt,
   });
+}
+
+async function runStepsLoop<TO>(params: LoopParams): Promise<WorkflowRun<TO>> {
+  const { options, steps, ctx, runId, startedAt, signal, onStepEvent } = params;
+  // M3 #62 — seed with prior step outputs so a resumed workflow is not lossy.
+  const stepResults: StepResult[] = [...(params.initialStepResults ?? [])];
+  const loop = { stepResults, runId, name: options.name, startedAt };
+  let acc: unknown = params.input;
+  const done: Compensable[] = [];
+  for (const step of steps) {
+    if (signal.aborted) return abortRun<TO>(options.name, runId, startedAt, stepResults, signal);
+    onStepEvent?.({ type: "step_started", stepId: step.id });
+    const outcome = await runOneStep<TO>({
+      step,
+      acc,
+      ctx,
+      options,
+      stepResults,
+      runId,
+      name: options.name,
+      startedAt,
+    });
+    const handled = await settleStep<TO>(handleStepOutcome<TO>(outcome, step, loop, onStepEvent), {
+      outcome,
+      step,
+      input: acc,
+      done,
+      signal,
+      ...(onStepEvent !== undefined ? { onStepEvent } : {}),
+    });
+    if ("terminal" in handled) return handled.terminal;
+    acc = handled.acc;
+    const failed = await checkpointStep<TO>(params, step, stepResults, acc);
+    if (failed !== undefined) return failed;
+  }
+  return finishRun<TO>(params, stepResults, acc);
 }
 
 /** M3 #62 — internal-only resume seam: prior step outputs are NOT on the public

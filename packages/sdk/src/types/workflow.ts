@@ -52,14 +52,15 @@ export interface FnStep {
   readonly outputSchema?: ZodType;
   readonly retry?: RetryPolicy;
   /**
-   * @deprecated NOT IMPLEMENTED. Setting this does not enable saga rollback — it arms
-   * `WorkflowCompensateNotImplementedError`, so the step FAILS at run time and the message tells you
-   * to remove it. A field whose only effect is to make the step fail is worse than an absent field,
-   * because the type invites it and the cost is discovered in production.
+   * Saga rollback. When a LATER top-level step fails (after its retries), the executor calls this
+   * for every earlier completed top-level `fn` step that declares one, in reverse completion order,
+   * with that step's input, its output and the error that failed the run. A throwing `compensate`
+   * is recorded in `WorkflowRun.compensation` as `"failed"` and the pass continues. The failing
+   * step does not compensate itself, and a cancelled run does not compensate.
    *
-   * Kept rather than removed because `FnStep` is published and dropping a member is a major-version
-   * decision. The deprecation is the part that reaches a caller at the point of use: an editor
-   * strikes it through, which the D238 comment that stood here ("slot reserved") did not.
+   * Only top-level steps are supported: on a step nested in `parallel`, `branch`, `foreach` or
+   * `dowhile` the step fails with `WorkflowCompensateNotImplementedError`. After a `resume()`, only
+   * steps completed since the resume are compensated.
    */
   readonly compensate?: (input: unknown, output: unknown, error: Error) => Promise<void> | void;
 }
@@ -224,7 +225,7 @@ export interface StepContext {
  *
  * `attempts` means different things per kind. For `fn` and `agent` it counts execution attempts: 1
  * without a `retry` policy, and 0 when the step failed before its body ran — an `inputSchema`
- * rejection, a prompt template that threw, a `compensate` v1 refuses, or a cloud agent. For `dowhile`
+ * rejection, a prompt template that threw, a nested `compensate`, or a cloud agent. For `dowhile`
  * it counts loop iterations instead.
  */
 export interface StepResult {
@@ -259,6 +260,15 @@ export interface WorkflowRun<TOutput = unknown> {
   readonly startedAt: number;
   readonly endedAt?: number;
   readonly stepResults: ReadonlyArray<StepResult>;
+  /** Outcome of each `compensate` call, in call order. Absent when no compensation ran. */
+  readonly compensation?: ReadonlyArray<CompensationResult>;
+}
+
+/** The outcome of one `compensate` call. @public */
+export interface CompensationResult {
+  readonly stepId: string;
+  readonly status: "compensated" | "failed";
+  readonly error?: { name: string; message: string };
 }
 
 /**
@@ -314,6 +324,12 @@ export type WorkflowEvent =
   | { readonly type: "step_completed"; readonly stepId: string; readonly output: unknown }
   | {
       readonly type: "step_failed";
+      readonly stepId: string;
+      readonly error: { readonly name: string; readonly message: string };
+    }
+  | { readonly type: "step_compensated"; readonly stepId: string }
+  | {
+      readonly type: "step_compensation_failed";
       readonly stepId: string;
       readonly error: { readonly name: string; readonly message: string };
     }
