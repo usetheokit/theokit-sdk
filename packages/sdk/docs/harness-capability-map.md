@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1527 export(s) across 58 entry point(s).
+1530 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1619,6 +1619,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `E2BSandbox` | class | Sandbox backend that runs commands in an E2B sandbox. |
 | `E2BSandboxConfig` | interface | Configuration for {@link E2BSandbox } . |
 | `E2BSandboxHandle` | interface | The slice of an `e2b` `Sandbox` that {@link E2BSandbox } uses. |
+| `EgressProxy` | interface | A running egress proxy. |
+| `EgressRule` | interface | One destination the proxy lets through. |
 | `ExecuteResult` | interface | What a {@link SandboxBackend } returns for one command.  |
 | `interactiveWrapCommand` | function | The composition the interactive path needs — the counterpart of `createSandboxBackend`.  |
 | `InteractiveWrapOptions` | interface | Options for `interactiveWrapCommand`, the PTY counterpart of `createSandboxBackend`.  |
@@ -1650,6 +1652,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SeccompOptions` | interface | Input to {@link buildSeccompFilter } — the one axis the generated cBPF program varies on.  |
 | `seccompPathForArch` | function | M63 — the restricted-network seccomp program is DETERMINISTIC, so write it ONCE per process and reuse the path across every LinuxSandbox (no per-instance temp accumulation).  |
 | `shellEscapePosix` | function | Quotes `arg` as one word for POSIX `sh`, for a command line you build yourself and hand to `SandboxBackend.execute`.  |
+| `startEgressProxy` | function | Start a proxy on a Unix socket that lets through only `allow`.  |
 | `wrapCommandForSandbox` | function | M57 — the single source of truth for the sandbox command wrap.  |
 | `writableRootsFor` | function | U-6 — the roots a mode may write to, answerable WITHOUT spawning anything.  |
 
