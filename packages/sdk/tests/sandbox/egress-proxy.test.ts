@@ -102,6 +102,6 @@ describe("egress proxy", () => {
   it("close removes the socket", async () => {
     const p = await startEgressProxy({ allow: [] });
     await p.close();
-    await expect(connectVia(p, "x:1")).rejects.toThrow();
+    await expect(connectVia(p, "x:1")).rejects.toMatchObject({ code: "ENOENT" });
   });
 });
