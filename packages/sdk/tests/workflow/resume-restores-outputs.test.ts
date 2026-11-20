@@ -4,8 +4,10 @@
  * from the suspend point with only the payload — mid-flow state (earlier step
  * outputs) was lost.
  */
+
 import { describe, expect, it } from "vitest";
-import { __resetSnapshotStoresForTests, fn, Workflow } from "../../src/workflow.js";
+import { __resetSnapshotStoresForTests } from "../../src/internal/workflow/snapshot-store.js";
+import { fn, Workflow } from "../../src/workflow.js";
 
 describe("M3 #62 — workflow resume restores accumulated outputs", () => {
   it("the resumed run's stepResults include the pre-suspend step output", async () => {
