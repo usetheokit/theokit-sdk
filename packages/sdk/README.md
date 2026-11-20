@@ -620,6 +620,19 @@ export async function callback(request: Request) {
 
 `DEFAULT_PROVIDER_CANDIDATES` is the one default order: `openrouter` (`OPENROUTER_API_KEY`), `anthropic` (`ANTHROPIC_API_KEY`), `openai` (`OPENAI_API_KEY`). It matches the chain `@theokit/agents` already uses. Errors are `ProviderCredentialError`; messages name variables, never values.
 
+## `@theokit/sdk/persistence`: owner-only directories and synchronous atomic writes
+
+`ensureSecureDir(filePath)` makes the parent directory of `filePath` owner-only: it creates a missing one as `0700`, and if an existing one is writable by group or other it chmods it to `0700` and checks again. It throws `InsecureDirectoryError` (code `insecure_directory`, the directory in the message) when the repair does not hold. It does nothing on Windows.
+
+`atomicWriteJsonSync(filePath, data, options?)` is the synchronous twin of `atomicWriteJson`: same temp-file naming, same mode reassertion, same cleanup on failure, and a `TypeError` for `undefined` or circular data. `atomicWriteJson` and `atomicWriteJsonSync` both take `dirMode`, the mode for the parent directory when it has to be created (filtered by the `umask`; an existing directory is left as it is, so call `ensureSecureDir` to repair one).
+
+```ts
+import { atomicWriteJsonSync, ensureSecureDir } from "@theokit/sdk/persistence";
+
+ensureSecureDir(jobsPath);
+atomicWriteJsonSync(jobsPath, jobs, { mode: 0o600 });
+```
+
 ## `@theokit/sdk/persistence`: named profiles
 
 `resolveProfile(name, { profilesRoot?, appDirectories? })` maps a profile name to `<profilesRoot>/<name>` (default `getProfilesRoot()`, `~/.theokit/profiles`) and returns `directory`, `directories` and `env` (`THEOKIT_HOME` and `THEOKIT_AUTH_HOME` set to the profile directory, plus one entry per `appDirectories` item, joined under the profile). Names must match `^[a-z0-9][a-z0-9-]{0,15}$`, otherwise `ConfigurationError` code `profile_name_invalid` (the name is not echoed). App directory values must be relative and free of `..`. It touches no disk.

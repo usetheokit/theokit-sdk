@@ -2002,7 +2002,7 @@
     "./persistence#import": {
       "AtomicWriteJsonOptions": {
         "tier": "stable",
-        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n}"
+        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n    dirMode?: number;\n}"
       },
       "FileLockOptions": {
         "tier": "stable",
@@ -2015,6 +2015,10 @@
       "InMemorySessionStore": {
         "tier": "stable",
         "declaration": "declare class InMemorySessionStore implements SessionStore {\n    #private;\n    readRecords(agentId: string): Promise<SessionRecord[]>;\n    appendRecords(agentId: string, records: readonly SessionRecord[]): Promise<void>;\n}"
+      },
+      "InsecureDirectoryError": {
+        "tier": "stable",
+        "declaration": "declare class InsecureDirectoryError extends TheokitAgentError {\n    readonly name = \"InsecureDirectoryError\";\n    readonly directory: string;\n    constructor(directory: string, detail: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
       "InstanceLock": {
         "tier": "stable",
@@ -2132,6 +2136,10 @@
         "tier": "stable",
         "declaration": "declare function atomicWriteJson<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): Promise<void>;"
       },
+      "atomicWriteJsonSync": {
+        "tier": "stable",
+        "declaration": "declare function atomicWriteJsonSync<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): void;"
+      },
       "atomicWriteTempTarget": {
         "tier": "stable",
         "declaration": "declare function atomicWriteTempTarget(name: string): string | undefined;"
@@ -2147,6 +2155,10 @@
       "encodeProjectDir": {
         "tier": "stable",
         "declaration": "declare function encodeProjectDir(cwd: string): string;"
+      },
+      "ensureSecureDir": {
+        "tier": "stable",
+        "declaration": "declare function ensureSecureDir(filePath: string): void;"
       },
       "forkTranscript": {
         "tier": "stable",
@@ -2224,7 +2236,7 @@
     "./persistence#require": {
       "AtomicWriteJsonOptions": {
         "tier": "stable",
-        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n}"
+        "declaration": "interface AtomicWriteJsonOptions extends AtomicWriteFileOptions {\n    indent?: number;\n    trailingNewline?: boolean;\n    dirMode?: number;\n}"
       },
       "FileLockOptions": {
         "tier": "stable",
@@ -2237,6 +2249,10 @@
       "InMemorySessionStore": {
         "tier": "stable",
         "declaration": "declare class InMemorySessionStore implements SessionStore {\n    #private;\n    readRecords(agentId: string): Promise<SessionRecord[]>;\n    appendRecords(agentId: string, records: readonly SessionRecord[]): Promise<void>;\n}"
+      },
+      "InsecureDirectoryError": {
+        "tier": "stable",
+        "declaration": "declare class InsecureDirectoryError extends TheokitAgentError {\n    readonly name = \"InsecureDirectoryError\";\n    readonly directory: string;\n    constructor(directory: string, detail: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
       "InstanceLock": {
         "tier": "stable",
@@ -2354,6 +2370,10 @@
         "tier": "stable",
         "declaration": "declare function atomicWriteJson<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): Promise<void>;"
       },
+      "atomicWriteJsonSync": {
+        "tier": "stable",
+        "declaration": "declare function atomicWriteJsonSync<T>(filePath: string, data: T, options?: AtomicWriteJsonOptions): void;"
+      },
       "atomicWriteTempTarget": {
         "tier": "stable",
         "declaration": "declare function atomicWriteTempTarget(name: string): string | undefined;"
@@ -2369,6 +2389,10 @@
       "encodeProjectDir": {
         "tier": "stable",
         "declaration": "declare function encodeProjectDir(cwd: string): string;"
+      },
+      "ensureSecureDir": {
+        "tier": "stable",
+        "declaration": "declare function ensureSecureDir(filePath: string): void;"
       },
       "forkTranscript": {
         "tier": "stable",
