@@ -572,10 +572,6 @@ export function cloneWorkflow<TI = unknown, TO = unknown>(
   );
 }
 
-/* ─── Test seam re-export ─── */
-
-export { __resetSnapshotStoresForTests } from "./internal/workflow/snapshot-store.js";
-
 /* ─── Re-exports for ergonomics (errors + all public types). After the
        sub-path extraction `@theokit/sdk/workflow` is the single import site,
        so type aliases must surface here (previously they reached consumers
