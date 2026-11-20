@@ -3536,6 +3536,18 @@
         "tier": "stable",
         "declaration": "export interface FakeModelServerOptions {\n    wire?: \"openai\" | \"ollama\";\n    reply?: string | ((request: FakeModelRequest) => string);\n    host?: string;\n}"
       },
+      "SessionStoreConformanceCase": {
+        "tier": "stable",
+        "declaration": "export interface SessionStoreConformanceCase {\n    readonly name: string;\n    run(): Promise<void>;\n    readonly skipReason?: string;\n}"
+      },
+      "SessionStoreFactory": {
+        "tier": "stable",
+        "declaration": "export interface SessionStoreFactory {\n    create(): Promise<SessionStore>;\n    createUnreachable?(): Promise<SessionStore>;\n    readonly sharesBackend?: boolean;\n    readonly exclusiveLeases?: boolean;\n}"
+      },
+      "sessionStoreConformanceCases": {
+        "tier": "stable",
+        "declaration": "export declare function sessionStoreConformanceCases(factory: SessionStoreFactory): readonly SessionStoreConformanceCase[];"
+      },
       "startFakeModelServer": {
         "tier": "stable",
         "declaration": "export declare function startFakeModelServer(options?: FakeModelServerOptions): Promise<FakeModelServer>;"
@@ -3553,6 +3565,18 @@
       "FakeModelServerOptions": {
         "tier": "stable",
         "declaration": "export interface FakeModelServerOptions {\n    wire?: \"openai\" | \"ollama\";\n    reply?: string | ((request: FakeModelRequest) => string);\n    host?: string;\n}"
+      },
+      "SessionStoreConformanceCase": {
+        "tier": "stable",
+        "declaration": "export interface SessionStoreConformanceCase {\n    readonly name: string;\n    run(): Promise<void>;\n    readonly skipReason?: string;\n}"
+      },
+      "SessionStoreFactory": {
+        "tier": "stable",
+        "declaration": "export interface SessionStoreFactory {\n    create(): Promise<SessionStore>;\n    createUnreachable?(): Promise<SessionStore>;\n    readonly sharesBackend?: boolean;\n    readonly exclusiveLeases?: boolean;\n}"
+      },
+      "sessionStoreConformanceCases": {
+        "tier": "stable",
+        "declaration": "export declare function sessionStoreConformanceCases(factory: SessionStoreFactory): readonly SessionStoreConformanceCase[];"
       },
       "startFakeModelServer": {
         "tier": "stable",
