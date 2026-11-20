@@ -271,7 +271,13 @@ export class LinuxSandbox extends LocalSandbox {
     config: SandboxConfig,
     opts: {
       mode: SandboxMode;
-      network?: boolean | NetworkAllowlist;
+      network?:
+        | boolean
+        | {
+            allow: readonly EgressRule[];
+            credentials?: readonly CredentialRule[];
+            upstreamCa?: string;
+          };
       bin?: string;
       env?: Record<string, string>;
       denyReadPaths?: readonly string[];
@@ -571,7 +577,13 @@ export interface CreateSandboxBackendOptions {
    * destinations through a host-side proxy (needs bubblewrap: throws `SandboxNotAvailableError`
    * instead of falling back, and is refused under `danger-full-access`).
    */
-  network?: boolean | NetworkAllowlist;
+  network?:
+    | boolean
+    | {
+        allow: readonly EgressRule[];
+        credentials?: readonly CredentialRule[];
+        upstreamCa?: string;
+      };
   timeoutMs?: number;
   /** Paths the shell cannot read. Never degrades to unconfined: throws `TypeError` or `SandboxNotAvailableError`. */
   denyReadPaths?: readonly string[];
