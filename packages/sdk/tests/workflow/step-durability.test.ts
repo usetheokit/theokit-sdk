@@ -2,7 +2,8 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, onTestFinished } from "vitest";
-import { __resetSnapshotStoresForTests, fn, Workflow } from "../../src/workflow.js";
+import { __resetSnapshotStoresForTests } from "../../src/internal/workflow/snapshot-store.js";
+import { fn, Workflow } from "../../src/workflow.js";
 import { removeTempDirRobust } from "../helpers/temp-workspace.js";
 
 afterEach(() => __resetSnapshotStoresForTests());
