@@ -104,10 +104,11 @@ export async function forkAgentImpl(
   try {
     return await withToolWhitelist(options.allowedTools, async () => {
       const run = await fork.send(options.prompt);
+      const toolCalls = await collectToolCalls(run);
       const result = await run.wait();
       return {
         result: result.result,
-        toolCalls: [],
+        toolCalls,
         usage: extractUsage(result),
       };
     });
@@ -129,4 +130,32 @@ function extractUsage(result: unknown): { inputTokens: number; outputTokens: num
     inputTokens: typeof u.inputTokens === "number" ? u.inputTokens : 0,
     outputTokens: typeof u.outputTokens === "number" ? u.outputTokens : 0,
   };
+}
+
+/**
+ * Drain the run stream and collect one entry per tool call (keyed by
+ * `call_id`, first-seen order). Events without a `call_id` count as separate calls.
+ */
+async function collectToolCalls(
+  run: unknown,
+): Promise<Array<{ name: string; input: Record<string, unknown> }>> {
+  const stream = (run as { stream?: () => AsyncIterable<unknown> }).stream;
+  if (typeof stream !== "function") return [];
+  const calls: Array<{ name: string; input: Record<string, unknown> }> = [];
+  const seen = new Set<string>();
+  for await (const msg of stream.call(run)) {
+    if (typeof msg !== "object" || msg === null) continue;
+    const m = msg as { type?: unknown; name?: unknown; call_id?: unknown; args?: unknown };
+    if (m.type !== "tool_call" || typeof m.name !== "string") continue;
+    if (typeof m.call_id === "string") {
+      if (seen.has(m.call_id)) continue;
+      seen.add(m.call_id);
+    }
+    const input =
+      typeof m.args === "object" && m.args !== null && !Array.isArray(m.args)
+        ? (m.args as Record<string, unknown>)
+        : {};
+    calls.push({ name: m.name, input });
+  }
+  return calls;
 }
