@@ -30,6 +30,7 @@ export {
   type SessionArtifactStore,
   type SessionArtifactStoreOptions,
 } from "./artifact-store.js";
+export { type CreateComputerToolOptions, createComputerTool } from "./computer-tool.js";
 export {
   type CreateCurrentTimeToolOptions,
   createCurrentTimeTool,
