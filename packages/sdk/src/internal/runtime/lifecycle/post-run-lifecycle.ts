@@ -4,7 +4,6 @@ import {
   type EffectiveContextWindow,
   resolveEffectiveContextWindow,
 } from "../../../compaction.js";
-import { DeferredTranscriptWriteError } from "../../../errors.js";
 import type { MemorySettings } from "../../../types/agent.js";
 import type { Run } from "../../../types/run.js";
 import type { RunEventSink } from "../../../types/run-events.js";
@@ -18,13 +17,12 @@ import { buildDefaultSummarizer } from "../../session/compact-session.js";
 import {
   appendSessionMessage,
   flushSessionWrites,
-  persistTurnDurably,
   persistTurnToTranscript,
 } from "../../session/index.js";
 import type { HooksExecutor } from "../hooks/hooks-executor.js";
 import type { MemoryProvider } from "../memory-glue/memory-provider.js";
 import { buildContextBudgetEvent } from "./context-budget-event.js";
-import { type DeferredDurability, readRunResolving } from "./throw-on-error-run.js";
+import { readRunResolving } from "./throw-on-error-run.js";
 
 /**
  * Inputs for {@link runPostRunLifecycle}. Bundled into a single record so the
@@ -37,8 +35,6 @@ import { type DeferredDurability, readRunResolving } from "./throw-on-error-run.
  */
 export interface PostRunLifecycleInputs {
   run: Run;
-  /** Settled once a deferred run's transcript is on disk (or its write failed). */
-  deferredDurability?: DeferredDurability;
   userText: string;
   agentId: string;
   workspaceCwd: string;
@@ -220,48 +216,34 @@ export async function runPostRunLifecycle(inputs: PostRunLifecycleInputs): Promi
   // multi-round agentic turns. Prefer the last request's breakdown when available.
   const lastRequestUsage = result.usage?.requests?.at(-1)?.totalTokens;
   const usageForTrigger = lastRequestUsage ?? result.usage?.totalTokens;
-  if (result.status === "deferred") {
-    // The unanswered `tool_use` must be on disk before the result is exposed: it is all a later
-    // process has to resume from. A write failure reaches the caller of `run.wait()` as a typed error.
-    try {
-      await persistTurnDurably(sessionStore, { cwd: workspaceCwd, agentId, model }, agentId, {
-        userText,
-        conversation,
-        ...(result.deferredToolCalls !== undefined
-          ? { deferredToolCalls: result.deferredToolCalls }
-          : {}),
-      });
-      inputs.deferredDurability?.settle();
-    } catch (cause) {
-      const msg = cause instanceof Error ? cause.message : String(cause);
-      inputs.deferredDurability?.settle(
-        new DeferredTranscriptWriteError(`Deferred tool call not persisted: ${msg}`, { cause }),
-      );
-    }
-  } else {
-    persistTurnToTranscript(
-      sessionStore,
-      { cwd: workspaceCwd, agentId, model },
-      agentId,
-      {
-        userText,
-        conversation,
-        autoCompact: {
-          usageTotal: usageForTrigger,
-          // The EFFECTIVE window (after override, clamp and margin) — not the declared one. Swapping for
-          // `contextWindow` here would budget against a number the clamp already rejected.
-          contextWindow: effectiveWindow,
-          summarize: buildDefaultSummarizer({
-            agentModel: model,
-            ...(inputs.apiKey !== undefined ? { apiKey: inputs.apiKey } : {}),
+  const deferred = result.status === "deferred";
+  persistTurnToTranscript(
+    sessionStore,
+    { cwd: workspaceCwd, agentId, model },
+    agentId,
+    {
+      userText,
+      conversation,
+      // A deferred turn keeps the unanswered `tool_use` last: no compaction, and the calls are recorded.
+      ...(deferred
+        ? { deferredToolCalls: result.deferredToolCalls ?? [] }
+        : {
+            autoCompact: {
+              usageTotal: usageForTrigger,
+              // The EFFECTIVE window (after override, clamp and margin) — not the declared one. Swapping for
+              // `contextWindow` here would budget against a number the clamp already rejected.
+              contextWindow: effectiveWindow,
+              summarize: buildDefaultSummarizer({
+                agentModel: model,
+                ...(inputs.apiKey !== undefined ? { apiKey: inputs.apiKey } : {}),
+              }),
+            },
           }),
-        },
-      },
-      onRunEvent !== undefined
-        ? () => emitRunEvent(onRunEvent, { type: "compact_boundary", trigger: "auto" })
-        : undefined,
-    );
-  }
+    },
+    onRunEvent !== undefined
+      ? () => emitRunEvent(onRunEvent, { type: "compact_boundary", trigger: "auto" })
+      : undefined,
+  );
 
   // ADR D20 + EC-9: only finished runs feed the corpus="sessions" index.
   // usetheokit/theokit-sdk#382: and only when the agent has not disabled memory. The gate sits here

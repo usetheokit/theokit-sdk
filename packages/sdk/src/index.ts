@@ -89,7 +89,6 @@ export {
   AuthenticationError,
   BudgetExceededError,
   ConfigurationError,
-  DeferredTranscriptWriteError,
   type ErrorCode,
   type ErrorMetadata,
   IntegrationNotConnectedError,

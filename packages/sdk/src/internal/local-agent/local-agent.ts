@@ -31,12 +31,7 @@ import type { ProvidersManagerImpl } from "../runtime/config/providers-manager.j
 import type { FileContextManager } from "../runtime/context/context-manager.js";
 import { HooksExecutor } from "../runtime/hooks/hooks-executor.js";
 import { runPostRunLifecycle } from "../runtime/lifecycle/post-run-lifecycle.js";
-import {
-  durabilityOf,
-  settleAfter,
-  withDeferredDurability,
-  wrapRunWithThrowOnError,
-} from "../runtime/lifecycle/throw-on-error-run.js";
+import { wrapRunWithThrowOnError } from "../runtime/lifecycle/throw-on-error-run.js";
 import type { MemoryFact } from "../runtime/memory-glue/memory-store.js";
 import { normalizeModel } from "../runtime/model-selection.js";
 import { importTrustedManifestPlugins } from "../runtime/plugin-loader/manifest-entry-import.js";
@@ -442,33 +437,30 @@ export class LocalAgent implements SDKAgent {
     }
     // T3.2: opt-in Task wrapping (ADRs D363/D374).
     if (options.task !== undefined) registerRunAsTask(run, this.agentId, options.task, userText);
-    const view = withDeferredDurability(callerView(run, this.options.throwOnError));
+    const view = callerView(run, this.options.throwOnError);
     res(view);
     resolve(view);
     try {
-      await settleAfter(view, () =>
-        runPostRunLifecycle({
-          run,
-          deferredDurability: durabilityOf(view),
-          userText,
-          agentId: this.agentId,
-          workspaceCwd: this.workspaceCwd,
-          sessionStore: this.sessionStore,
-          model: this.model?.id ?? "unknown",
-          ...this.#declaredWindow(),
-          // M50 — the auto-compaction summarizer resolves credentials like the run itself.
-          ...(this.options.apiKey !== undefined ? { apiKey: this.options.apiKey } : {}),
-          ...(options.onRunEvent !== undefined ? { onRunEvent: options.onRunEvent } : {}),
-          hooksExecutor: this.hooksExecutor,
-          // usetheokit/theokit-sdk#382 — the transcript write reads this and nothing else.
-          memory: this.options.memory,
-          // A consumer-supplied provider wins; otherwise the auto-installed adapter over
-          // `LocalAgentMemory`. Since the kernel flip there is no third case, so this is passed
-          // unconditionally — the `!== undefined` spread that used to guard it could not be false,
-          // and `recordSessionSummary` is now always reached through the port.
-          memoryProvider: this.options.memoryProvider ?? this.defaultMemoryProviderForLoop,
-        }),
-      );
+      await runPostRunLifecycle({
+        run,
+        userText,
+        agentId: this.agentId,
+        workspaceCwd: this.workspaceCwd,
+        sessionStore: this.sessionStore,
+        model: this.model?.id ?? "unknown",
+        ...this.#declaredWindow(),
+        // M50 — the auto-compaction summarizer resolves credentials like the run itself.
+        ...(this.options.apiKey !== undefined ? { apiKey: this.options.apiKey } : {}),
+        ...(options.onRunEvent !== undefined ? { onRunEvent: options.onRunEvent } : {}),
+        hooksExecutor: this.hooksExecutor,
+        // usetheokit/theokit-sdk#382 — the transcript write reads this and nothing else.
+        memory: this.options.memory,
+        // A consumer-supplied provider wins; otherwise the auto-installed adapter over
+        // `LocalAgentMemory`. Since the kernel flip there is no third case, so this is passed
+        // unconditionally — the `!== undefined` spread that used to guard it could not be false,
+        // and `recordSessionSummary` is now always reached through the port.
+        memoryProvider: this.options.memoryProvider ?? this.defaultMemoryProviderForLoop,
+      });
     } finally {
       sendSpan.end();
       this.activeTurn = undefined;

@@ -167,21 +167,6 @@ export class ToolDecisionMismatchError extends TheokitAgentError {
 }
 
 /**
- * Thrown by `run.wait()` when a run ended on deferred tool calls but the transcript holding the
- * unanswered `tool_use` could not be written: the deferral would not survive a restart, so the run
- * does not resolve as `deferred`.
- *
- * @public
- */
-export class DeferredTranscriptWriteError extends TheokitAgentError {
-  override readonly name: string = "DeferredTranscriptWriteError";
-
-  constructor(message: string, options: { cause?: unknown; metadata?: ErrorMetadata } = {}) {
-    super(message, { ...options, code: "deferred_transcript_write_failed", isRetryable: false });
-  }
-}
-
-/**
  * Thrown when creating a cloud agent for a repo whose SCM provider is not
  * connected. Use `helpUrl` to point the user at the right reconnect flow.
  *

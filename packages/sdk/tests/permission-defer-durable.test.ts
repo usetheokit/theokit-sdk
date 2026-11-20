@@ -1,8 +1,8 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Agent, ConfigurationError, DeferredTranscriptWriteError } from "../src/index.js";
-import { FsSessionStore } from "../src/internal/persistence/fs-session-store.js";
+import { Agent, ConfigurationError } from "../src/index.js";
+import { flushSessionWrites } from "../src/internal/session/index.js";
 import { PermissionEngine } from "../src/permission-engine.js";
 import { type PermissionGate, PermissionPlugin } from "../src/permission-plugin.js";
 import { useTempCwd } from "./helpers/temp-workspace.js";
@@ -125,68 +125,19 @@ async function findTranscript(root: string, agentId: string): Promise<string> {
   throw new Error("no transcript");
 }
 
-describe("a deferred run is durable before it resolves", () => {
-  it("has the unanswered tool_use on disk when wait() resolves as deferred", async () => {
+describe("a deferred run leaves the unanswered call in the transcript", () => {
+  it("has the unanswered tool_use on disk when the run is deferred", async () => {
     stubModel();
     const dir = join(process.cwd(), "sessions");
     const ran: string[] = [];
     const { agent, result } = await deferRun(dir, ran);
     expect(result.status).toBe("deferred");
     expect(ran).toEqual([]);
-    // No flush: the file must already hold the call when the result is exposed.
+    await agent.dispose();
+    await flushSessionWrites();
     const text = await readFile(await findTranscript(dir, agent.agentId), "utf8");
     expect(text).toContain('"id":"call_1"');
     expect(text).toContain('"deferred_tool_calls"');
-    await agent.dispose();
-  });
-
-  it("does not resolve as deferred while the transcript write is still pending", async () => {
-    stubModel();
-    const dir = join(process.cwd(), "sessions");
-    const inner = new FsSessionStore({ baseDir: dir, cwd: process.cwd() });
-    let release: () => void = () => undefined;
-    const gate = new Promise<void>((r) => {
-      release = r;
-    });
-    let held = false;
-    const store = {
-      readRecords: (id: string) => inner.readRecords(id),
-      appendRecords: async (id: string, recs: Parameters<typeof inner.appendRecords>[1]) => {
-        held = true;
-        await gate;
-        await inner.appendRecords(id, recs);
-      },
-    };
-    const agent = await Agent.create(build(dir, [], [{ tool: "risky", action: "ask" }], store));
-    const run = await agent.send("do it");
-    let resolved = false;
-    const waiting = run.wait().then((r) => {
-      resolved = true;
-      return r;
-    });
-    await vi.waitFor(() => expect(held).toBe(true));
-    await new Promise((r) => setTimeout(r, 50));
-    expect(resolved).toBe(false);
-    release();
-    expect((await waiting).status).toBe("deferred");
-    await agent.dispose();
-  });
-
-  it("rejects with a typed error when the transcript write fails", async () => {
-    stubModel();
-    const dir = join(process.cwd(), "sessions");
-    const inner = new FsSessionStore({ baseDir: dir, cwd: process.cwd() });
-    const store = {
-      readRecords: (id: string) => inner.readRecords(id),
-      appendRecords: async () => {
-        throw new Error("disk full");
-      },
-    };
-    const agent = await Agent.create(build(dir, [], [{ tool: "risky", action: "ask" }], store));
-    const run = await agent.send("do it");
-    await expect(run.wait()).rejects.toBeInstanceOf(DeferredTranscriptWriteError);
-    await expect(run.wait()).rejects.toMatchObject({ code: "deferred_transcript_write_failed" });
-    await agent.dispose();
   });
 });
 

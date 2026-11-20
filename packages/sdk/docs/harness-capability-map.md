@@ -165,7 +165,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `DeclaredLayer` | interface | One named layer in a precedence chain.  |
 | `DeepPartial` | type | Recursive partial — `T` where every nested field becomes optional. |
 | `DeferredToolCall` | interface | A tool call a permission gate deferred.  |
-| `DeferredTranscriptWriteError` | class | Thrown by `run.wait()` when a run ended on deferred tool calls but the transcript holding the unanswered `tool_use` could not be written: the deferral would not survive a restart, so the run does n... |
 | `DefineProviderOptions` | interface | Options for {@link defineProvider } . |
 | `DefineToolSpec` | interface | Spec accepted by {@link Tool.create } .  |
 | `describeAction` | function | Read back the action a tool declared, if any.  |
@@ -1084,7 +1083,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CompressionFailedError` | class | Compression of a conversation failed.  |
 | `ConfigurationError` | class | Invalid model, bad request parameters, malformed options. |
 | `CredentialPoolExhaustedError` | class | Thrown when every credential in a per-provider pool is in cooldown and no healthy key is available (ADR D133).  |
-| `DeferredTranscriptWriteError` | class | Thrown by `run.wait()` when a run ended on deferred tool calls but the transcript holding the unanswered `tool_use` could not be written: the deferral would not survive a restart, so the run does n... |
 | `ErrorCode` | type | Finite, machine-readable error codes for provider-originated errors (ADR D66).  |
 | `ErrorMetadata` | interface | Structured context for errors that originated from a provider HTTP call (ADR D65).  |
 | `IntegrationNotConnectedError` | class | Thrown when creating a cloud agent for a repo whose SCM provider is not connected.  |
