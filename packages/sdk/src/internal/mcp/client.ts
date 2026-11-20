@@ -50,6 +50,8 @@ export interface McpClient {
   readonly sequential?: boolean;
   /** The version the server agreed to in `initialize`; undefined before it. */
   readonly protocolVersion?: McpProtocolVersion;
+  /** The `capabilities` object the server answered `initialize` with; refreshed on each handshake. */
+  readonly serverCapabilities?: Record<string, unknown>;
   initialize(): Promise<void>;
   listTools(): Promise<McpTool[]>;
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult>;
@@ -104,6 +106,8 @@ abstract class BaseMcpClient implements McpClient {
 
   protocolVersion: McpProtocolVersion | undefined;
 
+  serverCapabilities: Record<string, unknown> | undefined;
+
   /** The pinned revision from the server config, if any. */
   protected abstract readonly pinnedVersion: McpProtocolVersion | undefined;
 
@@ -113,8 +117,18 @@ abstract class BaseMcpClient implements McpClient {
 
   async initialize(): Promise<void> {
     this.protocolVersion = undefined;
+    this.serverCapabilities = undefined;
     this.protocolVersion = await rpcInitialize(
-      (method, params) => this.request(method, params),
+      async (method, params) => {
+        const response = await this.request(method, params);
+        if (method === "initialize") {
+          const caps = (response as { result?: { capabilities?: unknown } } | undefined)?.result
+            ?.capabilities;
+          this.serverCapabilities =
+            typeof caps === "object" && caps !== null ? (caps as Record<string, unknown>) : {};
+        }
+        return response;
+      },
       this.name,
       this.pinnedVersion ?? SUPPORTED_MCP_PROTOCOL_VERSIONS[0],
     );

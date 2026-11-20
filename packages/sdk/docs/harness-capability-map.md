@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1537 export(s) across 58 entry point(s).
+1547 export(s) across 59 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1424,6 +1424,19 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `safePathJoin` | function | Join `base` with `...parts` and ensure the resolved absolute path stays under `base`.  |
 | `sanitizeIdentifier` | function | Validate that `input` is a safe path component (skill name, agent ID, namespace, etc.) and return its lowercase form.  |
 | `validateArtifactPath` | function | T1.4 — validate a relative artifact path string BEFORE it is used to look up a fixture or to fetch from PaaS.  |
+
+## `@theokit/sdk/mcp`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `connectMcpServer` | function | Connects to one MCP server (same timeouts, reconnect, OAuth and env policy as the agent loop) and runs `initialize`.  |
+| `McpConnection` | interface | A connected, initialized MCP server. |
+| `McpPrompt` | interface | A named prompt template a server publishes. |
+| `McpPromptMessage` | interface | One message of a rendered prompt. |
+| `McpResource` | interface | A resource a server publishes. |
+| `McpResourceContents` | interface | One content block of a resource read: `text` or base64 `blob`. |
+| `McpTool` | interface |  |
+| `McpToolCallResult` | interface |  |
 
 ## `@theokit/sdk/mcp-auth`
 

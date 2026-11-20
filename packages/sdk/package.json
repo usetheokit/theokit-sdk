@@ -278,6 +278,16 @@
         "default": "./dist/auth/index.cjs"
       }
     },
+    "./mcp": {
+      "import": {
+        "types": "./dist/mcp.d.ts",
+        "default": "./dist/mcp.js"
+      },
+      "require": {
+        "types": "./dist/mcp.d.cts",
+        "default": "./dist/mcp.cjs"
+      }
+    },
     "./mcp-auth": {
       "import": {
         "types": "./dist/mcp-auth.d.ts",
