@@ -65,3 +65,34 @@ export async function* readSseData(body: ReadableStream<Uint8Array>): AsyncGener
     await reader.cancel().catch(() => undefined);
   }
 }
+
+export interface McpTool {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
+export interface McpToolCallResult {
+  content: Array<{ type: "text"; text: string }>;
+  isError?: boolean;
+}
+
+type RpcRequester = (method: string, params: Record<string, unknown>) => Promise<unknown>;
+
+export async function rpcListTools(request: RpcRequester): Promise<McpTool[]> {
+  const response = await request("tools/list", {});
+  return (response as { result?: { tools?: McpTool[] } }).result?.tools ?? [];
+}
+
+export async function rpcCallTool(
+  request: RpcRequester,
+  name: string,
+  args: Record<string, unknown>,
+): Promise<McpToolCallResult> {
+  const response = await request("tools/call", { name, arguments: args });
+  const result = (response as { result?: McpToolCallResult }).result;
+  if (result === undefined) {
+    return { content: [{ type: "text", text: "MCP returned empty result" }], isError: true };
+  }
+  return result;
+}

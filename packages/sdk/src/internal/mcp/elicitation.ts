@@ -120,3 +120,28 @@ export async function answerServerRequest(
   );
   return { jsonrpc: "2.0", id: request.id, result };
 }
+
+/** One client's elicitation state: its hooks and an abort signal that `abort()` fires. @internal */
+export class ElicitationScope {
+  private controller = new AbortController();
+
+  constructor(
+    private readonly serverName: () => string,
+    private readonly version: () => string | undefined,
+    readonly hooks: McpClientHooks,
+  ) {}
+
+  answer(request: ServerRequest): Promise<Record<string, unknown>> {
+    return answerServerRequest(request, {
+      serverName: this.serverName(),
+      hooks: this.hooks,
+      version: this.version(),
+      closed: this.controller.signal,
+    });
+  }
+
+  abort(): void {
+    this.controller.abort();
+    this.controller = new AbortController();
+  }
+}
