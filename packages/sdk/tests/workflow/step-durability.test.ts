@@ -1,8 +1,9 @@
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 import { __resetSnapshotStoresForTests, fn, Workflow } from "../../src/workflow.js";
+import { removeTempDirRobust } from "../helpers/temp-workspace.js";
 
 afterEach(() => __resetSnapshotStoresForTests());
 
@@ -47,6 +48,7 @@ function build(
 describe("workflow step durability", () => {
   it("step_durability_resumes_after_a_crash", async () => {
     const dir = await mkdtemp(join(tmpdir(), "wf-dur-"));
+    onTestFinished(() => removeTempDirRobust(dir));
     const calls: number[] = [];
     const crashing = build(dir, "step", "crash", calls);
     const ac = new AbortController();
@@ -99,6 +101,7 @@ describe("workflow step durability", () => {
 
   it("v2_suspend_snapshot_still_resumes", async () => {
     const dir = await mkdtemp(join(tmpdir(), "wf-v2-"));
+    onTestFinished(() => removeTempDirRobust(dir));
     await writeFile(
       join(dir, "old.json"),
       JSON.stringify({
@@ -121,10 +124,9 @@ describe("workflow step durability", () => {
 
   it("rejects an invalid durability", () => {
     expect(() =>
-      // biome-ignore lint/suspicious/noExplicitAny: invalid on purpose
       Workflow.create({
         name: "x",
-        persistence: { backend: "memory", durability: "async" as any },
+        persistence: { backend: "memory", durability: "async" as "step" },
       }),
     ).toThrow();
   });
