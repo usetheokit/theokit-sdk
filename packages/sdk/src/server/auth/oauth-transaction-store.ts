@@ -146,7 +146,10 @@ async function decodeTransaction(
 }
 
 function getCookie(req: IncomingMessage, name: string): string | null {
-  const header = req.headers.cookie;
+  return parseCookieHeader(req.headers.cookie, name);
+}
+
+function parseCookieHeader(header: string | null | undefined, name: string): string | null {
   if (!header) return null;
   for (const part of header.split(";")) {
     const [k, ...v] = part.trim().split("=");
@@ -155,9 +158,17 @@ function getCookie(req: IncomingMessage, name: string): string | null {
   return null;
 }
 
+function setCookieLine(name: string, value: string): string {
+  return `${name}=${value}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${TX_LIFETIME_MS / 1000}`;
+}
+
+function clearCookieLine(name: string): string {
+  return `${name}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+}
+
 function setCookie(res: ServerResponse, name: string, value: string): void {
   const existing = res.getHeader("Set-Cookie");
-  const cookie = `${name}=${value}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${TX_LIFETIME_MS / 1000}`;
+  const cookie = setCookieLine(name, value);
   if (Array.isArray(existing)) {
     res.setHeader("Set-Cookie", [...existing, cookie]);
   } else if (typeof existing === "string") {
@@ -185,7 +196,7 @@ function setCookie(res: ServerResponse, name: string, value: string): void {
  * not handle deterministically.
  */
 function clearCookie(res: ServerResponse, name: string): void {
-  const clear = `${name}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+  const clear = clearCookieLine(name);
   const existing = res.getHeader("Set-Cookie");
   const preserved = Array.isArray(existing)
     ? existing.filter((c) => !c.startsWith(`${name}=`))
@@ -210,13 +221,59 @@ export async function getTransaction(
   req: IncomingMessage,
   secret: string,
 ): Promise<OAuthTransaction | null> {
-  const raw = getCookie(req, COOKIE_NAME);
+  return decodeLiveTransaction(getCookie(req, COOKIE_NAME), secret);
+}
+
+async function decodeLiveTransaction(
+  raw: string | null,
+  secret: string,
+): Promise<OAuthTransaction | null> {
   if (!raw) return null;
   const tx = await decodeTransaction(raw, secret);
   if (!tx) return null;
   // Check expiry
   if (tx.expiresAt < Date.now()) return null;
   return tx;
+}
+
+/**
+ * Web `Headers` counterpart of the Node cookie write: appends the encrypted transaction cookie
+ * (`__Host-theo_oauth_tx`, HttpOnly, Secure, SameSite=Lax, Path=/, Max-Age=600) to `headers`,
+ * replacing any earlier transaction cookie line and leaving other `Set-Cookie` lines alone.
+ * Throws `AuthSecretTooShortError` for a secret under 32 bytes.
+ */
+export async function writeTransactionCookie(
+  headers: Headers,
+  tx: OAuthTransaction,
+  secret: string,
+): Promise<void> {
+  const encoded = await encodeTransaction(tx, secret);
+  replaceSetCookie(headers, COOKIE_NAME, setCookieLine(COOKIE_NAME, encoded));
+}
+
+/**
+ * Reads the transaction from a Web `Request`. Resolves `null` when the cookie is absent, expired,
+ * or cannot be decrypted (tampered, or written with another secret).
+ */
+export async function readTransactionCookie(
+  request: Request,
+  secret: string,
+): Promise<OAuthTransaction | null> {
+  return decodeLiveTransaction(
+    parseCookieHeader(request.headers.get("cookie"), COOKIE_NAME),
+    secret,
+  );
+}
+
+/** Appends a deleting `Set-Cookie` line for the transaction cookie to `headers`. */
+export function clearTransactionCookie(headers: Headers): void {
+  replaceSetCookie(headers, COOKIE_NAME, clearCookieLine(COOKIE_NAME));
+}
+
+function replaceSetCookie(headers: Headers, name: string, line: string): void {
+  const preserved = headers.getSetCookie().filter((c) => !c.startsWith(`${name}=`));
+  headers.delete("Set-Cookie");
+  for (const c of [...preserved, line]) headers.append("Set-Cookie", c);
 }
 
 export function clearTransaction(res: ServerResponse): void {

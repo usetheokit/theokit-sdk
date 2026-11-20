@@ -56,24 +56,20 @@ export default defineConfig({
     // `dts:` block below. The real constraint is the double-emit and the bundled-vs-per-module shape
     // difference documented there.
     "context/index": "src/context/index.ts",
-    // internal/persistence is a publicly accessible sub-path used by extracted
-    // packages (sdk-memory, sdk-cache) for shared persistence primitives.
-    // Documented as "internal API — semver-exempt" in README. The plugin
-    // contract (definePlugin/Plugin) is exposed from the main `.` entry, NOT a
+    // The plugin contract (definePlugin/Plugin) is exposed from the main `.` entry, NOT a
     // sub-path (see src/index.ts) — the former `internal/plugins` +
     // `internal/observability` sub-paths were removed (dead public surface,
     // 2026-07-09 dead-code review): `internal/plugins/index.ts` stays as an
     // internal relative import; `internal/observability` is reached via the
     // live `tracer-loader.ts` directly, its barrel was dead.
     // T1.3 — MCP OAuth (PKCE + refresh + token storage). A sanctioned public barrel rather than a
-    // new `internal/*` sub-path: that convention is being retired (`internal/persistence/index.ts`
-    // carries an `@deprecated` pointing at the public barrel), so a new one would extend a shape
-    // the package is withdrawing.
+    // new `internal/*` sub-path: that convention is being retired (`internal/persistence` was removed in the
+    // next major in favour of the public barrel), so a new one would extend a shape the package is
+    // withdrawing.
     // #1088: credential-free fake model server for agent tests; DTS via tsc.
     "testing/index": "src/testing/index.ts",
     "mcp-auth": "src/mcp-auth.ts",
     "mcp-events": "src/mcp-events.ts",
-    "internal/persistence/index": "src/internal/persistence/index.ts",
     "internal/security/index": "src/internal/security/index.ts",
     // theokit#160 — the embedding runtime, shared with @theokit/sdk-memory so the two packages stop
     // carrying divergent copies of it. Same rationale and same semver-exempt status as the two above.

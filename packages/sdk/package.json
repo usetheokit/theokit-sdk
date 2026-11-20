@@ -298,16 +298,6 @@
         "default": "./dist/mcp-events.cjs"
       }
     },
-    "./internal/persistence": {
-      "import": {
-        "types": "./dist/internal/persistence/index.d.ts",
-        "default": "./dist/internal/persistence/index.js"
-      },
-      "require": {
-        "types": "./dist/internal/persistence/index.d.cts",
-        "default": "./dist/internal/persistence/index.cjs"
-      }
-    },
     "./internal/security": {
       "import": {
         "types": "./dist/internal/security/index.d.ts",

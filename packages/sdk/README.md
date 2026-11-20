@@ -445,6 +445,27 @@ const { removed, skippedRunning } = await removeSandboxContainers({ app: "x" });
 
 Both helpers require at least one label (an empty set would match every container on the host) and take `{ runner }` and default to `defaultDockerRunner()`. A docker command that fails or times out rejects with `SandboxDockerError` (`subcommand`, `exitCode`, `stderr`). Docker renders labels as `k=v,k=v`, so a label value that itself contains a comma followed by `word=` is parsed ambiguously.
 
+## `@theokit/sdk/sandbox`: network allowlist for `LinuxSandbox`
+
+`network` on `LinuxSandbox` and `createSandboxBackend` is `false` (no network), `true` (the host network) or `{ allow }`: only the listed destinations.
+
+```ts
+import { createSandboxBackend } from "@theokit/sdk/sandbox";
+
+const sandbox = createSandboxBackend({
+  mode: "workspace-write",
+  network: { allow: [{ host: "registry.npmjs.org" }, { host: "*.github.com", ports: [443] }] },
+});
+sandbox.networkPolicy; // { mode: "allowlist", allow: ["registry.npmjs.org", "*.github.com"] }
+await sandbox.dispose(); // closes the proxy
+```
+
+How it works: the command keeps an empty network namespace (loopback only). A forwarder, run with the Node binary the host already runs, listens on `127.0.0.1:3128` inside the namespace and pipes to a host-side proxy over a Unix socket (bound read-only into the sandbox). `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy`, `https_proxy` and an empty `NO_PROXY` are set. The proxy handles `CONNECT host:port` and absolute-URI `http://` requests; a host matching no rule, or a port not in `ports` (default `[80, 443]`), gets `403`. `*.example.com` matches subdomains, not `example.com`; IP literals must be listed exactly. The proxy resolves names itself after the rule check, connects to the address it validated, and refuses a name that resolves to a loopback, private, link-local or otherwise non-public address unless that address is also listed.
+
+What it blocks: a process that ignores the proxy variables and opens its own socket has no route out, and raw TCP, SSH git remotes and other non-HTTP protocols stay blocked. What it does not do: HTTPS is tunnelled without inspection, so the proxy sees the host and port but not the traffic, and an allowed host can receive anything the command sends it. Under an allowlist the seccomp network-syscall filter is not installed (the command must open a socket to the forwarder); the namespace is what blocks egress.
+
+Bubblewrap is required. Without it, or under `danger-full-access`, `network: { allow }` throws `SandboxNotAvailableError` rather than falling back to an unconfined `LocalSandbox`. `startEgressProxy({ allow })` is exported for use on its own and returns `{ socketPath, denied, close() }`. `DockerSandbox`, `E2BSandbox` and macOS are not covered.
+
 ## `@theokit/sdk/persistence`: single instance lock
 
 `acquireInstanceLock(dir, { path? })` takes `<dir>.instance.lock` for the life of the process, so two processes never run against the same state directory. A second holder rejects with `InstanceLockedError` (`lockPath`, `holderPid`); the message names the lock and the pid, and says to stop that process or remove the lock if the pid is not running. A lock left by a pid that is no longer running is taken over, and only one of several contenders wins a given stale lock. `release()` removes the lock only while this holder still owns it, and is idempotent.
@@ -494,6 +515,26 @@ await run.wait(); // the model continues with the results
 ```
 
 `allow` dispatches the stored call after the permission rules, floors and hooks run again on its input: an approval answers an `ask` and never overrides a current `deny`, a permission floor or another plugin's veto (the call then gets an error result). `deny` writes an error result with your `message` and runs nothing. An unknown or repeated `toolUseId`, a missing decision, nothing pending, or a stored call with an unsupported `schemaVersion` rejects with `ConfigurationError` (`tool_decision_unknown`, `tool_decision_duplicate`, `tool_decision_missing`, `no_deferred_tool_calls`, `deferred_schema_unsupported`) and leaves the session unchanged. A normal send while calls are pending abandons them; the unanswered calls are left out of the history so the session is not blocked. Local runtime only.
+
+## `@theokit/sdk/server/auth`: sign-in with Web `Request` / `Response`
+
+`Auth.create({ session, providers, onSignIn })` also drives a sign-in for apps that handle Web requests. The SDK writes, reads and clears the encrypted OAuth transaction cookie (`__Host-theo_oauth_tx`, HttpOnly, Secure, SameSite=Lax, Max-Age 600); the app writes no cookie code.
+
+```ts
+// GET /auth/google: 302 to the provider, with the transaction cookie set
+export const start = (request: Request) =>
+  auth.startSignInWeb("google", request, { returnTo: "/dashboard" });
+
+// GET /auth/google/callback
+export async function callback(request: Request) {
+  const headers = new Headers();
+  const { returnTo } = await auth.finishSignInWeb("google", request, headers);
+  headers.set("Location", returnTo ?? "/");
+  return new Response(null, { status: 302, headers });
+}
+```
+
+`finishSignInWeb` checks the provider error and `state` (constant time), calls the provider with the `Request`, runs `onSignIn`, then appends the session cookie and a clearing transaction cookie to `headers`. It rejects with `AuthCancelledError` (`access_denied`) or `AuthCallbackError` (`oauth_provider_error`, `oauth_transaction_expired`, `oauth_state_mismatch`). The provider's `handleCallback` must accept a `Request`. The session manager needs `createSessionWeb(headers, data)`, which must issue a fresh session; without it `finishSignInWeb` rejects with `AuthConfigError` (`session_web_unsupported`). The Node methods (`startSignIn`, `finishSignIn`) are unchanged. `writeTransactionCookie`, `readTransactionCookie` (`null` when absent, expired or not decryptable) and `clearTransactionCookie` are exported for custom flows.
 
 ## `@theokit/sdk/auth`: choosing a provider credential
 
