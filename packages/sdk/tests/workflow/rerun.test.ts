@@ -55,7 +55,7 @@ describe("workflow rerunFrom", () => {
       const counts: Record<string, number> = {};
       const inputs: Record<string, unknown> = {};
       const wf = build(p, counts, inputs);
-      const first = await wf.run(1, { runId: `orig-${counts.s1 ?? 0}-${Math.random()}` });
+      const first = await wf.run(1, { runId: "orig-run" });
       expect(first.status).toBe("completed");
       const hist = await wf.history(first.id);
       expect(hist.map((h) => h.stepId)).toEqual(["s1", "s2", "s3", "s4"]);
