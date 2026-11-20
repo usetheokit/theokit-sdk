@@ -440,6 +440,7 @@ export type {
   AgentToolDescription,
   CustomTool,
   MemoryMirrorOptions,
+  MemoryReviewOptions,
   MemorySettings,
   SDKAgent,
 } from "./types/agent.js";

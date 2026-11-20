@@ -157,6 +157,29 @@ const agent = await Agent.create({
 });
 ```
 
+### Saving facts from each turn with `memory.review`
+
+Set `memory.review` and a small reviewer reads each finished turn and saves the durable facts in it ("I work in UTC-3"), so the main model spends no tool calls on it:
+
+```ts
+const agent = await Agent.create({
+  memory: {
+    enabled: true,
+    userId: "alice",
+    // model: the reviewer's model (default: the agent's model); instructions: replace the defaults.
+    review: { after: "turn" },
+  },
+});
+await agent.memory.reviewsIdle(); // wait for queued reviews, e.g. in tests or at shutdown
+```
+
+- A review is queued after each run that ends `finished` with a reply; runs that end `error` or `cancelled` queue none. The turn is passed to the reviewer inside `<turn>` tags, and the default instructions say to treat it as data.
+- Reviews of one agent run one at a time; a new review waits for the previous one.
+- The reviewer is an internal agent with no plugins and exactly one tool, `save_memory({ fact })`, which writes to the same memory directory and `userId` partition as the reviewed agent. A fact longer than 500 characters is refused with a tool error and nothing is stored.
+- A failing review is reported on the diagnostics channel with the agent id. It never rejects the user's `wait()` and never blocks the next turn.
+- `agent.dispose()` waits up to 5 seconds for queued reviews, then cancels the active one, drops the rest and reports how many on the diagnostics channel.
+- Reviews are not mirrored to `memory.mirror` adapters.
+
 ## Builtin tool names
 
 `BUILTIN_TOOL_NAMES` (`"shell"`, `"memory_search"`, `"memory_get"`) lists the tools the SDK declares itself; these are the names `withheldBuiltinTools` accepts and a custom tool may not claim. `isBuiltinToolName(name)` tests one, so an app that takes tool names from configuration can refuse a collision at load time. Withholding a builtin via `withheldBuiltinTools` releases its name, so a custom tool may then use it.

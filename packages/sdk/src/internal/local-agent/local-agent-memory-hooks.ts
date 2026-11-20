@@ -13,6 +13,7 @@
 
 import type { AgentOptions } from "../../types/agent.js";
 import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
+import type { TurnReviewQueue } from "../memory/turn-review.js";
 import type { PluginManager } from "../plugins/manager.js";
 
 const DEFAULT_MAX_RECALL_BYTES = 16_000;
@@ -111,4 +112,27 @@ export function wrapRunWithPostReplyHook(args: {
       return Reflect.get(target, prop, receiver);
     },
   });
+}
+
+/**
+ * Queue one `memory.review` for `run` once it ends `finished` with a reply. Starts observing at
+ * send time, so a caller that never awaits `wait()` still gets its review; an `error` or
+ * `cancelled` run, or a `wait()` that rejects, queues nothing.
+ */
+export function scheduleTurnReview(args: {
+  queue: TurnReviewQueue | undefined;
+  run: Run;
+  userText: string;
+}): void {
+  const { queue, run, userText } = args;
+  if (queue === undefined) return;
+  run.wait().then(
+    (result) => {
+      const reply = (result as { result?: string }).result;
+      if (result.status === "finished" && typeof reply === "string") {
+        queue.enqueue({ prompt: userText, reply });
+      }
+    },
+    () => undefined,
+  );
 }

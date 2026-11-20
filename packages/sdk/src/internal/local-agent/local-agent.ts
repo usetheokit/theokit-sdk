@@ -17,6 +17,8 @@ import type { SessionStore } from "../../types/session-store.js";
 import { diagFailure } from "../diagnostics.js";
 import { generateLocalAgentId } from "../ids.js";
 import type { MemoryMirror } from "../memory/mirror.js";
+import type { TurnReviewQueue } from "../memory/turn-review.js";
+import { createAgentTurnReviews } from "../memory/turn-review.js";
 import { withCwdMutex } from "../persistence/cwd-mutex.js";
 import { FsSessionStore } from "../persistence/fs-session-store.js";
 import { resolveSessionDir } from "../persistence/session-dir.js";
@@ -171,6 +173,8 @@ export class LocalAgent implements SDKAgent {
   private readonly pluginManagerCode: PluginManager = new PluginManager();
   /** `memory.mirror` wiring; undefined when mirroring is not configured. @internal */
   private readonly memoryMirror: MemoryMirror | undefined;
+  /** `memory.review` queue; undefined when review is not configured. @internal */
+  readonly turnReviews: TurnReviewQueue | undefined;
   /** Personality presets — lazy-loaded on first `usePersonality` call (ADRs D160-D164). @internal */
   // Not private: `local-agent-personality-extensions.ts` reads both through
   // `LocalAgentPersonalityTarget`, the same way `local-agent-lifecycle.ts` reads `sessionStore` and
@@ -230,6 +234,10 @@ export class LocalAgent implements SDKAgent {
       this.workspaceCwd,
       this.options,
     );
+    this.turnReviews = createAgentTurnReviews(this.agentId, this.workspaceCwd, options);
+    if (this.memory !== undefined) {
+      this.memory.reviewsIdle = () => this.turnReviews?.idle() ?? Promise.resolve();
+    }
 
     registerLocalAgent({
       agentId: this.agentId,
@@ -481,6 +489,7 @@ export class LocalAgent implements SDKAgent {
         defaultMemoryProviderForLoop: this.defaultMemoryProviderForLoop,
         workspaceCwd: this.workspaceCwd,
         ...(this.memoryMirror !== undefined ? { memoryMirror: this.memoryMirror } : {}),
+        ...(this.turnReviews !== undefined ? { turnReviews: this.turnReviews } : {}),
         telemetry: this._telemetry,
         lifecycleAbortController: this.lifecycleAbortController,
         runPreHook: (ut) => this.runPreHook(ut),
