@@ -37,6 +37,7 @@ export function validateAgentOptions(options: AgentOptions): void {
   rejectProgrammaticHooks(options);
   ensureRuntimeShape(options);
   if (options.local !== undefined) {
+    validateLocalRegistry(options.local);
     if (options.model === undefined) {
       throw new ConfigurationError("Local agents require a model selection", {
         code: "missing_model",
@@ -53,6 +54,15 @@ export function validateAgentOptions(options: AgentOptions): void {
   validateCustomTools(options);
   validateCredentialPoolShape(options);
   validatePruneToolResults(options.sendDefaults?.pruneToolResults);
+}
+
+function validateLocalRegistry(local: NonNullable<AgentOptions["local"]>): void {
+  const registry: unknown = local.registry;
+  if (registry !== undefined && typeof registry !== "boolean") {
+    throw new ConfigurationError("`local.registry` must be a boolean", {
+      code: "invalid_local_registry",
+    });
+  }
 }
 
 /**
