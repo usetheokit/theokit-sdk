@@ -17,8 +17,14 @@ import type { ZodType, z } from "zod";
 
 import { openRouterMemoryEmbeddingProviderAdapter } from "./internal/memory/adapters/openrouter-embedding.js";
 import type { EmbeddingRuntime } from "./internal/memory/embedding-adapter.js";
+import { type FaithfulnessOptions, scoreFaithfulness } from "./internal/scorers/faithfulness.js";
+import {
+  type JudgedTrajectoryOptions,
+  scoreJudgedTrajectory,
+} from "./internal/scorers/judged-trajectory.js";
 import { LEVENSHTEIN_MAX_LEN, levenshteinDistance } from "./internal/scorers/levenshtein.js";
 import { type LlmJudgeOptions, llmJudgeScore } from "./internal/scorers/llm-judge.js";
+import { type RubricOptions, scoreRubric, validateRubricItems } from "./internal/scorers/rubric.js";
 import { scoreToolCallAccuracy, scoreTrajectory } from "./internal/scorers/tool-calls.js";
 import { LocalSandbox } from "./sandbox/local-sandbox.js";
 import { shellEscapePosix } from "./sandbox/shell-escape.js";
@@ -344,6 +350,53 @@ export const Scorers = {
           expected !== undefined ? { ...opts, output, expected } : { ...opts, output };
         return llmJudgeScore(callOpts);
       },
+    };
+  },
+
+  /**
+   * Is the answer supported by the retrieved context? The context is read from
+   * `ScoreContext.metadata[contextKey ?? "context"]` (string or string[]). Claims are extracted
+   * from the output, each is judged against the context, and score = supported / total; the reason
+   * lists the unsupported claims (truncated).
+   *
+   * **Cost:** 2 judge calls per row (extract claims, judge claims). A missing context scores 0 with
+   * `context_missing` and makes no call; an answer with no claims scores 1 with `no_claims` after
+   * 1 call. A reply that does not parse scores 0 with `judge_unparseable`.
+   */
+  faithfulness(opts: FaithfulnessOptions): NamedScorer {
+    return {
+      name: "faithfulness",
+      score: (output, _expected, context) => scoreFaithfulness(opts, output, context),
+    };
+  },
+
+  /**
+   * Weighted rubric: one judge call returns a pass/fail verdict per item; score = weighted pass
+   * ratio and the reason names the failed item ids. `weight` defaults to 1; empty items, duplicate
+   * ids and non-positive weights throw at creation.
+   *
+   * **Cost:** 1 judge call per row. An unparseable or incomplete reply scores 0 with
+   * `judge_unparseable`.
+   */
+  rubric(opts: RubricOptions): NamedScorer {
+    validateRubricItems(opts.items);
+    return {
+      name: "rubric",
+      score: (output) => scoreRubric(opts, output),
+    };
+  },
+
+  /**
+   * Judged trajectory: the judge sees the input, the ordered tool calls (name, input, isError) and
+   * the output, and returns a continuous score in [0, 1] with a reason. `goal` states what the run
+   * should achieve.
+   *
+   * **Cost:** 1 judge call per row. An unparseable reply scores 0 with `judge_unparseable`.
+   */
+  judgedTrajectory(opts: JudgedTrajectoryOptions): NamedScorer {
+    return {
+      name: "judged-trajectory",
+      score: (output, _expected, context) => scoreJudgedTrajectory(opts, output, context),
     };
   },
 

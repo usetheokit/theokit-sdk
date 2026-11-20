@@ -143,37 +143,95 @@ export function reconsumedChangesets(baseRef, headRef) {
   return changesetsAt(headRef).filter((p) => wasDeletedOn(baseRef, p));
 }
 
+/**
+ * The release line a promotion base must also be checked against (#863). The "Version Packages"
+ * PR that consumes changesets merges into `main`, so for a PR into `develop` the deletion never
+ * lands on the base and `wasDeletedOn(base)` cannot see it. `origin/develop` maps to `origin/main`,
+ * `develop` to `main`. Returns null when the base is not a develop branch.
+ */
+export function releaseRefFor(baseRef) {
+  const m = /^(.*\/)?develop$/.exec(baseRef);
+  return m ? `${m[1] ?? ""}main` : null;
+}
+
+/** @returns true when `ancestor` is already contained in `descendant`. */
+export function isAncestor(ancestor, descendant) {
+  assertPlainRef(ancestor);
+  assertPlainRef(descendant);
+  try {
+    git(["merge-base", "--is-ancestor", "--end-of-options", ancestor, descendant]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Refuse (throw) when `ref` cannot be resolved: a missing release ref must not read as clean. */
+function assertResolvable(ref) {
+  assertPlainRef(ref);
+  try {
+    git(["rev-parse", "--verify", "--quiet", "--end-of-options", `${ref}^{commit}`]);
+  } catch {
+    throw new Error(
+      `could not read \`${ref}\` — the repository cannot resolve it. Fetch it first ` +
+        `(\`git fetch origin\`). A develop promotion is also checked against ${ref}, because that is ` +
+        `where "Version Packages" consumes changesets; skipping it would report released work as clean.`,
+    );
+  }
+}
+
+/** @returns [{ ref, paths }] for the base and, for a develop base, the release line. */
+export function reconsumedByRef(baseRef, headRef) {
+  const refs = [baseRef];
+  const release = releaseRefFor(baseRef);
+  if (release) {
+    assertResolvable(release);
+    refs.push(release);
+  }
+  return refs.map((ref) => ({ ref, paths: reconsumedChangesets(ref, headRef) }));
+}
+
+function fixHint(ref, head) {
+  return isAncestor(ref, head)
+    ? `${ref} is already merged into ${head}, so a back-merge changes nothing: delete the listed\n` +
+        `  files from ${head} (\`git rm\`).`
+    : `back-merge ${ref} into ${head} first, which deletes the consumed files.`;
+}
+
 function main() {
   const base = process.argv[2] ?? "origin/main";
   const head = process.argv[3] ?? "HEAD";
 
-  let offenders;
+  let results;
   try {
-    offenders = reconsumedChangesets(base, head);
+    results = reconsumedByRef(base, head);
   } catch (err) {
-    // A rejected ref is a legible refusal, not a crash. An uncaught throw prints a Node stack
-    // trace, and a guard whose failure looks like a bug IN the guard is a guard people route
-    // around. Exit 2 distinguishes "could not check" from exit 1's "checked, and it is unsafe".
+    // A rejected ref is a legible refusal, not a crash. Exit 2 distinguishes "could not check"
+    // from exit 1's "checked, and it is unsafe".
     console.error(`\n✗ ${err instanceof Error ? err.message : String(err)}\n`);
     process.exit(2);
   }
-  if (offenders.length === 0) {
-    console.log(`✓ no changeset on ${head} has already been consumed by ${base}`);
+  const hits = results.filter((r) => r.paths.length > 0);
+  if (hits.length === 0) {
+    console.log(
+      `✓ no changeset on ${head} has already been consumed by ${results.map((r) => r.ref).join(" or ")}`,
+    );
     return;
   }
 
   console.error(`\n✗ this merge would RE-RELEASE work already shipped\n`);
+  for (const { ref, paths } of hits) {
+    console.error(
+      `  ${paths.length} changeset file(s) on ${head} were already consumed by a\n` +
+        `  "Version Packages" merge on ${ref}:\n`,
+    );
+    for (const p of paths) console.error(`    ${p}`);
+    console.error(`\n  Fix: ${fixHint(ref, head)}\n`);
+  }
   console.error(
-    `  ${offenders.length} changeset file(s) on ${head} were already consumed by a\n` +
-      `  "Version Packages" merge on ${base}:\n`,
-  );
-  for (const p of offenders) console.error(`    ${p}`);
-  console.error(
-    `\n  Merging this would make the next \`changeset version\` publish those changes again as\n` +
+    `  Merging this would make the next \`changeset version\` publish those changes again as\n` +
       `  fresh versions, with duplicated CHANGELOG entries. A wrong version on npm cannot be\n` +
-      `  fixed, only deprecated.\n` +
-      `\n  Cause: ${base} is ahead of ${head} and the release bump was never carried back.\n` +
-      `  Fix:   back-merge ${base} into ${head} first, which deletes the consumed files.\n`,
+      `  fixed, only deprecated.\n`,
   );
   process.exit(1);
 }

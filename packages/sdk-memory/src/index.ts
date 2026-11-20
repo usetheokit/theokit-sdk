@@ -265,10 +265,10 @@ export * from "./internal/index/migrate-sqlite-to-lance.js";
 // per-process `Set<string>` (cwd::namespace::scope::userId key)
 // guards re-entry. Failure modes typed in `MigrationResult.reason`:
 // "already-migrated" / "no-legacy-json" / "markdown-exists" /
-// "readonly-fs". `resetMigrationStateForTests` exposed for test
-// isolation. Since #1068 this is the SDK's module, so the flag map is
+// "readonly-fs". The test-only `resetMigrationStateForTests` is not
+// exported (#1111); tests import it from the source module. Since #1068 this is the SDK's module, so the flag map is
 // one `Set` per process, shared with `@theokit/sdk`.
-export * from "./internal/index/migration.js";
+export { type MigrationResult, migrateLegacyJson } from "./internal/index/migration.js";
 // Iter 66: twenty-third Stage 3 file move — sqlite-vec-loader (38 LOC).
 // Loads the `sqlite-vec` extension into an opened MemoryDb. Wraps the
 // native `load(db)` call with a typed error path (EC-8) so callers

@@ -110,6 +110,23 @@ When every model fails the run ends `error` and `RunResult.error.cause` is a
 This differs from `providers.fallback`, which only picks another provider when a route has none
 available. It does not resend a run that failed.
 
+## Budgets: reserving in-flight spend
+
+`Budget.reserve` holds an estimate so concurrent calls cannot all pass a preflight that none has paid for:
+
+```ts
+const hold = Budget.reserve("copilot", 0.6); // throws BudgetExceededError in block mode if it would not fit
+try {
+  const actualUsd = await runCall();
+  await hold.settle(actualUsd); // charges the ledger, fires threshold callbacks, drops the hold
+} catch (err) {
+  hold.release(); // drops the hold without charging; no-op after settle
+  throw err;
+}
+```
+
+Open holds count in `preflightCheck` and show as `heldUsd` in `Budget.snapshot()`.
+
 ## Install
 
 ```bash
@@ -164,6 +181,35 @@ const agent = await Agent.create({
 ```
 
 Use a fresh `InMemorySessionStore` per agent; resume works only while you keep the same instance. `registry: false` keeps the agent out of `<cwd>/.theokit/agents/registry.json`, but it stays visible to `Agent.list` in the current process. Tools, plugins and other features you enable can still write files of their own.
+
+## Writing your own SessionStore
+
+A `SessionStore` (Postgres, Redis, a KV store) must follow a few rules: a never-written agent reads as `[]`, a failed read throws instead of returning `[]`, appends keep order, and `SessionBusyError` from `acquire` propagates. `@theokit/sdk/testing` exports the rules as plain named cases that any test runner can loop over:
+
+```ts
+import { sessionStoreConformanceCases } from "@theokit/sdk/testing";
+import { describe, it } from "vitest";
+import { MyPostgresSessionStore } from "./my-store.js";
+
+const cases = sessionStoreConformanceCases({
+  // A fresh, empty store per case (use a new schema or key prefix each time).
+  create: async () => new MyPostgresSessionStore(await freshSchema()),
+  // Optional: a store pointed at a dead backend, to check that reads throw.
+  createUnreachable: async () => new MyPostgresSessionStore("postgres://127.0.0.1:1/none"),
+  // Set when every create() opens the same backend: enables the "survives a second create()"
+  // and lease-contention cases.
+  sharesBackend: true,
+});
+
+describe("MyPostgresSessionStore", () => {
+  for (const c of cases) {
+    if (c.skipReason) it.skip(`${c.name} (${c.skipReason})`, () => {});
+    else it(c.name, () => c.run());
+  }
+});
+```
+
+Each case throws an `Error` naming the violated rule. Set `exclusiveLeases: false` if your store lets two instances hold one session's lease at once.
 
 ## Memory
 
@@ -667,6 +713,22 @@ Eval.create({
 - A missing or malformed expected value scores 0 with reason `expected_tool_calls_missing` or
   `expected_trajectory_missing`. Both scorers are deterministic and make no network calls.
 
+### Judge scorers
+
+Three judge scorers take the same `model`, `apiKey` and `providers` as `Scorers.llmJudge`. Use a key
+other than the evaluated agent's, so a model does not judge its own output. Each row costs judge calls
+that `aggregate.tokensInTotal` does not count.
+
+- `Scorers.faithfulness({ contextKey? })` scores supported claims over total claims. The context comes
+  from `metadata[contextKey ?? "context"]` (string or string[]). The reason lists unsupported claims.
+  **2 judge calls per row** (extract claims, judge claims). Missing context scores 0 with
+  `context_missing` and makes no call; an answer with no claims scores 1 with `no_claims` after 1 call.
+- `Scorers.rubric({ items: [{ id, description, weight? }] })` scores the weighted pass ratio; the reason
+  names the failed item ids. **1 judge call per row.**
+- `Scorers.judgedTrajectory({ goal? })` shows the judge the input, the ordered tool calls
+  (`name`, `input`, `isError`) and the output, and returns a score in [0, 1]. **1 judge call per row.**
+- A judge reply that is not the expected JSON scores 0 with reason `judge_unparseable`.
+
 ## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
 
 `AgentLike` (`agentId`, `send`, optional `dispose`) and `RunLike` (`status`, `stream`, `wait`, `cancel`) are the small ports `SDKAgent` and `Run` satisfy with no cast. Type a wrapper, failover decorator or test double against them instead of the full `SDKAgent`, or re-declaring a port that drifts. `RunLike.wait()` resolves the real `RunResult`, so `status` is `RunStatus` and a misspelled status such as `"completed"` fails to compile.
@@ -685,6 +747,24 @@ try {
 ```
 
 LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
+
+## Workflow compensation (saga rollback)
+
+A top-level `fn` step can declare `compensate(input, output, error)`. When a later top-level step fails (after its retries), the executor calls `compensate` on every earlier completed step that declares one, in reverse completion order. Each call gets that step's own input and output and the error that failed the run.
+
+```ts
+Workflow.create({ name: "checkout" })
+  .then(fn("book", bookRoom, { compensate: (_in, booking) => cancelBooking(booking) }))
+  .then(fn("charge", chargeCard, { compensate: (_in, receipt) => refund(receipt) }))
+  .then(fn("notify", sendEmail)) // if this throws, `charge` then `book` are compensated
+  .commit();
+```
+
+- A `compensate` that throws is recorded as `"failed"` and the pass continues. The run stays `status: "failed"` with the original step error.
+- `run.compensation` lists `{ stepId, status: "compensated" | "failed", error? }` in call order; it is absent when nothing was compensated.
+- `Workflow.stream()` emits `step_compensated` or `step_compensation_failed` for each call.
+- The failing step does not compensate itself, and a cancelled run (abort signal) does not compensate.
+- Limits: `compensate` on a step nested in `parallel`, `branch`, `foreach` or `dowhile` fails with `WorkflowCompensateNotImplementedError`; `agent` steps cannot compensate; after `resume()` only steps completed since the resume are compensated; a compensation pass is not persisted across a crash.
 
 ## Crash recovery: `durability: "step"` and `listRuns()`
 

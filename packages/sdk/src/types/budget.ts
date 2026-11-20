@@ -103,4 +103,16 @@ export interface BudgetSnapshot {
   readonly spentUsd: number;
   readonly limitUsd: number;
   readonly ratio: number;
+  /** USD held by open `Budget.reserve` reservations. Not included in `spentUsd` or `ratio`. */
+  readonly heldUsd: number;
+}
+
+/** An in-flight estimate held against a budget by `Budget.reserve`. */
+export interface BudgetReservation {
+  readonly budgetName: string;
+  readonly estimatedUsd: number;
+  /** Charge the actual cost (runs threshold callbacks as chargeAndCheckThresholds does) and drop the hold. Idempotent with release. */
+  settle(actualUsd: number): Promise<void>;
+  /** Drop the hold without charging. Idempotent. */
+  release(): void;
 }

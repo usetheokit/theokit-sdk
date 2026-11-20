@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1506 export(s) across 58 entry point(s).
+1510 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -107,6 +107,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `BudgetLimit` | interface | A single limit; stacked in an array (D384, ANY exceeded blocks). |
 | `BudgetMode` | type | Enforcement mode (D383).  |
 | `BudgetOptions` | interface | Options for `Budget.create`. |
+| `BudgetReservation` | interface | An in-flight estimate held against a budget by `Budget.reserve`. |
 | `BudgetScope` | type | Accounting scope for a budget.  |
 | `BudgetSnapshot` | interface | Per-window snapshot returned by `Budget.snapshot()`. |
 | `BudgetThresholdEvent` | interface | Threshold event emitted at 80% and 95% in `warn` and `block` modes. |
@@ -756,7 +757,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `removeFactEntry` | function | Remove one stored memory from the write root: the per-memory file and its `MEMORY.md` index line, or one legacy bullet inside `## Facts`.  |
 | `remPhase` | function | REM phase — single-link agglomerative clustering by cosine similarity. |
 | `renderDiaryEntry` | function | One diary entry as the markdown that gets appended: a timestamp heading, the short entry hash, and the counts the sweep produced.  |
-| `resetMigrationStateForTests` | function | Test-only — reset the in-process migration flag map. |
 | `resolveMaxFacts` | function | The ceiling a caller declared, or `undefined` when none was declared.  |
 | `resolveMemoryRoot` | function | The memory root for this agent: `memory.directory` when set, the project store otherwise.  |
 | `runActiveMemory` | function | Run one blocking recall before the system prompt is assembled, and report what happened.  |
@@ -1727,6 +1727,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `FakeModelRequest` | interface | One request body the fake server received. |
 | `FakeModelServer` | interface | A running fake model server; see {@link startFakeModelServer } . |
 | `FakeModelServerOptions` | interface | Options for {@link startFakeModelServer } . |
+| `SessionStoreConformanceCase` | interface | One named check of the {@link SessionStore } contract. |
+| `sessionStoreConformanceCases` | function | The SessionStore contract as plain named cases.  |
+| `SessionStoreFactory` | interface | How the suite obtains stores to check. |
 | `startFakeModelServer` | function | Start a local server that speaks a provider's chat wire protocol and answers with scripted text, so an agent can run end to end with no credential and no real model.  |
 
 ## `@theokit/sdk/workflow`
@@ -1737,6 +1740,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AgentStep` | interface | An agent.send-driven step. |
 | `BranchStep` | interface | First-match-wins predicates + optional fallback. |
 | `cloneWorkflow` | function | SE30 — clone a committed workflow under a new id/name.  |
+| `CompensationResult` | interface | The outcome of one `compensate` call. |
 | `DowhileStep` | interface | Loop a step until condFn returns false. |
 | `fn` | function | Build a `FnStep`.  |
 | `FnStep` | interface | A pure function step. |
@@ -1753,7 +1757,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `workflowAsTool` | function | SE19 — expose a {@link Workflow } as an agent {@link CustomTool } , completing the "X as tools" trio (tools; agents-as-tools via `defineSubAgent`; workflows-as-tools).  |
 | `WorkflowAsToolSpec` | interface | Spec for {@link workflowAsTool } .  |
 | `WorkflowBuilder` | class | Fluent step accumulator returned by {@link Workflow.create } .  |
-| `WorkflowCompensateNotImplementedError` | class | D238 — saga engine not yet implemented. |
+| `WorkflowCompensateNotImplementedError` | class | D238 — a `compensate` on a step nested in parallel/branch/foreach/dowhile (top-level steps are supported). |
 | `WorkflowDescription` | interface | theokit#161 — the read-only shape of a committed workflow.  |
 | `WorkflowDuplicateStepIdError` | class | Thrown by `.commit()` when one step id appears twice anywhere in the workflow — including inside a parallel branch, a branch predicate, the fallback, and the inner step of a `foreach` or `dowhile`.  |
 | `WorkflowEvent` | type | SE28 — a step-level workflow event emitted by `Workflow.stream()` as top-level steps run.  |
