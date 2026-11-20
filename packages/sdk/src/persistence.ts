@@ -46,6 +46,11 @@ export {
   loadJsonl,
   readJsonlIds,
 } from "./internal/persistence/jsonl.js";
+export {
+  type ListProjectsOptions,
+  listProjects,
+  type ProjectListing,
+} from "./internal/persistence/list-projects.js";
 // SE40 — native session transcript (Claude-shaped `.jsonl`, theokit-native). The
 // on-disk session format IS this shape. `encodeProjectDir` + `transcriptPath` are
 // the path helpers a consumer reuses to locate a session file under
