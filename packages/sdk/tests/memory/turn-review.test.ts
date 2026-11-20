@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Agent } from "../../src/agent.js";
-import { createTurnReviewQueue } from "../../src/internal/memory/review/turn-review.js";
 import { setDiagnosticsSink } from "../../src/internal/diagnostics.js";
+import { createTurnReviewQueue } from "../../src/internal/memory/review/turn-review.js";
 import type { AgentOptions } from "../../src/types/agent.js";
 import {
   blockStop,
