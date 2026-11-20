@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1474 export(s) across 57 entry point(s).
+1476 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -803,6 +803,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CreateApplyPatchToolOptions` | interface | `apply_patch` — built-in tool for coding agents.  |
 | `createBraveWebSearchAdapter` | function | Build a `WebSearchCallback` backed by the Brave Search API.  |
 | `CreateBraveWebSearchAdapterOptions` | interface | Options for {@link createBraveWebSearchAdapter } .  |
+| `createComputerTool` | function | Create the `computer` tool for an X11 desktop (Xvfb with `-fbdir`, plus `xdotool`). |
+| `CreateComputerToolOptions` | interface | Options for {@link createComputerTool } . |
 | `createCurrentTimeTool` | function | Build the `current_time` tool, so the model reads a clock instead of stating a date from training data.  |
 | `CreateCurrentTimeToolOptions` | interface | `current_time` — built-in tool for coding agents.  |
 | `createEditFileTool` | function | Build the `edit_file` tool: replace one occurrence of `old_string` with `new_string` in place, after copying the previous content to `<path>.bak`.  |
