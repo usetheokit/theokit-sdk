@@ -1312,13 +1312,21 @@
         "tier": "stable",
         "declaration": "export interface Score {\n    readonly score: number;\n    readonly reason?: string;\n}"
       },
+      "ScoreContext": {
+        "tier": "stable",
+        "declaration": "export interface ScoreContext {\n    readonly input: string;\n    readonly metadata?: Record<string, unknown>;\n    readonly toolCalls: readonly ScoredToolCall[];\n}"
+      },
+      "ScoredToolCall": {
+        "tier": "stable",
+        "declaration": "export interface ScoredToolCall {\n    readonly name: string;\n    readonly input: Record<string, unknown>;\n    readonly output?: string;\n    readonly isError: boolean;\n}"
+      },
       "Scorer": {
         "tier": "stable",
-        "declaration": "export type Scorer = (output: string, expected?: unknown) => Score | Promise<Score>;"
+        "declaration": "export type Scorer = (output: string, expected?: unknown, context?: ScoreContext) => Score | Promise<Score>;"
       },
       "Scorers": {
         "tier": "stable",
-        "declaration": "Scorers: {\n    exactMatch(opts?: ExactMatchOptions): NamedScorer;\n    containsExpected(opts?: ContainsExpectedOptions): NamedScorer;\n    regex(pattern: RegExp): NamedScorer;\n    levenshtein(opts?: LevenshteinOptions): NamedScorer;\n    numericDiff(opts?: NumericDiffOptions): NamedScorer;\n    embeddingSimilarity(opts: EmbeddingSimilarityOptions): NamedScorer;\n    llmJudge(opts: LlmJudgeOptions): NamedScorer;\n    verifyGate(opts: VerifyGateOptions): NamedScorer;\n    jsonShape<T extends ZodType>(schema: T, opts?: JsonShapeOptions): NamedScorer;\n}"
+        "declaration": "Scorers: {\n    exactMatch(opts?: ExactMatchOptions): NamedScorer;\n    containsExpected(opts?: ContainsExpectedOptions): NamedScorer;\n    regex(pattern: RegExp): NamedScorer;\n    levenshtein(opts?: LevenshteinOptions): NamedScorer;\n    numericDiff(opts?: NumericDiffOptions): NamedScorer;\n    embeddingSimilarity(opts: EmbeddingSimilarityOptions): NamedScorer;\n    llmJudge(opts: LlmJudgeOptions): NamedScorer;\n    faithfulness(opts: FaithfulnessOptions): NamedScorer;\n    rubric(opts: RubricOptions): NamedScorer;\n    judgedTrajectory(opts: JudgedTrajectoryOptions): NamedScorer;\n    verifyGate(opts: VerifyGateOptions): NamedScorer;\n    jsonShape<T extends ZodType>(schema: T, opts?: JsonShapeOptions): NamedScorer;\n    toolCallAccuracy(opts?: {\n        matchInput?: \"exact\" | \"subset\" | \"ignore\";\n        allowExtra?: boolean;\n    }): NamedScorer;\n    trajectory(opts?: {\n        order?: \"strict\" | \"subsequence\" | \"any\";\n    }): NamedScorer;\n}"
       },
       "VerifyGateOptions": {
         "tier": "stable",
@@ -1414,13 +1422,21 @@
         "tier": "stable",
         "declaration": "export interface Score {\n    readonly score: number;\n    readonly reason?: string;\n}"
       },
+      "ScoreContext": {
+        "tier": "stable",
+        "declaration": "export interface ScoreContext {\n    readonly input: string;\n    readonly metadata?: Record<string, unknown>;\n    readonly toolCalls: readonly ScoredToolCall[];\n}"
+      },
+      "ScoredToolCall": {
+        "tier": "stable",
+        "declaration": "export interface ScoredToolCall {\n    readonly name: string;\n    readonly input: Record<string, unknown>;\n    readonly output?: string;\n    readonly isError: boolean;\n}"
+      },
       "Scorer": {
         "tier": "stable",
-        "declaration": "export type Scorer = (output: string, expected?: unknown) => Score | Promise<Score>;"
+        "declaration": "export type Scorer = (output: string, expected?: unknown, context?: ScoreContext) => Score | Promise<Score>;"
       },
       "Scorers": {
         "tier": "stable",
-        "declaration": "Scorers: {\n    exactMatch(opts?: ExactMatchOptions): NamedScorer;\n    containsExpected(opts?: ContainsExpectedOptions): NamedScorer;\n    regex(pattern: RegExp): NamedScorer;\n    levenshtein(opts?: LevenshteinOptions): NamedScorer;\n    numericDiff(opts?: NumericDiffOptions): NamedScorer;\n    embeddingSimilarity(opts: EmbeddingSimilarityOptions): NamedScorer;\n    llmJudge(opts: LlmJudgeOptions): NamedScorer;\n    verifyGate(opts: VerifyGateOptions): NamedScorer;\n    jsonShape<T extends ZodType>(schema: T, opts?: JsonShapeOptions): NamedScorer;\n}"
+        "declaration": "Scorers: {\n    exactMatch(opts?: ExactMatchOptions): NamedScorer;\n    containsExpected(opts?: ContainsExpectedOptions): NamedScorer;\n    regex(pattern: RegExp): NamedScorer;\n    levenshtein(opts?: LevenshteinOptions): NamedScorer;\n    numericDiff(opts?: NumericDiffOptions): NamedScorer;\n    embeddingSimilarity(opts: EmbeddingSimilarityOptions): NamedScorer;\n    llmJudge(opts: LlmJudgeOptions): NamedScorer;\n    faithfulness(opts: FaithfulnessOptions): NamedScorer;\n    rubric(opts: RubricOptions): NamedScorer;\n    judgedTrajectory(opts: JudgedTrajectoryOptions): NamedScorer;\n    verifyGate(opts: VerifyGateOptions): NamedScorer;\n    jsonShape<T extends ZodType>(schema: T, opts?: JsonShapeOptions): NamedScorer;\n    toolCallAccuracy(opts?: {\n        matchInput?: \"exact\" | \"subset\" | \"ignore\";\n        allowExtra?: boolean;\n    }): NamedScorer;\n    trajectory(opts?: {\n        order?: \"strict\" | \"subsequence\" | \"any\";\n    }): NamedScorer;\n}"
       },
       "VerifyGateOptions": {
         "tier": "stable",
@@ -2630,7 +2646,7 @@
       },
       "SandboxBackend": {
         "tier": "stable",
-        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
+        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
       },
       "SandboxConfig": {
         "tier": "stable",
@@ -2842,7 +2858,7 @@
       },
       "SandboxBackend": {
         "tier": "stable",
-        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
+        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
       },
       "SandboxConfig": {
         "tier": "stable",

@@ -71,7 +71,7 @@ describe("judge scorers", () => {
           { id: "a", description: "y" },
         ],
       }),
-    ).toThrow();
+    ).toThrow(TypeError);
   });
 
   it("judged_trajectory_sees_tool_calls", async () => {
