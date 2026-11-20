@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1514 export(s) across 58 entry point(s).
+1518 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -227,6 +227,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ImageBlock` | interface | SE7 — a base64-encoded image block a tool can hand back as (part of) its result or its `ToolError`.  |
 | `inferApiMode` | function | Guess which usage shape a provider reports, from its name alone.  |
 | `InlineSkill` | interface | A code-defined skill (from {@link createSkill } ) — a {@link Skill } plus its inline body. |
+| `InMemorySessionStore` | class | A {@link SessionStore } whose records live in this object only: nothing is written to disk, and the transcript disappears with the process.  |
 | `InputProcessorContext` | interface | Context passed to {@link Processor.processInput } . |
 | `IntegrationNotConnectedError` | class | Thrown when creating a cloud agent for a repo whose SCM provider is not connected.  |
 | `InteractionUpdate` | type | Lowest-level raw update from a run.  |
@@ -1511,6 +1512,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `forkTranscript` | function | Copy `src` into `dst`, keeping the first `beforeRecordIndex` records.  |
 | `ForkTranscriptOptions` | interface | Options for {@link forkTranscript } . |
 | `getProfilesRoot` | function | The directory holding every profile: always `~/.theokit/profiles`, from `os.homedir()`.  |
+| `InMemorySessionStore` | class | A {@link SessionStore } whose records live in this object only: nothing is written to disk, and the transcript disappears with the process.  |
 | `InstanceLock` | interface | A held instance lock. |
 | `InstanceLockedError` | class | Another live process holds the instance lock, or the filesystem cannot hold one. |
 | `isCorruptionError` | function | True when an open error indicates an unreadable / corrupt database file. |

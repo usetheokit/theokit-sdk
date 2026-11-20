@@ -50,10 +50,15 @@ function resolveRegistryCwd(agent: Pick<RegisteredAgent, "cwd">): string {
   return agent.cwd ?? process.cwd();
 }
 
+/** `local.registry: false` keeps an agent out of every file this module writes. */
+function isPersisted(agent: RegisteredAgent): boolean {
+  return agent.options.local?.registry !== false;
+}
+
 function snapshotForCwd(cwd: string): Record<string, RegisteredAgent> {
   const snapshot: Record<string, RegisteredAgent> = {};
   for (const agent of agents.values()) {
-    if (resolveRegistryCwd(agent) === cwd) {
+    if (resolveRegistryCwd(agent) === cwd && isPersisted(agent)) {
       snapshot[agent.agentId] = agent;
     }
   }
@@ -100,6 +105,7 @@ function scheduleSaveForCwd(cwd: string): Promise<void> {
 
 export function registerAgent(agent: RegisteredAgent): void {
   agents.set(agent.agentId, agent);
+  if (!isPersisted(agent)) return;
   void scheduleSaveForCwd(resolveRegistryCwd(agent));
 }
 
@@ -153,6 +159,7 @@ export function updateRegisteredAgent(
     lastModified: Date.now(),
   };
   agents.set(agentId, updated);
+  if (!isPersisted(updated)) return updated;
   void scheduleSaveForCwd(resolveRegistryCwd(updated));
   return updated;
 }
@@ -160,7 +167,7 @@ export function updateRegisteredAgent(
 export function removeRegisteredAgent(agentId: string): boolean {
   const existing = agents.get(agentId);
   const removed = agents.delete(agentId);
-  if (removed && existing !== undefined) {
+  if (removed && existing !== undefined && isPersisted(existing)) {
     void scheduleSaveForCwd(resolveRegistryCwd(existing));
   }
   return removed;

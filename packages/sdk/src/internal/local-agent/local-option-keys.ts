@@ -21,6 +21,7 @@ const KNOWN_LOCAL_OPTION_KEYS: ReadonlySet<string> = new Set([
   "sessionDir",
   "baseDir",
   "sessionStore",
+  "registry",
 ]);
 
 /** Keys already reported, so a long-lived host says each one once rather than once per agent. */
