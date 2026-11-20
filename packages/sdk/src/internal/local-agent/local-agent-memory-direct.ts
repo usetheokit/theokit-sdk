@@ -242,11 +242,7 @@ export function buildAgentMemory(
       // THIS agent's memory root only. Ordering: the adapter delete is the source of truth and goes
       // first; if this cleanup throws, the fact is already gone from the adapter, and calling
       // `delete` again re-runs both steps (adapter deletes are idempotent), so the retry cleans up.
-      await forgetFactInOpenIndexes(
-        resolveMemoryRoot(workspaceCwd),
-        id,
-        DEFAULT_NAMESPACE,
-      );
+      await forgetFactInOpenIndexes(resolveMemoryRoot(workspaceCwd), id, DEFAULT_NAMESPACE);
     },
 
     adapter(): MemoryAdapter | null {
