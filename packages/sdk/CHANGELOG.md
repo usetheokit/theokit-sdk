@@ -1,5 +1,11 @@
 # Changelog
 
+## 6.1.0
+
+### Minor Changes
+
+- [#1391](https://github.com/usetheokit/theokit-sdk/pull/1391) [`c584db6`](https://github.com/usetheokit/theokit-sdk/commit/c584db67edaa5e149707918ad1924c1e1098499e) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Testing: `@theokit/sdk/testing` adds `startScriptedModelServer`, a fake model server that answers ordered steps (text, tool calls, HTTP errors with `retry-after`) on the openai or ollama wire, and `assertConsumed()` throws `UnexpectedModelCallError` or `UnconsumedModelStepsError` when the loop makes more or fewer model calls than scripted.
+
 ## 6.0.0
 
 ### Major Changes
