@@ -199,7 +199,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `plugin_manifest_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:287` |
 | `plugin_missing_manifest` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:272` +2 |
 | `profile_app_directory_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/profile.ts:31` +1 |
-| `profile_conflict` | domain | — | `packages/sdk/src/errors.ts:791` |
+| `profile_conflict` | domain | — | `packages/sdk/src/errors.ts:807` |
 | `profile_directory_failed` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/profile.ts:73` |
 | `profile_name_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/profile.ts:41` |
 | `programmatic_hooks_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:102` |

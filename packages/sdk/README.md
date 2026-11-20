@@ -223,6 +223,24 @@ await untrustWorkspacePlugin("/path/to/plugins/echo"); // true when an entry was
 plugin folder. A trust record that exists but is not a JSON array makes the trust calls throw
 `TrustRecordError` naming the file; it is never overwritten.
 
+## Guarding tools that run outside the agent loop
+
+A tool called from a code-mode script, an MCP endpoint or a relay skips the agent's `pre_tool_call`
+plugins. `guardTools` wraps each tool so its handler runs the plugin chain first; a veto rejects
+with `ToolCallBlockedError` (`toolName`, `pluginMessage`) and the handler is not called.
+`runPreToolCall(plugins, ctx)` runs the same chain for one call and returns the first
+`{ block: true, message }` decision, or `undefined`.
+
+```ts
+import { guardTools, runPreToolCall } from "@theokit/sdk";
+
+const safe = guardTools(tools, plugins, { agentId: "my-agent", permissionMode: "default" });
+const decision = await runPreToolCall(plugins, { name, args, agentId, runId });
+```
+
+A plugin handler that throws is not turned into a veto: the exception propagates, as it does in the
+agent loop. `guardTools` passes no `conversation`; use `runPreToolCall` to supply one.
+
 ## Explain skills
 
 `explainSkills` from `@theokit/sdk/skills` reports what an agent would see, from the same walk the
