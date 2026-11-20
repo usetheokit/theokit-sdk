@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1531 export(s) across 58 entry point(s).
+1535 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1780,6 +1780,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `workflowAsTool` | function | SE19 — expose a {@link Workflow } as an agent {@link CustomTool } , completing the "X as tools" trio (tools; agents-as-tools via `defineSubAgent`; workflows-as-tools).  |
 | `WorkflowAsToolSpec` | interface | Spec for {@link workflowAsTool } .  |
 | `WorkflowBuilder` | class | Fluent step accumulator returned by {@link Workflow.create } .  |
+| `WorkflowCheckpoint` | interface | One retained checkpoint of a run: the output and shared state right after `stepId` completed. |
 | `WorkflowCompensateNotImplementedError` | class | D238 — saga engine not yet implemented. |
 | `WorkflowDescription` | interface | theokit#161 — the read-only shape of a committed workflow.  |
 | `WorkflowDuplicateStepIdError` | class | Thrown by `.commit()` when one step id appears twice anywhere in the workflow — including inside a parallel branch, a branch predicate, the fallback, and the inner step of a `foreach` or `dowhile`.  |
@@ -1792,6 +1793,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WorkflowOutputError` | class | SE27 — the whole-workflow `outputSchema` rejected the final output (on `completed`).  |
 | `WorkflowParallelError` | class | Aggregate failure from parallel branches.  |
 | `WorkflowPersistenceOptions` | interface | Where suspend snapshots are kept.  |
+| `WorkflowRerunOptions` | interface | Arguments for `Workflow.rerunFrom()`. |
 | `WorkflowResumeOptions` | interface | Arguments for `Workflow.resume()`.  |
 | `WorkflowResumeStepNotFoundError` | class | EC-8 absorbed — `currentStepId` from snapshot not found in resumed workflow. |
 | `workflowResumeTool` | function | B-677 — a {@link CustomTool } that resumes a suspended run of `workflow` by its run id, with an optional payload validated against the suspend step's schema.  |

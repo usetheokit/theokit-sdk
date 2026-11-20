@@ -10,7 +10,11 @@
 
 import { mkdir, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { WorkflowOptions, WorkflowSnapshot } from "../../types/workflow.js";
+import type {
+  WorkflowCheckpoint,
+  WorkflowOptions,
+  WorkflowSnapshot,
+} from "../../types/workflow.js";
 import { WorkflowNotSerializableError } from "../../workflow-errors.js";
 import { atomicWriteText } from "../persistence/atomic-write.js";
 
@@ -32,7 +36,28 @@ function toListing(s: WorkflowSnapshot): WorkflowSnapshotListing {
   };
 }
 
+/** A retained checkpoint plus what a replay needs: the owning workflow and, on the first step, the run input. */
+export interface HistoryEntry extends WorkflowCheckpoint {
+  readonly workflowName: string;
+  readonly input?: unknown;
+}
+
+function copyEntry(entry: HistoryEntry): HistoryEntry {
+  try {
+    return JSON.parse(JSON.stringify(entry)) as HistoryEntry;
+  } catch (err) {
+    throw new WorkflowNotSerializableError(
+      entry.stepId,
+      err instanceof Error ? err : new Error(String(err)),
+    );
+  }
+}
+
 export interface WorkflowSnapshotStore {
+  /** Retain a checkpoint; an entry for the same step of the run is replaced in place. */
+  appendHistory(entry: HistoryEntry): Promise<void>;
+  /** Retained checkpoints of a run, oldest first. */
+  loadHistory(runId: string): Promise<ReadonlyArray<HistoryEntry>>;
   save(snapshot: WorkflowSnapshot): Promise<void>;
   load(runId: string): Promise<WorkflowSnapshot | undefined>;
   delete(runId: string): Promise<void>;
@@ -43,6 +68,19 @@ export interface WorkflowSnapshotStore {
 
 class InMemoryWorkflowSnapshotStore implements WorkflowSnapshotStore {
   private readonly map = new Map<string, WorkflowSnapshot>();
+  private readonly histories = new Map<string, HistoryEntry[]>();
+
+  async appendHistory(entry: HistoryEntry): Promise<void> {
+    const copy = copyEntry(entry);
+    const list = this.histories.get(entry.runId) ?? [];
+    const at = list.findIndex((e) => e.stepId === entry.stepId);
+    if (at >= 0) list[at] = copy;
+    else list.push(copy);
+    this.histories.set(entry.runId, list);
+  }
+  async loadHistory(runId: string): Promise<ReadonlyArray<HistoryEntry>> {
+    return (this.histories.get(runId) ?? []).map(copyEntry);
+  }
 
   async save(snapshot: WorkflowSnapshot): Promise<void> {
     // Verify serializability even in-memory so behavior is consistent with json backend.
@@ -76,6 +114,46 @@ class JsonFileWorkflowSnapshotStore implements WorkflowSnapshotStore {
 
   private filePath(runId: string): string {
     return join(this.dir, `${runId}.json`);
+  }
+
+  private historyDir(runId: string): string {
+    return join(this.dir, runId);
+  }
+
+  private async historyFiles(runId: string): Promise<Array<{ index: number; file: string }>> {
+    let names: string[];
+    try {
+      names = await readdir(this.historyDir(runId));
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw err;
+    }
+    const found: Array<{ index: number; file: string }> = [];
+    for (const file of names) {
+      const m = /^(\d+)-.*\.json$/.exec(file);
+      if (m?.[1] !== undefined) found.push({ index: Number(m[1]), file });
+    }
+    return found.sort((a, b) => a.index - b.index);
+  }
+
+  async appendHistory(entry: HistoryEntry): Promise<void> {
+    const serialized = JSON.stringify(copyEntry(entry));
+    const files = await this.historyFiles(entry.runId);
+    const suffix = `-${entry.stepId}.json`;
+    const same = files.find((f) => f.file.slice(String(f.index).length) === suffix);
+    const index = same?.index ?? (files.at(-1)?.index ?? -1) + 1;
+    await mkdir(this.historyDir(entry.runId), { recursive: true });
+    await atomicWriteText(join(this.historyDir(entry.runId), `${index}${suffix}`), serialized);
+  }
+
+  async loadHistory(runId: string): Promise<ReadonlyArray<HistoryEntry>> {
+    const files = await this.historyFiles(runId);
+    const out: HistoryEntry[] = [];
+    for (const f of files) {
+      const raw = await readFile(join(this.historyDir(runId), f.file), "utf8");
+      out.push(JSON.parse(raw) as HistoryEntry);
+    }
+    return out;
   }
 
   async save(snapshot: WorkflowSnapshot): Promise<void> {
@@ -166,4 +244,6 @@ export function __resetSnapshotStoresForTests(): void {
   // memoryStore has private map; reset via assignment.
   // biome-ignore lint/suspicious/noExplicitAny: test-only seam
   (memoryStore as any).map.clear();
+  // biome-ignore lint/suspicious/noExplicitAny: test-only seam
+  (memoryStore as any).histories.clear();
 }

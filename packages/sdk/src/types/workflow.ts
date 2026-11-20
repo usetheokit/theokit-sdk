@@ -259,6 +259,8 @@ export interface WorkflowRun<TOutput = unknown> {
   readonly startedAt: number;
   readonly endedAt?: number;
   readonly stepResults: ReadonlyArray<StepResult>;
+  /** Set on a run started by `Workflow.rerunFrom()`: the run and step it replayed from. */
+  readonly rerunOf?: { readonly runId: string; readonly stepId: string };
 }
 
 /**
@@ -359,6 +361,33 @@ export interface WorkflowPersistenceOptions {
    * survive a process restart. The run lock stays per process.
    */
   readonly durability?: "suspend" | "step";
+  /**
+   * With `durability: "step"`: keep every checkpoint of a run (readable with `Workflow.history()`,
+   * replayable with `Workflow.rerunFrom()`) instead of only the latest. Default false. The json backend
+   * writes `{runId}/{index}-{stepId}.json` under `dir`. History survives the run completing; delete the
+   * run directory to prune it. `Workflow.create()` rejects it without `durability: "step"`.
+   */
+  readonly keepHistory?: boolean;
+}
+
+/** One retained checkpoint of a run: the output and shared state right after `stepId` completed. */
+export interface WorkflowCheckpoint {
+  readonly runId: string;
+  /** The top-level step that had just completed. */
+  readonly stepId: string;
+  readonly output: unknown;
+  readonly state?: unknown;
+  readonly at: number;
+}
+
+/** Arguments for `Workflow.rerunFrom()`. */
+export interface WorkflowRerunOptions {
+  readonly runId: string;
+  /** Top-level step to re-run from; it and every step after it execute again. */
+  readonly stepId: string;
+  /** Input for `stepId`; defaults to the output of the step before it (the run's input for the first step). */
+  readonly input?: unknown;
+  readonly signal?: AbortSignal;
 }
 
 /**

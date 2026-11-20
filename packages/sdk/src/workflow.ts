@@ -43,9 +43,11 @@ import type {
   Step,
   StepContext,
   SuspendStep,
+  WorkflowCheckpoint,
   WorkflowDescription,
   WorkflowEvent,
   WorkflowOptions,
+  WorkflowRerunOptions,
   WorkflowResumeOptions,
   WorkflowRun,
   WorkflowRunOptions,
@@ -373,6 +375,11 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
   static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO> {
     WorkflowOptionsSchema.parse(options);
     DurabilitySchema.parse(options.persistence?.durability);
+    if (options.persistence?.keepHistory === true && options.persistence.durability !== "step") {
+      throw new ConfigurationError(
+        'persistence.keepHistory requires persistence.durability: "step"',
+      );
+    }
     return new WorkflowBuilder<TI, TO>(options);
   }
 
@@ -487,6 +494,27 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
       }
     })();
     return Object.assign(queue, { result });
+  }
+
+  /**
+   * The checkpoints `persistence.keepHistory` retained for `runId`, oldest first (empty when none).
+   * A completed run keeps its history.
+   */
+  async history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>> {
+    const { workflowHistory } = await import("./internal/workflow/executor.js");
+    return workflowHistory(this._options, runId);
+  }
+
+  /**
+   * Re-run a finished or failed run from a top-level step: a new run (new `id`, `rerunOf` set) executes
+   * `stepId` and every step after it, from the output and shared state stored after the step before it.
+   * The original run's history is not modified. Throws `WorkflowResumeStepNotFoundError` for a `stepId`
+   * that is not a top-level step, and `WorkflowSnapshotNotFoundError` when `runId` has no retained
+   * history (needs `persistence: { durability: "step", keepHistory: true }`).
+   */
+  async rerunFrom<TO = TOutput>(opts: WorkflowRerunOptions): Promise<WorkflowRun<TO>> {
+    const { rerunWorkflowFrom } = await import("./internal/workflow/executor.js");
+    return rerunWorkflowFrom<TO>(this._options, this._steps, opts);
   }
 
   /**
