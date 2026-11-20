@@ -23,7 +23,7 @@ import { basename, join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { FileContextManager } from "../src/internal/runtime/context/context-manager.js";
+import { FileContextManager } from "../../src/internal/runtime/context/context-manager.js";
 
 let root: string;
 let project: string;

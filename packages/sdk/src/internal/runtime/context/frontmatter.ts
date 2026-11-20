@@ -5,12 +5,14 @@
  */
 import { ConfigurationError } from "../../../errors.js";
 
+/** The two halves of a markdown file: the text between the `---` fences, and everything after. */
 export interface FrontmatterSplit {
   /** Text between the fences; undefined when the file has no opening fence. */
   readonly yaml: string | undefined;
   readonly body: string;
 }
 
+/** A value the frontmatter YAML subset can carry: string, number, boolean or string list. */
 export type FrontmatterScalar = string | number | boolean | string[];
 
 const FENCE = "---";
