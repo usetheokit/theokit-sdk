@@ -735,7 +735,7 @@ const rerun = await workflow.rerunFrom({ runId, stepId: "s3" }); // optional: in
 rerun.rerunOf; // { runId, stepId: "s3" }
 ```
 
-`rerunFrom` forks: it mints a new run id and executes `s3` and every step after it, with the output and shared `state` stored after the step before it (or your `input`). For the first step it uses the original run's input. The original run's history is not modified. An unknown `runId` throws `WorkflowSnapshotNotFoundError`; a `stepId` that is not a top-level step throws `WorkflowResumeStepNotFoundError`. Steps nested in `parallel`, `branch` or `foreach` cannot be replayed from.
+`rerunFrom` forks: it mints a new run id and executes `s3` and every step after it, with the output and shared `state` stored after the step before it (or your `input`). For the first step it uses the original run's input. The original run's history is not modified. An unknown `runId` throws `WorkflowSnapshotNotFoundError`; a `stepId` that is not a top-level step throws `WorkflowResumeStepNotFoundError`. Steps nested in `parallel`, `branch` or `foreach` cannot be replayed from. A re-run records history only for the steps it replayed, so `rerunFrom` on a re-run's `runId` can start only at a step it replayed; an earlier step throws `WorkflowSnapshotNotFoundError`.
 
 ## Resuming a workflow run by id: `WorkflowSet`
 

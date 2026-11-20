@@ -146,6 +146,15 @@ describe("workflow rerunFrom", () => {
     expect(re.output).toBe(4);
   });
 
+  it("rerun_of_a_rerun_can_start_only_at_a_replayed_step", async () => {
+    const wf = build({ backend: "memory" }, {});
+    await wf.run(1, { runId: "orig" });
+    const re = await wf.rerunFrom({ runId: "orig", stepId: "s3" });
+    await expect(wf.rerunFrom({ runId: re.id, stepId: "s1" })).rejects.toBeInstanceOf(
+      WorkflowSnapshotNotFoundError,
+    );
+  });
+
   it("keep_history_requires_step_durability", () => {
     const make = (persistence: object) => () =>
       Workflow.create({ name: "x", persistence } as never);
