@@ -11,7 +11,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
 | `a2a_mailbox_error` | domain | A2AMailboxError | `packages/sdk/src/a2a/http-mailbox.ts:29` +1 |
-| `a2a_mailbox_insecure_url` | domain | ConfigurationError | `packages/sdk/src/a2a/http-mailbox.ts:246` |
+| `a2a_mailbox_insecure_url` | domain | ConfigurationError | `packages/sdk/src/a2a/http-mailbox.ts:247` |
 | `a2a_peer_not_registered` | domain | A2APeerNotRegisteredError | `packages/sdk/src/a2a/message-bus.ts:50` +1 |
 | `a2a_remote_request_unsupported` | domain | A2ARemoteRequestUnsupportedError | `packages/sdk/src/a2a/message-bus.ts:23` +1 |
 | `a2a_request_timeout` | domain | A2ARequestTimeoutError | `packages/sdk/src/a2a/message-bus.ts:84` +1 |

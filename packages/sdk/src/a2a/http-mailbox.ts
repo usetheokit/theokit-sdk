@@ -11,8 +11,8 @@
 
 import { timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { chmod, rename, writeFile } from "node:fs/promises";
 import { ConfigurationError, TheokitAgentError } from "../errors.js";
+import { replaceFileAtomic } from "../internal/persistence/atomic-write.js";
 import type { A2ATransport } from "./transport.js";
 import type { A2AMessage } from "./types.js";
 
@@ -97,10 +97,7 @@ function loadQueues(path: string): Queues {
 }
 
 async function persist(path: string, queues: Queues): Promise<void> {
-  const tmp = `${path}.${process.pid}.tmp`;
-  await writeFile(tmp, JSON.stringify(Object.fromEntries(queues)), { mode: 0o600 });
-  await chmod(tmp, 0o600);
-  await rename(tmp, path);
+  await replaceFileAtomic(path, JSON.stringify(Object.fromEntries(queues)), { mode: 0o600 });
 }
 
 function tokenMatches(header: string | null, token: string): boolean {

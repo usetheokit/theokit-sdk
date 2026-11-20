@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import {
   A2AMailboxError,
   type A2AMessage,
@@ -10,6 +10,7 @@ import {
   MessageBus,
 } from "../../src/a2a/index.js";
 import { ConfigurationError } from "../../src/errors.js";
+import { removeTempDirRobustSync } from "../helpers/temp-workspace.js";
 
 const TOKEN = "s3cret";
 const URL_BASE = "http://127.0.0.1:8080/mb";
@@ -28,7 +29,9 @@ function req(route: string, body: unknown, init: RequestInit = {}): Request {
 }
 
 function tmpFile(): string {
-  return join(mkdtempSync(join(tmpdir(), "mailbox-")), "box.json");
+  const dir = mkdtempSync(join(tmpdir(), "mailbox-"));
+  onTestFinished(() => removeTempDirRobustSync(dir));
+  return join(dir, "box.json");
 }
 
 describe("createHttpMailboxHandler", () => {
