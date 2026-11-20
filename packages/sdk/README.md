@@ -478,6 +478,26 @@ await run.wait(); // the model continues with the results
 
 `allow` dispatches the stored call after the permission rules, floors and hooks run again on its input: an approval answers an `ask` and never overrides a current `deny`, a permission floor or another plugin's veto (the call then gets an error result). `deny` writes an error result with your `message` and runs nothing. An unknown or repeated `toolUseId`, a missing decision, nothing pending, or a stored call with an unsupported `schemaVersion` rejects with `ConfigurationError` (`tool_decision_unknown`, `tool_decision_duplicate`, `tool_decision_missing`, `no_deferred_tool_calls`, `deferred_schema_unsupported`) and leaves the session unchanged. A normal send while calls are pending abandons them; the unanswered calls are left out of the history so the session is not blocked. Local runtime only.
 
+## `@theokit/sdk/server/auth`: sign-in with Web `Request` / `Response`
+
+`Auth.create({ session, providers, onSignIn })` also drives a sign-in for apps that handle Web requests. The SDK writes, reads and clears the encrypted OAuth transaction cookie (`__Host-theo_oauth_tx`, HttpOnly, Secure, SameSite=Lax, Max-Age 600); the app writes no cookie code.
+
+```ts
+// GET /auth/google: 302 to the provider, with the transaction cookie set
+export const start = (request: Request) =>
+  auth.startSignInWeb("google", request, { returnTo: "/dashboard" });
+
+// GET /auth/google/callback
+export async function callback(request: Request) {
+  const headers = new Headers();
+  const { returnTo } = await auth.finishSignInWeb("google", request, headers);
+  headers.set("Location", returnTo ?? "/");
+  return new Response(null, { status: 302, headers });
+}
+```
+
+`finishSignInWeb` checks the provider error and `state` (constant time), calls the provider with the `Request`, runs `onSignIn`, then appends the session cookie and a clearing transaction cookie to `headers`. It rejects with `AuthCancelledError` (`access_denied`) or `AuthCallbackError` (`oauth_provider_error`, `oauth_transaction_expired`, `oauth_state_mismatch`). The provider's `handleCallback` must accept a `Request`. The session manager needs `createSessionWeb(headers, data)`, which must issue a fresh session; without it `finishSignInWeb` rejects with `AuthConfigError` (`session_web_unsupported`). The Node methods (`startSignIn`, `finishSignIn`) are unchanged. `writeTransactionCookie`, `readTransactionCookie` (`null` when absent, expired or not decryptable) and `clearTransactionCookie` are exported for custom flows.
+
 ## `@theokit/sdk/auth`: choosing a provider credential
 
 `resolveProviderCredential({ env, model?, store?, providers?, pinnedEnvVar? })` returns

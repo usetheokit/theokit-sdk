@@ -18,7 +18,12 @@ export {
 // T5.1 — HKDF-SHA256 derivation rejects secrets < 32 bytes with this
 // typed error. Surfaces on `defineAuth` callers whose env secret is
 // too short (e.g., a 16-byte legacy value carried over from pre-T5.1).
-export { AuthSecretTooShortError } from "./oauth-transaction-store.js";
+export {
+  AuthSecretTooShortError,
+  clearTransactionCookie,
+  readTransactionCookie,
+  writeTransactionCookie,
+} from "./oauth-transaction-store.js";
 
 export { Auth } from "./orchestrator.js";
 export type {

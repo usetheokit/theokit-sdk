@@ -36,6 +36,12 @@ export interface SessionManager<TSession> {
    * An array is accepted for rotation: the first entry encrypts, and the rest are for verifying
    * cookies written before the last rotation.
    */
+  /**
+   * Web counterpart of `createSession`: appends the session `Set-Cookie` to `headers`. OPTIONAL;
+   * required only for `finishSignInWeb`. It must issue a fresh session (no reuse of a prior
+   * session id), because the Web flow has no `rotateSession` step.
+   */
+  createSessionWeb?(headers: Headers, data: TSession): Promise<void>;
   getCookieSecret?(): string | string[] | undefined;
 }
 
@@ -74,7 +80,10 @@ export interface AuthResult<TProfile, TName extends string = string> {
 export interface AuthProvider<TProfile, TName extends string = string> {
   name: TName;
   createAuthorizationURL(tx: OAuthTransaction): URL | Promise<URL>;
-  handleCallback(req: IncomingMessage, tx: OAuthTransaction): Promise<AuthResult<TProfile, TName>>;
+  handleCallback(
+    req: Request | IncomingMessage,
+    tx: OAuthTransaction,
+  ): Promise<AuthResult<TProfile, TName>>;
 }
 
 /**
@@ -109,6 +118,22 @@ export interface AuthOrchestrator<TSession> {
     providerName: string,
     req: IncomingMessage,
     res: ServerResponse,
+  ): Promise<{ session: TSession; returnTo?: string }>;
+  /** Web `Request` variant of `startSignIn`; sets the transaction cookie on the 302. */
+  startSignInWeb(
+    providerName: string,
+    request: Request,
+    opts?: { returnTo?: string },
+  ): Promise<Response>;
+  /**
+   * Web variant of `finishSignIn`: clears the transaction cookie and writes the session cookie
+   * into `responseHeaders` (needs `SessionManager.createSessionWeb`). The provider receives the
+   * `Request`, so it must accept Web requests.
+   */
+  finishSignInWeb(
+    providerName: string,
+    request: Request,
+    responseHeaders: Headers,
   ): Promise<{ session: TSession; returnTo?: string }>;
   signIn<TProfile>(
     profile: TProfile,
