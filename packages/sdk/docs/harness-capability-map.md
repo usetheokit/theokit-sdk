@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1493 export(s) across 57 entry point(s).
+1507 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1783,4 +1783,23 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WorkflowStepDescription` | interface | theokit#161 — one step of a workflow, as a reflection surface sees it.  |
 | `WorkflowStream` | type | SE28 — the async iterator returned by `Workflow.stream()`.  |
 | `WorkflowToolError` | class | Raised by a {@link workflowAsTool } or {@link workflowResumeTool } tool when the run does not reach `status: "completed"` (a step failed, the run was cancelled, or it suspended without `reportSuspe... |
+
+## `@theokit/skills-registry`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `buildSkillPackage` | function | Reads a skill folder into the package format.  |
+| `compareSkillVersions` | function | SemVer 2.0.0 precedence (build metadata ignored).  |
+| `DownloadOptions` | interface | Options for `downloadSkill`: an injectable `fetch` and a timeout in milliseconds (default 30000). |
+| `downloadSkill` | function | Downloads `name` or `name@version` from a registry and verifies it.  |
+| `installSkill` | function | Installs a verified package at `<skillsDir>/<name>`.  |
+| `MAX_PACKAGE_BYTES` | const | Maximum size of a serialized skill package: 1 MiB. |
+| `publishSkill` | function | Publishes a package: `PUT <registry>/v1/skills/<name>/<version>` with a bearer token.  |
+| `RegistrySkillSummary` | interface | One entry of a registry search result. |
+| `searchSkills` | function | Searches a registry: `GET <registry>/v1/skills?q=<term>`.  |
+| `SkillPackage` | interface | Wire format of a skill package: JSON with base64 file contents. |
+| `SkillsRegistryError` | class | Typed error of this package; branch on `code`, not on the message. |
+| `SkillsRegistryErrorCode` | type | Machine-readable reason carried by every `SkillsRegistryError`. |
+| `VerifiedSkillPackage` | interface | A package whose digest, paths and `SKILL.md` identity were checked; safe to install. |
+| `verifySkillPackage` | function | Checks size, sha256, name, version, paths and `SKILL.md` of serialized package bytes.  |
 

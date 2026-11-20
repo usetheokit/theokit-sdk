@@ -9,7 +9,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ConfigurationError } from "../../errors.js";
 import type { AgentDefinition, AgentOptions, ModelSelection } from "../../types/agent.js";
-import type { Run, SDKUserMessage, SendOptions } from "../../types/run.js";
+import type { DeferredToolCall, Run, SDKUserMessage, SendOptions } from "../../types/run.js";
 import type { MemoryToolSpec, SteerQueue } from "../agent-loop/types.js";
 import { resolveApiKey } from "../env.js";
 import { theokitConfigRoot } from "../persistence/paths.js";
@@ -43,6 +43,7 @@ export function buildRealRunOptions(args: {
   personalityToolWhitelist?: ReadonlyArray<string>;
   personalityName?: string;
   steerQueue?: SteerQueue;
+  resumeCalls?: ReadonlyArray<DeferredToolCall>;
 }): Parameters<typeof createRealLocalRun>[0] {
   return {
     agentId: args.inputs.agentId,
@@ -66,6 +67,7 @@ export function buildRealRunOptions(args: {
       : {}),
     ...(args.personalityName !== undefined ? { personalityName: args.personalityName } : {}),
     ...(args.steerQueue !== undefined ? { steerQueue: args.steerQueue } : {}),
+    ...(args.resumeCalls !== undefined ? { resumeCalls: args.resumeCalls } : {}),
   };
 }
 
@@ -106,6 +108,7 @@ export async function dispatchLocalRun(args: {
   memoryTools: ReadonlyArray<MemoryToolSpec> | undefined;
   activePreset: PersonalityPreset | undefined;
   steerQueue?: SteerQueue;
+  resumeCalls?: ReadonlyArray<DeferredToolCall>;
 }): Promise<Run> {
   const apiKey = resolveApiKey(args.inputs.options.apiKey);
   if (shouldUseRealLocalRuntime(apiKey)) {
@@ -118,6 +121,7 @@ export async function dispatchLocalRun(args: {
         priorMessages: args.priorMessages,
         memoryTools: args.memoryTools,
         ...(args.steerQueue !== undefined ? { steerQueue: args.steerQueue } : {}),
+        ...(args.resumeCalls !== undefined ? { resumeCalls: args.resumeCalls } : {}),
         ...(args.activePreset?.tools !== undefined
           ? { personalityToolWhitelist: args.activePreset.tools }
           : {}),

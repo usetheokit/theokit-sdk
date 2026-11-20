@@ -405,9 +405,21 @@ if (result.status === "deferred") {
 }
 ```
 
-The deferred call is not dispatched, the other calls of the step finish, and the transcript ends on the unanswered `tool_use`.
+The deferred call is not dispatched, the other calls of the step finish, and the transcript ends on the unanswered `tool_use`. The run releases the session, so the process can exit.
 
-Answering a deferred call (resume) is not part of this release.
+### Resume after a restart
+
+Restore the agent (`Agent.resume(agentId, options)`, passing the plugins and tools again) and answer every pending call with `toolDecisions`, exactly one per `toolUseId`. The pending calls are read from the stored transcript; the `message` is ignored.
+
+```ts
+const agent = await Agent.resume(agentId, { plugins: [plugin], tools });
+const run = await agent.send("", {
+  toolDecisions: [{ toolUseId: "call_1", behavior: "allow" }], // or { behavior: "deny", message }
+});
+await run.wait(); // the model continues with the results
+```
+
+`allow` dispatches the stored call after the permission rules, floors and hooks run again on its input: an approval answers an `ask` and never overrides a current `deny`, a permission floor or another plugin's veto (the call then gets an error result). `deny` writes an error result with your `message` and runs nothing. An unknown or repeated `toolUseId`, a missing decision, nothing pending, or a stored call with an unsupported `schemaVersion` rejects with `ConfigurationError` (`tool_decision_unknown`, `tool_decision_duplicate`, `tool_decision_missing`, `no_deferred_tool_calls`, `deferred_schema_unsupported`) and leaves the session unchanged. A normal send while calls are pending abandons them; the unanswered calls are left out of the history so the session is not blocked. Local runtime only.
 
 ## `@theokit/sdk/auth`: choosing a provider credential
 

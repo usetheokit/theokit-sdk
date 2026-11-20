@@ -205,10 +205,14 @@ export async function initLoopContext(inputs: AgentLoopInputs): Promise<LoopCont
   return {
     events,
     conversation: [],
-    messages: [
-      ...priorMessages,
-      { role: "user", content: buildUserContent(inputs.userMessage, inputs.userImages) },
-    ],
+    // A resume adds no user message: `applyResume` answers the stored tool calls instead.
+    messages:
+      inputs.resume !== undefined
+        ? priorMessages
+        : [
+            ...priorMessages,
+            { role: "user", content: buildUserContent(inputs.userMessage, inputs.userImages) },
+          ],
     tools,
     finalText: "",
     finalStatus: "finished",
