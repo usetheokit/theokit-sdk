@@ -68,6 +68,7 @@ export function stripSecretsFromOptions(options: AgentOptions): SerializedAgentO
       return m !== undefined ? { id: m.id } : undefined;
     })(),
     systemPrompt: typeof options.systemPrompt === "string" ? options.systemPrompt : undefined,
+    sendDefaults: serializeSendDefaults(options.sendDefaults),
     local: serializeLocal(options.local),
     cloud: serializeCloud(options.cloud),
     memory: serializeMemory(options.memory),
@@ -80,6 +81,14 @@ export function stripSecretsFromOptions(options: AgentOptions): SerializedAgentO
     providers: serializeProviders(options.providers),
     agents: serializeAgents(options.agents),
   });
+}
+
+/** Send defaults are plain data (guard flags, round count, timeout); persist a copy so resume keeps them. */
+function serializeSendDefaults(
+  defaults: AgentOptions["sendDefaults"],
+): SerializedAgentOptions["sendDefaults"] | undefined {
+  if (defaults === undefined) return undefined;
+  return JSON.parse(JSON.stringify(defaults)) as SerializedAgentOptions["sendDefaults"];
 }
 
 /** Drops `undefined` entries from a partial object, preserving the field shape. */
@@ -213,6 +222,7 @@ export interface SerializedAgentOptions {
   name?: string;
   model?: { id: string };
   systemPrompt?: string;
+  sendDefaults?: AgentOptions["sendDefaults"];
   local?: {
     cwd?: string;
     settingSources?: ReadonlyArray<string>;
