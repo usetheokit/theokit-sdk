@@ -3536,9 +3536,33 @@
         "tier": "stable",
         "declaration": "export interface FakeModelServerOptions {\n    wire?: \"openai\" | \"ollama\";\n    reply?: string | ((request: FakeModelRequest) => string);\n    host?: string;\n}"
       },
+      "ScriptedModelServer": {
+        "tier": "stable",
+        "declaration": "export interface ScriptedModelServer extends FakeModelServer {\n    assertConsumed(): void;\n}"
+      },
+      "ScriptedModelServerOptions": {
+        "tier": "stable",
+        "declaration": "export interface ScriptedModelServerOptions {\n    steps: readonly ScriptedStep[];\n    wire?: \"openai\" | \"ollama\";\n}"
+      },
+      "ScriptedStep": {
+        "tier": "stable",
+        "declaration": "export type ScriptedStep = {\n    readonly text: string;\n} | {\n    readonly toolCalls: ReadonlyArray<{\n        readonly name: string;\n        readonly input: Record<string, unknown>;\n        readonly id?: string;\n    }>;\n    readonly text?: string;\n} | {\n    readonly error: {\n        readonly status: number;\n        readonly body?: unknown;\n        readonly retryAfterSeconds?: number;\n    };\n};"
+      },
+      "UnconsumedModelStepsError": {
+        "tier": "stable",
+        "declaration": "export declare class UnconsumedModelStepsError extends TheokitAgentError {\n    readonly name: string;\n    constructor(remaining: number);\n}"
+      },
+      "UnexpectedModelCallError": {
+        "tier": "stable",
+        "declaration": "export declare class UnexpectedModelCallError extends TheokitAgentError {\n    readonly name: string;\n    constructor(callIndex: number, stepCount: number);\n}"
+      },
       "startFakeModelServer": {
         "tier": "stable",
         "declaration": "export declare function startFakeModelServer(options?: FakeModelServerOptions): Promise<FakeModelServer>;"
+      },
+      "startScriptedModelServer": {
+        "tier": "stable",
+        "declaration": "export declare function startScriptedModelServer(options: ScriptedModelServerOptions): Promise<ScriptedModelServer>;"
       }
     },
     "./testing#require": {
@@ -3554,9 +3578,33 @@
         "tier": "stable",
         "declaration": "export interface FakeModelServerOptions {\n    wire?: \"openai\" | \"ollama\";\n    reply?: string | ((request: FakeModelRequest) => string);\n    host?: string;\n}"
       },
+      "ScriptedModelServer": {
+        "tier": "stable",
+        "declaration": "export interface ScriptedModelServer extends FakeModelServer {\n    assertConsumed(): void;\n}"
+      },
+      "ScriptedModelServerOptions": {
+        "tier": "stable",
+        "declaration": "export interface ScriptedModelServerOptions {\n    steps: readonly ScriptedStep[];\n    wire?: \"openai\" | \"ollama\";\n}"
+      },
+      "ScriptedStep": {
+        "tier": "stable",
+        "declaration": "export type ScriptedStep = {\n    readonly text: string;\n} | {\n    readonly toolCalls: ReadonlyArray<{\n        readonly name: string;\n        readonly input: Record<string, unknown>;\n        readonly id?: string;\n    }>;\n    readonly text?: string;\n} | {\n    readonly error: {\n        readonly status: number;\n        readonly body?: unknown;\n        readonly retryAfterSeconds?: number;\n    };\n};"
+      },
+      "UnconsumedModelStepsError": {
+        "tier": "stable",
+        "declaration": "export declare class UnconsumedModelStepsError extends TheokitAgentError {\n    readonly name: string;\n    constructor(remaining: number);\n}"
+      },
+      "UnexpectedModelCallError": {
+        "tier": "stable",
+        "declaration": "export declare class UnexpectedModelCallError extends TheokitAgentError {\n    readonly name: string;\n    constructor(callIndex: number, stepCount: number);\n}"
+      },
       "startFakeModelServer": {
         "tier": "stable",
         "declaration": "export declare function startFakeModelServer(options?: FakeModelServerOptions): Promise<FakeModelServer>;"
+      },
+      "startScriptedModelServer": {
+        "tier": "stable",
+        "declaration": "export declare function startScriptedModelServer(options: ScriptedModelServerOptions): Promise<ScriptedModelServer>;"
       }
     },
     "./workflow#import": {
