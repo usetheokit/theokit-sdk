@@ -495,6 +495,29 @@ const bus = new MessageBus({
 - `baseUrl` must be `https:`, or `http:` on `localhost`, `127.0.0.1` or `[::1]`; otherwise `ConfigurationError` (`a2a_mailbox_insecure_url`). A non-2xx answer rejects with `A2AMailboxError` carrying `status`.
 - **Shared-token limit:** one token guards the whole mailbox. Any holder can `take` any recipient's queue, draining other peers' messages, and `from` is self-asserted. Share the token only between peers that trust each other.
 
+### Sealed transport: encrypted, sender-authenticated messages
+
+`sealedTransport(inner, { identity, trustedPeers, sequences? })` wraps any `A2ATransport` (in-memory, HTTP mailbox) so a relay or mailbox sees only public keys, a sequence number and ciphertext.
+
+```ts
+import { generateA2AIdentity, jsonSequenceStore, MessageBus, sealedTransport } from "@theokit/sdk/a2a";
+
+const me = generateA2AIdentity(); // base64url raw X25519 keys; share only publicKey
+const transport = sealedTransport(inner, {
+  identity: me,
+  trustedPeers: new Map([["bob", bobPublicKey]]), // name -> public key, distributed out of band
+  sequences: jsonSequenceStore("./a2a-seq.json"), // atomic write, mode 0600
+});
+const bus = new MessageBus({ transport });
+await bus.send("me", "bob", { type: "note", payload: "hi" }); // `to` is the trusted NAME
+```
+
+- Envelope: ephemeral and static X25519, HKDF-SHA256 (info binds version `theokit-a2a-v1`, sender, recipient and ephemeral keys), AES-256-GCM with a random 12-byte nonce; the AAD binds the same values and the sequence number.
+- Trust model: only peers in `trustedPeers` can be sent to or received from. On receipt `from` is the trusted name for the verified sender key, not a claim. Sending to an unknown name rejects with `A2AUntrustedPeerError` (`a2a_untrusted_peer`).
+- Dropped messages (malformed, `wrong_recipient`, `untrusted_peer`, `authentication_failed`, `replay`) never reach a handler; the reason is reported on diagnostics, never the plaintext.
+- Sequence numbers must rise: a replay, or an older message arriving after a newer one, is dropped. Keep the store across restarts (`jsonSequenceStore`); the default `memorySequenceStore` forgets them. Processes sharing one JSON file are not coordinated.
+- One identity is one agent: every poll reads the queue addressed to the identity's public key. Key distribution is yours. There is no forward secrecy: a leaked recipient private key exposes the messages sealed to it.
+
 ## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
 
 `AgentLike` (`agentId`, `send`, optional `dispose`) and `RunLike` (`status`, `stream`, `wait`, `cancel`) are the small ports `SDKAgent` and `Run` satisfy with no cast. Type a wrapper, failover decorator or test double against them instead of the full `SDKAgent`, or re-declaring a port that drifts. `RunLike.wait()` resolves the real `RunResult`, so `status` is `RunStatus` and a misspelled status such as `"completed"` fails to compile.

@@ -5,7 +5,7 @@ import type { A2AMessage } from "./types.js";
  *
  * `from` on every message is SELF-ASSERTED by the sender: a transport carries it as given and
  * neither this interface nor the in-memory implementation authenticates it. Authentication is the
- * job of a sealed transport (a later addition).
+ * job of `sealedTransport`, which wraps a transport with end-to-end encryption.
  *
  * @public
  */
