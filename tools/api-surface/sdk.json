@@ -4106,7 +4106,7 @@
       },
       "Budget": {
         "tier": "stable",
-        "declaration": "declare class Budget {\n    private constructor();\n    static create(options: BudgetOptions): BudgetHandle;\n    static get(name: string): BudgetHandle | undefined;\n    static list(): readonly BudgetHandle[];\n    static delete(name: string): boolean;\n    static snapshot(): readonly BudgetSnapshot[];\n}",
+        "declaration": "declare class Budget {\n    private constructor();\n    static create(options: BudgetOptions): BudgetHandle;\n    static get(name: string): BudgetHandle | undefined;\n    static list(): readonly BudgetHandle[];\n    static delete(name: string): boolean;\n    static snapshot(): readonly BudgetSnapshot[];\n    static reserve(name: string, estimatedUsd: number): BudgetReservation;\n}",
         "deprecatedSince": "2026-11-20"
       },
       "BudgetCheck": {
@@ -4137,13 +4137,17 @@
         "tier": "stable",
         "declaration": "interface BudgetOptions {\n    readonly name: string;\n    readonly scope: BudgetScope;\n    readonly limits: ReadonlyArray<BudgetLimit>;\n    readonly mode?: BudgetMode;\n    readonly onThreshold?: (event: BudgetThresholdEvent) => void | Promise<void>;\n    readonly onExceed?: (event: BudgetExceedEvent) => void | Promise<void>;\n}"
       },
+      "BudgetReservation": {
+        "tier": "stable",
+        "declaration": "interface BudgetReservation {\n    readonly budgetName: string;\n    readonly estimatedUsd: number;\n    settle(actualUsd: number): Promise<void>;\n    release(): void;\n}"
+      },
       "BudgetScope": {
         "tier": "stable",
         "declaration": "type BudgetScope = \"agent\" | \"call\" | \"process\";"
       },
       "BudgetSnapshot": {
         "tier": "stable",
-        "declaration": "interface BudgetSnapshot {\n    readonly name: string;\n    readonly window: BudgetWindow;\n    readonly spentUsd: number;\n    readonly limitUsd: number;\n    readonly ratio: number;\n}"
+        "declaration": "interface BudgetSnapshot {\n    readonly name: string;\n    readonly window: BudgetWindow;\n    readonly spentUsd: number;\n    readonly limitUsd: number;\n    readonly ratio: number;\n    readonly heldUsd: number;\n}"
       },
       "BudgetThresholdEvent": {
         "tier": "stable",
@@ -6033,7 +6037,7 @@
       },
       "Budget": {
         "tier": "stable",
-        "declaration": "declare class Budget {\n    private constructor();\n    static create(options: BudgetOptions): BudgetHandle;\n    static get(name: string): BudgetHandle | undefined;\n    static list(): readonly BudgetHandle[];\n    static delete(name: string): boolean;\n    static snapshot(): readonly BudgetSnapshot[];\n}",
+        "declaration": "declare class Budget {\n    private constructor();\n    static create(options: BudgetOptions): BudgetHandle;\n    static get(name: string): BudgetHandle | undefined;\n    static list(): readonly BudgetHandle[];\n    static delete(name: string): boolean;\n    static snapshot(): readonly BudgetSnapshot[];\n    static reserve(name: string, estimatedUsd: number): BudgetReservation;\n}",
         "deprecatedSince": "2026-11-20"
       },
       "BudgetCheck": {
@@ -6064,13 +6068,17 @@
         "tier": "stable",
         "declaration": "interface BudgetOptions {\n    readonly name: string;\n    readonly scope: BudgetScope;\n    readonly limits: ReadonlyArray<BudgetLimit>;\n    readonly mode?: BudgetMode;\n    readonly onThreshold?: (event: BudgetThresholdEvent) => void | Promise<void>;\n    readonly onExceed?: (event: BudgetExceedEvent) => void | Promise<void>;\n}"
       },
+      "BudgetReservation": {
+        "tier": "stable",
+        "declaration": "interface BudgetReservation {\n    readonly budgetName: string;\n    readonly estimatedUsd: number;\n    settle(actualUsd: number): Promise<void>;\n    release(): void;\n}"
+      },
       "BudgetScope": {
         "tier": "stable",
         "declaration": "type BudgetScope = \"agent\" | \"call\" | \"process\";"
       },
       "BudgetSnapshot": {
         "tier": "stable",
-        "declaration": "interface BudgetSnapshot {\n    readonly name: string;\n    readonly window: BudgetWindow;\n    readonly spentUsd: number;\n    readonly limitUsd: number;\n    readonly ratio: number;\n}"
+        "declaration": "interface BudgetSnapshot {\n    readonly name: string;\n    readonly window: BudgetWindow;\n    readonly spentUsd: number;\n    readonly limitUsd: number;\n    readonly ratio: number;\n    readonly heldUsd: number;\n}"
       },
       "BudgetThresholdEvent": {
         "tier": "stable",

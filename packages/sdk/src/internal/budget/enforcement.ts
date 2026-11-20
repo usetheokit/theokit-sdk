@@ -12,8 +12,9 @@
  */
 
 import { BudgetExceededError } from "../../errors.js";
-import type { BudgetMode, BudgetOptions } from "../../types/budget.js";
+import type { BudgetMode, BudgetOptions, BudgetReservation } from "../../types/budget.js";
 import { diag } from "../diagnostics.js";
+import { addHold, assertUsdAmount, dropHold, type Hold, heldUsd } from "./holds.js";
 import { charge, spentIn } from "./ledger.js";
 import { defaultMode, getBudgetOptionsRaw } from "./registry.js";
 
@@ -32,7 +33,7 @@ export function preflightCheck(name: string, estimatedUsd: number): void {
   if (opts === undefined) return; // EC-20: budget deleted; charge becomes no-op
   if (defaultMode(opts) !== "block") return;
   for (const lim of opts.limits) {
-    const currentSpent = spentIn(opts.name, lim.window);
+    const currentSpent = spentIn(opts.name, lim.window) + heldUsd(opts.name);
     if (currentSpent + estimatedUsd > lim.limitUsd) {
       throw new BudgetExceededError({
         budgetName: opts.name,
@@ -43,6 +44,53 @@ export function preflightCheck(name: string, estimatedUsd: number): void {
       });
     }
   }
+}
+
+/**
+ * Reserve `estimatedUsd` against a budget. In block mode throws if committed spend + open holds +
+ * the estimate would exceed a limit; otherwise records a hold. A deleted budget yields a no-op
+ * reservation (EC-20).
+ */
+export function reserveBudget(name: string, estimatedUsd: number): BudgetReservation {
+  assertUsdAmount("estimatedUsd", estimatedUsd);
+  const opts = getBudgetOptionsRaw(name);
+  if (opts === undefined) return buildReservation(name, estimatedUsd, undefined);
+  preflightCheck(name, estimatedUsd);
+  return buildReservation(name, estimatedUsd, addHold(name, estimatedUsd));
+}
+
+function buildReservation(
+  budgetName: string,
+  estimatedUsd: number,
+  hold: Hold | undefined,
+): BudgetReservation {
+  return {
+    budgetName,
+    estimatedUsd,
+    settle: (actualUsd) => settleHold(hold, actualUsd),
+    release: () => {
+      if (hold?.state === "open") dropHold(hold);
+    },
+  };
+}
+
+/**
+ * Charge the actual cost while the hold is still counted, drop the hold, then run callbacks, so no
+ * preflight can pass through the gap between charge and release.
+ */
+async function settleHold(hold: Hold | undefined, actualUsd: number): Promise<void> {
+  assertUsdAmount("actualUsd", actualUsd);
+  if (hold === undefined || hold.state !== "open") return;
+  hold.state = "settling";
+  const opts = getBudgetOptionsRaw(hold.budgetName);
+  try {
+    if (opts !== undefined) await charge(opts.name, actualUsd);
+  } finally {
+    dropHold(hold);
+  }
+  const mode = opts === undefined ? "audit" : defaultMode(opts);
+  if (opts === undefined || mode === "audit") return;
+  await dispatchCallbacksFor(opts, mode);
 }
 
 /**

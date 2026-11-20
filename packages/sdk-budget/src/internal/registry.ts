@@ -123,6 +123,7 @@ export function snapshotAll(): readonly BudgetSnapshot[] {
         spentUsd: spent,
         limitUsd: lim.limitUsd,
         ratio: lim.limitUsd > 0 ? spent / lim.limitUsd : 0,
+        heldUsd: 0, // this ledger has no reservations (Budget.reserve lives in @theokit/sdk)
       });
     }
   }

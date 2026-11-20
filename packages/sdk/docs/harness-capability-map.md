@@ -107,6 +107,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `BudgetLimit` | interface | A single limit; stacked in an array (D384, ANY exceeded blocks). |
 | `BudgetMode` | type | Enforcement mode (D383).  |
 | `BudgetOptions` | interface | Options for `Budget.create`. |
+| `BudgetReservation` | interface | An in-flight estimate held against a budget by `Budget.reserve`. |
 | `BudgetScope` | type | Accounting scope for a budget.  |
 | `BudgetSnapshot` | interface | Per-window snapshot returned by `Budget.snapshot()`. |
 | `BudgetThresholdEvent` | interface | Threshold event emitted at 80% and 95% in `warn` and `block` modes. |

@@ -31,7 +31,11 @@
  */
 
 import { computeCost } from "./internal/budget/compute-cost.js";
-import { chargeAndCheckThresholds, preflightCheck } from "./internal/budget/enforcement.js";
+import {
+  chargeAndCheckThresholds,
+  preflightCheck,
+  reserveBudget,
+} from "./internal/budget/enforcement.js";
 import { inferApiMode, normalizeUsage } from "./internal/budget/normalize-usage.js";
 import { getPricingEntry } from "./internal/budget/pricing-registry.js";
 import {
@@ -42,7 +46,12 @@ import {
   snapshotAll,
 } from "./internal/budget/registry.js";
 import { UsageAccumulator } from "./internal/budget/usage-accumulator.js";
-import type { BudgetHandle, BudgetOptions, BudgetSnapshot } from "./types/budget.js";
+import type {
+  BudgetHandle,
+  BudgetOptions,
+  BudgetReservation,
+  BudgetSnapshot,
+} from "./types/budget.js";
 
 // Re-exports for caller-side composition until auto-wire-up in v0.2 (T4.2 deferred).
 export {
@@ -102,5 +111,17 @@ export class Budget {
    */
   static snapshot(): readonly BudgetSnapshot[] {
     return snapshotAll();
+  }
+
+  /**
+   * Hold `estimatedUsd` against a budget for an in-flight call. In `block` mode throws
+   * `BudgetExceededError` if committed spend + open holds + the estimate would exceed a limit;
+   * in `audit`/`warn` it records the hold and never throws. `preflightCheck` also counts open
+   * holds. Call `settle(actualUsd)` to charge the real cost, or `release()` on failure.
+   * A deleted budget yields a no-op reservation (EC-20). Negative or non-finite amounts throw
+   * `ConfigurationError`.
+   */
+  static reserve(name: string, estimatedUsd: number): BudgetReservation {
+    return reserveBudget(name, estimatedUsd);
   }
 }
