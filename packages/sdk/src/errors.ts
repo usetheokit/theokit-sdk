@@ -774,7 +774,10 @@ export class TrustRecordError extends TheokitAgentError {
 
   constructor(message: string, options: { cause?: unknown } = {}) {
     super(message, { ...options, code: "trust_record_invalid", isRetryable: false });
+  }
+}
 
+/**
  * Thrown by a tool wrapped with `guardTools` when a `pre_tool_call` plugin vetoes the call. The
  * handler did not run. `pluginMessage` is the veto's message; `message` uses the agent loop's
  * `Plugin blocked this tool call: <message>` wording. Not retryable.

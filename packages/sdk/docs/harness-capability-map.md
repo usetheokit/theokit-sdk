@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1480 export(s) across 57 entry point(s).
+1485 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -213,6 +213,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `GoalOptions` | interface | Per-call configuration for `Agent.runUntil`. |
 | `GoalResult` | interface | Return value of the `runUntil` async generator.  |
 | `guardSessionDestruction` | function | Throw unless `sessionId` is safe to destroy. |
+| `guardTools` | function | Wrap each tool so its handler runs the `pre_tool_call` chain first.  |
+| `GuardToolsContext` | interface | Identity of the run a guarded tool call belongs to. |
 | `HookApprovalGate` | interface | #631 — a consumer's decision point before this package spawns a hook.  |
 | `HookApprovalRequest` | interface | #631 — what the consumer is shown when asked to approve a hook.  |
 | `HookContextMap` | interface | The context each hook's handler receives, keyed by {@link HookName } .  |
@@ -373,6 +375,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `RunMemoryDegradedEvent` | interface | A memory stage failed and the run continued without it.  |
 | `RunOperation` | type | Operations that may or may not be supported on a given `Run`, or on its parent agent.  |
 | `RunPermissionDeniedEvent` | interface | A tool call was DENIED before dispatch — by the permission gate/plugin (SE1), an operator file-hook `preToolUse`, or the fork tool-whitelist.  |
+| `runPreToolCall` | function | Run the `pre_tool_call` chain of `plugins` for one call.  |
 | `RunRateLimitEvent` | interface | The provider returned a rate-limit (HTTP 429); the loop will back off + retry. |
 | `RunResult` | interface | Terminal result of a {@link Run } . |
 | `RunStatus` | type | Lifecycle status of a {@link Run } . |
@@ -487,6 +490,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `TokenUsage` | interface | Token usage observed during a Run.  |
 | `Tool` | class | SE36 — the uniform `X.create()` namespace API.  |
 | `ToolCall` | interface | Single tool call event.  |
+| `ToolCallBlockedError` | class | Thrown by a tool wrapped with `guardTools` when a `pre_tool_call` plugin vetoes the call.  |
 | `ToolCallCompletedUpdate` | interface | Tool call completed. |
 | `ToolCallStartedUpdate` | interface | Tool call started — args committed. |
 | `ToolCallSummary` | interface | M82 — one tool call of the turn, as seen by `transform_tool_result`.  |
@@ -1145,6 +1149,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `StructuredOutputErrorCode` | type | Why a structured-output call failed.  |
 | `TaskNotFoundError` | class | Thrown when `Task.subscribe(id)` is called for a task that has been evicted, never submitted, or evicted after retention (D373). |
 | `TheokitAgentError` | class | Base class for all errors thrown by `@theokit/sdk`.  |
+| `ToolCallBlockedError` | class | Thrown by a tool wrapped with `guardTools` when a `pre_tool_call` plugin vetoes the call.  |
 | `TrustRecordError` | class | The workspace plugin trust record exists but cannot be read as a JSON array of folder paths.  |
 | `UnknownAgentError` | class | Catch-all for unclassified server or runtime errors. |
 | `UnsupportedBudgetOperationError` | class | Thrown when a budget operation is requested on a `CloudAgent` (D388).  |
