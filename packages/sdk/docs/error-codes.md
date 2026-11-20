@@ -15,7 +15,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `a2a_peer_not_registered` | domain | A2APeerNotRegisteredError | `packages/sdk/src/a2a/message-bus.ts:50` +1 |
 | `a2a_remote_request_unsupported` | domain | A2ARemoteRequestUnsupportedError | `packages/sdk/src/a2a/message-bus.ts:23` +1 |
 | `a2a_request_timeout` | domain | A2ARequestTimeoutError | `packages/sdk/src/a2a/message-bus.ts:84` +1 |
-| `a2a_untrusted_peer` | domain | A2AUntrustedPeerError | `packages/sdk/src/a2a/sealed-transport.ts:63` +1 |
+| `a2a_untrusted_peer` | domain | A2AUntrustedPeerError | `packages/sdk/src/a2a/sealed-transport.ts:75` +1 |
 | `aborted` | domain | TheokitAgentError | `packages/sdk/src/internal/agent/batch.ts:358` +1 |
 | `agent_disposed` | domain | — | `packages/sdk/src/errors.ts:592` |
 | `agent_id_already_exists` | domain | ConfigurationError | `packages/sdk/src/internal/agent/helpers.ts:61` |
