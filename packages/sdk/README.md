@@ -203,6 +203,24 @@ A `pre_tool_call` plugin sees which conversation the run belongs to in `ctx.conv
 `Agent.create({ conversation })` or `agent.send(prompt, { conversation })`; the send value wins. The
 key is absent when none was declared. It is threaded on the local runtime.
 
+## Guarding tools that run outside the agent loop
+
+A tool called from a code-mode script, an MCP endpoint or a relay skips the agent's `pre_tool_call`
+plugins. `guardTools` wraps each tool so its handler runs the plugin chain first; a veto rejects
+with `ToolCallBlockedError` (`toolName`, `pluginMessage`) and the handler is not called.
+`runPreToolCall(plugins, ctx)` runs the same chain for one call and returns the first
+`{ block: true, message }` decision, or `undefined`.
+
+```ts
+import { guardTools, runPreToolCall } from "@theokit/sdk";
+
+const safe = guardTools(tools, plugins, { agentId: "my-agent", permissionMode: "default" });
+const decision = await runPreToolCall(plugins, { name, args, agentId, runId });
+```
+
+A plugin handler that throws is not turned into a veto: the exception propagates, as it does in the
+agent loop. `guardTools` passes no `conversation`; use `runPreToolCall` to supply one.
+
 ## Explain skills
 
 `explainSkills` from `@theokit/sdk/skills` reports what an agent would see, from the same walk the
@@ -295,6 +313,21 @@ const sandbox = new DockerSandbox({
 ```
 
 `readOnlyWorkspace: true` changes only the workspace mount; the root filesystem is already read-only with a `/tmp` tmpfs. Because the workspace is then not writable, `uploadFile` fails. Label keys must match `[a-z0-9]([a-z0-9._-]*[a-z0-9])?` and values must not contain newlines; otherwise the constructor throws `ConfigurationError` with code `invalid_docker_label`.
+
+### Keeping and cleaning containers
+
+By default every container is removed on exit (`--rm`). With `keepLast: { key }` the sandbox runs without `--rm`, labels the container `theokit.sandbox.keep=<key>`, and after each command removes earlier exited containers with the same key, so the last one stays for `docker inspect`. A failed cleanup is written to the diagnostics channel (`setDiagnosticsSink`); the command's result is unchanged. The label name is reserved and cannot be set in `labels`.
+
+```ts
+import { listSandboxContainers, removeSandboxContainers } from "@theokit/sdk/sandbox";
+
+const sandbox = new DockerSandbox({ labels: { app: "x" }, keepLast: { key: "s1" } });
+const found = await listSandboxContainers({ app: "x" }); // [{ id, name, state, image, labels }]
+const { removed, skippedRunning } = await removeSandboxContainers({ app: "x" });
+// a running container is skipped unless `includeRunning: true` (then `docker rm -f`)
+```
+
+Both helpers require at least one label (an empty set would match every container on the host) and take `{ runner }` and default to `defaultDockerRunner()`. A docker command that fails or times out rejects with `SandboxDockerError` (`subcommand`, `exitCode`, `stderr`). Docker renders labels as `k=v,k=v`, so a label value that itself contains a comma followed by `word=` is parsed ambiguously.
 
 ## `@theokit/sdk/persistence`: single instance lock
 

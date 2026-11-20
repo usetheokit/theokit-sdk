@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1465 export(s) across 57 entry point(s).
+1480 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -213,6 +213,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `GoalOptions` | interface | Per-call configuration for `Agent.runUntil`. |
 | `GoalResult` | interface | Return value of the `runUntil` async generator.  |
 | `guardSessionDestruction` | function | Throw unless `sessionId` is safe to destroy. |
+| `guardTools` | function | Wrap each tool so its handler runs the `pre_tool_call` chain first.  |
+| `GuardToolsContext` | interface | Identity of the run a guarded tool call belongs to. |
 | `HookApprovalGate` | interface | #631 — a consumer's decision point before this package spawns a hook.  |
 | `HookApprovalRequest` | interface | #631 — what the consumer is shown when asked to approve a hook.  |
 | `HookContextMap` | interface | The context each hook's handler receives, keyed by {@link HookName } .  |
@@ -369,6 +371,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `RunMemoryDegradedEvent` | interface | A memory stage failed and the run continued without it.  |
 | `RunOperation` | type | Operations that may or may not be supported on a given `Run`, or on its parent agent.  |
 | `RunPermissionDeniedEvent` | interface | A tool call was DENIED before dispatch — by the permission gate/plugin (SE1), an operator file-hook `preToolUse`, or the fork tool-whitelist.  |
+| `runPreToolCall` | function | Run the `pre_tool_call` chain of `plugins` for one call.  |
 | `RunRateLimitEvent` | interface | The provider returned a rate-limit (HTTP 429); the loop will back off + retry. |
 | `RunResult` | interface | Terminal result of a {@link Run } . |
 | `RunStatus` | type | Lifecycle status of a {@link Run } . |
@@ -483,6 +486,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `TokenUsage` | interface | Token usage observed during a Run.  |
 | `Tool` | class | SE36 — the uniform `X.create()` namespace API.  |
 | `ToolCall` | interface | Single tool call event.  |
+| `ToolCallBlockedError` | class | Thrown by a tool wrapped with `guardTools` when a `pre_tool_call` plugin vetoes the call.  |
 | `ToolCallCompletedUpdate` | interface | Tool call completed. |
 | `ToolCallStartedUpdate` | interface | Tool call started — args committed. |
 | `ToolCallSummary` | interface | M82 — one tool call of the turn, as seen by `transform_tool_result`.  |
@@ -772,7 +776,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | Symbol | Kind | Summary |
 |---|---|---|
 | `clampYield` | function | Bound the yield window to [ {@link YIELD_MIN_MS } , {@link YIELD_MAX_MS } ]. |
+| `ConfinedPtyBackendOptions` | interface | Options for {@link createConfinedPtyBackend } . |
+| `ConfinementProbeResult` | type | Outcome of {@link probeConfinement } : confined, or the reason it could not be proven. |
+| `createConfinedPtyBackend` | function | An {@link InteractiveBackend } whose every session starts in `root`, runs under `interactiveWrapCommand({ mode })` and sees only the allowlisted environment (plus `HOME=root`).  |
 | `MaxSessionsError` | class | M77 — the {@link PtyInteractiveBackendOptions.maxSessions } ceiling was reached.  |
+| `probeConfinement` | function | Starts a real session that touches `paths.inside` (inside the root) and `paths.outside` (beside it), and reports whether the confinement held.  |
 | `PtyInteractiveBackend` | class | `InteractiveBackend` backed by a real pty, for programs that only behave correctly on a terminal.  |
 | `PtyInteractiveBackendOptions` | interface | Constructor options for {@link PtyInteractiveBackend } .  |
 | `YIELD_MAX_MS` | const | Ceiling for `StartInteractiveOptions.yieldMs`, clamped down.  |
@@ -795,6 +803,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CreateApplyPatchToolOptions` | interface | `apply_patch` — built-in tool for coding agents.  |
 | `createBraveWebSearchAdapter` | function | Build a `WebSearchCallback` backed by the Brave Search API.  |
 | `CreateBraveWebSearchAdapterOptions` | interface | Options for {@link createBraveWebSearchAdapter } .  |
+| `createComputerTool` | function | Create the `computer` tool for an X11 desktop (Xvfb with `-fbdir`, plus `xdotool`). |
+| `CreateComputerToolOptions` | interface | Options for {@link createComputerTool } . |
 | `createCurrentTimeTool` | function | Build the `current_time` tool, so the model reads a clock instead of stating a date from training data.  |
 | `CreateCurrentTimeToolOptions` | interface | `current_time` — built-in tool for coding agents.  |
 | `createEditFileTool` | function | Build the `edit_file` tool: replace one occurrence of `old_string` with `new_string` in place, after copying the previous content to `<path>.bak`.  |
@@ -1135,6 +1145,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `StructuredOutputErrorCode` | type | Why a structured-output call failed.  |
 | `TaskNotFoundError` | class | Thrown when `Task.subscribe(id)` is called for a task that has been evicted, never submitted, or evicted after retention (D373). |
 | `TheokitAgentError` | class | Base class for all errors thrown by `@theokit/sdk`.  |
+| `ToolCallBlockedError` | class | Thrown by a tool wrapped with `guardTools` when a `pre_tool_call` plugin vetoes the call.  |
 | `UnknownAgentError` | class | Catch-all for unclassified server or runtime errors. |
 | `UnsupportedBudgetOperationError` | class | Thrown when a budget operation is requested on a `CloudAgent` (D388).  |
 | `UnsupportedRunOperationError` | class | Thrown when a {@link Run } or agent operation is not available on the current runtime.  |
@@ -1582,11 +1593,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `interactiveWrapCommand` | function | The composition the interactive path needs — the counterpart of `createSandboxBackend`.  |
 | `InteractiveWrapOptions` | interface | Options for `interactiveWrapCommand`, the PTY counterpart of `createSandboxBackend`.  |
 | `LinuxSandbox` | class | Kernel-confined backend for Linux hosts: a `LocalSandbox` whose commands are rewritten as `bwrap <policy flags> -- /bin/sh -c '<command>'` before they are spawned.  |
+| `listSandboxContainers` | function | Lists containers (running or not) that carry every one of `labels`. |
 | `LocalSandbox` | class | Runs a command with `/bin/sh -c` on the host.  |
 | `provisionRepo` | function | Clone `repoUrl` into `<sandbox workdir>/<instanceId>` and check out `ref`.  |
 | `ProvisionRepoOptions` | interface | Options for {@link provisionRepo } . |
 | `realProbeCount` | function | How many real probes ran.  |
 | `realProbes` | const | Real probes used in production. |
+| `removeSandboxContainers` | function | Removes containers carrying every one of `labels`.  |
 | `RepoProvisionError` | class | Raised when cloning or checking out a repo fails.  |
 | `resetBwrapMemo` | function | Clears the `detectBwrapMemoized` memo.  |
 | `resetInteractiveWarnLatch` | function | Reset for tests — the latch is module state and tests need isolation.  |
@@ -1596,6 +1609,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `restrictedSeccompPath` | function | M57 — the memoized x64-gated seccomp program, written once per process to a temp file. |
 | `SandboxBackend` | class | The execution capability handed to an agent tool, and the extension point for new environments.  |
 | `SandboxConfig` | interface | Construction-time settings shared by every {@link SandboxBackend } .  |
+| `SandboxContainer` | interface | A container started by a `DockerSandbox`, as `docker ps -a` reports it. |
+| `SandboxDockerError` | class | A `docker` subcommand failed or timed out. |
 | `SandboxMode` | type | Codex's three canonical sandbox modes; lives in this leaf module so bwrap.ts and deny-read.ts need not import each other. |
 | `SandboxNetworkPolicy` | interface | What a {@link SandboxBackend } states about its outbound network.  |
 | `SandboxNotAvailableError` | class | A backend cannot be used at all: its runtime is missing or unusable.  |
