@@ -4,7 +4,7 @@
 // Locked names: see CLAUDE.md.
 
 // Agent façade
-export { Agent, type AgentPromptResult } from "./agent.js";
+export { Agent, type AgentLease, type AgentPromptResult } from "./agent.js";
 // Types a consumer already meets through a public signature. Each was marked `@public` and reachable
 // from no entry — the promise the docblock makes was not kept by the export map. `AgentBuilderDeps`
 // states the reasoning in its own words: `new AgentBuilder(deps)` is callable by anyone, so this
@@ -96,10 +96,15 @@ export {
   isTransientError,
   MemoryAdapterError,
   type MemoryAdapterErrorCode,
+  MemoryFactAmbiguousError,
+  MemoryFactNotRemovableError,
+  type ModelFallbackAttempt,
+  ModelFallbackExhaustedError,
   NetworkError,
   RateLimitError,
   TaskNotFoundError,
   TheokitAgentError,
+  ToolCallBlockedError,
   UnknownAgentError,
   UnsupportedBudgetOperationError,
   UnsupportedRunOperationError,
@@ -179,7 +184,12 @@ export {
 // added to barrel so extracted packages (sdk-cache, sdk-handoff) can type their
 // .asPlugin() factories without reaching into ./internal/plugins sub-path.
 export {
+  type ConversationRef,
+  type GeneralPlugin,
+  type HookContextMap,
+  type HookHandler,
   type HookName,
+  type HookResultMap,
   // #335 — named here because the PUBLIC `Plugin` union references it in the
   // `createProvider` position. The DTS rollup emits an exported type's body but
   // treeshakes a non-exported type that body names, so leaving this out of the
@@ -200,6 +210,7 @@ export {
   type ToolCallSummary,
   type ToolResultTransformContext,
   type TransformContext,
+  type TypedHookHandler,
 } from "./internal/plugins/types.js";
 export type {
   ProviderProfile,
@@ -296,6 +307,7 @@ export {
 } from "./memory.js";
 // Memory adapter helpers (ADR D141)
 export { extractRawId, mkMemoryId } from "./memory-adapter-helpers.js";
+export { listMemoryFacts, removeMemoryFact, type StoredMemoryFact } from "./memory-facts.js";
 // Migration helper (ADR D44) — re-exported for use by the bin CLI.
 export {
   type MigrateOptions,
@@ -366,7 +378,7 @@ export { type NormalizedJsonSchema, normalizeSchema } from "./schema-normalizer.
 // `internal/` because it owns filesystem I/O — public access is via the
 // `Agent.usePersonality(...)` method, not direct construction.
 // Security namespace (secret redaction; ADR D68)
-export { Security } from "./security.js";
+export { type ExactValueMask, Security } from "./security.js";
 export { applySecurityFloor, type SecurityFloorInput } from "./security-floor.js";
 export {
   guardSessionDestruction,
@@ -408,6 +420,7 @@ export {
 } from "./tool-blast-radius.js";
 // SE7 — ToolError (thrown from a tool handler; own module for the G8 LoC budget).
 export { ToolError } from "./tool-error.js";
+export { type GuardToolsContext, guardTools, runPreToolCall } from "./tool-guard.js";
 // Trajectory export (ADR D139) — opt-in ShareGPT converter
 export { toShareGptTrajectory } from "./trajectory-helpers.js";
 export {
@@ -428,8 +441,12 @@ export type {
   AgentSubagentDescription,
   AgentToolDescription,
   CustomTool,
+  MemoryMirrorOptions,
+  MemorySettings,
+  ModelFallbackOptions,
   SDKAgent,
 } from "./types/agent.js";
+export type { AgentLike, RunLike } from "./types/agent-like.js";
 // SE7 — structured/multimodal tool-result content blocks (explicit for rollup-dts).
 export type { ImageBlock, ToolResultContentBlock } from "./types/content-blocks.js";
 export type { EnvPolicy } from "./types/env-policy.js";
@@ -462,7 +479,13 @@ export type {
 // the bundled .d.ts (the `export type *` star does not reliably propagate — same
 // reason as `CustomTool` above).
 // SE34 — per-send completion check (`isTaskComplete`) public types.
-export type { CompletionCheck, CompletionCheckResult, MessageOrigin } from "./types/run.js";
+export type {
+  CompletionCheck,
+  CompletionCheckResult,
+  DeferredToolCall,
+  MessageOrigin,
+  ToolCallDecision,
+} from "./types/run.js";
 export type {
   RunCompactBoundaryEvent,
   RunCompletionCheckEvent,

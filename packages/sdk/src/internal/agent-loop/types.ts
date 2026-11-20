@@ -118,6 +118,8 @@ export interface AgentLoopInputs {
    * registered `PermissionPlugin` gates per-run.
    */
   permissionMode?: import("../../permission-engine.js").PermissionMode;
+  /** The run's resolved conversation (`SendOptions.conversation` ?? `AgentOptions.conversation`). */
+  conversation?: import("../../types/plugin.js").ConversationRef;
   /**
    * SE2 — opt-in typed runtime-event sink (from `SendOptions.onRunEvent`). The loop
    * emits `RunEvent`s (permission_denied, tool_progress, rate_limit, task_*,
@@ -322,4 +324,6 @@ export interface AgentLoopOutput {
    * classifies it as a `no_progress` terminal (a controlled stop, not a truncation to re-send).
    */
   stoppedByDoomLoop?: boolean;
+  /** Tool calls a `pre_tool_call` handler deferred; set with `finalStatus: "deferred"`. */
+  deferredToolCalls?: readonly import("../../types/run.js").DeferredToolCall[];
 }

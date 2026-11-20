@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import { ConfigurationError } from "../../errors.js";
 import type { EmbeddingRuntime } from "./embedding-adapter.js";
@@ -37,6 +37,8 @@ interface LanceTable {
   add: (rows: ReadonlyArray<LanceFactRecord>) => Promise<void>;
   search: (vector: ReadonlyArray<number>) => LanceQuery;
   delete: (predicate: string) => Promise<void>;
+  checkoutLatest: () => Promise<void>;
+  addColumns: (transforms: ReadonlyArray<{ name: string; valueSql: string }>) => Promise<unknown>;
   countRows: () => Promise<number>;
   // EC-8: schema introspection for dimension check.
   schema: () => Promise<{
@@ -73,6 +75,12 @@ export interface LanceFactRecord {
   scope: string;
   user_id: string;
   timestamp: number;
+  /**
+   * The fact this row is a chunk of. Rows of one split fact share it, so `removeFacts(<fact>)`
+   * finds them without guessing from the id. Defaults to `id` on write; rows written before this
+   * column existed have it NULL (no link is guessed) and are removed by exact id only.
+   */
+  fact_id?: string;
 }
 
 /**
@@ -135,6 +143,9 @@ function requireLance(): LanceModule {
   }
 }
 
+const WRITE_QUEUES = new Map<string, Promise<unknown>>();
+let nextAnonymousKey = 0;
+
 /**
  * Lance-backed memory index. Public API mirrors the SQLite one logically:
  * `addFacts`, `search`, `countFacts`, `removeFacts`, `close`.
@@ -147,10 +158,25 @@ export class LanceIndex {
     private readonly table: LanceTable,
     private readonly embedding: EmbeddingRuntime,
     private readonly embeddingDim: number,
-    /** Instances on the same storage path share one write queue and removal log (same process). */
-    private readonly state: SharedWriteState = new SharedWriteState(),
+    /** Identity of the storage the table lives in; instances sharing it share one write queue. */
+    private readonly queueKey: string = `anonymous:${nextAnonymousKey++}`,
   ) {
     openIndexes.add(this);
+  }
+
+  /**
+   * Adds and removals on one storage path run one at a time, in call order, even across several
+   * `LanceIndex` objects opened on that path in this process (not across processes).
+   */
+  private serialized<T>(task: () => Promise<T>): Promise<T> {
+    const tail = WRITE_QUEUES.get(this.queueKey) ?? Promise.resolve();
+    const run = tail.then(task, task);
+    const next = run.catch(() => undefined);
+    WRITE_QUEUES.set(this.queueKey, next);
+    void next.then(() => {
+      if (WRITE_QUEUES.get(this.queueKey) === next) WRITE_QUEUES.delete(this.queueKey);
+    });
+    return run;
   }
 
   static async open(opts: OpenLanceOptions): Promise<LanceIndex> {
@@ -170,6 +196,10 @@ export class LanceIndex {
       // in `type.listSize` (older API used `fixedSize`; we read both for
       // forward/backward safety).
       const schema = await table.schema();
+      if (!schema.fields.some((f) => f.name === "fact_id")) {
+        // Existing rows get NULL: no parent link is guessed for them.
+        await table.addColumns([{ name: "fact_id", valueSql: "cast(NULL as string)" }]);
+      }
       const embField = schema.fields.find((f) => f.name === "embedding");
       const existingDim = embField?.type?.listSize ?? embField?.type?.fixedSize;
       if (typeof existingDim === "number" && existingDim !== dim) {
@@ -190,66 +220,32 @@ export class LanceIndex {
         scope: "__bootstrap__",
         user_id: "__bootstrap__",
         timestamp: 0,
+        fact_id: "__bootstrap__",
       };
       table = await conn.createTable(tableName, [bootstrap]);
       await table.delete("namespace = '__bootstrap__'");
     }
-    return new LanceIndex(table, opts.embedding, dim, sharedStateFor(storagePath));
+    return new LanceIndex(table, opts.embedding, dim, resolve(storagePath));
   }
 
-  /**
-   * Marks the start of a sync. Pass the result to `addFacts({ since })` so a write submitted late,
-   * from facts read before a removal, cannot restore what was removed in between.
-   */
-  beginSync(): number {
-    return this.state.seq;
-  }
-
-  async addFacts(
-    facts: ReadonlyArray<Omit<LanceFactRecord, "embedding">>,
-    opts: { since?: number } = {},
-  ): Promise<void> {
+  async addFacts(facts: ReadonlyArray<Omit<LanceFactRecord, "embedding">>): Promise<void> {
     if (facts.length === 0) return;
-    // Queued at call time, and the removal log is checked once the queue reaches this write, so
-    // every removal requested since `since` is already recorded.
-    await this.serialized(async () => {
-      const live =
-        opts.since === undefined
-          ? facts
-          : facts.filter((f) => !this.state.removedSince(f, opts.since as number));
-      if (live.length === 0) return;
-      const embeddings = await this.embedding.embed(live.map((f) => f.text));
-      const rows: LanceFactRecord[] = live.map((f, i) => ({
-        ...f,
-        embedding: embeddings[i] ?? new Array(this.embeddingDim).fill(0),
-      }));
-      await this.table.add(rows);
-    });
+    // Serialized with `removeFacts`: a removal issued while this add is embedding runs after the
+    // rows land, so it deletes them instead of being overtaken.
+    await this.serialized(() => this.addFactsNow(facts));
   }
 
-  /**
-   * The writer for facts of `agent.memory`: stores each chunk of a fact under the id
-   * `factChunkId(factId, i)`, the shape `removeFactChunks` deletes by. Pass `since` from
-   * {@link LanceIndex.beginSync}.
-   */
-  async indexFact(fact: IndexedFact, opts: { since?: number } = {}): Promise<void> {
-    await this.addFacts(factRecords(fact), opts);
-  }
-
-  /**
-   * One sync: marks its start BEFORE `read` reads the facts and passes that mark to the write, so
-   * a fact forgotten while `read` or the embedding is in flight is not written back.
-   */
-  async syncFacts(read: () => Promise<ReadonlyArray<IndexedFact>>): Promise<void> {
-    const since = this.beginSync();
-    const facts = await read();
-    await this.addFacts(facts.flatMap(factRecords), { since });
-  }
-
-  private serialized<T>(task: () => Promise<T>): Promise<T> {
-    const run = this.state.tail.then(task, task);
-    this.state.tail = run.catch(() => undefined);
-    return run;
+  private async addFactsNow(
+    facts: ReadonlyArray<Omit<LanceFactRecord, "embedding">>,
+  ): Promise<void> {
+    const texts = facts.map((f) => f.text);
+    const embeddings = await this.embedding.embed(texts);
+    const rows: LanceFactRecord[] = facts.map(({ fact_id, ...f }, i) => ({
+      ...f,
+      fact_id: fact_id ?? f.id,
+      embedding: embeddings[i] ?? new Array(this.embeddingDim).fill(0),
+    }));
+    await this.table.add(rows);
   }
 
   /**
@@ -296,64 +292,54 @@ export class LanceIndex {
   }
 
   /**
-   * Remove rows by id, serialized after any write already started on this instance.
-   *
-   * `scope` narrows the delete: only rows whose `namespace` (and `source`, when given) match are
-   * removed, so an id shared with another namespace or source is left alone. Without `scope` the
-   * behaviour is unchanged (every row with that id), keeping the existing signature compatible.
-   *
-   * Limit: rows are matched by id only. Legacy rows migrated from SQLite carry chunk ids with no
-   * link to a parent fact, so they are never removed unless their ids are passed explicitly; this
-   * method does not match by text or clear a namespace. To forget a whole fact (all its chunks)
-   * use {@link LanceIndex.removeFactChunks}, which `agent.memory.delete` calls.
+   * Remove facts by id. Without `scope` this is the exact-id deletion it always was. With `scope`
+   * it removes every row of that namespace AND source whose `fact_id` is the id (a split fact's
+   * chunks share it), linked by `fact_id` and never by id shape, so a same-named row owned by
+   * another namespace or source (a note, a wiki page) survives. Rows that predate `fact_id` (NULL)
+   * match only by exact id. Runs after any add already queued on this storage path, including adds
+   * from other `LanceIndex` objects opened on it.
    */
   async removeFacts(
     ids: ReadonlyArray<string>,
-    scope?: { namespace?: string; source?: "memory" | "sessions" | "wiki" },
+    scope?: { namespace: string; source: "memory" | "sessions" | "wiki" },
   ): Promise<void> {
     if (ids.length === 0) return;
-    const escaped = ids.map((id) => `'${escapeSqlValue(id)}'`).join(", ");
-    const predicates = [`id IN (${escaped})`];
-    if (scope?.namespace !== undefined) {
-      predicates.push(`namespace = '${escapeSqlValue(scope.namespace)}'`);
-    }
-    if (scope?.source !== undefined) {
-      predicates.push(`source = '${escapeSqlValue(scope.source)}'`);
-    }
-    const predicate = predicates.join(" AND ");
-    await this.serialized(() => this.table.delete(predicate));
-  }
-
-  /**
-   * Forget one fact: remove every chunk written for it by {@link LanceIndex.indexFact}, and only
-   * those. Chunk ids are `factChunkId(factId, i)`; the fact id is escaped so no other fact's chunks
-   * can share the `factId#` prefix (`a` never matches `a#b`). `source` is required so other
-   * sources' rows are never touched; `namespace` narrows further when the caller knows it, and
-   * when omitted the fact is forgotten in every namespace (a fact id is unique, and
-   * `agent.memory.delete(id)` carries no namespace). Rows with ids outside that
-   * convention (legacy migrated chunks, no link to a fact) are left alone. The removal is logged
-   * before it is queued so a stale sync (see `beginSync`) cannot re-add the fact afterwards.
-   */
-  async removeFactChunks(
-    factId: string,
-    scope: { namespace?: string; source: "memory" | "sessions" | "wiki" },
-  ): Promise<void> {
-    const enc = encodeFactId(factId);
-    const predicates = [
-      `(id = '${escapeSqlValue(enc)}' OR starts_with(id, '${escapeSqlValue(`${enc}#`)}'))`,
-      `source = '${escapeSqlValue(scope.source)}'`,
-    ];
-    if (scope.namespace !== undefined) {
-      predicates.push(`namespace = '${escapeSqlValue(scope.namespace)}'`);
-    }
-    this.state.recordRemoval(enc, scope);
-    await this.serialized(() => this.table.delete(predicates.join(" AND ")));
+    const where = [
+      `(${ids
+        .map((id) =>
+          scope === undefined
+            ? `id = '${idLiteral(id)}'`
+            : `fact_id = '${idLiteral(id)}' OR (fact_id IS NULL AND id = '${idLiteral(id)}')`,
+        )
+        .join(" OR ")})`,
+      ...(scope
+        ? [
+            `namespace = '${escapeSqlValue(scope.namespace)}'`,
+            `source = '${escapeSqlValue(scope.source)}'`,
+          ]
+        : []),
+    ].join(" AND ");
+    await this.serialized(async () => {
+      // A table handle reads the version it opened; another handle on this path may have added since.
+      await this.table.checkoutLatest();
+      await this.table.delete(where);
+    });
   }
 
   async close(): Promise<void> {
-    // Lance auto-closes on GC; no explicit shutdown needed.
     openIndexes.delete(this);
+    // Lance auto-closes on GC; no explicit shutdown needed.
   }
+}
+
+/**
+ * An id as a Lance string literal: control characters rejected, `'` doubled, and nothing else
+ * touched. Lance literals have no backslash escape, so unlike `escapeSqlValue` this keeps `\\`
+ * as the one character it is; the stored id then matches itself.
+ */
+function idLiteral(value: string): string {
+  escapeSqlValue(value);
+  return value.replace(/'/g, "''");
 }
 
 /**
@@ -382,105 +368,6 @@ function escapeSqlValue(value: string): string {
   }
   // Escape both single-quote and backslash.
   return value.replace(/\\/g, "\\\\").replace(/'/g, "''");
-}
-
-/** A fact of `agent.memory` and the text chunks it is stored as. */
-export interface IndexedFact {
-  id: string;
-  chunks: ReadonlyArray<string>;
-  namespace: string;
-  scope: string;
-  user_id: string;
-  timestamp: number;
-  source?: "memory" | "sessions" | "wiki";
-}
-
-/** Escapes `%` and `#` so a fact id never contains the chunk separator. */
-function encodeFactId(factId: string): string {
-  return factId.replace(/%/g, "%25").replace(/#/g, "%23");
-}
-
-/** Id of chunk `index` of a fact: `<escaped factId>#<index>`. */
-export function factChunkId(factId: string, index: number): string {
-  return `${encodeFactId(factId)}#${index}`;
-}
-
-function factRecords(f: IndexedFact): Array<Omit<LanceFactRecord, "embedding">> {
-  return f.chunks.map((text, i) => ({
-    id: factChunkId(f.id, i),
-    text,
-    source: f.source ?? "memory",
-    namespace: f.namespace,
-    scope: f.scope,
-    user_id: f.user_id,
-    timestamp: f.timestamp,
-  }));
-}
-
-/** Every `LanceIndex` currently open in this process. */
-const openIndexes = new Set<LanceIndex>();
-
-/**
- * Called by `agent.memory.delete`: removes the fact's chunks (source `memory`, any namespace) from
- * every open Lance index. A failure in any index is thrown after all were attempted. No-op when no
- * index is open.
- *
- * Limit: it only matches rows written with the `indexFact`/`syncFacts` id convention. The SDK has
- * no production writer using it yet (`LanceMemoryAdapter.sync` is a no-op), so rows from SQLite
- * migration or from `addFacts` with caller-chosen ids are not matched; remove those with
- * `removeFacts(ids, scope)`.
- */
-export async function forgetFactInOpenIndexes(factId: string): Promise<void> {
-  const results = await Promise.allSettled(
-    [...openIndexes].map((i) => i.removeFactChunks(factId, { source: "memory" })),
-  );
-  const failed = results.find((r) => r.status === "rejected");
-  if (failed?.status === "rejected") throw failed.reason;
-}
-
-interface RemovalEntry {
-  seq: number;
-  factId: string;
-  namespace: string | undefined;
-  source: string | undefined;
-}
-
-/** Write queue and removal log shared by every `LanceIndex` open on one storage path. */
-class SharedWriteState {
-  tail: Promise<unknown> = Promise.resolve();
-  seq = 0;
-  private readonly removals: RemovalEntry[] = [];
-
-  recordRemoval(factId: string, scope: { namespace?: string; source?: string }): void {
-    this.removals.push({
-      seq: ++this.seq,
-      factId,
-      namespace: scope.namespace,
-      source: scope.source,
-    });
-  }
-
-  removedSince(fact: { id: string; namespace: string; source: string }, since: number): boolean {
-    const base = fact.id.split("#", 1)[0];
-    return this.removals.some(
-      (r) =>
-        r.seq > since &&
-        r.factId === base &&
-        (r.namespace === undefined || r.namespace === fact.namespace) &&
-        (r.source === undefined || r.source === fact.source),
-    );
-  }
-}
-
-const sharedStates = new Map<string, SharedWriteState>();
-
-function sharedStateFor(storagePath: string): SharedWriteState {
-  let st = sharedStates.get(storagePath);
-  if (st === undefined) {
-    st = new SharedWriteState();
-    sharedStates.set(storagePath, st);
-  }
-  return st;
 }
 
 /**
@@ -513,4 +400,21 @@ export function isLanceAvailable(): boolean {
  */
 export function lanceStoragePath(root: MemoryRoot): string {
   return join(root, "lance");
+}
+
+/** Every `LanceIndex` currently open in this process. */
+const openIndexes = new Set<LanceIndex>();
+
+/**
+ * Called by `agent.memory.delete`: removes the fact's rows (source `memory`, the given namespace)
+ * from every open Lance index via `removeFacts`, which is serialized after in-flight adds on the
+ * same storage path. A failure in any index is thrown after all were attempted. Rows without a
+ * `fact_id` link only match by exact id; unrelated rows are never touched.
+ */
+export async function forgetFactInOpenIndexes(factId: string, namespace: string): Promise<void> {
+  const results = await Promise.allSettled(
+    [...openIndexes].map((i) => i.removeFacts([factId], { namespace, source: "memory" })),
+  );
+  const failed = results.find((r) => r.status === "rejected");
+  if (failed?.status === "rejected") throw failed.reason;
 }

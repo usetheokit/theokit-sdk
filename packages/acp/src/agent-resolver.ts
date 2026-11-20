@@ -10,10 +10,10 @@
  * @internal
  */
 
-import type { SDKAgent } from "@theokit/sdk";
+import type { AgentLike } from "@theokit/sdk";
 import type { AgentFactory, AgentOrFactory } from "./types.js";
 
-function looksLikeSDKAgent(value: unknown): value is SDKAgent {
+function looksLikeSDKAgent(value: unknown): value is AgentLike {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -52,7 +52,7 @@ export function resolveAgentFactory(
 
   if (looksLikeSDKAgent(input)) {
     let warned = false;
-    return (_sessionId: string): SDKAgent => {
+    return (_sessionId: string): AgentLike => {
       if (!warned) {
         warned = true;
         log(

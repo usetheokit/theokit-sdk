@@ -30,6 +30,7 @@ export {
   type SessionArtifactStore,
   type SessionArtifactStoreOptions,
 } from "./artifact-store.js";
+export { type CreateComputerToolOptions, createComputerTool } from "./computer-tool.js";
 export {
   type CreateCurrentTimeToolOptions,
   createCurrentTimeTool,
@@ -149,7 +150,20 @@ export {
   createBraveWebSearchAdapter,
 } from "./web-search-brave.js";
 export {
+  type ResolvedWebSearch,
+  resolveWebSearchAdapter,
+  type WebSearchProvider,
+} from "./web-search-from-env.js";
+export {
   type CreateGenericHttpSearchAdapterOptions,
   createGenericHttpSearchAdapter,
 } from "./web-search-http.js";
 export { type CreateWriteFileToolOptions, createWriteFileTool } from "./write-file.js";
+export {
+  readXwdHeader,
+  XWD_LIMITS,
+  XwdFormatError,
+  type XwdHeader,
+  XwdNotWrittenError,
+  xwdToPng,
+} from "./xwd.js";

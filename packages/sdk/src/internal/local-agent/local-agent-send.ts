@@ -5,6 +5,7 @@ import type { MemoryToolSpec } from "../agent-loop/types.js";
 import { anySignal } from "../concurrency/abort-utils.js";
 import { diagFailure } from "../diagnostics.js";
 import { emitRunEvent } from "../emit-run-event.js";
+import type { MemoryMirror } from "../memory/mirror.js";
 import type { PluginManager } from "../plugins/manager.js";
 import {
   type CompletionCheckDeps,
@@ -13,7 +14,10 @@ import {
 import type { MemoryProvider } from "../runtime/memory-glue/memory-provider.js";
 import type { MemoryFact } from "../runtime/memory-glue/memory-store.js";
 import { readMemoryFacts } from "../runtime/memory-glue/memory-store.js";
-import { selectFactsForInjection } from "../runtime/memory-glue/select-facts.js";
+import {
+  DEFAULT_MAX_ENTRIES,
+  selectFactsForInjection,
+} from "../runtime/memory-glue/select-facts.js";
 import { normalizeModel } from "../runtime/model-selection.js";
 import { runInputProcessors } from "../runtime/processors/run-processors.js";
 import { createTripwireRun } from "../runtime/processors/tripwire-run.js";
@@ -24,6 +28,7 @@ import type { TelemetryHandle } from "../telemetry/tracer.js";
 import { consumePending } from "./local-agent-invalidate.js";
 import { applyPreUserSendHook, wrapRunWithPostReplyHook } from "./local-agent-memory-hooks.js";
 import { persistMemoryFactIfWritePrompt } from "./local-agent-runtime-extensions.js";
+import { runWithModelFallback } from "./model-fallback-run.js";
 
 /**
  * Inputs for the `executeSendLocked` helper extracted from LocalAgent.sendLocked.
@@ -44,6 +49,8 @@ export interface SendLockedInputs {
     typeof import("./local-agent-memory-provider.js").createLocalAgentMemoryProvider
   >;
   workspaceCwd: string;
+  /** Built-in memory ↔ adapter mirror, when `memory.mirror` is set. */
+  memoryMirror?: MemoryMirror;
   telemetry: TelemetryHandle;
   lifecycleAbortController: AbortController;
   runPreHook: (userText: string) => Promise<void>;
@@ -54,6 +61,8 @@ export interface SendLockedInputs {
   ) => Promise<string | undefined>;
   assembleSystemPromptForSend: (request: SendAssemblyRequest) => Promise<string | undefined>;
   dispatchRun: (args: DispatchRunArgs) => Promise<Run>;
+  /** The agent's model after this send's override, for naming the primary fallback attempt. */
+  currentModel?: () => ModelSelection | undefined;
 }
 
 /**
@@ -91,6 +100,8 @@ export interface DispatchRunArgs {
   readonly priorMessages: ReadonlyArray<{ role: "user" | "assistant"; text: string }>;
   readonly memoryTools: ReadonlyArray<MemoryToolSpec> | undefined;
   readonly memoryProviderOverride?: MemoryProvider | undefined;
+  /** Model for this one dispatch (`modelFallback` attempts); the agent's own model when absent. */
+  readonly model?: ModelSelection | undefined;
 }
 
 /**
@@ -195,8 +206,18 @@ export async function executeSendLocked(
   // Where memory lives is `memory.directory`'s answer and nobody else's. It used to be
   // `local.sessionDir`'s — the option that names the TRANSCRIPT home — so one option answered two
   // questions and only the writer heard the second answer (#463).
-  await persistMemoryFactIfWritePrompt(inputs.workspaceCwd, inputs.options.memory, userText);
-  const memoryFacts = await readMemoryForSend(inputs.workspaceCwd, inputs.options.memory, userText);
+  await persistMemoryFactIfWritePrompt(
+    inputs.workspaceCwd,
+    inputs.options.memory,
+    userText,
+    inputs.memoryMirror,
+  );
+  const memoryFacts = await readMemoryForSend(
+    inputs.workspaceCwd,
+    inputs.options.memory,
+    userText,
+    inputs.memoryMirror,
+  );
   // The MemoryProvider port is the ONLY memory path now (kernel flip, 2026-09-02). Both of this
   // send's memory jobs happen inside the agent loop: the tool catalog comes from
   // `provider.buildTools()` and the recall summary from `provider.runActivePass()`, so nothing is
@@ -220,7 +241,7 @@ export async function executeSendLocked(
     ...options,
     signal: anySignal([options.signal, inputs.lifecycleAbortController.signal]),
   };
-  const run = await inputs.dispatchRun({
+  const dispatchArgs: DispatchRunArgs = {
     message: adaptedMessage,
     options: composedOptions,
     systemPrompt: assembledSystemPrompt,
@@ -228,7 +249,8 @@ export async function executeSendLocked(
     priorMessages,
     memoryTools,
     memoryProviderOverride: effectiveMemoryProvider,
-  });
+  };
+  const run = await dispatchWithFallback(inputs, dispatchArgs);
   // SE24 — output processors wrap INNER (they redact/block the model text) so the
   // post_assistant_reply memory hook observes the FINAL (processed) reply.
   const outputProcessors = inputs.options.outputProcessors;
@@ -255,6 +277,22 @@ export async function executeSendLocked(
     completionCheck: options.completionCheck,
     onRunEvent: options.onRunEvent,
     deps: buildCompletionCheckDeps(),
+  });
+}
+
+/**
+ * One dispatch, or — when `AgentOptions.modelFallback` lists models — a single run that reruns the
+ * same prepared turn (same user message, same prior messages) on the next model after a failure
+ * before output. Each attempt's model is per-dispatch, so the agent's own model is untouched.
+ */
+function dispatchWithFallback(inputs: SendLockedInputs, args: DispatchRunArgs): Promise<Run> {
+  const models = inputs.options.modelFallback?.models ?? [];
+  if (models.length === 0) return inputs.dispatchRun(args);
+  return runWithModelFallback({
+    primaryModel: inputs.currentModel?.()?.id ?? "primary",
+    models,
+    signal: args.options.signal,
+    dispatch: (model) => inputs.dispatchRun(model === undefined ? args : { ...args, model }),
   });
 }
 
@@ -296,10 +334,20 @@ function reportRefusedMemoryDirectoryOnce(
   );
 }
 
+/** Facts the adapters returned for `adapters-first` recall, ranked and cut like local ones. */
+async function selectMirroredFacts(
+  mirror: MemoryMirror | undefined,
+  query: string | undefined,
+): Promise<MemoryFact[]> {
+  const fromAdapters = (await mirror?.recall(query, DEFAULT_MAX_ENTRIES)) ?? [];
+  return selectFactsForInjection(fromAdapters, { ...(query === undefined ? {} : { query }) });
+}
+
 function readMemoryForSend(
   workspaceCwd: string,
   memoryConfig: AgentOptions["memory"],
   query?: string,
+  mirror?: MemoryMirror,
 ): Promise<MemoryFact[]> {
   if (memoryConfig?.enabled !== true) return Promise.resolve([]);
   // Rank and cut before the facts reach the prompt. Without the cut the injected block tracked
@@ -310,6 +358,8 @@ function readMemoryForSend(
   return safeCall(
     async () => {
       try {
+        const mirrored = await selectMirroredFacts(mirror, query);
+        if (mirrored.length > 0) return mirrored;
         return selectFactsForInjection(await readMemoryFacts(workspaceCwd, memoryConfig), {
           ...(query === undefined ? {} : { query }),
         });

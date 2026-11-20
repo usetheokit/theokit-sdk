@@ -163,3 +163,56 @@ describe("#574 — the budget covers the lag that was actually measured", () => 
     ).toBeGreaterThan(OBSERVED_LAG_MS);
   });
 });
+
+describe("#1241 — a version that shows up after the old window is still reported published", () => {
+  it("reports published when the registry shows the version only on the seventh re-read of the default ladder", () => {
+    const fx = mkdtempSync(join(tmpdir(), "theokit-1241-ws-"));
+    const bin = mkdtempSync(join(tmpdir(), "theokit-1241-bin-"));
+    try {
+      mkdirSync(join(fx, "packages", "sdk"), { recursive: true });
+      writeFileSync(
+        join(fx, "packages", "sdk", "package.json"),
+        JSON.stringify({ name: "@theokit/sdk", version: "5.26.0" }),
+        "utf8",
+      );
+      const counter = join(fx, "count");
+      writeFileSync(counter, "0", "utf8");
+      const shim = `#!/usr/bin/env node
+const fs = require("fs");
+const args = process.argv.slice(2);
+const spec = args[1] ?? "";
+if (spec.lastIndexOf("@") > 0) {
+  const n = Number(fs.readFileSync(${JSON.stringify(counter)}, "utf8")) + 1;
+  fs.writeFileSync(${JSON.stringify(counter)}, String(n));
+  if (n > 7) { process.stdout.write("5.26.0\\n"); process.exit(0); }
+}
+process.stderr.write("npm error code E404\\n");
+process.exit(1);
+`;
+      writeFileSync(join(bin, "npm"), shim, "utf8");
+      chmodSync(join(bin, "npm"), 0o755);
+      // Default ladder, but every wait fires at once: preload a setTimeout that ignores its delay.
+      const preload = join(bin, "instant-timers.cjs");
+      writeFileSync(
+        preload,
+        "const t = global.setTimeout; global.setTimeout = (f, _ms, ...a) => t(f, 0, ...a);",
+        "utf8",
+      );
+      const r = spawnSync(process.execPath, [script], {
+        cwd: fx,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${bin}:${process.env.PATH ?? ""}`,
+          THEOKIT_RELEASE_VERIFY_DELAYS_MS: undefined,
+          NODE_OPTIONS: `--require ${preload}`,
+        },
+      });
+      expect(r.stdout + r.stderr).toContain("is on the registry (after a retry)");
+      expect(r.status).toBe(0);
+    } finally {
+      rmSync(fx, { recursive: true, force: true });
+      rmSync(bin, { recursive: true, force: true });
+    }
+  });
+});

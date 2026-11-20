@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import * as sdkTools from "../src/index.js";
 import {
   createApplyPatchTool,
+  createComputerTool,
   createCurrentTimeTool,
   createEditFileTool,
   createGitDiffTool,
@@ -31,6 +32,7 @@ import {
 // A factory that is missing here is caught by the runtime inventory check below.
 const factories = {
   createApplyPatchTool,
+  createComputerTool,
   createCurrentTimeTool,
   createEditFileTool,
   createGitDiffTool,

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { CustomTool } from "../../types/agent.js";
 import type { MemoryProviderAgentRef } from "../../types/memory-provider.js";
 import type { SDKUserMessage } from "../../types/run.js";
@@ -64,6 +65,8 @@ export interface LoopContext {
    * to the hard threshold (no progress). Threaded onto `AgentLoopOutput` → `RunResult.stoppedByDoomLoop`.
    */
   stoppedByDoomLoop?: boolean;
+  /** Tool calls a `pre_tool_call` handler deferred this run. */
+  deferredToolCalls?: readonly import("../../types/run.js").DeferredToolCall[];
   /** Per-run doom-loop detector; `undefined` when disabled via `SendOptions.doomLoop: false`. */
   doomLoop?: DoomLoopTracker;
   usage: UsageAccumulator;
@@ -300,7 +303,8 @@ function shellToolDescriptor(withheld: ReadonlySet<string>): ResolvedTool[] {
   ];
 }
 
-async function collectTools(
+/** @internal exported for tests */
+export async function collectTools(
   mcp: Map<string, McpClient>,
   withheld: ReadonlySet<string>,
   sink?: RunEventSink,
@@ -310,7 +314,7 @@ async function collectTools(
     const mcpTools = await safeListTools(client, serverName, sink);
     for (const tool of mcpTools) {
       tools.push({
-        name: `mcp_${sanitize(serverName)}_${sanitize(tool.name)}`,
+        name: mcpModelToolName(serverName, tool.name),
         description: tool.description,
         inputSchema: tool.inputSchema,
         origin: "mcp",
@@ -323,6 +327,38 @@ async function collectTools(
   return tools;
 }
 
-function sanitize(name: string): string {
+const MAX_MODEL_TOOL_NAME = 64;
+
+/**
+ * The name the MODEL sees for an MCP tool. This is the ONLY place the transformation happens;
+ * execution keeps the server's own names (`mcpServerName` / `mcpToolName` on the resolved tool), so
+ * the model-facing form is never sent to a server. The catalog built from `listTools` (already
+ * narrowed by any MCP tool filter) is the sole dispatch authority: a name that is not in it is
+ * refused.
+ *
+ * The mapping is injective, so a forced call naming a filtered-out tool can never equal the name of
+ * an offered one:
+ * - plain identities (server `[A-Za-z0-9-]+`, tool `[A-Za-z0-9_-]+`) become `mcp_<server>_<tool>`;
+ *   the server has no `_`, so the first `_` after the prefix splits the pair unambiguously;
+ * - any other identity becomes `mcp__<readable>_<hash>`, where the hash covers the exact
+ *   `[server, tool]` pair. The empty server slot (`mcp__`) cannot occur in a plain name.
+ *
+ * @internal
+ */
+export function mcpModelToolName(serverName: string, toolName: string): string {
+  if (/^[a-zA-Z0-9-]+$/.test(serverName) && /^[a-zA-Z0-9_-]+$/.test(toolName)) {
+    const plain = `mcp_${serverName}_${toolName}`;
+    // Providers reject tool names over 64 chars; overlong identities take the bounded hash form.
+    if (plain.length <= MAX_MODEL_TOOL_NAME) return plain;
+  }
+  const readable = `${readablePart(serverName)}_${readablePart(toolName)}`.slice(0, 26);
+  const hash = createHash("sha256")
+    .update(JSON.stringify([serverName, toolName]))
+    .digest("hex")
+    .slice(0, 32);
+  return `mcp__${readable}_${hash}`;
+}
+
+function readablePart(name: string): string {
   return name.replace(/[^a-zA-Z0-9-]+/g, "_").replace(/^[_-]+|[_-]+$/g, "");
 }

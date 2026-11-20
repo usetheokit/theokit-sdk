@@ -13,11 +13,17 @@
  * @public
  */
 
-import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, posix, resolve as resolveHost } from "node:path";
+
+import { ConfigurationError } from "../errors.js";
+import { diag } from "../internal/diagnostics.js";
+import { KEEP_LABEL, removeEarlierKept } from "./docker-containers.js";
+import { type DockerRunner, type DockerRunResult, defaultDockerRunner } from "./docker-runner.js";
+
+export { type DockerRunner, type DockerRunResult, defaultDockerRunner };
 
 import {
   type ExecuteResult,
@@ -31,20 +37,6 @@ import {
 /** Where the host `workDir` appears inside the container. */
 const CONTAINER_WORKDIR = "/workspace";
 
-/** Result of one `docker` invocation: captured output, exit code and whether it timed out. */
-export interface DockerRunResult {
-  stdout: string;
-  stderr: string;
-  code: number | null;
-  timedOut: boolean;
-}
-
-/** Seam for tests: runs `docker <args>`, optionally feeding `input` to stdin. */
-export type DockerRunner = (
-  args: readonly string[],
-  opts: { input?: string | Buffer; timeoutMs: number; maxOutputBytes: number },
-) => Promise<DockerRunResult>;
-
 /** Configuration for {@link DockerSandbox}. */
 export interface DockerSandboxConfig extends SandboxConfig {
   /** Image to run. Must contain `sh`. Default `alpine:3`. */
@@ -57,38 +49,55 @@ export interface DockerSandboxConfig extends SandboxConfig {
   runner?: DockerRunner;
   /** `uid:gid` the container runs as. Default: the host user. */
   user?: string;
+  /** Mount the workspace read-only (`:ro`). Default `false`. `uploadFile` then fails. */
+  readOnlyWorkspace?: boolean;
+  /** Labels added to every container this sandbox starts (`--label k=v`). */
+  labels?: Readonly<Record<string, string>>;
+  /** Keep the most recent container of this key after it exits (no --rm); earlier exited ones with the same key are removed. */
+  keepLast?: { key: string };
 }
 
-function defaultRunner(bin: string): DockerRunner {
-  return (args, { input, timeoutMs, maxOutputBytes }) =>
-    new Promise((resolve, reject) => {
-      const child = spawn(bin, [...args], { stdio: ["pipe", "pipe", "pipe"] });
-      let stdout = "";
-      let stderr = "";
-      let timedOut = false;
-      const cap = (s: string, chunk: Buffer) =>
-        s.length >= maxOutputBytes ? s : s + chunk.toString("utf-8");
-      child.stdout.on("data", (c: Buffer) => {
-        stdout = cap(stdout, c);
+const LABEL_KEY = /^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/;
+
+/** Validates labels and returns a private copy, so later mutation cannot bypass the check. */
+function validateLabels(labels: Readonly<Record<string, string>> | undefined): [string, string][] {
+  const out: [string, string][] = [];
+  for (const [key, value] of Object.entries(labels ?? {})) {
+    if (!LABEL_KEY.test(key)) {
+      throw new ConfigurationError(`Invalid Docker label key "${key}": must match ${LABEL_KEY}`, {
+        code: "invalid_docker_label",
       });
-      child.stderr.on("data", (c: Buffer) => {
-        stderr = cap(stderr, c);
-      });
-      const timer = setTimeout(() => {
-        timedOut = true;
-        child.kill("SIGKILL");
-      }, timeoutMs);
-      child.on("error", (e) => {
-        clearTimeout(timer);
-        reject(e);
-      });
-      child.on("close", (code) => {
-        clearTimeout(timer);
-        resolve({ stdout, stderr, code, timedOut });
-      });
-      child.stdin.on("error", () => {});
-      child.stdin.end(input);
+    }
+    if (typeof value !== "string" || /[\r\n]/.test(value)) {
+      throw new ConfigurationError(
+        `Invalid Docker label value for key "${key}": must be a string without newlines`,
+        { code: "invalid_docker_label" },
+      );
+    }
+    out.push([key, value]);
+  }
+  return out;
+}
+
+/** Validates `keepLast`, appends its reserved label to `labels` and returns the key. */
+function applyKeepLast(
+  keepLast: { key: string } | undefined,
+  labels: [string, string][],
+): string | undefined {
+  if (keepLast === undefined) return undefined;
+  const key = keepLast.key;
+  if (typeof key !== "string" || key === "" || /[\r\n]/.test(key)) {
+    throw new ConfigurationError("keepLast.key must be a non-empty string without newlines", {
+      code: "invalid_docker_label",
     });
+  }
+  if (labels.some(([k]) => k === KEEP_LABEL)) {
+    throw new ConfigurationError(`Label "${KEEP_LABEL}" is reserved for keepLast`, {
+      code: "invalid_docker_label",
+    });
+  }
+  labels.push([KEEP_LABEL, key]);
+  return key;
 }
 
 /** Sandbox backend that runs each command in a throwaway Docker container. */
@@ -99,6 +108,9 @@ export class DockerSandbox extends SandboxBackend {
   private readonly runner: DockerRunner;
   private readonly hostDir: string;
   private readonly user: string | undefined;
+  private readonly readOnlyWorkspace: boolean;
+  private readonly labels: readonly [string, string][];
+  private readonly keepKey: string | undefined;
 
   constructor(config: DockerSandboxConfig = {}) {
     // No workDir ⇒ a fresh private directory, never the host /tmp.
@@ -106,10 +118,14 @@ export class DockerSandbox extends SandboxBackend {
       ...config,
       workDir: config.workDir ?? mkdtempSync(join(tmpdir(), "theokit-docker-ws-")),
     });
+    const labels = validateLabels(config.labels);
+    this.keepKey = applyKeepLast(config.keepLast, labels);
+    this.labels = labels;
+    this.readOnlyWorkspace = config.readOnlyWorkspace ?? false;
     this.image = config.image ?? "alpine:3";
     this.network = config.network ?? false;
     this.networkPolicy = { mode: this.network ? "unrestricted" : "none" };
-    this.runner = config.runner ?? defaultRunner(config.dockerBin ?? "docker");
+    this.runner = config.runner ?? defaultDockerRunner(config.dockerBin);
     this.hostDir = resolveHost(this.config.workDir ?? "/tmp");
     this.user =
       config.user ??
@@ -122,7 +138,7 @@ export class DockerSandbox extends SandboxBackend {
   private runArgs(name: string, interactive: boolean, argv: readonly string[]): string[] {
     return [
       "run",
-      "--rm",
+      ...(this.keepKey === undefined ? ["--rm"] : []),
       ...(interactive ? ["-i"] : []),
       "--name",
       name,
@@ -138,8 +154,9 @@ export class DockerSandbox extends SandboxBackend {
       "--network",
       this.network ? "bridge" : "none",
       ...(this.user ? ["--user", this.user] : []),
+      ...this.labels.flatMap(([k, v]) => ["--label", `${k}=${v}`]),
       "-v",
-      `${this.hostDir}:${CONTAINER_WORKDIR}:rw`,
+      `${this.hostDir}:${CONTAINER_WORKDIR}:${this.readOnlyWorkspace ? "ro" : "rw"}`,
       "-w",
       CONTAINER_WORKDIR,
       "-e",
@@ -173,6 +190,13 @@ export class DockerSandbox extends SandboxBackend {
       // Killing the CLI does not stop the container; remove it explicitly.
       await this.runner(["rm", "-f", name], { timeoutMs: 10_000, maxOutputBytes: 4096 }).catch(
         () => undefined,
+      );
+    }
+    if (this.keepKey !== undefined) {
+      await removeEarlierKept(this.runner, this.keepKey, name).catch((e) =>
+        diag(
+          `DockerSandbox keepLast cleanup failed for key "${this.keepKey}": ${e instanceof Error ? e.message : String(e)}\n`,
+        ),
       );
     }
     return r;

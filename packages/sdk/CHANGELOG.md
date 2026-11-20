@@ -1,5 +1,85 @@
 # Changelog
 
+## 5.30.0
+
+### Minor Changes
+
+- [#1257](https://github.com/usetheokit/theokit-sdk/pull/1257) [`180e0b1`](https://github.com/usetheokit/theokit-sdk/commit/180e0b14dd195acada484796077cbf7c3edb0e9a) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Export narrow `AgentLike` and `RunLike` types that `SDKAgent` and `Run` satisfy, for wrappers, fakes and decorators ([#1018](https://github.com/usetheokit/theokit-sdk/issues/1018)).
+
+### Patch Changes
+
+- [#1256](https://github.com/usetheokit/theokit-sdk/pull/1256) [`42ce590`](https://github.com/usetheokit/theokit-sdk/commit/42ce59006344bca2506452661be593ca370f3893) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Regenerate the harness capability map for the new `@theokit/sdk-tools` XWD exports.
+
+## 5.29.0
+
+### Minor Changes
+
+- [#1272](https://github.com/usetheokit/theokit-sdk/pull/1272) [`2290e6a`](https://github.com/usetheokit/theokit-sdk/commit/2290e6aa592ebc8436b5a40a94f5f7bc05d5da0b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `pre_tool_call` plugins receive the run's conversation: `AgentOptions.conversation` and `SendOptions.conversation` (send wins) take a `ConversationRef` (`platform`, `channelId`, `sessionKey`), exposed as `PreToolCallContext.conversation` and omitted when none is declared ([#1032](https://github.com/usetheokit/theokit-sdk/issues/1032)).
+
+- [#1285](https://github.com/usetheokit/theokit-sdk/pull/1285) [`3522f95`](https://github.com/usetheokit/theokit-sdk/commit/3522f95546798a72bb7236f65ec23b97af524098) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Export synchronous `validateCron` and `validateCronTimezone` from `@theokit/sdk/cron`.
+
+- [#1278](https://github.com/usetheokit/theokit-sdk/pull/1278) [`438c394`](https://github.com/usetheokit/theokit-sdk/commit/438c394f817611083b975dadaeddaf56044e5865) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `window` and `windowRepeatLimit` to `DoomLoopThresholds`: a sliding-window repeat limit that blocks identical tool calls (same tool, same arguments) which alternate with others, so A-B-A-B loops no longer slip past the consecutive-only guard ([#1031](https://github.com/usetheokit/theokit-sdk/issues/1031)).
+
+- [#1268](https://github.com/usetheokit/theokit-sdk/pull/1268) [`86040fa`](https://github.com/usetheokit/theokit-sdk/commit/86040fa03c4914f873550e7a6eefe37c9f8ffca8) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `Workflow.resume` and `workflowResumeTool` accept a committed workflow with a typed input without a cast. `Workflow.resume` gains a second type parameter `TI`, inferred from `workflow`.
+
+## 5.28.0
+
+### Minor Changes
+
+- [#1263](https://github.com/usetheokit/theokit-sdk/pull/1263) [`4df47f4`](https://github.com/usetheokit/theokit-sdk/commit/4df47f40ce8602aa1764918cf43bc0c88c88907b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `Agent.lease` and `AgentLease`: a hold on a live agent so the registry's LRU, idle sweep and `evict` never dispose it while a turn is running ([#1016](https://github.com/usetheokit/theokit-sdk/issues/1016)).
+
+### Patch Changes
+
+- [#1274](https://github.com/usetheokit/theokit-sdk/pull/1274) [`5c7fcd1`](https://github.com/usetheokit/theokit-sdk/commit/5c7fcd140dbdad3c7ddb1109f2f2e80e9f51d2a8) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Correct the export count in the generated capability map to include `AgentLease`.
+
+## 5.27.0
+
+### Minor Changes
+
+- [#1252](https://github.com/usetheokit/theokit-sdk/pull/1252) [`83b8dc7`](https://github.com/usetheokit/theokit-sdk/commit/83b8dc7b44ff3c4f3bfb5eb93f56489401cea9c3) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - DockerSandbox: `readOnlyWorkspace` mounts the workspace `:ro`, `labels` adds `--label` to every container (invalid ones throw `invalid_docker_label`), and `defaultDockerRunner` is exported from `@theokit/sdk/sandbox` ([#1037](https://github.com/usetheokit/theokit-sdk/issues/1037)).
+
+### Patch Changes
+
+- [#1205](https://github.com/usetheokit/theokit-sdk/pull/1205) [`38306ab`](https://github.com/usetheokit/theokit-sdk/commit/38306abda42569437660b91cd7d3b34d78d9fb2e) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `LanceIndex.removeFacts` now runs after any `addFacts` already in flight on the same storage path, so a concurrent sync can no longer restore a removed fact. Chunks of a split fact are linked through a new `fact_id` column (default: the row's own `id`). An older table gets the column on open; its existing rows keep `fact_id` NULL, no parent link is guessed for them, and they are removed by exact id only. The new optional second argument `{ namespace, source }` removes every row linked to the fact, limited to that namespace and source; without it, removal is the exact-id deletion it was.
+  
+  There is still no fact-forget call site in the SDK that uses this; wiring one in is separate work.
+
+## 5.26.1
+
+### Patch Changes
+
+- [#1234](https://github.com/usetheokit/theokit-sdk/pull/1234) [`03b648a`](https://github.com/usetheokit/theokit-sdk/commit/03b648a87245a6a37e549358cedad49027c1638a) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Agent loop: a forced call to an MCP tool outside the offered catalog is refused without reaching the server, `mcp_` names are never case-repaired onto another tool, and MCP name sanitization lives in one helper ([#1208](https://github.com/usetheokit/theokit-sdk/issues/1208)).
+
+- [#1244](https://github.com/usetheokit/theokit-sdk/pull/1244) [`b3b0d8f`](https://github.com/usetheokit/theokit-sdk/commit/b3b0d8fbf8e4904115db41a15ef5640f4dbaad1b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Release verification waits one more backoff rung before calling an accepted version unpublished.
+
+## 5.26.0
+
+### Minor Changes
+
+- [#1223](https://github.com/usetheokit/theokit-sdk/pull/1223) [`880a0db`](https://github.com/usetheokit/theokit-sdk/commit/880a0db198d460f296816736b5d569d5a70048f5) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `hookFingerprint`, `fingerprintHookGate` and `listProjectHooks` (with the `ProjectHook` type) from `@theokit/sdk` (also the `@theokit/sdk/hooks-approval` sub-entry), so a consumer can list the command hooks a project declares, fingerprint them, and gate them by an allowlist without re-implementing the SDK's file set or timeout default. A malformed fingerprint is rejected with `hook_fingerprint_invalid`.
+
+## 5.25.0
+
+### Minor Changes
+
+- [#1222](https://github.com/usetheokit/theokit-sdk/pull/1222) [`a3b71ed`](https://github.com/usetheokit/theokit-sdk/commit/a3b71ed46da202110d1ad0ad6287e1f57d208743) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `readManagedSettingsDocument(root?, { onWarn? })` to the root entry. It returns the whole parsed `managed-settings.json` (`{ path, raw }`) so an app can read its own operator-imposed keys. An unreadable, invalid or non-object file returns `null` and warns through `onWarn` (default `diagFailure`).
+
+## 5.24.0
+
+### Minor Changes
+
+- [#1207](https://github.com/usetheokit/theokit-sdk/pull/1207) [`be1bc38`](https://github.com/usetheokit/theokit-sdk/commit/be1bc3841d01d50cf3ba04b550ab0f7fdb8db2eb) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `tools: { include, exclude }` to `McpStdioServerConfig` and `McpHttpServerConfig` to filter the tools an MCP server offers. A call to a filtered-out tool is refused before it reaches the server. A malformed filter is rejected at `Agent.create` with `invalid_mcp_tool_filter`.
+
+- [#1203](https://github.com/usetheokit/theokit-sdk/pull/1203) [`0f46eed`](https://github.com/usetheokit/theokit-sdk/commit/0f46eed5c5d7ba5a1d00eae7e1575177603eb908) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/persistence` exports `acquireInstanceLock`, `InstanceLock` and `InstanceLockedError`: a lock on `<dir>.instance.lock` held for the life of the process, so one process runs per state directory. A lock left by a crashed process is taken over, and only one of several racing processes wins. Liveness is `kill(pid, 0)`, so contenders must share a pid namespace.
+
+- [#1201](https://github.com/usetheokit/theokit-sdk/pull/1201) [`20eaa89`](https://github.com/usetheokit/theokit-sdk/commit/20eaa89392ad4437a5d6dcbc1e4868270adaefd1) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `Squad.run(input, { signal, timeoutMs })` cancels the member run in flight and resolves with `status: "cancelled"` (`timedOut: true` on timeout). `agentStep` now cancels its in-flight agent run when the workflow signal aborts, and reports a `cancelled` step result. Members built from an `AgentDefinition` are disposed after each run; `ownsMembers: true` disposes passed-in members too, and disposal failures go to `onDisposeError` without failing the run.
+
+### Patch Changes
+
+- [#1200](https://github.com/usetheokit/theokit-sdk/pull/1200) [`148e9d1`](https://github.com/usetheokit/theokit-sdk/commit/148e9d1f05485a08c3c4f3e71071b1a7e66ee0de) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `acquireInstanceLock` takes over a stale lock after crashed takers left guards behind (no 16-guard limit, no stuck takeover marker), cleans up only guards it still owns, and `release()` rejects when the unlink fails so a later call retries ([#1191](https://github.com/usetheokit/theokit-sdk/issues/1191)).
+
+- [#1202](https://github.com/usetheokit/theokit-sdk/pull/1202) [`4acc1dd`](https://github.com/usetheokit/theokit-sdk/commit/4acc1dddfe16e27bfc39d8954f5e1dc15e2ec9c7) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Workflow containers report cancellation correctly: a `foreach` item that cancels itself aborts its siblings and the step resolves `cancelled`, and a `parallel` whose signal aborts while its last branch function runs resolves `cancelled` under both error policies instead of `completed`.
+
 ## 5.23.0
 
 ### Minor Changes

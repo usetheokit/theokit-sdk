@@ -9,6 +9,7 @@ import type { CustomTool, ModelSelection, PermissionMode, RunOperation } from ".
 import type { ConversationStep, ConversationTurn } from "./conversation.js";
 import type { McpServerConfig } from "./mcp.js";
 import type { SDKMessage } from "./messages.js";
+import type { ConversationRef } from "./plugin.js";
 import type { InteractionUpdate } from "./updates.js";
 import type { CostBreakdown, TokenUsage } from "./usage.js";
 
@@ -43,11 +44,36 @@ export interface PruneToolResultsOptions {
 }
 
 /**
+ * A person's answer to one deferred tool call, keyed by `toolUseId`.
+ * Resuming a deferred call with it is not wired into `send` yet.
+ */
+export interface ToolCallDecision {
+  readonly toolUseId: string;
+  readonly behavior: "allow" | "deny";
+  readonly message?: string;
+}
+
+/**
+ * A tool call a permission gate deferred. The run ended without dispatching it.
+ *
+ * @public
+ */
+export interface DeferredToolCall {
+  readonly schemaVersion: 1;
+  readonly toolUseId: string;
+  readonly toolName: string;
+  readonly input: Record<string, unknown>;
+  /** Epoch milliseconds. */
+  readonly deferredAt: number;
+  readonly reason?: string;
+}
+
+/**
  * Lifecycle status of a {@link Run}.
  *
  * @public
  */
-export type RunStatus = "running" | "finished" | "error" | "cancelled";
+export type RunStatus = "running" | "finished" | "error" | "cancelled" | "deferred";
 
 /**
  * Git metadata attached to cloud runs.
@@ -102,7 +128,9 @@ export type MessageOrigin =
  */
 export interface RunResult {
   id: string;
-  status: "finished" | "error" | "cancelled";
+  status: "finished" | "error" | "cancelled" | "deferred";
+  /** Set only when `status` is `"deferred"`: the tool calls a gate deferred. */
+  deferredToolCalls?: readonly DeferredToolCall[];
   result?: string;
   /**
    * SE24 — set when a guardrail processor called `abort()`. The run stops
@@ -138,6 +166,13 @@ export interface RunResult {
    * @public
    */
   error?: RunErrorDetail;
+  /**
+   * Attempts that failed before this result under `AgentOptions.modelFallback`, in order
+   * (model and error code). Absent when no attempt failed.
+   *
+   * @public
+   */
+  modelFallbackAttempts?: import("../errors.js").ModelFallbackAttempt[];
   /**
    * Token usage observed for this run (ADR D376). Populated in every
    * status where ≥1 LLM call COMPLETED — including partial-failure
@@ -199,6 +234,10 @@ export interface DoomLoopThresholds {
   softThreshold?: number;
   /** Consecutive-identical count at which the run stops (`no_progress`). Default 5. */
   hardThreshold?: number;
+  /** Size of the sliding window of recent tool calls for repeat counting. Default: off (consecutive only). */
+  window?: number;
+  /** Identical calls (same tool, same arguments) allowed within `window` before the next one is blocked. Required when `window` is set. */
+  windowRepeatLimit?: number;
 }
 
 /**
@@ -335,7 +374,7 @@ export interface SDKUserMessage {
  * | If you are… | you want |
  * |---|---|
  * | rendering a live UI | `onDelta`, `onStep`, `onRunEvent` |
- * | applying a policy | `permissionMode`, `activeTools`, `toolChoice`, `toolResultGuard`, `pruneToolResults`, `perToolTimeoutMs` |
+ * | applying a policy | `permissionMode`, `conversation`, `activeTools`, `toolChoice`, `toolResultGuard`, `pruneToolResults`, `perToolTimeoutMs` |
  * | running an eval or a harness | `maxIterations`, `completionCheck`, `doomLoop`, `signal` |
  * | orchestrating agents | `origin`, `task`, `context`, `queueMode` |
  * | overriding this one send | `model`, `systemPrompt`, `tools`, `mcpServers`, `contextPaths`, `local` |
@@ -424,6 +463,11 @@ export interface SendOptions {
    * Absent ⇒ the plugin's own construction-time mode applies. Local runtime.
    */
   permissionMode?: PermissionMode;
+  /**
+   * The conversation for THIS run, passed to `pre_tool_call` plugins as
+   * `PreToolCallContext.conversation`. Wins over `AgentOptions.conversation`. Local runtime.
+   */
+  conversation?: ConversationRef;
   onStep?: (args: { step: ConversationStep }) => void | Promise<void>;
   onDelta?: (args: { update: InteractionUpdate }) => void | Promise<void>;
   /**

@@ -11,6 +11,7 @@
  */
 
 import { ConfigurationError } from "../../errors.js";
+import type { AgentOptions } from "../../types/agent.js";
 import type {
   AgentMemory,
   MemoryAdapter,
@@ -21,9 +22,10 @@ import type {
 } from "../../types/memory-adapter.js";
 import { diag } from "../diagnostics.js";
 import { forgetFactInOpenIndexes } from "../memory/lance-index.js";
+import { createMemoryMirror, type MemoryMirror } from "../memory/mirror.js";
 import type { PluginManager } from "../plugins/manager.js";
 
-interface ResolvedAdapters {
+export interface ResolvedAdapters {
   adapters: ReadonlyArray<MemoryAdapter>;
   initialized: boolean;
   /** How many memory plugins were registered, before `isAvailable()` filtered them (#360). */
@@ -66,27 +68,28 @@ async function createAvailableAdapters(
   return available;
 }
 
+/** @internal */
+export interface AdapterResolver {
+  /** Resolve (once, concurrency-safe) and initialize the registered adapters. */
+  ensure(): Promise<ResolvedAdapters>;
+  /** The adapters if `ensure()` already resolved, else `undefined`. */
+  peek(): ResolvedAdapters | undefined;
+}
+
 /**
- * Build a lazy `AgentMemory` accessor over the plugin-aggregated
- * memory adapters. Returns `null` when no `kind: "memory"` plugin
- * is registered — callers branch on `adapter() === null`.
- *
- * `forgetFromIndex` (default: every open Lance index) runs after the owning adapter deleted the fact and removes the
- * fact's chunks from the Lance index (`LanceIndex.removeFactChunks`). Its failure propagates:
- * the fact is gone from the adapter but may still be searchable, and the caller must know.
+ * Lazy, shared adapter resolution: `initialize()` fires once per adapter even when the direct API
+ * and the memory mirror ask at the same time. A failed resolution is not cached.
  *
  * @internal
  */
-export function buildAgentMemory(
+export function createAdapterResolver(
   pluginManager: PluginManager,
   workspaceCwd: string,
-  defaultContext: MemoryContext | undefined,
-  forgetFromIndex: (id: MemoryId) => Promise<void> = forgetFactInOpenIndexes,
-): AgentMemory {
+): AdapterResolver {
   let resolved: ResolvedAdapters | undefined;
+  let pending: Promise<ResolvedAdapters> | undefined;
 
-  async function ensure(): Promise<ResolvedAdapters> {
-    if (resolved !== undefined) return resolved;
+  async function resolve(): Promise<ResolvedAdapters> {
     const entries = pluginManager.aggregated.memoryProviders;
     const created = await createAvailableAdapters(entries, workspaceCwd);
     // EC-I: initialize() each adapter exactly once on first access.
@@ -97,6 +100,37 @@ export function buildAgentMemory(
     }
     resolved = { adapters: created, initialized: true, registered: entries.length };
     return resolved;
+  }
+
+  return {
+    ensure(): Promise<ResolvedAdapters> {
+      if (resolved !== undefined) return Promise.resolve(resolved);
+      pending ??= resolve().catch((cause: unknown) => {
+        pending = undefined;
+        throw cause;
+      });
+      return pending;
+    },
+    peek: () => resolved,
+  };
+}
+
+/**
+ * Build a lazy `AgentMemory` accessor over the plugin-aggregated
+ * memory adapters. Returns `null` when no `kind: "memory"` plugin
+ * is registered — callers branch on `adapter() === null`.
+ *
+ * @internal
+ */
+export function buildAgentMemory(
+  pluginManager: PluginManager,
+  workspaceCwd: string,
+  defaultContext: MemoryContext | undefined,
+  resolver: AdapterResolver = createAdapterResolver(pluginManager, workspaceCwd),
+  forgetFromIndex: (id: MemoryId, namespace: string) => Promise<void> = forgetFactInOpenIndexes,
+): AgentMemory {
+  async function ensure(): Promise<ResolvedAdapters> {
+    return resolver.ensure();
   }
 
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 6 optional fields × per-field caller-wins-over-default merge is a flat ladder; extracting helpers fragments the EC-P invariant.
@@ -204,15 +238,44 @@ export function buildAgentMemory(
         );
       }
       await target.delete(id);
-      await forgetFromIndex(id);
+      // Drop the fact's Lance chunks (source "memory", the agent's namespace) so it is not searchable.
+      await forgetFromIndex(id, defaultContext?.tenantId ?? "default");
     },
 
     adapter(): MemoryAdapter | null {
       // Synchronous — only useful AFTER `ensure()` resolved at least once.
       // Callers that want adapter introspection should `await agent.memory.write/recall`
       // first to trigger initialization.
+      const resolved = resolver.peek();
       if (resolved === undefined) return null;
       return resolved.adapters[0] ?? null;
     },
   };
+}
+
+/**
+ * Build the `agent.memory` accessor and, when `memory.mirror` is set, the built-in-store mirror,
+ * over one shared adapter resolver so each adapter is initialized once.
+ *
+ * @internal
+ */
+export function wireAgentMemory(
+  pluginManager: PluginManager,
+  workspaceCwd: string,
+  options: AgentOptions,
+): [AgentMemory, MemoryMirror | undefined] {
+  const resolver = createAdapterResolver(pluginManager, workspaceCwd);
+  const memory = buildAgentMemory(pluginManager, workspaceCwd, options.memoryContext, resolver);
+  const settings = options.memory;
+  if (settings?.enabled !== true || settings.mirror === undefined) return [memory, undefined];
+  const mirror = createMemoryMirror({
+    options: settings.mirror,
+    adapters: async () => (await resolver.ensure()).adapters,
+    context: () => {
+      const userId = options.memoryContext?.userId ?? settings.userId;
+      if (userId === undefined || userId === "") return undefined;
+      return { ...options.memoryContext, userId };
+    },
+  });
+  return [memory, mirror];
 }

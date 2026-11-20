@@ -9,7 +9,7 @@
  */
 
 import type * as acp from "@agentclientprotocol/sdk";
-import type { Run } from "@theokit/sdk";
+import type { RunLike } from "@theokit/sdk";
 import { ACP_ERR, type AcpError } from "./lifecycle.js";
 import { installPermissionPlugin } from "./permission-plugin.js";
 import { extractPrompt } from "./prompt-extract.js";
@@ -71,7 +71,7 @@ function isAbortError(err: unknown): boolean {
  * (an abort, a run that did not fail) propagates to `handlePrompt` unchanged.
  */
 async function waitOrMapThrowOnError(
-  run: Run,
+  run: RunLike,
 ): Promise<{ status: string; error?: { message: string; code?: string } }> {
   try {
     return await run.wait();
@@ -122,7 +122,7 @@ async function runPrompt(
   // #349 — a fresh abort scope per turn. Both the send and the translator read THIS signal, so a
   // cancel of an earlier turn cannot reach into this one.
   const signal = armTurn(session);
-  const run: Run = await session.agent.send(text, { signal });
+  const run: RunLike = await session.agent.send(text, { signal });
   try {
     await translateStream({
       messages: run.stream(),
