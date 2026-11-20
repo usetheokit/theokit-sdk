@@ -158,10 +158,10 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:168` |
 | `memory_fact_ambiguous` | domain | — | `packages/sdk/src/errors.ts:528` +1 |
 | `memory_fact_not_removable` | domain | — | `packages/sdk/src/errors.ts:507` |
-| `memory_path_escapes_root` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:122` |
+| `memory_path_escapes_root` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:123` |
 | `memory_path_traversal` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:287` |
 | `memory_threat_rejected` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/markdown-store.ts:314` |
-| `memory_tool_bad_args` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:145` |
+| `memory_tool_bad_args` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:146` |
 | `migration_destination_exists` | domain | ConfigurationError | `packages/sdk/src/internal/memory/migrate-sqlite-to-lance.ts:172` |
 | `missing_api_key` | domain | AuthenticationError, ConfigurationError | `packages/sdk/src/internal/agent/helpers.ts:227` +2 |
 | `missing_credential` | domain | AuthenticationError | `packages/sdk/src/internal/providers/builtin/openai-chatgpt.ts:72` |
