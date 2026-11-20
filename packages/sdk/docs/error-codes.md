@@ -148,7 +148,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `mcp_not_init` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/client.ts:280` +2 |
 | `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:76` |
 | `memory_ceiling_reached` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:43` +1 |
-| `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:167` |
+| `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:168` |
 | `memory_fact_ambiguous` | domain | — | `packages/sdk/src/errors.ts:528` +1 |
 | `memory_fact_not_removable` | domain | — | `packages/sdk/src/errors.ts:507` |
 | `memory_path_escapes_root` | domain | ConfigurationError | `packages/sdk/src/internal/memory/tools.ts:115` +1 |
@@ -169,7 +169,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `network_error` | domain | NetworkError | `packages/sdk/src/internal/http.ts:99` |
 | `no_api_key` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-brave.ts:50` +1 |
 | `no_base_url` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-searxng.ts:35` |
-| `no_memory_adapter` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:180` +2 |
+| `no_memory_adapter` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:181` +2 |
 | `no_provider_credential` | domain | ProviderCredentialError | `packages/sdk/src/internal/auth/resolve-provider-credential.ts:218` |
 | `no_such_session` | domain | NoSuchSessionError | `packages/sdk/src/interactive/types.ts:41` +1 |
 | `no_text_answer` | domain | — | `packages/sdk/src/errors.ts:737` |
@@ -227,7 +227,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `schema_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:104` +5 |
 | `server_error` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:92` +1 |
 | `session_busy` | domain | — | `packages/sdk/src/internal/persistence/session-writer.ts:56` +1 |
-| `sql_injection_blocked` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:362` +1 |
+| `sql_injection_blocked` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:367` +1 |
 | `sqlite_driver_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/sqlite-open.ts:195` |
 | `sqlite_vec_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/memory/sqlite-vec-loader.ts:22` |
 | `squad_process_unsupported` | domain | ConfigurationError | `packages/sdk/src/squad.ts:143` |

@@ -8,10 +8,19 @@
  * semantics that decide whether a partial outage loses data or degrades.
  */
 
-import { describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { ConfigurationError } from "../../../src/errors.js";
 import { buildAgentMemory } from "../../../src/internal/local-agent/local-agent-memory-direct.js";
+import {
+  isLanceAvailable,
+  LanceIndex,
+  lanceStoragePath,
+} from "../../../src/internal/memory/lance-index.js";
+import { resolveMemoryRoot } from "../../../src/internal/memory/storage/memory-root.js";
 import { PluginManager } from "../../../src/internal/plugins/manager.js";
 import { Plugin } from "../../../src/internal/plugins/types.js";
 import { mkMemoryId } from "../../../src/memory-adapter-helpers.js";
@@ -410,5 +419,86 @@ describe("buildAgentMemory — adapter() introspection", () => {
     await expect(memory.write("hi")).rejects.toBeInstanceOf(ConfigurationError);
 
     expect(memory.adapter()).toBeNull();
+  });
+});
+
+describe.skipIf(!isLanceAvailable())("buildAgentMemory — delete forgets the Lance index", () => {
+  const dirs: string[] = [];
+  const opened: LanceIndex[] = [];
+  const embedding = {
+    dimension: 2,
+    embed: async (t: string[]) => {
+      await new Promise((r) => setTimeout(r, 20));
+      return t.map(() => [0.5, 0.5]);
+    },
+  } as never;
+  const row = (id: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    text: id,
+    source: "memory" as const,
+    namespace: "default",
+    scope: "agent",
+    user_id: "u",
+    timestamp: 0,
+    fact_id: "a:42",
+    ...extra,
+  });
+  async function agentIndex() {
+    const cwd = mkdtempSync(join(tmpdir(), "mem-forget-"));
+    dirs.push(cwd);
+    const index = await LanceIndex.open({
+      cwd,
+      storagePath: lanceStoragePath(resolveMemoryRoot(cwd)),
+      embedding,
+    });
+    opened.push(index);
+    return { cwd, index };
+  }
+  const ids = async (index: LanceIndex, namespace = "default") =>
+    (await index.search("x", { namespace, limit: 100 })).map((h) => h.id).sort();
+
+  afterEach(async () => {
+    await Promise.all(opened.splice(0).map((i) => i.close()));
+    for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  });
+
+  it("removes the fact's chunks, keeping other facts, namespaces, sources and other agents' indexes", async () => {
+    const mine = await agentIndex();
+    const theirs = await agentIndex(); // another agent, same ids
+    for (const { index } of [mine, theirs]) {
+      await index.addFacts([
+        row("a:42#0"),
+        row("a:42#1"),
+        row("a:7#0", { fact_id: "a:7" }),
+        row("a:42#0", { namespace: "t2" }),
+        row("wiki-1", { source: "wiki" }),
+      ]);
+    }
+    const manager = await managerWith([makeAdapter({ id: "a" })]);
+    await buildAgentMemory(manager, mine.cwd, demoCtx).delete(mkMemoryId("a", "42"));
+    expect(await ids(mine.index)).toEqual(["a:7#0", "wiki-1"]);
+    expect(await ids(mine.index, "t2")).toEqual(["a:42#0"]);
+    expect(await ids(theirs.index)).toEqual(["a:42#0", "a:42#1", "a:7#0", "wiki-1"]);
+  });
+
+  it("a sync whose add is still embedding cannot restore the fact after delete", async () => {
+    const { cwd, index } = await agentIndex();
+    const syncing = index.addFacts([row("a:42#0"), row("a:42#1")]);
+    const manager = await managerWith([makeAdapter({ id: "a" })]);
+    await buildAgentMemory(manager, cwd, demoCtx).delete(mkMemoryId("a", "42"));
+    await syncing;
+    expect(await ids(index)).toEqual([]);
+  });
+
+  it("propagates a cleanup failure after the adapter already deleted", async () => {
+    const { cwd, index } = await agentIndex();
+    const deleted: MemoryId[] = [];
+    const manager = await managerWith([makeAdapter({ id: "a", onDelete: (i) => deleted.push(i) })]);
+    rmSync(join(cwd, ".theokit"), { recursive: true, force: true });
+    await expect(
+      buildAgentMemory(manager, cwd, demoCtx).delete(mkMemoryId("a", "42")),
+    ).rejects.toThrow(/lance error/i);
+    expect(deleted).toEqual(["a:42"]);
+    void index;
   });
 });

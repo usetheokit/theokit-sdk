@@ -3,11 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-  forgetFactInOpenIndexes,
-  isLanceAvailable,
-  LanceIndex,
-} from "../../../src/internal/memory/lance-index.js";
+import { isLanceAvailable, LanceIndex } from "../../../src/internal/memory/lance-index.js";
 
 const embedding = {
   dimension: 2,
@@ -174,23 +170,5 @@ describe.skipIf(!isLanceAvailable())("LanceIndex.removeFacts (real LanceDB)", ()
     await index.addFacts([fact("n#0", { fact_id: "n" }), fact("n#1", { fact_id: "n" })]);
     await index.removeFacts(["old", "n"], SCOPE);
     expect(await ids(index)).toEqual(["keep", "old#0"]);
-  });
-});
-
-describe.skipIf(!isLanceAvailable())("forgetFactInOpenIndexes", () => {
-  it("removes the fact's chunks in its namespace and source only, after an in-flight add", async () => {
-    const { index } = await open();
-    const pending = index.addFacts([
-      fact("f1#0", { fact_id: "f1" }),
-      fact("f1#1", { fact_id: "f1" }),
-      fact("f1#0", { fact_id: "f1", namespace: "t2" }),
-      fact("f1w", { fact_id: "f1", source: "wiki" }),
-    ]);
-    await forgetFactInOpenIndexes("f1", "default");
-    await pending;
-    expect(await ids(index)).toEqual(["f1w"]);
-    const other = await index.search("x", { namespace: "t2", limit: 10 });
-    expect(other.map((h) => h.id)).toEqual(["f1#0"]);
-    await index.close();
   });
 });

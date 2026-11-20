@@ -23,6 +23,7 @@ import type {
 import { diag } from "../diagnostics.js";
 import { forgetFactInOpenIndexes } from "../memory/lance-index.js";
 import { createMemoryMirror, type MemoryMirror } from "../memory/mirror.js";
+import { resolveMemoryRoot } from "../memory/storage/memory-root.js";
 import type { PluginManager } from "../plugins/manager.js";
 
 export interface ResolvedAdapters {
@@ -237,8 +238,15 @@ export function buildAgentMemory(
         );
       }
       await target.delete(id);
-      // Drop the fact's Lance chunks (source "memory", the agent's namespace) so it is not searchable.
-      await forgetFactInOpenIndexes(id, defaultContext?.tenantId ?? "default");
+      // Drop the fact's Lance rows (source "memory", the agent's namespace) from the index under
+      // THIS agent's memory root only. Ordering: the adapter delete is the source of truth and goes
+      // first; if this cleanup throws, the fact is already gone from the adapter, and calling
+      // `delete` again re-runs both steps (adapter deletes are idempotent), so the retry cleans up.
+      await forgetFactInOpenIndexes(
+        resolveMemoryRoot(workspaceCwd),
+        id,
+        defaultContext?.tenantId ?? "default",
+      );
     },
 
     adapter(): MemoryAdapter | null {

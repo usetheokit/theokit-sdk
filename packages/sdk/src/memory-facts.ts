@@ -45,9 +45,12 @@ export function listMemoryFacts(
  * deleted file (or for `MEMORY.md`, when a legacy bullet went) are deleted first, so a failed
  * cleanup removes nothing and the call can be retried. A sync running in another process while the
  * fact goes can re-insert its chunks; the next `sync` drops them, because it prunes indexed files
- * that left the disk and re-chunks the edited `MEMORY.md`. The built-in store feeds only the sqlite index;
- * a Lance index holds just what its owner added with `addFacts`, under ids this store does not
- * know, so removal does not touch it.
+ * that left the disk and re-chunks the edited `MEMORY.md`. This function feeds only the sqlite index and
+ * never touches a Lance index. The `agent.memory.delete` path does: it removes the fact's rows
+ * (source `memory`, the agent's namespace, `fact_id` equal to the MemoryId) from the Lance index
+ * under the agent's own memory root, after the adapter delete. Lance rows with no `fact_id`
+ * (legacy chunks migrated from SQLite) are removed only when their exact id equals the fact id;
+ * otherwise they stay.
  *
  * Two identical legacy bullets in one root share an id, so removing that id removes one of them
  * (the first); the second is still listed under the same id.

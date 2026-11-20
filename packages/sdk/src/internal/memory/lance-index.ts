@@ -326,6 +326,11 @@ export class LanceIndex {
     });
   }
 
+  /** True when this index's storage lives at `path` (a resolved absolute path). */
+  storedAt(path: string): boolean {
+    return this.queueKey === path;
+  }
+
   async close(): Promise<void> {
     openIndexes.delete(this);
     // Lance auto-closes on GC; no explicit shutdown needed.
@@ -406,15 +411,25 @@ export function lanceStoragePath(root: MemoryRoot): string {
 const openIndexes = new Set<LanceIndex>();
 
 /**
- * Called by `agent.memory.delete`: removes the fact's rows (source `memory`, the given namespace)
- * from every open Lance index via `removeFacts`, which is serialized after in-flight adds on the
- * same storage path. A failure in any index is thrown after all were attempted. Rows without a
- * `fact_id` link only match by exact id; unrelated rows are never touched.
+ * Called by `agent.memory.delete` with the agent's memory root: removes the fact's rows (source
+ * `memory`, the given namespace) from the Lance index stored under THAT root only, via
+ * `removeFacts`, which runs after any add already queued on the same storage path. Another agent's
+ * index (a different root) is never touched. No-op when no index is open on the root.
+ *
+ * Association: `factId` is matched against the rows' `fact_id` (exact `id` for rows without one).
+ * `agent.memory.delete` passes the adapter's `MemoryId` (e.g. `"a:42"`), so a writer that indexes
+ * an agent-memory fact must store it with `fact_id` = that MemoryId. Legacy chunks that carry no
+ * `fact_id` (e.g. migrated from SQLite) are removed only when their exact id equals `factId`.
+ * A failure is thrown after all matching indexes were attempted.
  */
-export async function forgetFactInOpenIndexes(factId: string, namespace: string): Promise<void> {
-  const results = await Promise.allSettled(
-    [...openIndexes].map((i) => i.removeFacts([factId], { namespace, source: "memory" })),
-  );
-  const failed = results.find((r) => r.status === "rejected");
-  if (failed?.status === "rejected") throw failed.reason;
+export async function forgetFactInOpenIndexes(
+  root: MemoryRoot,
+  factId: string,
+  namespace: string,
+): Promise<void> {
+  const path = resolve(lanceStoragePath(root));
+  // Instances on one path share a table; one removal covers them all.
+  const target = [...openIndexes].find((i) => i.storedAt(path));
+  if (target === undefined) return;
+  await target.removeFacts([factId], { namespace, source: "memory" });
 }
