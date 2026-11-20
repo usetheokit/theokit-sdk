@@ -268,13 +268,13 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `tool_decision_missing` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:424` +1 |
 | `tool_decision_unknown` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:406` |
 | `tool_decision_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-send.ts:174` +1 |
-| `tool_invalid_name` | domain | — | `packages/sdk/src/tool-name.ts:24` |
+| `tool_invalid_name` | domain | — | `packages/sdk/src/tool-name.ts:28` |
 | `tool_invalid_schema_type` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:272` |
 | `tool_missing_description` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:258` |
 | `tool_missing_handler` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:242` |
-| `tool_missing_name` | domain | — | `packages/sdk/src/tool-name.ts:19` |
+| `tool_missing_name` | domain | — | `packages/sdk/src/tool-name.ts:21` |
 | `tool_missing_schema` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:267` |
-| `tool_reserved_name` | domain | — | `packages/sdk/src/tool-name.ts:33` |
+| `tool_reserved_name` | domain | — | `packages/sdk/src/tool-name.ts:37` |
 | `transport_failure` | domain | NetworkError | `packages/sdk/src/internal/llm/transport-error.ts:48` |
 | `transport_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/llm/router.ts:614` +1 |
 | `unimplemented_budget_scope` | domain | ConfigurationError | `packages/sdk/src/internal/budget/registry.ts:58` +1 |
