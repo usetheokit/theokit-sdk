@@ -1,5 +1,11 @@
 # @theokit/sdk-pty
 
+## 0.4.0
+
+### Minor Changes
+
+- [#1275](https://github.com/usetheokit/theokit-sdk/pull/1275) [`bae4bde`](https://github.com/usetheokit/theokit-sdk/commit/bae4bde53fa6a24184fca17804d41ffc7f3cdd8e) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `createConfinedPtyBackend` (root-forced cwd, sandbox wrap, scrubbed environment) and `probeConfinement`, which proves on this host that the confinement works and returns the reason when it does not ([#1040](https://github.com/usetheokit/theokit-sdk/issues/1040)).
+
 ## 0.3.6
 
 ## 0.3.6-next.1
