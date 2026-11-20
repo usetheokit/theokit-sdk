@@ -107,6 +107,12 @@ export class LiveAgentRegistry {
   #sweepIntervalMs = DEFAULT_SWEEP_INTERVAL_MS;
   #onEvict: ((id: string, reason: EvictReason) => void) | undefined;
   #sweepTimer: NodeJS.Timeout | undefined;
+  /** Holds per agent instance (not per id: an evicted instance can outlive a newer one). */
+  readonly #holds = new Map<SDKAgent, { id: string; count: number }>();
+  /** Holds claimed per id while a build is still in flight, before the instance is known. */
+  readonly #reserved = new Map<string, number>();
+  /** Evicted while held: disposed (and reported) when the last hold ends. */
+  readonly #pendingDispose = new Map<SDKAgent, string>();
 
   /**
    * Reconfigure registry behavior. Process-wide singleton (D310) — last
@@ -147,10 +153,14 @@ export class LiveAgentRegistry {
     if (this.#maxAgents === 0) return; // cache disabled
     const existing = this.#agents.get(id);
     if (existing !== undefined && existing.agent !== agent) {
-      // Dispose the old entry off the hot path. Errors swallowed per D309.
-      void existing.agent.dispose().catch(() => {
-        diag(`[theokit-sdk] dispose during overwrite failed (${id})\n`);
-      });
+      if (this.#isHeld(id, existing.agent)) {
+        this.#pendingDispose.set(existing.agent, id);
+      } else {
+        // Dispose the old entry off the hot path. Errors swallowed per D309.
+        void existing.agent.dispose().catch(() => {
+          diag(`[theokit-sdk] dispose during overwrite failed (${id})\n`);
+        });
+      }
     }
     this.#agents.set(id, { agent, lastUsedAt: Date.now() });
     if (this.#agents.size > this.#maxAgents) void this.#evictLRU();
@@ -164,7 +174,9 @@ export class LiveAgentRegistry {
    *
    * @internal
    */
-  forget(id: string): void {
+  forget(id: string, instance?: object): void {
+    // Instance-aware: a disposed OLD instance must not drop a newer entry cached under the same id.
+    if (instance !== undefined && this.#agents.get(id)?.agent !== instance) return;
     this.#agents.delete(id);
   }
 
@@ -177,8 +189,83 @@ export class LiveAgentRegistry {
     const entry = this.#agents.get(id);
     if (entry === undefined) return false;
     this.#agents.delete(id);
-    await this.#disposeAndNotify(id, entry.agent, "explicit");
+    await this.#disposeOrDefer(id, entry.agent, "explicit");
     return true;
+  }
+
+  /**
+   * Number of live holds on the agent currently or last held under `id` (cached or evicted
+   * but not yet disposed). For tests and diagnostics.
+   */
+  leaseCount(id: string): number {
+    let n = 0;
+    for (const hold of this.#holds.values()) if (hold.id === id) n += hold.count;
+    return n;
+  }
+
+  /** @internal Claim `id` before a build so nothing evicts the entry it produces. */
+  reserve(id: string): void {
+    this.#reserved.set(id, (this.#reserved.get(id) ?? 0) + 1);
+  }
+
+  /** @internal Drop one reservation made by {@link reserve}. */
+  unreserve(id: string): void {
+    const n = (this.#reserved.get(id) ?? 0) - 1;
+    if (n > 0) {
+      this.#reserved.set(id, n);
+      return;
+    }
+    this.#reserved.delete(id);
+    // Agents evicted under the reservation that never got a hold are disposed now.
+    for (const [agent, pid] of [...this.#pendingDispose]) {
+      if (pid !== id || this.#isHeld(id, agent)) continue;
+      this.#pendingDispose.delete(agent);
+      void this.#disposeAndNotify(id, agent, "explicit");
+    }
+  }
+
+  /** @internal Hold `agent` so it is never disposed by eviction. Returns an idempotent release. */
+  hold(id: string, agent: SDKAgent): () => void {
+    const h = this.#holds.get(agent);
+    if (h === undefined) this.#holds.set(agent, { id, count: 1 });
+    else h.count += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.#releaseHold(id, agent);
+    };
+  }
+
+  #releaseHold(id: string, agent: SDKAgent): void {
+    const h = this.#holds.get(agent);
+    if (h !== undefined) {
+      h.count -= 1;
+      if (h.count > 0) return;
+      this.#holds.delete(agent);
+    }
+    const entry = this.#agents.get(id);
+    if (entry !== undefined && entry.agent === agent) entry.lastUsedAt = Date.now();
+    const pending = this.#pendingDispose.get(agent);
+    if (pending !== undefined && !this.#isHeld(pending, agent)) {
+      this.#pendingDispose.delete(agent);
+      void this.#disposeAndNotify(pending, agent, "explicit");
+      return;
+    }
+    if (this.#agents.size > this.#maxAgents) void this.#evictLRU();
+  }
+
+  #isHeld(id: string, agent: SDKAgent): boolean {
+    // A reservation outlives the entry's removal, so an eviction during lease acquisition defers.
+    return (this.#holds.get(agent)?.count ?? 0) > 0 || (this.#reserved.get(id) ?? 0) > 0;
+  }
+
+  async #disposeOrDefer(id: string, agent: SDKAgent, reason: EvictReason): Promise<void> {
+    if (this.#isHeld(id, agent)) {
+      this.#pendingDispose.set(agent, id);
+      return;
+    }
+    await this.#disposeAndNotify(id, agent, reason);
   }
 
   /**
@@ -190,7 +277,7 @@ export class LiveAgentRegistry {
     this.#agents.clear();
     this.#stopSweep();
     for (const [id, entry] of entries) {
-      await this.#disposeAndNotify(id, entry.agent, "explicit");
+      await this.#disposeOrDefer(id, entry.agent, "explicit");
     }
   }
 
@@ -218,6 +305,7 @@ export class LiveAgentRegistry {
     let oldestId: string | undefined;
     let oldestAt = Infinity;
     for (const [id, entry] of this.#agents) {
+      if (this.#isHeld(id, entry.agent)) continue;
       if (entry.lastUsedAt < oldestAt) {
         oldestAt = entry.lastUsedAt;
         oldestId = id;
@@ -236,14 +324,14 @@ export class LiveAgentRegistry {
     const threshold = Date.now() - this.#idleTimeoutMs;
     const toEvict: Array<[string, CacheEntry]> = [];
     for (const [id, entry] of this.#agents) {
-      if (entry.lastUsedAt < threshold) toEvict.push([id, entry]);
+      if (entry.lastUsedAt < threshold && !this.#isHeld(id, entry.agent)) toEvict.push([id, entry]);
     }
     for (const [id, entry] of toEvict) {
       // EC-8 race safety: re-check the entry identity. If `set(id, newAgent)`
       // landed during the previous await, the newer entry's `lastUsedAt` is
       // recent and we must NOT delete it.
       const current = this.#agents.get(id);
-      if (current === undefined || current.agent !== entry.agent) continue;
+      if (current?.agent !== entry.agent || this.#isHeld(id, entry.agent)) continue;
       this.#agents.delete(id);
       await this.#disposeAndNotify(id, entry.agent, "idle");
     }

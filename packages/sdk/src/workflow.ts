@@ -462,11 +462,23 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
 
   /**
    * Resume a suspended workflow from its snapshot. Throws
-   * `WorkflowSnapshotNotFoundError` if `runId` is unknown.
+   * `WorkflowSnapshotNotFoundError` if `runId` is unknown. The input type `TI` is inferred from
+   * `workflow`; a typed committed workflow needs no cast. `TO` (first) types the output.
+   *
+   * @example
+   * ```ts
+   * const workflow = Workflow.create<{ a: string }>({ name: "w" })
+   *   .then(fn<{ a: string }, string>("draft", async (input) => input.a))
+   *   .suspend({ id: "approve" })
+   *   .commit();
+   * const run = await Workflow.resume({ workflow, runId, payload: { approved: true } });
+   * ```
    */
-  static async resume<TO = unknown>(opts: WorkflowResumeOptions): Promise<WorkflowRun<TO>> {
+  static async resume<TO = unknown, TI = unknown>(
+    opts: WorkflowResumeOptions<TI>,
+  ): Promise<WorkflowRun<TO>> {
     const { resumeWorkflow } = await import("./internal/workflow/executor.js");
-    return resumeWorkflow<TO>(opts);
+    return resumeWorkflow<TO>(opts as WorkflowResumeOptions);
   }
 }
 

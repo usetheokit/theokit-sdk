@@ -18,10 +18,17 @@ export {
   writableRootsFor,
 } from "./bwrap.js";
 export {
+  listSandboxContainers,
+  removeSandboxContainers,
+  type SandboxContainer,
+  SandboxDockerError,
+} from "./docker-containers.js";
+export {
   type DockerRunner,
   type DockerRunResult,
   DockerSandbox,
   type DockerSandboxConfig,
+  defaultDockerRunner,
 } from "./docker-sandbox.js";
 export {
   E2B_CA_BUNDLE,

@@ -26,7 +26,7 @@ import type { CustomTool, ModelSelection, PermissionMode } from "./agent-prims.j
 // Code `Plugin` objects (the array form of `AgentOptions.plugins`) are the
 // public discriminated union. SE45/SE46 — sourced from the sibling `./plugin.ts`
 // contract module so no `types/*.ts` file reaches into `internal/`.
-import type { Plugin } from "./plugin.js";
+import type { ConversationRef, Plugin } from "./plugin.js";
 // SE46 — the SDKAgent surface cluster lives in ./sdk-agent.ts (extracted from this
 // god-file to break the memory-provider madge cycle). agent.ts imports the ones it
 // uses internally, and re-exports the whole cluster so every existing importer of
@@ -467,6 +467,18 @@ export type SkillsResolver = (
 ) => SkillsSettings | Promise<SkillsSettings>;
 
 /**
+ * How the built-in fact store is mirrored to memory adapters. See {@link MemorySettings.mirror}.
+ *
+ * @public
+ */
+export interface MemoryMirrorOptions {
+  /** Write every fact the built-in store saves to each registered memory adapter. Default true when mirror is set. */
+  write?: boolean;
+  /** Where the <memory> block reads facts: "local" (default), or "adapters-first" with local as fallback. */
+  recall?: "local" | "adapters-first";
+}
+
+/**
  * Memory configuration accepted by `Agent.create()` via {@link AgentOptions.memory}.
  *
  * Persists durable facts as markdown files under `<cwd>/.theokit/memory/` (or `directory`), with the
@@ -486,6 +498,12 @@ export type SkillsResolver = (
  */
 export interface MemorySettings {
   enabled: boolean;
+  /**
+   * Link the built-in fact store to the agent's `kind: "memory"` plugins (Mem0, Honcho,
+   * Supermemory). Absent means no mirroring. The `MemoryContext` passed to adapters is the agent's
+   * `memoryContext`, with `userId` defaulting to {@link MemorySettings.userId}.
+   */
+  mirror?: MemoryMirrorOptions;
   namespace?: string;
   userId?: string;
   scope?: "agent" | "user" | "team";
@@ -707,6 +725,11 @@ export interface AgentOptions {
    * construction-time mode applies. Local runtime.
    */
   permissionMode?: PermissionMode;
+  /**
+   * The conversation this agent's runs belong to, passed to `pre_tool_call` plugins as
+   * `PreToolCallContext.conversation`. `SendOptions.conversation` overrides it. Local runtime.
+   */
+  conversation?: ConversationRef;
   /**
    * Skills configuration. Either a static {@link SkillsSettings} object or —
    * SE22 — a {@link SkillsResolver} evaluated per `send()` to pick skills from

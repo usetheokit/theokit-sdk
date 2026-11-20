@@ -4,7 +4,7 @@
 // Locked names: see CLAUDE.md.
 
 // Agent façade
-export { Agent, type AgentPromptResult } from "./agent.js";
+export { Agent, type AgentLease, type AgentPromptResult } from "./agent.js";
 // Types a consumer already meets through a public signature. Each was marked `@public` and reachable
 // from no entry — the promise the docblock makes was not kept by the export map. `AgentBuilderDeps`
 // states the reasoning in its own words: `new AgentBuilder(deps)` is callable by anyone, so this
@@ -96,6 +96,8 @@ export {
   isTransientError,
   MemoryAdapterError,
   type MemoryAdapterErrorCode,
+  MemoryFactAmbiguousError,
+  MemoryFactNotRemovableError,
   NetworkError,
   RateLimitError,
   TaskNotFoundError,
@@ -179,7 +181,12 @@ export {
 // added to barrel so extracted packages (sdk-cache, sdk-handoff) can type their
 // .asPlugin() factories without reaching into ./internal/plugins sub-path.
 export {
+  type ConversationRef,
+  type GeneralPlugin,
+  type HookContextMap,
+  type HookHandler,
   type HookName,
+  type HookResultMap,
   // #335 — named here because the PUBLIC `Plugin` union references it in the
   // `createProvider` position. The DTS rollup emits an exported type's body but
   // treeshakes a non-exported type that body names, so leaving this out of the
@@ -200,6 +207,7 @@ export {
   type ToolCallSummary,
   type ToolResultTransformContext,
   type TransformContext,
+  type TypedHookHandler,
 } from "./internal/plugins/types.js";
 export type {
   ProviderProfile,
@@ -296,6 +304,7 @@ export {
 } from "./memory.js";
 // Memory adapter helpers (ADR D141)
 export { extractRawId, mkMemoryId } from "./memory-adapter-helpers.js";
+export { listMemoryFacts, removeMemoryFact, type StoredMemoryFact } from "./memory-facts.js";
 // Migration helper (ADR D44) — re-exported for use by the bin CLI.
 export {
   type MigrateOptions,
@@ -366,7 +375,7 @@ export { type NormalizedJsonSchema, normalizeSchema } from "./schema-normalizer.
 // `internal/` because it owns filesystem I/O — public access is via the
 // `Agent.usePersonality(...)` method, not direct construction.
 // Security namespace (secret redaction; ADR D68)
-export { Security } from "./security.js";
+export { type ExactValueMask, Security } from "./security.js";
 export { applySecurityFloor, type SecurityFloorInput } from "./security-floor.js";
 export {
   guardSessionDestruction,
@@ -428,8 +437,11 @@ export type {
   AgentSubagentDescription,
   AgentToolDescription,
   CustomTool,
+  MemoryMirrorOptions,
+  MemorySettings,
   SDKAgent,
 } from "./types/agent.js";
+export type { AgentLike, RunLike } from "./types/agent-like.js";
 // SE7 — structured/multimodal tool-result content blocks (explicit for rollup-dts).
 export type { ImageBlock, ToolResultContentBlock } from "./types/content-blocks.js";
 export type { EnvPolicy } from "./types/env-policy.js";

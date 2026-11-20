@@ -16,6 +16,8 @@
  * `retry`/`compaction` — see `tsconfig.tools-dts.json`).
  */
 
+// Named isolated profiles: name -> directories + environment overrides (#1052).
+export { ProfileConflictError } from "./errors.js";
 // Atomic file write (fsync + 0o600 + crypto-random temp + rename; never a torn write).
 export type { AtomicWriteJsonOptions } from "./internal/persistence/atomic-write.js";
 export {
@@ -84,7 +86,13 @@ export {
   type SessionIdSource,
   type SessionListing,
 } from "./internal/persistence/list-sessions.js";
+export { getProfilesRoot } from "./internal/persistence/paths.js";
 export { PersistenceSchema } from "./internal/persistence/persistence-schema.js";
+export type {
+  ResolvedProfile,
+  ResolveProfileOptions,
+} from "./internal/persistence/profile.js";
+export { applyProfile, resolveProfile } from "./internal/persistence/profile.js";
 export {
   classifySessionArtifact,
   type SessionArtifact,
