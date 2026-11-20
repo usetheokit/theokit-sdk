@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { ConfigurationError } from "../src/errors.js";
-import { fn, Workflow, WorkflowSet, WorkflowSnapshotNotFoundError } from "../src/workflow.js";
+import { ConfigurationError } from "../../src/errors.js";
+import { fn, Workflow, WorkflowSet, WorkflowSnapshotNotFoundError } from "../../src/workflow.js";
 
 const dirs: string[] = [];
 afterEach(() => {

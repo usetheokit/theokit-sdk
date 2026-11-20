@@ -5,16 +5,17 @@
  */
 
 import { ConfigurationError } from "./errors.js";
-import type { WorkflowRun } from "./types/workflow.js";
-import type { Workflow } from "./workflow.js";
+import type { WorkflowResumeOptions, WorkflowRun } from "./types/workflow.js";
 import {
   WorkflowResumeWorkflowMismatchError,
   WorkflowSnapshotNotFoundError,
 } from "./workflow-errors.js";
 
 /** A committed workflow of any input and output type. */
-// biome-ignore lint/suspicious/noExplicitAny: members of a set have unrelated input/output types
-type AnyCommittedWorkflow = Workflow<any, any>;
+// Structural on purpose: importing the `Workflow` class here would make `workflow.ts` <-> this file a cycle.
+type AnyCommittedWorkflow = WorkflowResumeOptions<never>["workflow"] & {
+  readonly __options: { readonly name: string };
+};
 
 /** A fixed set of committed workflows that share one resume entry point. */
 export interface WorkflowSet {
@@ -62,10 +63,10 @@ async function resumeOnOwner<TO>(
   payload: unknown,
   options: { signal?: AbortSignal } | undefined,
 ): Promise<{ name: string; run: WorkflowRun<TO> }> {
-  const { Workflow: WorkflowClass } = await import("./workflow.js");
+  const { resumeWorkflow } = await import("./internal/workflow/executor.js");
   for (const { workflow, name } of members) {
     try {
-      const run = await WorkflowClass.resume<TO>({
+      const run = await resumeWorkflow<TO>({
         workflow,
         runId,
         payload,
