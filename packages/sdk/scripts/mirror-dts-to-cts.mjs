@@ -74,6 +74,7 @@ const targets = [
   // V2-3: persistence sub-path.
   join(DIST, "persistence.d.ts"),
   // T1.3: MCP OAuth sub-path (PKCE + refresh + token storage).
+  join(DIST, "testing"),
   join(DIST, "mcp-auth.d.ts"),
   join(DIST, "mcp-events.d.ts"),
   // Sub-path exports that need CTS mirrors.
@@ -92,8 +93,6 @@ const targets = [
   // comment above records — without a mirror, `exports["./context"].require.types`
   // points at a file that does not exist and attw + publint both flag it.
   join(DIST, "context"),
-  // EC-1 absorbed: internal sub-paths exposed for extracted packages.
-  join(DIST, "internal", "persistence"),
   // theokit#160: the embedding runtime shared with @theokit/sdk-memory.
   join(DIST, "internal", "memory", "adapters"),
   // #430: the markdown memory store shared with @theokit/sdk-memory, for the same reason.
