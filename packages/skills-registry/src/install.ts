@@ -19,6 +19,7 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_LISTING_BYTES = 1024 * 1024;
 
+/** Options for `downloadSkill`: an injectable `fetch` and a timeout in milliseconds (default 30000). */
 export interface DownloadOptions {
   fetch?: typeof fetch;
   timeoutMs?: number;

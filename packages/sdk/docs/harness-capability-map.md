@@ -1772,13 +1772,13 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | Symbol | Kind | Summary |
 |---|---|---|
 | `compareSkillVersions` | function | SemVer 2.0.0 precedence (build metadata ignored).  |
-| `DownloadOptions` | interface |  |
+| `DownloadOptions` | interface | Options for `downloadSkill`: an injectable `fetch` and a timeout in milliseconds (default 30000). |
 | `downloadSkill` | function | Downloads `name` or `name@version` from a registry and verifies it.  |
 | `installSkill` | function | Installs a verified package at `<skillsDir>/<name>`.  |
 | `MAX_PACKAGE_BYTES` | const | Maximum size of a serialized skill package: 1 MiB. |
-| `SkillPackage` | interface |  |
-| `SkillsRegistryError` | class |  |
-| `SkillsRegistryErrorCode` | type |  |
-| `VerifiedSkillPackage` | interface |  |
-| `verifySkillPackage` | function |  |
+| `SkillPackage` | interface | Wire format of a skill package: JSON with base64 file contents. |
+| `SkillsRegistryError` | class | Typed error of this package; branch on `code`, not on the message. |
+| `SkillsRegistryErrorCode` | type | Machine-readable reason carried by every `SkillsRegistryError`. |
+| `VerifiedSkillPackage` | interface | A package whose digest, paths and `SKILL.md` identity were checked; safe to install. |
+| `verifySkillPackage` | function | Checks size, sha256, name, version, paths and `SKILL.md` of serialized package bytes.  |
 

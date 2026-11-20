@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 /** Maximum size of a serialized skill package: 1 MiB. */
 export const MAX_PACKAGE_BYTES = 1024 * 1024;
 
+/** Machine-readable reason carried by every `SkillsRegistryError`. */
 export type SkillsRegistryErrorCode =
   | "invalid_name"
   | "invalid_version"
@@ -16,6 +17,7 @@ export type SkillsRegistryErrorCode =
   | "insecure_url"
   | "install_failed";
 
+/** Typed error of this package; branch on `code`, not on the message. */
 export class SkillsRegistryError extends Error {
   readonly code: SkillsRegistryErrorCode;
   constructor(code: SkillsRegistryErrorCode, message: string, options?: { cause?: unknown }) {
@@ -25,6 +27,7 @@ export class SkillsRegistryError extends Error {
   }
 }
 
+/** Wire format of a skill package: JSON with base64 file contents. */
 export interface SkillPackage {
   name: string;
   version: string;
@@ -32,6 +35,7 @@ export interface SkillPackage {
   files: { path: string; contentBase64: string }[];
 }
 
+/** A package whose digest, paths and `SKILL.md` identity were checked; safe to install. */
 export interface VerifiedSkillPackage {
   name: string;
   version: string;
@@ -257,6 +261,10 @@ export function checkSkillMd(files: { path: string; bytes: Uint8Array }[], name:
   if (parseSkillName(text) !== name) bad(`SKILL.md names a different skill than ${name}`);
 }
 
+/**
+ * Checks size, sha256, name, version, paths and `SKILL.md` of serialized package bytes.
+ * Throws `SkillsRegistryError`; writes nothing.
+ */
 export function verifySkillPackage(
   bytes: Uint8Array,
   expected: { name: string; version: string; sha256: string },
