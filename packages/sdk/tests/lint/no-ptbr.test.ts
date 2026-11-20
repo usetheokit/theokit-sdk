@@ -399,7 +399,10 @@ function stripDiacritics(word: string): string {
 
 /** Every word-part of a line, with allowlisted loanwords already dropped. */
 function candidateParts(line: string): string[] {
-  return (line.replace(URL_TARGET, " ").replace(INLINE_CODE, " ").replace(NOT_PROSE, " ").match(WORD) ?? [])
+  return (
+    line.replace(URL_TARGET, " ").replace(INLINE_CODE, " ").replace(NOT_PROSE, " ").match(WORD) ??
+    []
+  )
     .filter((token) => !WORD_ALLOWLIST.has(token.toLowerCase()))
     .flatMap(identifierParts)
     .filter((part) => !WORD_ALLOWLIST.has(part.toLowerCase()));
