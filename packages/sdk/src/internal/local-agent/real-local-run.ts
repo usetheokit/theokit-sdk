@@ -170,6 +170,11 @@ function buildLoopInputs(
       ? { conversation: options.sendOptions.conversation ?? options.agentOptions.conversation }
       : {}),
     ...(options.priorMessages !== undefined ? { priorMessages: options.priorMessages } : {}),
+    ...(options.resumeCalls !== undefined && options.sendOptions.toolDecisions !== undefined
+      ? {
+          resume: { calls: options.resumeCalls, decisions: options.sendOptions.toolDecisions },
+        }
+      : {}),
     ...(options.memoryTools !== undefined && options.memoryTools.length > 0
       ? { memoryTools: options.memoryTools }
       : {}),

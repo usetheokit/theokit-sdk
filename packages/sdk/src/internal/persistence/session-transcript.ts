@@ -180,6 +180,15 @@ export class SessionTranscript {
     return this.#push({ type: "user", message: { role: "user", content } });
   }
 
+  /** Marks the unanswered `tool_use` blocks a deferred run ended on, with their schema version. */
+  appendDeferredCalls(calls: ReadonlyArray<{ toolUseId: string; schemaVersion: number }>): void {
+    this.#push({
+      type: "system",
+      subtype: "deferred_tool_calls",
+      deferredToolCalls: calls.map((c) => ({ ...c })),
+    });
+  }
+
   /** Append-only compaction: a `compact_boundary` system record becomes a NEW ROOT (parentUuid null). */
   appendCompactBoundary(meta: { preTokens: number; trigger: string }): SessionRecord {
     const rec: SessionRecord = {

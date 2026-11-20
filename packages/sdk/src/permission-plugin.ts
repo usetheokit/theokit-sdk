@@ -80,8 +80,15 @@ export interface PermissionPluginOptions {
  */
 async function resolveAsk(
   opts: PermissionPluginOptions,
-  call: { name: string; args: Record<string, unknown>; mode: PermissionMode },
+  call: {
+    name: string;
+    args: Record<string, unknown>;
+    mode: PermissionMode;
+    /** A person approved this deferred call on resume: that answers the `ask`. */
+    approved: boolean;
+  },
 ): Promise<PreToolCallDecision | undefined> {
+  if (call.approved) return undefined;
   const { name, args, mode } = call;
   if (opts.canUseTool !== undefined) {
     let decision: PermissionGateDecision;
@@ -121,10 +128,11 @@ function createPermissionPlugin(
     kind: "general",
     register(ctx) {
       ctx.on("pre_tool_call", async (rawCtx) => {
-        const { name, args, permissionMode } = rawCtx as {
+        const { name, args, permissionMode, approvedOnResume } = rawCtx as {
           name: string;
           args: Record<string, unknown>;
           permissionMode?: PermissionMode;
+          approvedOnResume?: boolean;
         };
         // SE1 — precedence: the RUN's mode (threaded from `SendOptions`/`AgentOptions`
         // via the pre_tool_call context) wins over the plugin's construction-time
@@ -149,7 +157,11 @@ function createPermissionPlugin(
         if (action === "deny") {
           return { block: true, message: `denied by permission engine: ${name}` };
         }
-        if (action === "ask") return resolveAsk(opts, { name, args, mode });
+        // A person's approval of a deferred call answers an `ask` and nothing else: the floor, an
+        // explicit deny and every other plugin were checked against the stored input just above.
+        if (action === "ask") {
+          return resolveAsk(opts, { name, args, mode, approved: approvedOnResume === true });
+        }
         return undefined;
       });
     },
