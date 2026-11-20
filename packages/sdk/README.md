@@ -54,6 +54,25 @@ specifier, or the call fails on a private field.
 
 Agents that consume documentation should prefer the machine-readable corpora on the docs site ([llmstxt.org](https://llmstxt.org) convention): [`llms.txt`](https://docs.usetheo.dev/llms.txt) (curated index) and [`llms-full.txt`](https://docs.usetheo.dev/llms-full.txt) (every page inlined).
 
+## Masking secrets: `Security.redact` and `Security.createMask`
+
+`Security.redact(text)` masks known credential *shapes* (API keys, `Bearer`, `key=value`).
+When the app knows the exact values it loaded, `Security.createMask(values)` masks those values:
+
+```ts
+import { Security } from "@theokit/sdk";
+
+const mask = Security.createMask([botToken, apiKey]); // { placeholder = "[redacted]", minLength = 4 }
+mask.text("token " + botToken); // longest value first
+mask.deep({ args: ["k " + apiKey], n: 1 }); // structural copy, strings masked
+const s = mask.stream(); // push(delta) releases what is safe, flush() the rest
+const uninstall = mask.wrapStreams([process.stdout, process.stderr]); // write and end(chunk)
+```
+
+Values shorter than `minLength` (default 4) are ignored. A value split across stream chunks is held
+back until it is known not to match. `wrapStreams` throws `ConfigurationError` for a stream that is
+already wrapped; a write held back whole calls its callback before its bytes reach the stream.
+
 ## Install
 
 ```bash
@@ -296,6 +315,21 @@ const sandbox = new DockerSandbox({
 ```
 
 `readOnlyWorkspace: true` changes only the workspace mount; the root filesystem is already read-only with a `/tmp` tmpfs. Because the workspace is then not writable, `uploadFile` fails. Label keys must match `[a-z0-9]([a-z0-9._-]*[a-z0-9])?` and values must not contain newlines; otherwise the constructor throws `ConfigurationError` with code `invalid_docker_label`.
+
+### Keeping and cleaning containers
+
+By default every container is removed on exit (`--rm`). With `keepLast: { key }` the sandbox runs without `--rm`, labels the container `theokit.sandbox.keep=<key>`, and after each command removes earlier exited containers with the same key, so the last one stays for `docker inspect`. A failed cleanup is written to the diagnostics channel (`setDiagnosticsSink`); the command's result is unchanged. The label name is reserved and cannot be set in `labels`.
+
+```ts
+import { listSandboxContainers, removeSandboxContainers } from "@theokit/sdk/sandbox";
+
+const sandbox = new DockerSandbox({ labels: { app: "x" }, keepLast: { key: "s1" } });
+const found = await listSandboxContainers({ app: "x" }); // [{ id, name, state, image, labels }]
+const { removed, skippedRunning } = await removeSandboxContainers({ app: "x" });
+// a running container is skipped unless `includeRunning: true` (then `docker rm -f`)
+```
+
+Both helpers require at least one label (an empty set would match every container on the host) and take `{ runner }` and default to `defaultDockerRunner()`. A docker command that fails or times out rejects with `SandboxDockerError` (`subcommand`, `exitCode`, `stderr`). Docker renders labels as `k=v,k=v`, so a label value that itself contains a comma followed by `word=` is parsed ambiguously.
 
 ## `@theokit/sdk/persistence`: single instance lock
 

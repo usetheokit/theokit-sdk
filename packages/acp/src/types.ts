@@ -4,7 +4,7 @@
  * @public
  */
 
-import type { SDKAgent } from "@theokit/sdk";
+import type { AgentLike } from "@theokit/sdk";
 
 /**
  * Builds the agent that will serve one ACP session.
@@ -18,13 +18,13 @@ import type { SDKAgent } from "@theokit/sdk";
  *
  * @public
  */
-export type AgentFactory = (sessionId: string) => SDKAgent | Promise<SDKAgent>;
+export type AgentFactory = (sessionId: string) => AgentLike | Promise<AgentLike>;
 
 /**
  * What `serveAcp({ agent })` accepts.
  *
  * - {@link AgentFactory} — one agent per session. Recommended.
- * - `SDKAgent` — one agent for the whole process. Legal, but every ACP session then appends to the
+ * - `AgentLike` (an `SDKAgent` qualifies) — one agent for the whole process. Legal, but every ACP session then appends to the
  *   SAME conversation; `serveAcp` writes a one-time warning through its `log` and carries on.
  *
  * Anything else (a plain object, `null`, a string) makes `serveAcp` fail with an
@@ -36,7 +36,7 @@ export type AgentFactory = (sessionId: string) => SDKAgent | Promise<SDKAgent>;
  *
  * @public
  */
-export type AgentOrFactory = AgentFactory | SDKAgent;
+export type AgentOrFactory = AgentFactory | AgentLike;
 
 /**
  * How tool calls are gated before they execute (D355).
