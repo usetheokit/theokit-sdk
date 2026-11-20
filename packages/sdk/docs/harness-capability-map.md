@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1459 export(s) across 57 entry point(s).
+1481 export(s) across 57 entry point(s).
 
 ## `@theokit/acp`
 
@@ -663,6 +663,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `EmbeddingRuntimeStats` | interface | Counters accumulated by a runtime since it was created.  |
 | `embedMissingChunks` | function | Embed every chunk that doesn't yet have a vector. |
 | `entryHash` | function | A stable hash of one entry's counts, so two sweeps that did the same work read as the same work.  |
+| `FactEntryInfo` | interface | What {@link listFactEntries } reports for one stored memory. |
+| `factsBlockRange` | function | Offsets of the text between the `## Facts` heading and the next h1/h2 heading (or the end). |
 | `geminiMemoryEmbeddingProviderAdapter` | const | Google Gemini embeddings through Google's OpenAI-compatible surface at `/v1beta/openai/embeddings`.  |
 | `identityMatches` | function | Whether two embedding identities describe the same vector space. |
 | `indexBudgetWarning` | function | What to say about an index that the interop partner will truncate, or `undefined` when there is nothing true to say.  |
@@ -680,6 +682,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `lanceStoragePath` | function | `<memory root>/lance`.  |
 | `legacyMemoryJsonPath` | function | Resolve the legacy JSON memory path used pre-ADR-D8 (kept for migration helpers + tests).  |
 | `lightPhase` | function | Light phase — drop facts whose embedding is too similar to one already kept.  |
+| `listFactEntries` | function | Every stored memory with an id, in the order {@link readFactsFromMarkdown } returns them.  |
 | `listNotes` | function | List the `.md` files directly under `notes/`.  |
 | `loadSqliteVecExtension` | function | Load the `sqlite-vec` extension into an opened SQLite connection.  |
 | `mapOpenAICompatibleError` | function | Turn a failed OpenAI-shaped HTTP response into the typed error the SDK throws.  |
@@ -736,8 +739,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `readFacts` | function | Every memory in the store, honouring the `enabled` gate on {@link MemoryConfig } : when memory is disabled the call resolves to `[]` without touching disk.  |
 | `readFactsFromMarkdown` | function | Every memory in the store: the per-memory files, plus any legacy `## Facts` bullets still in `MEMORY.md`.  |
 | `ReadFileOptions` | interface | Options for a bounded read of a memory file. |
+| `readLegacyEntriesIn` | function | The legacy `## Facts` bullets of one root's `MEMORY.md`, each with the fact it reads as. |
+| `readMemoryEntriesIn` | function | The per-memory files of one root, oldest first, each with the fact it reads as. |
 | `readMemoryFileBounded` | function | Read a memory file, limited to a bounded range of lines. |
 | `redactSecrets` | function | Canonical credential-redaction primitive (ADR D68).  |
+| `removeFactEntry` | function | Remove one stored memory from the write root: the per-memory file and its `MEMORY.md` index line, or one legacy bullet inside `## Facts`.  |
 | `remPhase` | function | REM phase — single-link agglomerative clustering by cosine similarity. |
 | `renderDiaryEntry` | function | One diary entry as the markdown that gets appended: a timestamp heading, the short entry hash, and the counts the sweep produced.  |
 | `resetMigrationStateForTests` | function | Test-only — reset the in-process migration flag map. |
@@ -756,6 +762,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SyncResult` | interface | What one `sync()` did.  |
 | `TenantContext` | interface | T4.9 — Tenant isolation context for cache key derivation.  |
 | `truncateRaw` | function | Truncate raw response body to ~2KB and redact known credential patterns so it can ride inside `ErrorMetadata.raw` without ballooning logs OR leaking tokens.  |
+| `unlessMissing` | function | The read's value, or `undefined` when there is nothing there to read: the path does not exist, or it is a directory (a `*.md` directory is not a fact either).  |
 | `upsertEmbedding` | function | Insert or replace the embedding stored for a chunk. |
 | `VALID_BACKENDS` | const | Valid backend identifiers — runtime guard against TS-narrowing escapes (EC-1). |
 | `VectorHitRow` | interface | One nearest-neighbour row returned by a vector search. |
@@ -771,7 +778,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | Symbol | Kind | Summary |
 |---|---|---|
 | `clampYield` | function | Bound the yield window to [ {@link YIELD_MIN_MS } , {@link YIELD_MAX_MS } ]. |
+| `ConfinedPtyBackendOptions` | interface | Options for {@link createConfinedPtyBackend } . |
+| `ConfinementProbeResult` | type | Outcome of {@link probeConfinement } : confined, or the reason it could not be proven. |
+| `createConfinedPtyBackend` | function | An {@link InteractiveBackend } whose every session starts in `root`, runs under `interactiveWrapCommand({ mode })` and sees only the allowlisted environment (plus `HOME=root`).  |
 | `MaxSessionsError` | class | M77 — the {@link PtyInteractiveBackendOptions.maxSessions } ceiling was reached.  |
+| `probeConfinement` | function | Starts a real session that touches `paths.inside` (inside the root) and `paths.outside` (beside it), and reports whether the confinement held.  |
 | `PtyInteractiveBackend` | class | `InteractiveBackend` backed by a real pty, for programs that only behave correctly on a terminal.  |
 | `PtyInteractiveBackendOptions` | interface | Constructor options for {@link PtyInteractiveBackend } .  |
 | `YIELD_MAX_MS` | const | Ceiling for `StartInteractiveOptions.yieldMs`, clamped down.  |
@@ -794,6 +805,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CreateApplyPatchToolOptions` | interface | `apply_patch` — built-in tool for coding agents.  |
 | `createBraveWebSearchAdapter` | function | Build a `WebSearchCallback` backed by the Brave Search API.  |
 | `CreateBraveWebSearchAdapterOptions` | interface | Options for {@link createBraveWebSearchAdapter } .  |
+| `createComputerTool` | function | Create the `computer` tool for an X11 desktop (Xvfb with `-fbdir`, plus `xdotool`). |
+| `CreateComputerToolOptions` | interface | Options for {@link createComputerTool } . |
 | `createCurrentTimeTool` | function | Build the `current_time` tool, so the model reads a clock instead of stating a date from training data.  |
 | `CreateCurrentTimeToolOptions` | interface | `current_time` — built-in tool for coding agents.  |
 | `createEditFileTool` | function | Build the `edit_file` tool: replace one occurrence of `old_string` with `new_string` in place, after copying the previous content to `<path>.bak`.  |
@@ -861,6 +874,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `QuestionTool` | interface | M76 — aligned with the SDK's `CustomTool`.  |
 | `QuestionToolOptions` | interface | `question` — interactive tool that asks the user a question and waits for a response.  |
 | `ReadTracker` | class | `ReadTracker` — SE32 read-before-write safety.  |
+| `readXwdHeader` | function | Validate and parse the XWD header in `bytes` without allocating pixel buffers. |
 | `ReasoningTools` | class | Reasoning scratchpad tools.  |
 | `RedirectBlockedError` | class | Thrown when a request is refused by the REDIRECT policy (the `maxRedirects` hop limit was exceeded) — a distinct event from {@link SsrfBlockedError } (a blocked host).  |
 | `renderToolList` | function | Render the agent's actual `CustomTool[]` — single source of truth, so an overridden/added/removed tool is reflected automatically.  |
@@ -868,6 +882,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `RepoMapOptions` | interface | Repo-map / env-context builders for orienting an LLM coding agent (M3-3).  |
 | `resolveAndScreen` | function | Resolve `host` to ALL its addresses and screen each.  |
 | `ResolveAndScreenOptions` | interface | Options for {@link resolveAndScreen } . |
+| `ResolvedWebSearch` | interface | Result of `resolveWebSearchAdapter`: the adapter (if any), its provider, secrets and off reason. |
+| `resolveWebSearchAdapter` | function | Choose a web search adapter from `env` (never reads `process.env`). |
 | `screenedFetch` | function | Fetch `url` with SSRF screening: screens the host (unless `allowPrivateHosts`), sets `redirect:"manual"`, and re-screens every redirect hop (rejecting a hop to a blocked host or a non-http(s) targe... |
 | `ScreenedFetchOptions` | interface | Options for {@link screenedFetch } . |
 | `SessionArtifactStore` | interface | A generic, id-keyed, atomic artifact store.  |
@@ -886,12 +902,18 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `TruncationResult` | interface | What {@link truncateOutput } returns.  |
 | `VitestSummary` | interface | The fields lifted from vitest's JSON report.  |
 | `WebSearchCallback` | type | The search provider {@link createWebSearchTool } calls.  |
+| `WebSearchProvider` | type | Which adapter `resolveWebSearchAdapter` chose. |
 | `WebSearchResult` | interface | `web_search` — built-in tool for coding agents.  |
 | `withDefaultGuidance` | function | `withToolResultGuidance` pre-bound to {@link DEFAULT_TOOL_GUIDANCE } . |
 | `withDescription` | function | Return a new `CustomTool` with `description` replaced.  |
 | `withName` | function | Return a new `CustomTool` exposed under a different `name`, sharing the SAME `inputSchema` + `handler` (alias parity).  |
 | `withShellExitGuidance` | function | Wrap `shell_exec` so a SOFT failure — `{ ok: true, exit_code != 0 }` (the TOOL ran, the COMMAND failed) — gains a `guidance` hint.  |
 | `withToolResultGuidance` | function | Wrap a `CustomTool` so its failed results gain a `guidance` hint from `guidance`.  |
+| `XWD_LIMITS` | const | Upper bounds enforced on an untrusted header before any allocation. |
+| `XwdFormatError` | class | A header field is unsupported or outside `XWD_LIMITS`; names the file, field and value. |
+| `XwdHeader` | interface | Parsed fields of an XWD header that a ZPixmap framebuffer needs. |
+| `XwdNotWrittenError` | class | The header or pixel data is larger than the bytes read: Xvfb may still be writing; retry. |
+| `xwdToPng` | function | Decode an XWD (24/32-bit ZPixmap) into an RGB PNG; throws `XwdNotWrittenError` while the file is incomplete. |
 
 ## `@theokit/sdk-tools/extract-document`
 
