@@ -133,5 +133,6 @@ export async function finalizeLoopOutput(
     ...(ctx.error !== undefined ? { error: ctx.error } : {}),
     ...(ctx.stoppedAtIterationLimit === true ? { stoppedAtIterationLimit: true } : {}),
     ...(ctx.stoppedByDoomLoop === true ? { stoppedByDoomLoop: true } : {}),
+    ...(ctx.deferredToolCalls !== undefined ? { deferredToolCalls: ctx.deferredToolCalls } : {}),
   };
 }
