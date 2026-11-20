@@ -15,7 +15,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `a2a_peer_not_registered` | domain | A2APeerNotRegisteredError | `packages/sdk/src/a2a/message-bus.ts:50` +1 |
 | `a2a_remote_request_unsupported` | domain | A2ARemoteRequestUnsupportedError | `packages/sdk/src/a2a/message-bus.ts:23` +1 |
 | `a2a_request_timeout` | domain | A2ARequestTimeoutError | `packages/sdk/src/a2a/message-bus.ts:84` +1 |
-| `a2a_untrusted_peer` | domain | A2AUntrustedPeerError | `packages/sdk/src/a2a/sealed-transport.ts:63` +1 |
+| `a2a_untrusted_peer` | domain | A2AUntrustedPeerError | `packages/sdk/src/a2a/sealed-transport.ts:75` +1 |
 | `aborted` | domain | TheokitAgentError | `packages/sdk/src/internal/agent/batch.ts:358` +1 |
 | `agent_disposed` | domain | — | `packages/sdk/src/errors.ts:592` |
 | `agent_id_already_exists` | domain | ConfigurationError | `packages/sdk/src/internal/agent/helpers.ts:61` |
@@ -132,7 +132,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_squad` | domain | ConfigurationError | `packages/sdk/src/squad.ts:138` |
 | `invalid_task_id` | domain | — | `packages/sdk/src/task-errors.ts:33` +1 |
 | `invalid_timezone` | domain | ConfigurationError | `packages/sdk/src/internal/cron/validate.ts:135` |
-| `invalid_workflow_step` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:231` |
+| `invalid_workflow_step` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:235` |
 | `iteration_limit_reached` | domain | — | `packages/sdk/src/internal/agent-loop/loop-finalize.ts:51` |
 | `jsonl_parse_failed` | domain | — | `packages/sdk/src/internal/persistence/jsonl.ts:37` |
 | `judge_credential` | domain | — | `packages/sdk/src/internal/judge/judge-call.ts:72` +1 |
@@ -227,10 +227,10 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `run_cancelled` | domain | — | `packages/sdk/src/errors.ts:737` |
 | `run_not_found` | domain | UnknownAgentError | `packages/sdk/src/agent.ts:474` |
 | `runtime_exclusive` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:105` |
-| `sandbox_derived_helper_failed` | domain | ConfigurationError | `packages/sdk/src/sandbox/types.ts:234` +1 |
+| `sandbox_derived_helper_failed` | domain | ConfigurationError | `packages/sdk/src/sandbox/types.ts:236` +1 |
 | `sandbox_docker_error` | domain | SandboxDockerError | `packages/sdk/src/sandbox/docker-containers.ts:29` +1 |
-| `sandbox_not_available` | domain | SandboxNotAvailableError | `packages/sdk/src/sandbox/types.ts:108` +1 |
-| `sandbox_security` | domain | SandboxSecurityError | `packages/sdk/src/sandbox/types.ts:89` +1 |
+| `sandbox_not_available` | domain | SandboxNotAvailableError | `packages/sdk/src/sandbox/types.ts:110` +1 |
+| `sandbox_security` | domain | SandboxSecurityError | `packages/sdk/src/sandbox/types.ts:91` +1 |
 | `schema_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:104` +5 |
 | `server_error` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:92` +1 |
 | `session_busy` | domain | — | `packages/sdk/src/internal/persistence/session-writer.ts:56` +1 |
@@ -288,7 +288,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `upstream_run_failed` | domain | — | `packages/sdk/src/errors.ts:737` |
 | `valibot_converter_missing` | domain | ConfigurationError | `packages/sdk/src/schema-normalizer.ts:81` +1 |
 | `work_threw` | domain | — | `packages/sdk/src/internal/task/registry.ts:295` |
-| `workflow_already_committed` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:269` |
+| `workflow_already_committed` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:273` |
 | `workflow_already_running` | domain | — | `packages/sdk/src/workflow-errors.ts:141` |
 | `workflow_compensate_not_implemented` | domain | — | `packages/sdk/src/workflow-errors.ts:270` +1 |
 | `workflow_duplicate_step_id` | domain | — | `packages/sdk/src/workflow-errors.ts:31` |

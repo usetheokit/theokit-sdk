@@ -5,7 +5,7 @@
  * Composes existing primitives + the v1.1 EC-1/EC-2/EC-10 fixes.
  */
 
-import { webcrypto } from "node:crypto";
+import { timingSafeEqual, webcrypto } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   AuthCallbackError,
@@ -13,8 +13,23 @@ import {
   AuthConfigError,
   AuthProviderNotFoundError,
 } from "./errors.js";
-import { clearTransaction, getTransaction, newTransaction } from "./oauth-transaction-store.js";
-import type { AuthOrchestrator, AuthProvider, DefineAuthOptions } from "./types.js";
+import {
+  COOKIE_NAME,
+  clearTransaction,
+  clearTransactionCookie,
+  encodeTransaction,
+  getTransaction,
+  newTransaction,
+  readTransactionCookie,
+  writeTransactionCookie,
+} from "./oauth-transaction-store.js";
+import type {
+  AuthOrchestrator,
+  AuthProvider,
+  AuthResult,
+  DefineAuthOptions,
+  OAuthTransaction,
+} from "./types.js";
 import { validateReturnTo } from "./validate-return-to.js";
 
 const PROVIDER_NAME_RE = /^[a-z0-9-]{1,32}$/;
@@ -35,6 +50,26 @@ function randomState(): string {
 function generatePkceVerifier(): string {
   const bytes = webcrypto.getRandomValues(new Uint8Array(32));
   return Buffer.from(bytes).toString("base64url");
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && timingSafeEqual(ab, bb);
+}
+
+/** EC-1 (v1.1) — provider error response (e.g. user declined consent), checked before any exchange. */
+function throwOnProviderError(url: URL): void {
+  const errorParam = url.searchParams.get("error");
+  if (!errorParam) return;
+  const errorDescription = url.searchParams.get("error_description") ?? undefined;
+  if (errorParam === "access_denied") {
+    throw new AuthCancelledError(errorDescription);
+  }
+  throw new AuthCallbackError(
+    "oauth_provider_error",
+    `Provider returned error: ${errorParam}${errorDescription ? ` (${errorDescription})` : ""}`,
+  );
 }
 
 function txCookieSecret<TSession>(opts: DefineAuthOptions<TSession>): string {
@@ -111,42 +146,33 @@ function defineAuth<TSession>(opts: DefineAuthOptions<TSession>): AuthOrchestrat
     return p;
   }
 
+  /** Shared by the Node and Web start paths: validate returnTo, mint the transaction. */
+  function beginTransaction(baseUrl: URL, returnTo: string | undefined): OAuthTransaction {
+    // EC-2 (v1.1) — validate returnTo same-origin
+    const safeReturnTo = validateReturnTo(returnTo, baseUrl);
+    // Always include a PKCE verifier — PKCE-aware providers consume it; others discard it.
+    return newTransaction({
+      state: randomState(),
+      pkceVerifier: generatePkceVerifier(),
+      returnTo: safeReturnTo === "/" ? undefined : safeReturnTo,
+    });
+  }
+
   async function startSignIn(
     providerName: string,
     req: IncomingMessage,
     startOpts?: { returnTo?: string },
   ): Promise<Response> {
     const provider = requireProvider(providerName);
-
-    // EC-2 (v1.1) — validate returnTo same-origin
     const baseUrl = new URL(`http://${req.headers.host ?? "localhost"}${req.url ?? "/"}`);
-    const safeReturnTo = validateReturnTo(startOpts?.returnTo, baseUrl);
-
-    // Generate transaction. Always include a PKCE verifier — PKCE-aware
-    // providers (Google OIDC) consume it; PKCE-ignorant providers (GitHub
-    // OAuth 2.0) discard it. Generating unconditionally simplifies the
-    // provider contract: every tx is PKCE-ready.
-    const state = randomState();
-    const pkceVerifier = generatePkceVerifier();
-    const tx = newTransaction({
-      state,
-      pkceVerifier,
-      returnTo: safeReturnTo === "/" ? undefined : safeReturnTo,
-    });
-
-    // Persist transaction cookie via headers (since we return Response, need Set-Cookie header manually)
+    const tx = beginTransaction(baseUrl, startOpts?.returnTo);
     const authUrl = await provider.createAuthorizationURL(tx);
 
-    // Build response with Set-Cookie + redirect
     const headers = new Headers();
     headers.set("Location", authUrl.toString());
-    const { encodeTransaction, COOKIE_NAME } = await import("./oauth-transaction-store.js");
+    // COOKIE_NAME, never a literal: a hand-written unprefixed name once made every callback fail.
+    // The `__Host-` prefix requires `Secure`, `Path=/`, and NO `Domain`.
     const encodedTx = await encodeTransaction(tx, txSecret);
-    // COOKIE_NAME, never a literal: this header used to be written by hand as `theo_oauth_tx=`,
-    // while the store reads the `__Host-` prefixed name — so `finishSignIn` never found the cookie
-    // and every sign-in failed at the callback. One constant, one name.
-    //
-    // The `__Host-` prefix requires exactly what is set below: `Secure`, `Path=/`, and NO `Domain`.
     headers.set(
       "Set-Cookie",
       `${COOKIE_NAME}=${encodedTx}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`,
@@ -155,57 +181,58 @@ function defineAuth<TSession>(opts: DefineAuthOptions<TSession>): AuthOrchestrat
     return new Response(null, { status: 302, headers });
   }
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: OAuth callback handler must validate 6 distinct error conditions sequentially (provider error / state / tx fetch / PKCE / code exchange / session) — extracting helpers fragments the linear control flow without clarifying intent (per EC-1 v1.1 absorbed)
-  async function finishSignIn(
+  async function startSignInWeb(
     providerName: string,
-    req: IncomingMessage,
-    res: ServerResponse,
-  ): Promise<{ session: TSession; returnTo?: string }> {
+    request: Request,
+    startOpts?: { returnTo?: string },
+  ): Promise<Response> {
     const provider = requireProvider(providerName);
+    const tx = beginTransaction(new URL(request.url), startOpts?.returnTo);
+    const authUrl = await provider.createAuthorizationURL(tx);
+    const headers = new Headers();
+    headers.set("Location", authUrl.toString());
+    await writeTransactionCookie(headers, tx, txSecret);
+    return new Response(null, { status: 302, headers });
+  }
 
-    // EC-1 (v1.1) — OAuth provider error response (user declined consent) check BEFORE code-exchange
-    const url = new URL(`http://${req.headers.host ?? "localhost"}${req.url ?? "/"}`);
-    const errorParam = url.searchParams.get("error");
-    if (errorParam) {
-      const errorDescription = url.searchParams.get("error_description") ?? undefined;
-      if (errorParam === "access_denied") {
-        throw new AuthCancelledError(errorDescription);
-      }
-      throw new AuthCallbackError(
-        "oauth_provider_error",
-        `Provider returned error: ${errorParam}${errorDescription ? ` (${errorDescription})` : ""}`,
-      );
-    }
-
-    // Read + validate transaction cookie
-    const tx = await getTransaction(req, txSecret);
+  /** Provider-error + state checks shared by both callback paths (RFC 6749 §10.12). */
+  function verifyCallback(url: URL, tx: OAuthTransaction | null): OAuthTransaction {
     if (!tx) {
       throw new AuthCallbackError(
         "oauth_transaction_expired",
         "OAuth transaction cookie missing or expired (>10min). Please retry sign-in.",
       );
     }
-
-    // Verify state matches query param (CSRF defense per RFC 6749 §10.12)
     const queryState = url.searchParams.get("state");
-    if (!queryState || queryState !== tx.state) {
+    if (!queryState || !constantTimeEqual(queryState, tx.state)) {
       throw new AuthCallbackError(
         "oauth_state_mismatch",
         "OAuth state mismatch. Possible CSRF attempt or stale callback.",
       );
     }
+    return tx;
+  }
 
-    // Provider-specific callback handling (token exchange + userinfo fetch)
-    const result = await provider.handleCallback(req, tx);
-
-    // Invoke onSignIn callback if defined to derive session shape
-    let sessionData: TSession;
+  async function deriveSession(result: AuthResult<unknown, string>): Promise<TSession> {
     if (opts.onSignIn) {
-      sessionData = await opts.onSignIn({ profile: result.profile, provider: result.providerName });
-    } else {
-      // No onSignIn — pass the raw profile as session (consumers must type their own TSession)
-      sessionData = result.profile as unknown as TSession;
+      return opts.onSignIn({ profile: result.profile, provider: result.providerName });
     }
+    // No onSignIn — pass the raw profile as session (consumers must type their own TSession)
+    return result.profile as unknown as TSession;
+  }
+
+  async function finishSignIn(
+    providerName: string,
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): Promise<{ session: TSession; returnTo?: string }> {
+    const provider = requireProvider(providerName);
+    const url = new URL(`http://${req.headers.host ?? "localhost"}${req.url ?? "/"}`);
+    throwOnProviderError(url);
+    const tx = verifyCallback(url, await getTransaction(req, txSecret));
+
+    const result = await provider.handleCallback(req, tx);
+    const sessionData = await deriveSession(result);
 
     // EC-10 (v1.1) — OWASP A07:2021 session fixation mitigation: rotate session ID BEFORE creating new session
     try {
@@ -213,12 +240,33 @@ function defineAuth<TSession>(opts: DefineAuthOptions<TSession>): AuthOrchestrat
     } catch {
       // rotateSession may no-op if no pre-existing session — non-fatal
     }
-
-    // Create session cookie
     await opts.session.createSession(res, sessionData);
-
-    // Clear transaction cookie
     clearTransaction(res);
+
+    return { session: sessionData, returnTo: tx.returnTo };
+  }
+
+  async function finishSignInWeb(
+    providerName: string,
+    request: Request,
+    responseHeaders: Headers,
+  ): Promise<{ session: TSession; returnTo?: string }> {
+    const provider = requireProvider(providerName);
+    const url = new URL(request.url);
+    throwOnProviderError(url);
+    const tx = verifyCallback(url, await readTransactionCookie(request, txSecret));
+
+    const result = await provider.handleCallback(request, tx);
+    const sessionData = await deriveSession(result);
+
+    if (!opts.session.createSessionWeb) {
+      throw new AuthConfigError(
+        "session_web_unsupported",
+        "finishSignInWeb needs SessionManager.createSessionWeb(headers, data); this manager has none.",
+      );
+    }
+    await opts.session.createSessionWeb(responseHeaders, sessionData);
+    clearTransactionCookie(responseHeaders);
 
     return { session: sessionData, returnTo: tx.returnTo };
   }
@@ -268,7 +316,15 @@ function defineAuth<TSession>(opts: DefineAuthOptions<TSession>): AuthOrchestrat
     return opts.session.getSession(req);
   }
 
-  return { startSignIn, finishSignIn, signIn, signOut, getSession };
+  return {
+    startSignIn,
+    startSignInWeb,
+    finishSignIn,
+    finishSignInWeb,
+    signIn,
+    signOut,
+    getSession,
+  };
 }
 
 /** SE36 — `Auth.create` replaces `defineAuth` (ADR 0015). @public  *

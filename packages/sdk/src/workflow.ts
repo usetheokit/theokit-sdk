@@ -69,9 +69,13 @@ const RetryPolicySchema = z.object({
   nonRetryableErrors: z.array(z.string()).optional(),
 });
 
+const DurabilitySchema = z.enum(["suspend", "step"]).optional();
+
 const WorkflowOptionsSchema = z.object({
   name: z.string().min(1).max(128),
   persistence: PersistenceSchema,
+  // `durability` is workflow-only, so it is validated here rather than in the shared PersistenceSchema.
+  // (PersistenceSchema strips unknown keys on parse; `create()` keeps the original options.)
   // SE27 — declared so a future `new WorkflowBuilder(parsed)` refactor cannot
   // silently drop them (create() passes the ORIGINAL options today, but the
   // schema is also the documentation of the shape).
@@ -368,7 +372,32 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
    */
   static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO> {
     WorkflowOptionsSchema.parse(options);
+    DurabilitySchema.parse(options.persistence?.durability);
     return new WorkflowBuilder<TI, TO>(options);
+  }
+
+  /**
+   * List the snapshots the persistence store holds for this workflow's name: suspended runs and, with
+   * `durability: "step"`, runs with a checkpoint. `currentStepId` is the suspending step, or the last
+   * completed step for a `"running"` run. The run lock is still per process, so a `"running"` entry may
+   * belong to a run live in another process.
+   */
+  async listRuns(): Promise<
+    ReadonlyArray<{
+      runId: string;
+      status: "suspended" | "running";
+      currentStepId: string;
+      updatedAt: number;
+    }>
+  > {
+    const { getSnapshotStoreFor } = await import("./internal/workflow/snapshot-store.js");
+    const entries = await getSnapshotStoreFor(this._options).list(this._options.name);
+    return entries.map((e) => ({
+      runId: e.runId,
+      status: e.status,
+      currentStepId: e.currentStepId,
+      updatedAt: e.suspendedAt,
+    }));
   }
 
   /**
@@ -461,7 +490,7 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
   }
 
   /**
-   * Resume a suspended workflow from its snapshot. Throws
+   * Resume a suspended workflow, or a `durability: "step"` run that crashed, from its snapshot. Throws
    * `WorkflowSnapshotNotFoundError` if `runId` is unknown. The input type `TI` is inferred from
    * `workflow`; a typed committed workflow needs no cast. `TO` (first) types the output.
    *
