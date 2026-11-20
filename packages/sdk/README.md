@@ -108,7 +108,7 @@ import { Agent } from "@theokit/sdk";
 
 const agent = await Agent.create({
   apiKey: process.env.THEOKIT_API_KEY!,
-  model: { id: "composer-2" },
+  model: { id: "openai/gpt-4o-mini" },
   local: { cwd: process.cwd() },
 });
 
@@ -308,7 +308,7 @@ await agent.send("raw", { toolResultGuard: { redactPii: true } }); // this call'
 
 ```ts
 const factory = AgentFactory.create({
-  defaults: { model: { id: "claude-sonnet-4-6" } },
+  defaults: { model: { id: "anthropic/claude-sonnet-4-6" } },
   pinned: {
     withheldBuiltinTools: ["shell"],
     memory: { enabled: false },
@@ -352,7 +352,7 @@ await Cron.create({
   message: "Summarize yesterday's commits",
   agent: {
     apiKey: process.env.THEOKIT_API_KEY!,
-    model: { id: "composer-2" },
+    model: { id: "openai/gpt-4o-mini" },
     local: { cwd: process.cwd() },
   },
 });
@@ -640,7 +640,7 @@ Many MCP servers list a risky tool next to the useful ones. Set `tools` on a ser
 
 ```ts
 const agent = await Agent.create({
-  model: { id: "claude-sonnet-5-5" },
+  model: { id: "anthropic/claude-sonnet-4-6" },
   mcpServers: {
     playwright: {
       command: "npx",
