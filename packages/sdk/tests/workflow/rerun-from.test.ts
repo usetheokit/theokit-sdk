@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 import { ConfigurationError } from "../../src/errors.js";
-import { __resetSnapshotStoresForTests, fn, Workflow } from "../../src/workflow.js";
+import { __resetSnapshotStoresForTests } from "../../src/internal/workflow/snapshot-store.js";
+import { fn, Workflow } from "../../src/workflow.js";
 import {
   WorkflowResumeStepNotFoundError,
   WorkflowSnapshotNotFoundError,
