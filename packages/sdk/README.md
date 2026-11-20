@@ -266,6 +266,26 @@ const decision = await runPreToolCall(plugins, { name, args, agentId, runId });
 A plugin handler that throws is not turned into a veto: the exception propagates, as it does in the
 agent loop. `guardTools` passes no `conversation`; use `runPreToolCall` to supply one.
 
+## Tool-result guard and `sendDefaults`
+
+`SendOptions.toolResultGuard` (`{ delimit, redactPii }`) wraps or redacts tool output before the model sees it, and `SendOptions.pruneToolResults` stubs results older than `olderThanRounds` rounds. Both are read per send, so a missed call site runs unguarded. Set them once on the agent instead:
+
+```ts
+const agent = await Agent.create({
+  model: "anthropic/claude-sonnet-4-6",
+  local: { cwd: process.cwd() },
+  sendDefaults: {
+    toolResultGuard: { delimit: true }, // tool output arrives inside <untrusted-tool-output>
+    pruneToolResults: { olderThanRounds: 3 },
+  },
+});
+
+await agent.send("summarise the page"); // guarded
+await agent.send("raw", { toolResultGuard: { redactPii: true } }); // this call's guard replaces the default
+```
+
+`sendDefaults` accepts `toolResultGuard`, `pruneToolResults` and `perToolTimeoutMs`, applies to local agents, and also covers `fork()`, `generate()`, `runUntil()` and the `*ToCompletion` helpers. It merges per key: a key the send passes wins. Passing a key as `undefined` explicitly does **not** remove the default. An invalid `pruneToolResults` fails at `Agent.create` (and `Agent.resume`) with `ConfigurationError` code `invalid_prune_tool_results`. The defaults are persisted, so a disk-backed `Agent.resume` keeps them.
+
 ## Explain skills
 
 `explainSkills` from `@theokit/sdk/skills` reports what an agent would see, from the same walk the
@@ -477,6 +497,27 @@ await b.pump(); // polls for every locally registered agent, delivers in order, 
 - `pump()` is not automatic: call it when you want waiting messages delivered. A handler failure is reported on diagnostics and does not stop the others.
 - `from` is self-asserted. The transport does not authenticate it; that is the job of a sealed transport.
 
+### HTTP store-and-forward mailbox
+
+For peers that are offline or behind NAT, serve a mailbox from any fetch-style server and point `httpMailboxTransport` at it:
+
+```ts
+import { MessageBus, createHttpMailboxHandler, httpMailboxTransport } from "@theokit/sdk/a2a";
+
+// server: handles POST <prefix>/put and POST <prefix>/take
+const handler = createHttpMailboxHandler({ token: process.env.MAILBOX_TOKEN!, persistPath: "./mailbox.json" });
+
+// client
+const bus = new MessageBus({
+  transport: httpMailboxTransport({ baseUrl: "https://host.example/mailbox", token: process.env.MAILBOX_TOKEN! }),
+});
+```
+
+- Defaults: 100 messages per recipient (a full queue answers 507), 256 KiB body cap (413). Non-POST answers 405 with `allow: POST`; a wrong token answers 401 before the body is read. The token is compared in constant time.
+- `persistPath` writes atomically with mode 0600. A file that fails its shape check is refused at start with `A2AMailboxError` and never overwritten. Handlers sharing one file are not coordinated.
+- `baseUrl` must be `https:`, or `http:` on `localhost`, `127.0.0.1` or `[::1]`; otherwise `ConfigurationError` (`a2a_mailbox_insecure_url`). A non-2xx answer rejects with `A2AMailboxError` carrying `status`.
+- **Shared-token limit:** one token guards the whole mailbox. Any holder can `take` any recipient's queue, draining other peers' messages, and `from` is self-asserted. Share the token only between peers that trust each other.
+
 ## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
 
 `AgentLike` (`agentId`, `send`, optional `dispose`) and `RunLike` (`status`, `stream`, `wait`, `cancel`) are the small ports `SDKAgent` and `Run` satisfy with no cast. Type a wrapper, failover decorator or test double against them instead of the full `SDKAgent`, or re-declaring a port that drifts. `RunLike.wait()` resolves the real `RunResult`, so `status` is `RunStatus` and a misspelled status such as `"completed"` fails to compile.
@@ -495,6 +536,19 @@ try {
 ```
 
 LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
+
+## Resuming a workflow run by id: `WorkflowSet`
+
+When an app runs several workflows that suspend, the run id is the only token you hand out. `WorkflowSet.of([...]).resume(runId, payload)` finds the workflow that owns it:
+
+```ts
+import { WorkflowSet } from "@theokit/sdk/workflow";
+
+const set = WorkflowSet.of([refunds, invoices]);
+const { name, run } = await set.resume(runId, { approved: true });
+```
+
+A member with no snapshot for the id, or whose snapshot belongs to another workflow, is skipped. Any other error (a payload that fails validation, an I/O error) is rethrown at once and the remaining members are not tried. If no member owns the run, it throws `WorkflowSnapshotNotFoundError`. `WorkflowSet.of` throws `ConfigurationError` when two members share a name.
 
 ## Status
 
