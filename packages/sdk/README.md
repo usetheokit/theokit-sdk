@@ -453,6 +453,30 @@ const agent = await Agent.create({
 
 A call to a filtered-out tool is refused in the client with a tool error naming the tool and the server; nothing is sent to the server. An `include` name the server does not list produces one diagnostics warning. A malformed filter makes `Agent.create` throw a `ConfigurationError` with code `invalid_mcp_tool_filter`.
 
+## Telemetry: `registerTelemetry`
+
+`AgentOptions.telemetry` records spans through the global OpenTelemetry API, so nothing is exported until a provider is registered. `registerTelemetry` from `@theokit/sdk/telemetry-node` registers one tracer and one meter provider that export over OTLP/HTTP (`<endpoint>/v1/traces`, `<endpoint>/v1/metrics`) in batches, off the turn path, with a `service.name` resource.
+
+```ts
+import { Agent } from "@theokit/sdk";
+import { registerTelemetry } from "@theokit/sdk/telemetry-node";
+
+const telemetry = await registerTelemetry({
+  endpoint: "http://localhost:4318",
+  serviceName: "my-app",
+  prometheusPort: 9464, // optional; served on 127.0.0.1 only, path /metrics
+});
+const agent = await Agent.create({
+  model: { id: "claude-sonnet-5-5" },
+  telemetry: { enabled: true, includeContent: false, autoDetect: false },
+});
+// ...
+await telemetry.flush();
+await telemetry.shutdown(); // never rejects
+```
+
+Install the optional peers you use: `@opentelemetry/api`, `sdk-trace-base`, `sdk-metrics`, `resources`, `exporter-trace-otlp-http`, `exporter-metrics-otlp-http` and (with `prometheusPort`) `exporter-prometheus`. A missing one rejects with a `ConfigurationError` coded `telemetry_peer_missing`; a non-http(s) `endpoint` rejects with `telemetry_invalid_endpoint`. Export errors reach `onExportError` (default: the SDK diagnostics channel) with secrets redacted and URL credentials shown as `***`.
+
 ## Reading the managed settings document
 
 `readManagedSettings()` returns only the four keys the SDK enforces. An app with its own keys (model, sandbox mode, approval policy) that an operator imposes through `managed-settings.json` can read the whole file with `readManagedSettingsDocument()` from `@theokit/sdk`:

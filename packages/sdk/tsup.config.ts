@@ -70,6 +70,8 @@ export default defineConfig({
     // carries an `@deprecated` pointing at the public barrel), so a new one would extend a shape
     // the package is withdrawing.
     "mcp-auth": "src/mcp-auth.ts",
+    // #1044 — Node-only OTLP provider registration; the OpenTelemetry SDK peers load lazily inside it.
+    "telemetry-node": "src/telemetry-node.ts",
     "mcp-events": "src/mcp-events.ts",
     "internal/persistence/index": "src/internal/persistence/index.ts",
     "internal/security/index": "src/internal/security/index.ts",

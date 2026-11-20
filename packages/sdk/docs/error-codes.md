@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-279 distinct code(s).
+282 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -250,6 +250,9 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `subscription_not_found` | domain | SubscriptionError | `packages/sdk/src/subscription/internal/subscription-runtime.ts:130` |
 | `task_not_found` | domain | — | `packages/sdk/src/task-errors.ts:53` +1 |
 | `task_op_unsupported` | domain | — | `packages/sdk/src/task-errors.ts:73` +1 |
+| `telemetry_already_registered` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:237` |
+| `telemetry_invalid_endpoint` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:68` +1 |
+| `telemetry_peer_missing` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:85` |
 | `timeout` | domain | — | `packages/sdk/src/internal/error-mappers/vertex.ts:55` |
 | `tool_invalid_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:262` |
 | `tool_invalid_schema_type` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:291` |
