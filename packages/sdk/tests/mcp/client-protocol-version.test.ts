@@ -1,9 +1,9 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-import { createMcpClient, type McpClient } from "../../src/internal/mcp/client.js";
-import { NetworkError } from "../../src/errors.js";
 import pkg from "../../package.json" with { type: "json" };
+import { NetworkError } from "../../src/errors.js";
+import { createMcpClient, type McpClient } from "../../src/internal/mcp/client.js";
 
 const opened: McpClient[] = [];
 const servers: Server[] = [];

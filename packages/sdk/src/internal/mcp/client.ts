@@ -1,5 +1,6 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { isAbsolute } from "node:path";
+import pkg from "../../../package.json" with { type: "json" };
 import { ConfigurationError, NetworkError } from "../../errors.js";
 import type {
   McpHttpServerConfig,
@@ -12,7 +13,6 @@ import { safePathJoin } from "../security/path-guard.js";
 import { DEFAULT_MCP_TIMEOUT_MS, handshakeAwareTimeout } from "./handshake-timeout.js";
 import { resolveBearer } from "./oauth-bearer.js";
 import { withToolFilter } from "./tool-filter.js";
-import pkg from "../../../package.json" with { type: "json" };
 
 /**
  * Real MCP client implementing the subset of the 2025-06-18, 2025-03-26 and
