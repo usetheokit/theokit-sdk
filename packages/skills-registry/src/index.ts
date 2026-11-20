@@ -14,3 +14,5 @@ export {
   verifySkillPackage,
 } from "./package-format.js";
 export { buildSkillPackage, publishSkill } from "./publish.js";
+export type { SkillsRegistryServerOptions } from "./server.js";
+export { createSkillsRegistryHandler } from "./server.js";

@@ -134,6 +134,22 @@ const agent = await Agent.create({
 
 Extended-thinking `--continue` is out of scope for now (thinking signatures are written but dropped on read — issue #122). See the exported session-persistence types for the full contract.
 
+## Incognito agents
+
+To leave nothing on disk, keep the transcript in memory, keep the agent out of the persisted registry, and turn memory off:
+
+```ts
+import { Agent, InMemorySessionStore } from "@theokit/sdk";
+
+const agent = await Agent.create({
+  model: { id: "openai/gpt-4o-mini" },
+  memory: { enabled: false },
+  local: { sessionStore: new InMemorySessionStore(), registry: false },
+});
+```
+
+Use a fresh `InMemorySessionStore` per agent; resume works only while you keep the same instance. `registry: false` keeps the agent out of `<cwd>/.theokit/agents/registry.json`, but it stays visible to `Agent.list` in the current process. Tools, plugins and other features you enable can still write files of their own.
+
 ## Memory
 
 Durable facts live under `<cwd>/.theokit/memory/`. To keep several users of one agent app apart, give each agent a `userId`; each user then gets their own partition (`.theokit/memory/users/<userId>/`) for facts, index and session summaries:
@@ -285,6 +301,24 @@ await agent.send("raw", { toolResultGuard: { redactPii: true } }); // this call'
 ```
 
 `sendDefaults` accepts `toolResultGuard`, `pruneToolResults` and `perToolTimeoutMs`, applies to local agents, and also covers `fork()`, `generate()`, `runUntil()` and the `*ToCompletion` helpers. It merges per key: a key the send passes wins. Passing a key as `undefined` explicitly does **not** remove the default. An invalid `pruneToolResults` fails at `Agent.create` (and `Agent.resume`) with `ConfigurationError` code `invalid_prune_tool_results`. The defaults are persisted, so a disk-backed `Agent.resume` keeps them.
+
+## Pinned `AgentFactory` options
+
+`AgentFactory.create({ defaults, pinned })` builds every agent from `defaults`, then the per-session overrides, then `pinned`. An override cannot change a pinned key. `local`, `memory`, `cloud` and `sendDefaults` merge key by key with pinned keys winning; `withheldBuiltinTools` is a union, so an override can withhold more tools, never fewer. A config that mixes `defaults`/`pinned` with other top-level `AgentOptions` keys throws `ConfigurationError`. Per-send options can still override `sendDefaults` at send time.
+
+```ts
+const factory = AgentFactory.create({
+  defaults: { model: { id: "claude-sonnet-4-6" } },
+  pinned: {
+    withheldBuiltinTools: ["shell"],
+    memory: { enabled: false },
+    local: { hooks: approvalGate },
+    sendDefaults: { toolResultGuard: guard },
+  },
+});
+// cwd is kept; hooks, memory and shell stay pinned.
+const agent = await factory.forSession("s1", { local: { cwd }, memory: { enabled: true } });
+```
 
 ## Explain skills
 

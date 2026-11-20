@@ -26,10 +26,13 @@ const fact = (id: string, extra: Record<string, unknown> = {}) => ({
 });
 
 const dirs: string[] = [];
+const opened: LanceIndex[] = [];
 async function open(dir?: string) {
   const d = dir ?? mkdtempSync(join(tmpdir(), "lance-rm-"));
   if (!dir) dirs.push(d);
-  return { dir: d, index: await LanceIndex.open({ cwd: d, storagePath: d, embedding }) };
+  const index = await LanceIndex.open({ cwd: d, storagePath: d, embedding });
+  opened.push(index);
+  return { dir: d, index };
 }
 async function ids(index: LanceIndex, source?: "memory" | "wiki") {
   const hits = await index.search("x", { namespace: "default", limit: 100 });
@@ -39,7 +42,8 @@ async function ids(index: LanceIndex, source?: "memory" | "wiki") {
     .sort();
 }
 
-afterEach(() => {
+afterEach(async () => {
+  await Promise.all(opened.splice(0).map((i) => i.close()));
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
@@ -100,6 +104,7 @@ describe.skipIf(!isLanceAvailable())("LanceIndex.removeFacts (real LanceDB)", ()
     const d = mkdtempSync(join(tmpdir(), "lance-rm-"));
     dirs.push(d);
     const index = await LanceIndex.open({ cwd: d, storagePath: d, embedding: flaky });
+    opened.push(index);
     await expect(index.addFacts([fact("x")])).rejects.toThrow("boom");
     await index.addFacts([fact("f1#0", { fact_id: "f1" }), fact("keep")]);
     await index.removeFacts(["f1"], SCOPE);

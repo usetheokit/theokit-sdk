@@ -12,6 +12,7 @@ export { Agent, type AgentLease, type AgentPromptResult } from "./agent.js";
 export type { AgentBuilderDeps } from "./agent-builder.js";
 // DX helpers — agent construction patterns (ADR D22-D26)
 export { AgentBuilder } from "./agent-builder.js";
+export type { AgentFactoryConfig } from "./agent-factory.js";
 export { AgentFactory } from "./agent-factory.js";
 // SE9 — integrated structured output on `agent.generate(input, { output })`.
 export type { GenerateOptions, GenerateRunResult } from "./agent-generate.js";
@@ -175,6 +176,7 @@ export { JudgeCredentialError } from "./internal/judge/judge-call.js";
 // without racing. Stability guarantee: signature stable until sdk-core
 // v3.0.
 export { withCwdMutex } from "./internal/persistence/cwd-mutex.js";
+export { InMemorySessionStore } from "./internal/persistence/in-memory-session-store.js";
 export {
   SqliteSessionStore,
   type SqliteSessionStoreOptions,

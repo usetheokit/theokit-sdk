@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1513 export(s) across 58 entry point(s).
+1518 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -67,6 +67,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AgentDescription` | interface | theokit#123 — the read-only introspection of a registered agent, returned by `Agent.describe()`.  |
 | `AgentDisposedError` | class | T1.6 — Thrown when a consumer calls `agent.send()` or any method on an agent that has already been `dispose()`d.  |
 | `AgentFactory` | class | Handle returned by {@link createAgentFactory } .  |
+| `AgentFactoryConfig` | interface | Config form of {@link AgentFactory.create } : base `defaults` that per-session overrides may change, and `pinned` options they cannot. |
 | `AgentLease` | interface | A hold on a live agent returned by {@link Agent.lease } . |
 | `AgentLike` | interface | Narrow agent port: the part of `SDKAgent` a wrapper, test double or failover decorator needs.  |
 | `AgentMemory` | interface | Direct memory API exposed on `SDKAgent.memory`.  |
@@ -226,6 +227,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ImageBlock` | interface | SE7 — a base64-encoded image block a tool can hand back as (part of) its result or its `ToolError`.  |
 | `inferApiMode` | function | Guess which usage shape a provider reports, from its name alone.  |
 | `InlineSkill` | interface | A code-defined skill (from {@link createSkill } ) — a {@link Skill } plus its inline body. |
+| `InMemorySessionStore` | class | A {@link SessionStore } whose records live in this object only: nothing is written to disk, and the transcript disappears with the process.  |
 | `InputProcessorContext` | interface | Context passed to {@link Processor.processInput } . |
 | `IntegrationNotConnectedError` | class | Thrown when creating a cloud agent for a repo whose SCM provider is not connected.  |
 | `InteractionUpdate` | type | Lowest-level raw update from a run.  |
@@ -1510,6 +1512,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `forkTranscript` | function | Copy `src` into `dst`, keeping the first `beforeRecordIndex` records.  |
 | `ForkTranscriptOptions` | interface | Options for {@link forkTranscript } . |
 | `getProfilesRoot` | function | The directory holding every profile: always `~/.theokit/profiles`, from `os.homedir()`.  |
+| `InMemorySessionStore` | class | A {@link SessionStore } whose records live in this object only: nothing is written to disk, and the transcript disappears with the process.  |
 | `InstanceLock` | interface | A held instance lock. |
 | `InstanceLockedError` | class | Another live process holds the instance lock, or the filesystem cannot hold one. |
 | `isCorruptionError` | function | True when an open error indicates an unreadable / corrupt database file. |
@@ -1796,6 +1799,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `buildSkillPackage` | function | Reads a skill folder into the package format.  |
 | `compareSkillVersions` | function | SemVer 2.0.0 precedence (build metadata ignored).  |
+| `createSkillsRegistryHandler` | function | A fetch-style handler for a skills registry that stores immutable versions on disk.  |
 | `DownloadOptions` | interface | Options for `downloadSkill`: an injectable `fetch` and a timeout in milliseconds (default 30000). |
 | `downloadSkill` | function | Downloads `name` or `name@version` from a registry and verifies it.  |
 | `installSkill` | function | Installs a verified package at `<skillsDir>/<name>`.  |
@@ -1806,6 +1810,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SkillPackage` | interface | Wire format of a skill package: JSON with base64 file contents. |
 | `SkillsRegistryError` | class | Typed error of this package; branch on `code`, not on the message. |
 | `SkillsRegistryErrorCode` | type | Machine-readable reason carried by every `SkillsRegistryError`. |
+| `SkillsRegistryServerOptions` | interface | Options of `createSkillsRegistryHandler`. |
 | `VerifiedSkillPackage` | interface | A package whose digest, paths and `SKILL.md` identity were checked; safe to install. |
 | `verifySkillPackage` | function | Checks size, sha256, name, version, paths and `SKILL.md` of serialized package bytes.  |
 
