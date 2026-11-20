@@ -64,6 +64,16 @@ Helper for one-off descriptor construction without going through `Handoff.create
 - **Optional peer model:** `@theokit/sdk@1.7.0` lazy-imports `@theokit/sdk-handoff/internal/tool-injector` only when `Agent.create({ handoffs: [...] })` is called. Without the package installed, the option throws an actionable error.
 - **No kernel coupling beyond types:** sdk-handoff never imports from `@theokit/sdk/internal/runtime` or the agent loop.
 
+## What `internal` means here
+
+`@theokit/sdk-handoff/internal/*` subpaths are internal: they carry no compatibility promise and may change or disappear in any release. They exist for `@theokit/sdk`, not for application code.
+
+| Subpath | Caller |
+| --- | --- |
+| `tool-injector` | `@theokit/sdk` (`packages/sdk/src/internal/agent/helpers.ts`) |
+
+`@theokit/sdk` loads `@theokit/sdk-handoff/internal/tool-injector` as an optional peer by dynamic import, so renaming the subpath breaks `Agent.create({ handoffs })` at runtime, not at build time. The SDK declares no peer range for sdk-handoff; the subpath and the functions the SDK expects from it have existed since `@theokit/sdk-handoff@0.1.0`.
+
 ## Migration from `@theokit/sdk@1.x`
 
 Before (1.x):

@@ -54,6 +54,21 @@ specifier, or the call fails on a private field.
 
 Agents that consume documentation should prefer the machine-readable corpora on the docs site ([llmstxt.org](https://llmstxt.org) convention): [`llms.txt`](https://docs.usetheo.dev/llms.txt) (curated index) and [`llms-full.txt`](https://docs.usetheo.dev/llms-full.txt) (every page inlined).
 
+## Diagnostics: `setDiagnosticsSink`, `diag` and `diagFailure`
+
+A host (for example a TUI) calls `setDiagnosticsSink(fn)` to keep library output off its screen or route it to its logs. A library built on the SDK emits through the same sink:
+
+```ts
+import { diag, diagFailure, Security, setDiagnosticsSink } from "@theokit/sdk";
+
+setDiagnosticsSink((message) => statusPanel.append(message)); // host side
+
+diag("[my-adapter] reconnecting"); // progress and degraded-mode notes; dropped when no sink is installed
+diagFailure(`[my-adapter] handler threw: ${Security.redact(err.message)}`); // sink, or stderr without one
+```
+
+The SDK does not redact the message. A caller passing provider or platform text must redact it first, for example with `Security.redact`.
+
 ## Masking secrets: `Security.redact` and `Security.createMask`
 
 `Security.redact(text)` masks known credential *shapes* (API keys, `Bearer`, `key=value`).
@@ -108,7 +123,7 @@ import { Agent } from "@theokit/sdk";
 
 const agent = await Agent.create({
   apiKey: process.env.THEOKIT_API_KEY!,
-  model: { id: "composer-2" },
+  model: { id: "openai/gpt-4o-mini" },
   local: { cwd: process.cwd() },
 });
 
@@ -222,6 +237,8 @@ await agent.memory.reviewsIdle?.(); // wait for queued reviews, e.g. in tests or
 
 `BUILTIN_TOOL_NAMES` (`"shell"`, `"memory_search"`, `"memory_get"`) lists the tools the SDK declares itself; these are the names `withheldBuiltinTools` accepts and a custom tool may not claim. `isBuiltinToolName(name)` tests one, so an app that takes tool names from configuration can refuse a collision at load time. Withholding a builtin via `withheldBuiltinTools` releases its name, so a custom tool may then use it.
 
+`checkToolName(name, { withheldBuiltins })` applies the SDK's tool-name rules without throwing and returns `{ ok: true }` or `{ ok: false, code, message }`, where `code` is `tool_missing_name`, `tool_invalid_name` or `tool_reserved_name` (`ToolNameProblem`). A framework that compiles tools from configuration can reject a bad name with its own error before it constructs an `Agent`; `Agent.create` throws a `ConfigurationError` with the same code. Duplicate names are only detected across the whole tool list, by `Agent.create`.
+
 ## Plugins
 
 `listWorkspacePlugins(cwd, { compatSources })` lists the plugins an agent opened on `cwd` would load
@@ -308,7 +325,7 @@ await agent.send("raw", { toolResultGuard: { redactPii: true } }); // this call'
 
 ```ts
 const factory = AgentFactory.create({
-  defaults: { model: { id: "claude-sonnet-4-6" } },
+  defaults: { model: { id: "anthropic/claude-sonnet-4-6" } },
   pinned: {
     withheldBuiltinTools: ["shell"],
     memory: { enabled: false },
@@ -352,7 +369,7 @@ await Cron.create({
   message: "Summarize yesterday's commits",
   agent: {
     apiKey: process.env.THEOKIT_API_KEY!,
-    model: { id: "composer-2" },
+    model: { id: "openai/gpt-4o-mini" },
     local: { cwd: process.cwd() },
   },
 });
@@ -575,6 +592,40 @@ await bus.send("me", "bob", { type: "note", payload: "hi" }); // `to` is the tru
 - Sequence numbers must rise: a replay, or an older message arriving after a newer one, is dropped. Keep the store across restarts (`jsonSequenceStore`); the default `memorySequenceStore` forgets them. Processes sharing one JSON file are not coordinated.
 - One identity is one agent: every poll reads the queue addressed to the identity's public key. Key distribution is yours. There is no forward secrecy: a leaked recipient private key exposes the messages sealed to it.
 
+## Evals: scoring tool calls
+
+A scorer is `(output, expected?, context?)`. The runner passes a `ScoreContext` as the third argument:
+`{ input, metadata?, toolCalls }`, where `toolCalls` is every tool call the run made, in call order, as
+`{ name, input, output?, isError }`. Two-argument scorers keep working unchanged.
+
+```ts
+import { Eval, Scorers } from "@theokit/sdk/eval";
+
+Eval.create({
+  name: "tools",
+  dataset: [
+    {
+      input: "Find the file and read it",
+      expected: {
+        toolCalls: [{ name: "search", input: { q: "readme" } }, { name: "read" }],
+        trajectory: ["search", "read"],
+      },
+    },
+  ],
+  scorers: [Scorers.toolCallAccuracy(), Scorers.trajectory()],
+  agent: { /* AgentOptions */ },
+});
+```
+
+- `Scorers.toolCallAccuracy({ matchInput?, allowExtra? })` scores the fraction of expected calls that
+  happened. `expected` is `{ toolCalls: [{ name, input? }] }`, or `metadata.expectedToolCalls`.
+  `matchInput` is `"subset"` (default), `"exact"` or `"ignore"`. With `allowExtra: false`, an unexpected
+  call scores 0 with reason `unexpected_tool_call:<name>`.
+- `Scorers.trajectory({ order? })` scores 1 or 0 on `expected.trajectory` (tool names). `order` is
+  `"subsequence"` (default), `"strict"` or `"any"`; the reason names the first divergent position.
+- A missing or malformed expected value scores 0 with reason `expected_tool_calls_missing` or
+  `expected_trajectory_missing`. Both scorers are deterministic and make no network calls.
+
 ## `AgentLike` and `RunLike`: narrow types for wrappers and test doubles
 
 `AgentLike` (`agentId`, `send`, optional `dispose`) and `RunLike` (`status`, `stream`, `wait`, `cancel`) are the small ports `SDKAgent` and `Run` satisfy with no cast. Type a wrapper, failover decorator or test double against them instead of the full `SDKAgent`, or re-declaring a port that drifts. `RunLike.wait()` resolves the real `RunResult`, so `status` is `RunStatus` and a misspelled status such as `"completed"` fails to compile.
@@ -631,7 +682,7 @@ The full contract is defined by the exported TypeScript types; see [`CHANGELOG.m
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+Apache-2.0 — see [LICENSE](./LICENSE).
 
 ## Loading a project `.env` safely
 
@@ -658,7 +709,7 @@ Many MCP servers list a risky tool next to the useful ones. Set `tools` on a ser
 
 ```ts
 const agent = await Agent.create({
-  model: { id: "claude-sonnet-5-5" },
+  model: { id: "anthropic/claude-sonnet-4-6" },
   mcpServers: {
     playwright: {
       command: "npx",

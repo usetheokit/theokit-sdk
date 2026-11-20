@@ -20,11 +20,14 @@ import type {
   EvalRunOptions,
   NamedScorer,
   Score,
+  ScoreContext,
+  ScoredToolCall,
   Scorer,
 } from "../../types/eval.js";
 import { diag } from "../diagnostics.js";
 import { appendJsonl, readJsonlIds } from "../persistence/jsonl.js";
 import { getAgentFacade } from "../runtime/registry/agent-factory-registry.js";
+import { collectToolCalls } from "../scorers/tool-calls.js";
 import { clampScore, computeAggregate } from "./aggregate.js";
 import { materializeDataset } from "./dataset-iter.js";
 import { acquireSingleFlight, releaseSingleFlight } from "./single-flight.js";
@@ -141,10 +144,11 @@ async function applyScorer(
   scorer: NormalizedScorer,
   output: string,
   expected: unknown,
+  context: ScoreContext,
 ): Promise<{ name: string; score: number; reason?: string }> {
   let raw: Score;
   try {
-    const result = scorer.score(output, expected);
+    const result = scorer.score(output, expected, context);
     raw = result instanceof Promise ? await result : result;
   } catch (err) {
     return {
@@ -284,16 +288,30 @@ async function runRowsManually(ctx: EvalRunContext, spec: AgentSpec): Promise<Ev
 async function executeAgent(
   spec: AgentSpec,
   entry: DatasetEntry,
-): Promise<{ output: string; errorMsg?: string }> {
+): Promise<{ output: string; errorMsg?: string; toolCalls: readonly ScoredToolCall[] }> {
   try {
     const agent = isAgentInstance(spec) ? spec : await spec(entry);
     const run = await agent.send(entry.input);
+    const collecting = collectToolCalls(run);
     const result = await run.wait();
-    if (result.status === "finished") return { output: result.result ?? "" };
-    return { output: "", errorMsg: result.error?.message ?? `run ${result.status}` };
+    const toolCalls = await collecting;
+    if (result.status === "finished") return { output: result.result ?? "", toolCalls };
+    return { output: "", errorMsg: result.error?.message ?? `run ${result.status}`, toolCalls };
   } catch (err) {
-    return { output: "", errorMsg: err instanceof Error ? err.message : String(err) };
+    return {
+      output: "",
+      errorMsg: err instanceof Error ? err.message : String(err),
+      toolCalls: [],
+    };
   }
+}
+
+function contextFor(entry: DatasetEntry, toolCalls: readonly ScoredToolCall[]): ScoreContext {
+  return {
+    input: entry.input,
+    ...(entry.metadata !== undefined ? { metadata: entry.metadata } : {}),
+    toolCalls,
+  };
 }
 
 async function runOneEntry(
@@ -303,12 +321,14 @@ async function runOneEntry(
   scorers: ReadonlyArray<NormalizedScorer>,
 ): Promise<EvalRowResult> {
   const t0 = Date.now();
-  const { output, errorMsg } = await executeAgent(spec, entry);
+  const { output, errorMsg, toolCalls } = await executeAgent(spec, entry);
   const durationMs = Date.now() - t0;
   const scoreEntries: Array<{ name: string; score: number; reason?: string }> = [];
   if (errorMsg === undefined) {
     for (const scorer of scorers) {
-      scoreEntries.push(await applyScorer(scorer, output, entry.expected));
+      scoreEntries.push(
+        await applyScorer(scorer, output, entry.expected, contextFor(entry, toolCalls)),
+      );
     }
   }
   const meanScore =
@@ -332,17 +352,45 @@ async function runOneEntry(
  * AgentOptions path: use Agent.batch for fanout, then apply scorers per result.
  */
 async function scoreBatchOutput(
-  br: { ok: boolean; result?: { result?: string } } | undefined,
-  expected: unknown,
+  br: BatchResult | undefined,
+  entry: DatasetEntry,
   scorers: ReadonlyArray<NormalizedScorer>,
+  collectors: ReadonlyMap<string, Promise<ScoredToolCall[]>>,
 ): Promise<Array<{ name: string; score: number; reason?: string }>> {
   const scoreEntries: Array<{ name: string; score: number; reason?: string }> = [];
   if (br?.ok !== true) return scoreEntries;
   const output = br.result?.result ?? "";
+  const toolCalls = (await collectors.get(br.result.id)) ?? [];
+  const context = contextFor(entry, toolCalls);
   for (const scorer of scorers) {
-    scoreEntries.push(await applyScorer(scorer, output, expected));
+    scoreEntries.push(await applyScorer(scorer, output, entry.expected, context));
   }
   return scoreEntries;
+}
+
+/**
+ * `Agent.batch` returns results without run handles, so the batch core runs here with a `create`
+ * that records each run's tool calls under its run id (the id is also on the `RunResult`).
+ */
+async function batchWithToolCalls(
+  inputs: string[],
+  opts: BatchOptions,
+  collectors: Map<string, Promise<ScoredToolCall[]>>,
+): Promise<BatchResult[]> {
+  const { batchImpl } = await import("../agent/batch.js");
+  const facade = getAgentFacade();
+  return batchImpl(inputs, opts, {
+    create: async (agentOpts) => {
+      const agent = await facade.create(agentOpts);
+      const send = agent.send.bind(agent);
+      agent.send = async (...args: Parameters<SDKAgent["send"]>) => {
+        const run = await send(...args);
+        collectors.set(run.id, collectToolCalls(run));
+        return run;
+      };
+      return agent;
+    },
+  });
 }
 
 async function runRowsViaBatch(
@@ -363,16 +411,18 @@ async function runRowsViaBatch(
     concurrency,
     ...(signal !== undefined ? { signal } : {}),
   };
-  const batchResults = await getAgentFacade().batch(
+  const collectors = new Map<string, Promise<ScoredToolCall[]>>();
+  const batchResults = await batchWithToolCalls(
     pending.map((p) => p.entry.input),
     batchOpts,
+    collectors,
   );
   const rows: EvalRowResult[] = [];
   for (let i = 0; i < batchResults.length; i += 1) {
     const slot = pending[i];
     const br = batchResults[i];
     if (slot === undefined || br === undefined) continue;
-    const scoreEntries = await scoreBatchOutput(br, slot.entry.expected, scorers);
+    const scoreEntries = await scoreBatchOutput(br, slot.entry, scorers, collectors);
     const row = sink.finalize(rowFromBatchResult(slot.entry, br, scoreEntries, slot.index));
     rows.push(row);
     onRow(row, slot.index);
