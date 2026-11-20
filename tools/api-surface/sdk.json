@@ -2552,6 +2552,14 @@
       }
     },
     "./retry#import": {
+      "CircuitBreaker": {
+        "tier": "stable",
+        "declaration": "export declare class CircuitBreaker {\n    private readonly opts;\n    private readonly states;\n    constructor(opts?: CircuitBreakerOptions);\n    shouldSkip(key: string): boolean;\n    recordSuccess(key: string): void;\n    recordTimeout(key: string): void;\n    private now;\n}"
+      },
+      "CircuitBreakerOptions": {
+        "tier": "stable",
+        "declaration": "export interface CircuitBreakerOptions {\n    maxTimeouts?: number;\n    cooldownMs?: number;\n    now?: () => number;\n}"
+      },
       "Retry": {
         "tier": "stable",
         "declaration": "export declare class Retry {\n    private constructor();\n    static run<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>;\n    static create<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>;\n}"
@@ -2562,6 +2570,14 @@
       }
     },
     "./retry#require": {
+      "CircuitBreaker": {
+        "tier": "stable",
+        "declaration": "export declare class CircuitBreaker {\n    private readonly opts;\n    private readonly states;\n    constructor(opts?: CircuitBreakerOptions);\n    shouldSkip(key: string): boolean;\n    recordSuccess(key: string): void;\n    recordTimeout(key: string): void;\n    private now;\n}"
+      },
+      "CircuitBreakerOptions": {
+        "tier": "stable",
+        "declaration": "export interface CircuitBreakerOptions {\n    maxTimeouts?: number;\n    cooldownMs?: number;\n    now?: () => number;\n}"
+      },
       "Retry": {
         "tier": "stable",
         "declaration": "export declare class Retry {\n    private constructor();\n    static run<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>;\n    static create<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>;\n}"

@@ -23,12 +23,8 @@ export {
 // all 38 files now canonical in @theokit/sdk-memory.
 export * from "./internal/active-memory/active-memory.js";
 
-// Iter 44: first Stage 3 file move — CircuitBreaker copied from sdk-core's
-// internal/memory/circuit-breaker.ts. sdk-core retains its copy for v1.x
-// active-memory back-compat; sdk-memory's canonical copy is what future
-// rich providers (LanceDB-backed) will consume. Hybrid dual-copy mirrors
-// Phase 2 physical Stage 1 (sdk-budget) pattern.
-export * from "./internal/circuit-breaker.js";
+// CircuitBreaker lives in @theokit/sdk/retry; re-exported so both packages share one class.
+export { CircuitBreaker, type CircuitBreakerOptions } from "@theokit/sdk/retry";
 
 // Iter 45: second Stage 3 file move — embedding-adapter types (61 LOC,
 // pure type-only file). Defines the contract that provider adapters

@@ -12,11 +12,14 @@
  *
  * Per-key isolation so two agents in the same process don't share a counter.
  *
- * @internal
+ * @public
  */
 
+/** Options for {@link CircuitBreaker}. */
 export interface CircuitBreakerOptions {
+  /** Consecutive timeouts that trip the breaker. Default 3. */
   maxTimeouts?: number;
+  /** How long a tripped key stays skipped, in ms. Default 60000. */
   cooldownMs?: number;
   /** Injectable clock for tests. */
   now?: () => number;
@@ -47,6 +50,7 @@ export class CircuitBreaker {
     return false;
   }
 
+  /** Reset the consecutive-timeout counter for `key` and close its breaker. */
   recordSuccess(key: string): void {
     const state = this.states.get(key);
     if (state === undefined) return;
@@ -54,6 +58,7 @@ export class CircuitBreaker {
     state.cooldownUntilMs = 0;
   }
 
+  /** Record a timeout for `key`; trips the breaker after `maxTimeouts` in a row. */
   recordTimeout(key: string): void {
     const state = this.states.get(key) ?? { consecutiveTimeouts: 0, cooldownUntilMs: 0 };
     state.consecutiveTimeouts += 1;

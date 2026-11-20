@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1535 export(s) across 58 entry point(s).
+1537 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -628,8 +628,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ceilingReachedError` | function | The refusal of a new fact at a store's declared ceiling: where the store is, how many facts it holds, the ceiling, and what to consolidate.  |
 | `chunkMarkdown` | function | Split a markdown document into heading- and paragraph-aligned chunks. |
 | `ChunkMarkdownOptions` | interface | Split a markdown document into semantically meaningful chunks (ADR D1 of memory-system-peer-project-parity).  |
-| `CircuitBreaker` | class | Stops calling a recall path that keeps timing out.  |
-| `CircuitBreakerOptions` | interface | Consecutive-timeout circuit breaker for Active Memory recall.  |
+| `CircuitBreaker` | class |  |
+| `CircuitBreakerOptions` | interface | Options for {@link CircuitBreaker } . |
 | `claudeProjectMemoryDir` | function | Where the Claude Code CLI keeps THIS project's memories.  |
 | `Cluster` | interface | A group of semantically similar facts, with the text chosen to represent them. |
 | `ClusterResult` | interface | What clustering produced: the clusters and how many facts the per-sweep cap left out. |
@@ -1578,6 +1578,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
+| `CircuitBreaker` | class |  |
+| `CircuitBreakerOptions` | interface | Options for {@link CircuitBreaker } . |
 | `Retry` | class | SE36 — replaces `withRetry` (ADR 0015 / ADR-P2).  |
 | `RetryOptions` | interface | Options for {@link withRetry } .  |
 
