@@ -99,6 +99,8 @@ export {
   type MemoryAdapterErrorCode,
   MemoryFactAmbiguousError,
   MemoryFactNotRemovableError,
+  type ModelFallbackAttempt,
+  ModelFallbackExhaustedError,
   NetworkError,
   RateLimitError,
   SessionPoolClosedError,
@@ -450,6 +452,7 @@ export type {
   CustomTool,
   MemoryMirrorOptions,
   MemorySettings,
+  ModelFallbackOptions,
   SDKAgent,
 } from "./types/agent.js";
 export type { AgentLike, RunLike } from "./types/agent-like.js";

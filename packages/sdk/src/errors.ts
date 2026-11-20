@@ -598,6 +598,42 @@ export class AgentDisposedError extends TheokitAgentError {
 }
 
 /**
+ * One failed attempt of a turn run under {@link AgentOptions.modelFallback}.
+ *
+ * @public
+ */
+export interface ModelFallbackAttempt {
+  /** The model id the attempt ran on. */
+  model: string;
+  /** The error code the attempt ended with, when it had one. */
+  errorCode?: string;
+  /** The attempt's error message. */
+  message?: string;
+}
+
+/**
+ * Raised (as `RunResult.error.cause`) when the primary model and every
+ * {@link AgentOptions.modelFallback} model failed before any output. `cause` is the primary
+ * model's error; `attempts` lists each model with its error code.
+ *
+ * @public
+ */
+export class ModelFallbackExhaustedError extends TheokitAgentError {
+  override readonly name: string = "ModelFallbackExhaustedError";
+  readonly attempts: readonly ModelFallbackAttempt[];
+
+  constructor(attempts: readonly ModelFallbackAttempt[], cause?: unknown) {
+    const list = attempts.map((a) => `${a.model} (${a.errorCode ?? "unknown"})`).join(", ");
+    super(`Every model failed before producing output: ${list}`, {
+      isRetryable: false,
+      code: "model_fallback_exhausted",
+      ...(cause !== undefined ? { cause } : {}),
+    });
+    this.attempts = attempts;
+  }
+}
+
+/**
  * Thrown when a budget operation is requested on a `CloudAgent` (D388). The cloud budget surface
  * waits for Theo PaaS GA, so the operation is not merely failing — it does not exist yet.
  *
