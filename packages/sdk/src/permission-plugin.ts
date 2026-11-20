@@ -34,7 +34,8 @@ export interface PermissionGateContext {
  */
 export type PermissionGateDecision =
   | { readonly behavior: "allow" }
-  | { readonly behavior: "deny"; readonly message?: string };
+  | { readonly behavior: "deny"; readonly message?: string }
+  | { readonly behavior: "defer"; readonly reason?: string };
 
 /**
  * SE1 — the enriched `canUseTool` gate (the Anthropic-parity shape). Invoked ONLY
@@ -79,10 +80,9 @@ export interface PermissionPluginOptions {
  */
 async function resolveAsk(
   opts: PermissionPluginOptions,
-  name: string,
-  args: Record<string, unknown>,
-  mode: PermissionMode,
+  call: { name: string; args: Record<string, unknown>; mode: PermissionMode },
 ): Promise<PreToolCallDecision | undefined> {
+  const { name, args, mode } = call;
   if (opts.canUseTool !== undefined) {
     let decision: PermissionGateDecision;
     try {
@@ -94,9 +94,12 @@ async function resolveAsk(
     // Fail-CLOSED (allow-list): only an explicit `allow` passes. Any other value
     // — `deny`, a malformed/undefined return from a JS consumer, a wrong-cased
     // behavior — blocks, so the gate can never silently allow on a bad decision.
-    return decision?.behavior === "allow"
-      ? undefined
-      : { block: true, message: decision?.message ?? `denied: ${name}` };
+    if (decision?.behavior === "allow") return undefined;
+    if (decision?.behavior === "defer") return { defer: true, reason: decision.reason };
+    return {
+      block: true,
+      message: (decision as { message?: string })?.message ?? `denied: ${name}`,
+    };
   }
   // Deprecated back-compat: honor onAsk (undefined = allow). Fail-closed (block)
   // only when NEITHER a gate nor onAsk was supplied.
@@ -146,7 +149,7 @@ function createPermissionPlugin(
         if (action === "deny") {
           return { block: true, message: `denied by permission engine: ${name}` };
         }
-        if (action === "ask") return resolveAsk(opts, name, args, mode);
+        if (action === "ask") return resolveAsk(opts, { name, args, mode });
         return undefined;
       });
     },

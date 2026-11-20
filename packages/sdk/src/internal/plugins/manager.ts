@@ -125,15 +125,17 @@ export class PluginManager {
    */
   async runPreToolCallHooks(ctx: PreToolCallContext): Promise<PreToolCallDecision | undefined> {
     const handlers = this.#aggregated.hooks.get("pre_tool_call") ?? [];
+    let deferred: PreToolCallDecision | undefined;
     for (const h of handlers) {
       const decision = (await (h as (c: PreToolCallContext) => unknown)(ctx)) as
         | PreToolCallDecision
         | undefined;
-      if (decision !== undefined && (decision as { block?: boolean }).block === true) {
-        return decision as PreToolCallDecision;
-      }
+      if (decision === undefined) continue;
+      if ((decision as { block?: boolean }).block === true) return decision;
+      // A block from a later handler still wins over an earlier defer.
+      if ((decision as { defer?: boolean }).defer === true) deferred ??= decision;
     }
-    return undefined;
+    return deferred;
   }
 
   /** Aggregated handlers for a given hook (read-only view). @internal */
