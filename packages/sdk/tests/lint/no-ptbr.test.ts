@@ -398,7 +398,13 @@ function stripDiacritics(word: string): string {
 
 /** Every word-part of a line, with allowlisted loanwords already dropped. */
 function candidateParts(line: string): string[] {
-  return (line.replace(INLINE_CODE, " ").replace(LINK_DESTINATION, "] ").replace(NOT_PROSE, " ").match(WORD) ?? [])
+  return (
+    line
+      .replace(INLINE_CODE, " ")
+      .replace(LINK_DESTINATION, "] ")
+      .replace(NOT_PROSE, " ")
+      .match(WORD) ?? []
+  )
     .filter((token) => !WORD_ALLOWLIST.has(token.toLowerCase()))
     .flatMap(identifierParts)
     .filter((part) => !WORD_ALLOWLIST.has(part.toLowerCase()));
@@ -431,7 +437,8 @@ function scanText(rel: string, text: string): Offender[] {
 
 describe("link destinations are not prose", () => {
   it("ignores a commit hash inside a link destination", () => {
-    const line = "- [`4788a20`](https://github.com/usetheokit/theokit-sdk/commit/cada1234567) Thanks";
+    const line =
+      "- [`4788a20`](https://github.com/usetheokit/theokit-sdk/commit/cada1234567) Thanks";
     expect(classifyLine(line)).toBeUndefined();
   });
 
