@@ -374,6 +374,13 @@ function headerTexts(headers: http.IncomingHttpHeaders): string[] {
   return Object.entries(headers).flatMap(([k, v]) => [k, ...(Array.isArray(v) ? v : [v ?? ""])]);
 }
 
+let upstreamCaForTests: string | undefined;
+
+/** Test seam, deliberately not re-exported from the entry point: the upstream roots a proxy started next trusts. */
+export function setUpstreamCaForTests(pem: string | undefined): void {
+  upstreamCaForTests = pem;
+}
+
 /**
  * Start a proxy on a Unix socket that lets through only `allow`. A destination matching no rule
  * (host and port) gets `403` and an entry in `denied`. The proxy resolves hostnames itself, after
@@ -382,13 +389,6 @@ function headerTexts(headers: http.IncomingHttpHeaders): string[] {
  * socket (its directory must exist and is left alone on close); by default a private temp
  * directory is created and removed on close.
  */
-let upstreamCaForTests: string | undefined;
-
-/** Test seam, deliberately not re-exported from the entry point: the upstream roots a proxy started next trusts. */
-export function setUpstreamCaForTests(pem: string | undefined): void {
-  upstreamCaForTests = pem;
-}
-
 export async function startEgressProxy(options: {
   allow: readonly EgressRule[];
   /** Credentials added for their hosts; see `CredentialRule`. HTTPS to those hosts is terminated here. */
