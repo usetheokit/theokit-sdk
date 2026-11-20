@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1547 export(s) across 59 entry point(s).
+1553 export(s) across 59 entry point(s).
 
 ## `@theokit/acp`
 
@@ -266,6 +266,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ManagedSettingsDocument` | interface | The managed-settings file as read: where it was, and every top-level key as written. |
 | `managedSettingsPathFor` | function | Where the platform keeps its managed settings.  |
 | `McpAuthConfig` | interface | OAuth-style auth bundle for HTTP/SSE MCP servers. |
+| `McpElicitationHandler` | type | Answers MCP elicitation requests.  |
+| `McpElicitationRequest` | interface | A server's request for user input in the middle of a tool call (MCP elicitation, 2025-06-18). |
+| `McpElicitationResult` | type | The answer to an {@link McpElicitationRequest } .  |
 | `McpHttpServerConfig` | type | HTTP or SSE MCP server. |
 | `McpOAuthConfig` | interface | OAuth 2.1 PKCE flow descriptor.  |
 | `McpServerConfig` | type | Union of MCP server configs. |
@@ -1435,8 +1438,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `McpPromptMessage` | interface | One message of a rendered prompt. |
 | `McpResource` | interface | A resource a server publishes. |
 | `McpResourceContents` | interface | One content block of a resource read: `text` or base64 `blob`. |
-| `McpTool` | interface | A tool a server lists in `tools/list`. |
-| `McpToolCallResult` | interface | The result of a `tools/call`. |
+| `McpTool` | interface |  |
+| `McpToolCallResult` | interface |  |
 
 ## `@theokit/sdk/mcp-auth`
 
@@ -1513,15 +1516,18 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `applyWalWithFallback` | function | Apply WAL mode with DELETE fallback.  |
 | `atomicWriteJson` | function | Typed JSON atomic write helper.  |
 | `AtomicWriteJsonOptions` | interface | Options for `atomicWriteJson`. |
+| `atomicWriteJsonSync` | function | Synchronous twin of {@link atomicWriteJson } : same temp naming, same mode reassertion, same cleanup on failure.  |
 | `atomicWriteTempTarget` | function | U-9 — the file a leftover temp was replacing, or `undefined` if this is not one of ours.  |
 | `atomicWriteText` | function | Atomic text write.  |
 | `classifySessionArtifact` | function | U-1 — what is this entry, if it is one of ours?  |
 | `encodeProjectDir` | function | Claude Code path convention: cwd with every non-alphanumeric replaced by `-`. |
+| `ensureSecureDir` | function | Create the parent directory of `filePath` as 0700 if missing; if it exists and group or other can write it, chmod it to 0700 and check again.  |
 | `FileLockOptions` | interface | Retry and staleness tuning for `withFileLock`.  |
 | `forkTranscript` | function | Copy `src` into `dst`, keeping the first `beforeRecordIndex` records.  |
 | `ForkTranscriptOptions` | interface | Options for {@link forkTranscript } . |
 | `getProfilesRoot` | function | The directory holding every profile: always `~/.theokit/profiles`, from `os.homedir()`.  |
 | `InMemorySessionStore` | class | A {@link SessionStore } whose records live in this object only: nothing is written to disk, and the transcript disappears with the process.  |
+| `InsecureDirectoryError` | class | A directory that must be owner-only is still writable by group or other after the repair. |
 | `InstanceLock` | interface | A held instance lock. |
 | `InstanceLockedError` | class | Another live process holds the instance lock, or the filesystem cannot hold one. |
 | `isCorruptionError` | function | True when an open error indicates an unreadable / corrupt database file. |
