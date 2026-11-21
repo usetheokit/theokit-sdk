@@ -193,6 +193,18 @@ function closingEnd(raw: string, dashEnd: number): number {
   return nl >= dashEnd ? nl + 1 : -1;
 }
 
+/** Empty frontmatter split across an earlier newline of the opening run. */
+function scanEmptyFrontmatter(
+  raw: string,
+  start: number,
+  runEnd: number,
+  lastNl: number,
+): { start: number; end: number; bodyStart: number } | null {
+  if (runEnd !== start || lastNl <= 3 || !raw.startsWith("---", start)) return null;
+  const end = closingEnd(raw, start + 3);
+  return end === -1 ? null : { start: start - 1, end: start - 1, bodyStart: end };
+}
+
 function scanFrontmatter(raw: string): { start: number; end: number; bodyStart: number } | null {
   if (!raw.startsWith("---")) return null;
   const runEnd = wsRunEnd(raw, 3);
@@ -207,10 +219,5 @@ function scanFrontmatter(raw: string): { start: number; end: number; bodyStart: 
     if (end !== -1) return { start, end: nl, bodyStart: end };
     i = nl + 1;
   }
-  // Empty frontmatter split across an earlier newline of the opening run.
-  if (runEnd === start && lastNl > 3 && raw.startsWith("---", start)) {
-    const end = closingEnd(raw, start + 3);
-    if (end !== -1) return { start: start - 1, end: start - 1, bodyStart: end };
-  }
-  return null;
+  return scanEmptyFrontmatter(raw, start, runEnd, lastNl);
 }

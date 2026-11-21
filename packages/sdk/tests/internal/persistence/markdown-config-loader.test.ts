@@ -200,7 +200,9 @@ describe("splitFrontmatter", () => {
     it(`matches the legacy regex for ${JSON.stringify(raw)}`, () => {
       const m = legacy.exec(raw);
       if (m === null) {
-        expect(() => splitFrontmatter(raw, "x.md", "t")).toThrow();
+        expect(() => splitFrontmatter(raw, "x.md", "t")).toThrow(
+          /Missing or malformed frontmatter/,
+        );
       } else {
         expect(splitFrontmatter(raw, "x.md", "t")).toEqual({
           frontmatter: m[1] ?? "",
@@ -213,7 +215,7 @@ describe("splitFrontmatter", () => {
   it("rejects long whitespace-heavy malformed input quickly", () => {
     const raw = `---\n${"\n ".repeat(50_000)}`;
     const t = Date.now();
-    expect(() => splitFrontmatter(raw, "x.md", "t")).toThrow();
+    expect(() => splitFrontmatter(raw, "x.md", "t")).toThrow(/Missing or malformed frontmatter/);
     expect(Date.now() - t).toBeLessThan(1000);
   });
 });
