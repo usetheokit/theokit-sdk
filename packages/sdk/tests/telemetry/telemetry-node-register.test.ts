@@ -87,6 +87,13 @@ describe("registerTelemetry", () => {
     expect(err.message).toContain("endpoint");
   });
 
+  it("accepts an endpoint with a very long run of trailing slashes in linear time", async () => {
+    const started = Date.now();
+    const { handle } = await register({ endpoint: `http://localhost:4318${"/".repeat(200_000)}` });
+    expect(Date.now() - started).toBeLessThan(5000);
+    await handle.shutdown();
+  });
+
   it("masks URL userinfo in export errors before onExportError", async () => {
     const lines: string[] = [];
     await register({ onExportError: (l) => lines.push(l) });
