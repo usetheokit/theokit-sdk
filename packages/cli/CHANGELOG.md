@@ -1,5 +1,12 @@
 # Changelog
 
+## 4.0.5
+
+### Patch Changes
+
+- Updated dependencies [[`3365e10`](https://github.com/usetheokit/theokit-sdk/commit/3365e10f1889a962111fb7956aed017ce5bc9a5e), [`3467c6c`](https://github.com/usetheokit/theokit-sdk/commit/3467c6c4e200c79eb2d494f8e75bf6beb06b7984), [`273b354`](https://github.com/usetheokit/theokit-sdk/commit/273b354228b661473a2b7bb3e0eb87db0c6f8505), [`70eed5a`](https://github.com/usetheokit/theokit-sdk/commit/70eed5a1c78cfdc693e6fbd032834471efde4c38), [`9b7c142`](https://github.com/usetheokit/theokit-sdk/commit/9b7c142637e0944e7124851b47167b2835bbe899), [`2e0b1af`](https://github.com/usetheokit/theokit-sdk/commit/2e0b1afa300d46baa9f098a423f31e2908a0a59b), [`52ed77d`](https://github.com/usetheokit/theokit-sdk/commit/52ed77dee461a07c94535915659c76071850f79a), [`f327fe1`](https://github.com/usetheokit/theokit-sdk/commit/f327fe1b27f033765cfae46481d2c2a9ce6b0fcf), [`2f79474`](https://github.com/usetheokit/theokit-sdk/commit/2f79474d61f1e5198fcfed7fe03765be5e09752d), [`422629d`](https://github.com/usetheokit/theokit-sdk/commit/422629d43b7d261c4f8ae0ad02305af55091ee81), [`48205d6`](https://github.com/usetheokit/theokit-sdk/commit/48205d688a87831bf6c1f16be3f03a524a1cada3), [`20bbcdb`](https://github.com/usetheokit/theokit-sdk/commit/20bbcdb58b2f53153f484d7f0ad2f46dccb2bdb7), [`e476785`](https://github.com/usetheokit/theokit-sdk/commit/e47678530db226342f7097827f9315bbf317965b)]:
+  - @theokit/sdk@7.0.0
+
 ## 4.0.4
 
 ### Patch Changes
