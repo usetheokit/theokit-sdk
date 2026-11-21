@@ -7,12 +7,12 @@
  * declare as required.
  */
 import {
-  createMemoryGetTool as sdkCreateMemoryGetTool,
-  createMemorySearchTool as sdkCreateMemorySearchTool,
   type MemoryGetToolOptions,
-  type MemorySearchToolOptions as SdkMemorySearchToolOptions,
   type MemoryTool,
   type MemoryToolJson,
+  type MemorySearchToolOptions as SdkMemorySearchToolOptions,
+  createMemoryGetTool as sdkCreateMemoryGetTool,
+  createMemorySearchTool as sdkCreateMemorySearchTool,
 } from "@theokit/sdk/internal/memory-store";
 import type { MemoryIndex } from "./index/memory-index.js";
 
