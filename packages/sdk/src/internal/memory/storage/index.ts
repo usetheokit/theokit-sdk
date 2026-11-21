@@ -27,14 +27,6 @@ export {
   runActiveMemory,
 } from "../active-memory.js";
 export {
-  createMemoryGetTool,
-  createMemorySearchTool,
-  type MemoryGetToolOptions,
-  type MemorySearchToolOptions,
-  type MemoryTool,
-  type MemoryToolJson,
-} from "../tools.js";
-export {
   ActiveMemoryCache,
   type ActiveMemoryCacheOptions,
   type TenantContext,
@@ -117,6 +109,14 @@ export {
   resetMigrationStateForTests,
 } from "../migration.js";
 export { loadSqliteVecExtension } from "../sqlite-vec-loader.js";
+export {
+  createMemoryGetTool,
+  createMemorySearchTool,
+  type MemoryGetToolOptions,
+  type MemorySearchToolOptions,
+  type MemoryTool,
+  type MemoryToolJson,
+} from "../tools.js";
 export {
   createVectorIndex,
   dropVectorIndex,
