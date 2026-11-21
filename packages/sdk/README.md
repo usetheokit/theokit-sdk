@@ -69,31 +69,6 @@ diagFailure(`[my-adapter] handler threw: ${Security.redact(err.message)}`); // s
 
 The SDK does not redact the message. A caller passing provider or platform text must redact it first, for example with `Security.redact`.
 
-## `@theokit/sdk/telemetry-node`: register OTLP providers
-
-`AgentOptions.telemetry` records spans through the global OpenTelemetry API, so nothing is exported until a provider is registered. `registerTelemetry` registers a global tracer provider (batch export to `<endpoint>/v1/traces`) and meter provider (`<endpoint>/v1/metrics`), both with a `service.name` resource and a 5 s export timeout, so exports never run on the turn path.
-
-```ts
-import { Agent } from "@theokit/sdk";
-import { registerTelemetry } from "@theokit/sdk/telemetry-node";
-
-const telemetry = await registerTelemetry({
-  endpoint: "http://localhost:4318", // http(s) OTLP/HTTP base URL
-  serviceName: "my-app",
-  prometheusPort: 9464, // optional: http://127.0.0.1:9464/metrics, loopback only
-});
-const agent = await Agent.create({
-  apiKey: process.env.THEO_API_KEY,
-  model: { id: "openai/gpt-4o-mini" },
-  telemetry: { enabled: true, includeContent: false, autoDetect: false },
-});
-// ... agent.send(...)
-await telemetry.flush();
-await telemetry.shutdown(); // never rejects
-```
-
-Export failures reach `onExportError` (default: the diagnostics sink) as one line with secrets redacted and URL userinfo shown as `***`. Install the optional peers `@opentelemetry/api`, `sdk-trace-base`, `sdk-metrics`, `resources`, `exporter-trace-otlp-http`, `exporter-metrics-otlp-http` and (for `prometheusPort`) `exporter-prometheus`; a missing one rejects with `ConfigurationError` code `telemetry_peer_missing`. `TelemetrySettings.exporter` is not read.
-
 ## Masking secrets: `Security.redact` and `Security.createMask`
 
 `Security.redact(text)` masks known credential *shapes* (API keys, `Bearer`, `key=value`).

@@ -11,13 +11,7 @@
     "packages/sdk": {
       "entry": ["src/agent.ts", "tests/**/*.test.ts", "tests/helpers/**/*.ts"],
       "project": ["src/**/*.ts", "tests/**/*.ts"],
-      "ignoreDependencies": [
-        "jsonrepair",
-        "@opentelemetry/exporter-metrics-otlp-http",
-        "@opentelemetry/exporter-prometheus",
-        "@opentelemetry/exporter-trace-otlp-http",
-        "@opentelemetry/resources"
-      ]
+      "ignoreDependencies": ["jsonrepair"]
     },
     "packages/cli": {
       "entry": ["tests/**/*.test.ts"],
