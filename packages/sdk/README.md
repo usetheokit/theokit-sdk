@@ -646,6 +646,21 @@ export async function callback(request: Request) {
 
 `DEFAULT_PROVIDER_CANDIDATES` is the one default order: `openrouter` (`OPENROUTER_API_KEY`), `anthropic` (`ANTHROPIC_API_KEY`), `openai` (`OPENAI_API_KEY`). It matches the chain `@theokit/agents` already uses. Errors are `ProviderCredentialError`; messages name variables, never values.
 
+## `@theokit/sdk/persistence`: listing projects
+
+`listSessions(cwd)` lists one project's sessions. `listProjects({ baseDir?, idScanBytes? })` lists every `projects/<encoded>/` folder under `baseDir` (default: the transcript root, which honours `THEOKIT_HOME`) and says which working directory each belongs to. The folder name cannot be inverted (`/a-b` and `/a/b` encode the same), so the `cwd` is read from a transcript record, from the first `idScanBytes` (default 65536, must be a positive integer) of each `.jsonl` file.
+
+```ts
+import { listProjects } from "@theokit/sdk/persistence";
+
+for (const p of await listProjects()) {
+  // p.encoded, p.cwd, p.cwdSource ("transcript" | "unavailable"), p.cwdConflict, p.sessionCount, p.modifiedAt
+}
+```
+
+When no `cwd` could be read (an empty transcript, say) `cwdSource` is `"unavailable"` and `cwd` is absent. When transcripts in one folder name different cwds, `cwd` comes from the newest and `cwdConflict` is `true`. An absent `projects/` directory gives `[]`. The call only reads. `SessionListing` also carries `cwd`, from the same bounded scan.
+
+
 ## `@theokit/sdk/persistence`: owner-only directories and synchronous atomic writes
 
 `ensureSecureDir(filePath)` makes the parent directory of `filePath` owner-only: it creates a missing one as `0700`, and if an existing one is writable by group or other it chmods it to `0700` and checks again. It throws `InsecureDirectoryError` (code `insecure_directory`, the directory in the message) when the repair does not hold. It does nothing on Windows.
@@ -959,6 +974,23 @@ const agent = await Agent.create({
 A call to a filtered-out tool is refused in the client with a tool error naming the tool and the server; nothing is sent to the server. An `include` name the server does not list produces one diagnostics warning. A malformed filter makes `Agent.create` throw a `ConfigurationError` with code `invalid_mcp_tool_filter`.
 
 ### MCP protocol revisions
+
+### Resources and prompts
+
+`connectMcpServer` from `@theokit/sdk/mcp` returns a connected client for one server's tools, resources and prompts. Nothing is added to an agent's context; you choose what to use.
+
+```ts
+import { connectMcpServer } from "@theokit/sdk/mcp";
+
+const mcp = await connectMcpServer("docs", { command: "node", args: ["docs-server.js"] });
+const resources = await mcp.listResources(); // follows nextCursor
+const [contents] = await mcp.readResource(resources[0].uri);
+const prompts = await mcp.listPrompts();
+const greeting = await mcp.getPrompt("greet", { name: "Ana" });
+await mcp.close();
+```
+
+A server that does not advertise `resources` (or `prompts`) makes those calls reject with a `ConfigurationError` of code `mcp_capability_missing`. A JSON-RPC error from the server becomes a `NetworkError` of code `mcp_rpc_error`.
 
 The MCP client supports the `2025-06-18`, `2025-03-26` and `2024-11-05` revisions. `initialize` offers the newest and keeps the revision the server answers; over HTTP that revision is then sent as `MCP-Protocol-Version` on every request. A server that answers a revision outside the list makes `initialize` reject with a `NetworkError` of code `mcp_protocol_unsupported`. To pin an older revision for a server that misbehaves on the newest, set `protocolVersion` on the server:
 
