@@ -92,6 +92,7 @@ export {
   ConfigurationError,
   type ErrorCode,
   type ErrorMetadata,
+  GenerationFileError,
   IntegrationNotConnectedError,
   InvalidTaskIdError,
   isTransientError,
@@ -103,6 +104,7 @@ export {
   ModelFallbackExhaustedError,
   NetworkError,
   RateLimitError,
+  SessionPoolClosedError,
   TaskNotFoundError,
   TheokitAgentError,
   ToolCallBlockedError,
@@ -399,6 +401,13 @@ export {
   readSessionMessages,
   type SessionHistory,
 } from "./session-messages.js";
+export {
+  type GenerationStore,
+  jsonGenerations,
+  memoryGenerations,
+  type SessionPool,
+  type SessionPoolOptions,
+} from "./session-pool.js";
 // M3 #62 — scoped session state helpers (app:/user:/temp:).
 export { type SessionScope, scopedConversationId, sessionScopePrefix } from "./session-scope.js";
 // Squad — sequential multi-agent team (composes Workflow+agentStep; cross-val Gap 1)
