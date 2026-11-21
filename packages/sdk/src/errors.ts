@@ -153,6 +153,36 @@ export class ConfigurationError extends TheokitAgentError {
 }
 
 /**
+ * Thrown by `parsePluginManifest` and `installWorkspacePlugin` when a `PLUGIN.md` manifest or its
+ * entry file is not acceptable. The message names the first problem.
+ *
+ * @public
+ */
+export class PluginManifestError extends ConfigurationError {
+  override readonly name: string = "PluginManifestError";
+
+  constructor(message: string, options: { cause?: unknown } = {}) {
+    super(message, { ...options, code: "plugin_manifest_invalid" });
+  }
+}
+
+/**
+ * Thrown when the workspace plugin trust record exists but cannot be parsed. The record is never
+ * overwritten; the message names the file.
+ *
+ * @public
+ */
+export class TrustRecordError extends ConfigurationError {
+  override readonly name: string = "TrustRecordError";
+  readonly path: string;
+
+  constructor(message: string, options: { path: string; cause?: unknown }) {
+    super(message, { cause: options.cause, code: "trust_record_invalid" });
+    this.path = options.path;
+  }
+}
+
+/**
  * Thrown when creating a cloud agent for a repo whose SCM provider is not
  * connected. Use `helpUrl` to point the user at the right reconnect flow.
  *

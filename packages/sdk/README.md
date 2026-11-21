@@ -324,6 +324,27 @@ import { listWorkspacePlugins } from "@theokit/sdk";
 const plugins = await listWorkspacePlugins(process.cwd(), { compatSources: ["claude-code"] });
 ```
 
+### Installing and trusting a workspace plugin
+
+The SDK loads a `.theokit/plugins/<name>/` folder only when its realpath is in
+`~/.theokit/plugins/trusted-workspace-plugins.json`. Do not edit that file by hand:
+
+```ts
+import { installWorkspacePlugin, trustWorkspacePlugin, untrustWorkspacePlugin } from "@theokit/sdk";
+
+// Validates PLUGIN.md (name, entry inside the folder), copies the folder to
+// <workspace>/.theokit/plugins/<name>/ and trusts the copy.
+const manifest = await installWorkspacePlugin({ source: "./echo", workspace: process.cwd() });
+
+await trustWorkspacePlugin("/path/to/plugin-folder"); // idempotent, atomic, mode 0600
+await untrustWorkspacePlugin("/path/to/plugin-folder"); // true when an entry was removed
+```
+
+`parsePluginManifest(text)` returns `{ name, version, entry }` or throws `PluginManifestError`.
+An existing destination is refused unless `replace: true`, which copies to a temporary sibling first
+so a failed copy keeps the old plugin. A trust record that cannot be parsed makes these functions
+throw `TrustRecordError` naming the file; the file is never overwritten.
+
 A `"general"` plugin registers hooks through `ctx.on`. The handler is typed by hook name, so the
 context needs no cast and a `pre_tool_call` veto is checked (`block` is the literal `true`):
 

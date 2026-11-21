@@ -102,10 +102,12 @@ export {
   type ModelFallbackAttempt,
   ModelFallbackExhaustedError,
   NetworkError,
+  PluginManifestError,
   RateLimitError,
   TaskNotFoundError,
   TheokitAgentError,
   ToolCallBlockedError,
+  TrustRecordError,
   UnknownAgentError,
   UnsupportedBudgetOperationError,
   UnsupportedRunOperationError,
@@ -355,9 +357,6 @@ export {
   type PermissionRuleSet,
   parsePermissionRules,
 } from "./permission-rules.js";
-// Semantic cache — EXTRACTED to `@theokit/sdk-cache` (SDK 2.0 split, Phase 3 / T3.1).
-// Consumers: `import { Cache, CacheInvalidTtlError } from "@theokit/sdk-cache"`.
-// Read-only listing of the plugins an agent would load
 export { listWorkspacePlugins, type WorkspacePluginListing } from "./plugins-listing.js";
 export {
   type LoadProjectEnvOptions,
@@ -541,3 +540,13 @@ export {
  * `quality:dts-identity` now fails the build on the shape.
  */
 export { agentStep, fn, Workflow } from "./workflow.js";
+// Semantic cache — EXTRACTED to `@theokit/sdk-cache` (SDK 2.0 split, Phase 3 / T3.1).
+// Consumers: `import { Cache, CacheInvalidTtlError } from "@theokit/sdk-cache"`.
+// Read-only listing of the plugins an agent would load
+export {
+  installWorkspacePlugin,
+  type PluginManifest,
+  parsePluginManifest,
+  trustWorkspacePlugin,
+  untrustWorkspacePlugin,
+} from "./workspace-plugins.js";

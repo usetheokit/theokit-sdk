@@ -11,7 +11,9 @@
  * @internal
  */
 
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
+import { TrustRecordError } from "../../../errors.js";
 import { diag } from "../../diagnostics.js";
 import { readTrustArray, type TrustArrayShape, trustFilePath } from "../../providers/trust-gate.js";
 
@@ -39,4 +41,29 @@ export function readTrustedWorkspaceFolders(): Set<string> {
     );
   }
   return trusted;
+}
+
+/**
+ * The record's raw entries for a read-modify-write. Unlike {@link readTrustedWorkspaceFolders} it
+ * is fail-loud: a record that exists but is not a JSON array throws `TrustRecordError`, so a
+ * writer never overwrites what it could not read. A missing record is empty.
+ */
+export function readWorkspaceTrustRecordStrict(): unknown[] {
+  const path = workspaceTrustRecordPath();
+  if (!existsSync(path)) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(path, "utf-8"));
+  } catch (cause) {
+    throw new TrustRecordError(`Workspace plugin trust record ${path} is not valid JSON`, {
+      path,
+      cause,
+    });
+  }
+  if (!Array.isArray(parsed)) {
+    throw new TrustRecordError(`Workspace plugin trust record ${path} is not a JSON array`, {
+      path,
+    });
+  }
+  return parsed;
 }
