@@ -15,6 +15,7 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { ConfigurationError, PluginManifestError } from "./errors.js";
 import { atomicWriteJson } from "./internal/persistence/atomic-write.js";
 import { splitFrontmatter } from "./internal/persistence/markdown-config-loader.js";
+import { theokitConfigRoot } from "./internal/persistence/paths.js";
 import { parseSimpleYaml } from "./internal/runtime/context/yaml-frontmatter.js";
 import { PluginFrontmatterSchema } from "./internal/runtime/plugin-loader/plugin-frontmatter.js";
 import {
@@ -171,7 +172,7 @@ export async function installWorkspacePlugin(input: {
 }): Promise<PluginManifest> {
   const manifest = parsePluginManifest(await readFile(join(input.source, "PLUGIN.md"), "utf8"));
   await assertEntryInside(input.source, manifest.entry);
-  const pluginsDir = join(input.workspace, ".theokit", "plugins");
+  const pluginsDir = join(theokitConfigRoot(input.workspace), "plugins");
   const dest = join(pluginsDir, manifest.name);
   const hadOld = await exists(dest);
   if (hadOld && input.replace !== true) {
