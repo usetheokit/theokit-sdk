@@ -538,6 +538,32 @@ What it blocks: a process that ignores the proxy variables and opens its own soc
 
 Bubblewrap is required. Without it, or under `danger-full-access`, `network: { allow }` throws `SandboxNotAvailableError` rather than falling back to an unconfined `LocalSandbox`. `startEgressProxy({ allow })` is exported for use on its own and returns `{ socketPath, denied, close() }`. `DockerSandbox`, `E2BSandbox` and macOS are not covered.
 
+### Credential rules: the sandbox holds a placeholder, the proxy adds the secret
+
+A command that calls an API needs a credential, and one in its environment or files is readable by a prompt-injected `env` or `cat`. A `CredentialRule` keeps the real value on the host:
+
+```ts
+new LinuxSandbox(config, {
+  mode: "workspace-write",
+  network: {
+    allow: [{ host: "api.github.com" }],
+    credentials: [{
+      host: "api.github.com",
+      header: "authorization",
+      value: () => `Bearer ${process.env.GITHUB_TOKEN}`, // read on the host, per request
+      placeholder: "THEOKIT_PLACEHOLDER_GITHUB",
+      envVar: "GITHUB_TOKEN",                            // the sandbox sees the placeholder
+    }],
+  },
+});
+```
+
+The proxy replaces `placeholder` in `header` with `value()` and sets the header when it is absent. A rule whose `host` no `EgressRule` allows throws `ConfigurationError` (`credential_host_not_allowed`). A placeholder sent to any other host (or over plain HTTP) is refused with `403` and recorded in `denied` with `reason: "credential_misroute"`; neither the real value nor an error from `value()` is logged or returned.
+
+To see the headers, HTTPS to a credential host is **terminated at the proxy**: it presents a certificate from a per-proxy CA generated in memory at start (the key is never written to disk and is dropped on `close()`), and opens its own verified TLS connection upstream. The sandbox trusts that CA through `SSL_CERT_FILE`, `NODE_EXTRA_CA_CERTS`, `REQUESTS_CA_BUNDLE` and `GIT_SSL_CAINFO`, pointing at a read-only bundle of the system roots plus the proxy CA. Other hosts keep the plain `CONNECT` tunnel.
+
+Limits: a client that pins certificates or ignores those variables cannot connect to a credential host. A placeholder is not a secret, so a command can copy it, and for a host reached through an opaque `CONNECT` tunnel the proxy cannot see a placeholder sent in its headers. The placeholder is replaced in one header only, not in bodies or URLs. A service that echoes the injected credential back returns it to the command. Credentials in files (`~/.npmrc`, SSH keys) and SSH remotes are not covered, and neither are the Docker and E2B backends.
+
 ## `@theokit/sdk/persistence`: single instance lock
 
 `acquireInstanceLock(dir, { path? })` takes `<dir>.instance.lock` for the life of the process, so two processes never run against the same state directory. A second holder rejects with `InstanceLockedError` (`lockPath`, `holderPid`); the message names the lock and the pid, and says to stop that process or remove the lock if the pid is not running. A lock left by a pid that is no longer running is taken over, and only one of several contenders wins a given stale lock. `release()` removes the lock only while this holder still owns it, and is idempotent.
