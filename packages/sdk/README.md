@@ -875,6 +875,32 @@ try {
 
 LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
 
+## Session pool: `Agent.sessionPool`
+
+One agent per conversation, built on `Agent.lease`. `reset(key)` starts the conversation afresh (next generation, new agent id) while a turn in flight finishes on the old agent, which is disposed once released. `rebuild(key)` retires the agent but keeps its id, so the next lease reopens the same transcript with fresh options. `disposeAll({ drainMs })` refuses new leases (`SessionPoolClosedError`), waits for held turns, returns the keys still running, then disposes everything. `idleMs` and `maxOpen` retire only unheld agents. Agent ids from a custom `agentId` must be unique.
+
+```ts
+const pool = Agent.sessionPool({
+  open: (chatId) => ({ model: { id: "openai/gpt-4o-mini" }, local: { cwd: process.cwd() } }),
+  generations: jsonGenerations("./generations.json"), // survives restarts; default is in memory
+  idleMs: 15 * 60_000,
+});
+
+async function onMessage(chatId: string, text: string) {
+  if (text === "/new") return pool.reset(chatId);
+  const lease = await pool.lease(chatId);
+  try {
+    await lease.agent.send(text);
+  } finally {
+    lease.release();
+  }
+}
+
+process.on("SIGTERM", () => void pool.disposeAll({ drainMs: 30_000 }));
+```
+
+`jsonGenerations` writes `{ version: 1, generations }` with mode 0600, one write at a time; a failed write leaves the generation unchanged, and a file it did not write throws `GenerationFileError`.
+
 ## Workflow compensation (saga rollback)
 
 A top-level `fn` step can declare `compensate(input, output, error)`. When a later top-level step fails (after its retries), the executor calls `compensate` on every earlier completed step that declares one, in reverse completion order. Each call gets that step's own input and output and the error that failed the run.
