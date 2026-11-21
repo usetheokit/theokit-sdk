@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1556 export(s) across 59 entry point(s).
+1560 export(s) across 59 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1135,11 +1135,15 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `DiscoveryRunnerOptions` | interface | Input to the context-discovery run: where to walk, how much of each file to keep, and which trust boundary an `@import` may not cross.  |
 | `DiscoveryScope` | type | Single filename ("AGENTS.md") or relative glob (".cursor/rules/*.mdc"). |
 | `DiscoverySpec` | interface | One kind of context file the runner knows how to find and read.  |
+| `FrontmatterScalar` | type | A value the frontmatter YAML subset can carry: string, number, boolean or string list. |
+| `FrontmatterSplit` | interface | The two halves of a markdown file: the text between the `---` fences, and everything after. |
+| `parseFrontmatterYaml` | function | Parse the YAML subset the loaders accept: `key: scalar`, `key: [a, b]`, and `key:` followed by `- item` lines.  |
 | `parseRules` | function | Split a `.theokit/rules/*.md` document into its frontmatter and its body.  |
 | `resolveContextImports` | function | Expand `@path` import directives in `content`, confined to `options.projectRoot`.  |
 | `ResolveContextImportsOptions` | interface | Options for {@link resolveContextImports } .  |
 | `runDiscovery` | function | Find, read and parse every context file the specs describe, and return them ready for the aggregator.  |
 | `shouldActivateRule` | function | Decide whether a parsed rule applies to this turn, given the files in scope.  |
+| `splitFrontmatter` | function | Split `---`-fenced frontmatter from the body.  |
 | `WithheldSpec` | interface | A spec a declaration did not admit, with the grant that would.  |
 | `withheldSpecs` | function | The mirror of {@link admittedSpecs } : the specs a declaration did NOT admit.  |
 
