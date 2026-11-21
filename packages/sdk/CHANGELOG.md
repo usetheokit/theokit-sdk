@@ -1,5 +1,39 @@
 # Changelog
 
+## 7.0.0
+
+### Major Changes
+
+- [#1398](https://github.com/usetheokit/theokit-sdk/pull/1398) [`48205d6`](https://github.com/usetheokit/theokit-sdk/commit/48205d688a87831bf6c1f16be3f03a524a1cada3) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add the optional `SandboxBackend.executeStreaming` capability, implemented by `LocalSandbox` and `LinuxSandbox`: it reports stdout line by line while the command runs and stops the command when an `AbortSignal` aborts ([#883](https://github.com/usetheokit/theokit-sdk/issues/883)).
+
+### Minor Changes
+
+- [#1412](https://github.com/usetheokit/theokit-sdk/pull/1412) [`3365e10`](https://github.com/usetheokit/theokit-sdk/commit/3365e10f1889a962111fb7956aed017ce5bc9a5e) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/retry` now exports `CircuitBreaker` and `CircuitBreakerOptions`; `@theokit/sdk-memory` re-exports that class instead of shipping its own copy.
+
+- [#1403](https://github.com/usetheokit/theokit-sdk/pull/1403) [`2e0b1af`](https://github.com/usetheokit/theokit-sdk/commit/2e0b1afa300d46baa9f098a423f31e2908a0a59b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/persistence` now exports `listProjects`, which lists the project folders under `projects/` and reads each one's working directory from its transcripts, and `SessionListing` gains `cwd`.
+
+- [#1428](https://github.com/usetheokit/theokit-sdk/pull/1428) [`52ed77d`](https://github.com/usetheokit/theokit-sdk/commit/52ed77dee461a07c94535915659c76071850f79a) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - New `onMcpElicitation` agent option answers MCP elicitation requests from a server. The MCP client now routes server-to-client requests (stdio and the Streamable HTTP event stream) instead of mistaking them for replies, declares the `elicitation` capability only when a handler is set, and exports `McpElicitationHandler`, `McpElicitationRequest` and `McpElicitationResult`.
+
+- [#1405](https://github.com/usetheokit/theokit-sdk/pull/1405) [`f327fe1`](https://github.com/usetheokit/theokit-sdk/commit/f327fe1b27f033765cfae46481d2c2a9ce6b0fcf) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The MCP client now negotiates the protocol version: `initialize` offers `2025-06-18` (or the server's new `protocolVersion` pin), accepts `2025-03-26` and `2024-11-05` answers, rejects others with `mcp_protocol_unsupported`, sends `MCP-Protocol-Version` on HTTP requests, and reports the SDK version in `clientInfo`.
+
+- [#1399](https://github.com/usetheokit/theokit-sdk/pull/1399) [`20bbcdb`](https://github.com/usetheokit/theokit-sdk/commit/20bbcdb58b2f53153f484d7f0ad2f46dccb2bdb7) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/persistence` adds `ensureSecureDir` (owner-only directory, repairs a loose one), `InsecureDirectoryError` (code `insecure_directory`), `atomicWriteJsonSync`, and a `dirMode` option on `atomicWriteJson`.
+
+- [#1402](https://github.com/usetheokit/theokit-sdk/pull/1402) [`e476785`](https://github.com/usetheokit/theokit-sdk/commit/e47678530db226342f7097827f9315bbf317965b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `readSessionHistory`, which tells a session with no transcript (`absent`) from one that was read (`present`, with a `skippedLines` count) and one that could not be read (`unreadable`, with a `reason`).
+
+### Patch Changes
+
+- [#1427](https://github.com/usetheokit/theokit-sdk/pull/1427) [`3467c6c`](https://github.com/usetheokit/theokit-sdk/commit/3467c6c4e200c79eb2d494f8e75bf6beb06b7984) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The English-only lint no longer reads commit hashes inside link URLs as Portuguese.
+
+- [#1424](https://github.com/usetheokit/theokit-sdk/pull/1424) [`273b354`](https://github.com/usetheokit/theokit-sdk/commit/273b354228b661473a2b7bb3e0eb87db0c6f8505) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Deprecate `@theokit/sdk/server/errors-envelope` (`toEnvelope`, `fromEnvelope`, `TheokitErrorCode`, `TheokitErrorEnvelope`). It keeps working, and will be removed in the next major. Read `name`, `isRetryable` and `metadata` from the error to build your own envelope; theokit apps get the envelope from `theokit/server`.
+
+- [#1404](https://github.com/usetheokit/theokit-sdk/pull/1404) [`70eed5a`](https://github.com/usetheokit/theokit-sdk/commit/70eed5a1c78cfdc693e6fbd032834471efde4c38) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The ten embedding provider adapters now live only in `@theokit/sdk`; `@theokit/sdk-memory` re-exports them from `@theokit/sdk/internal/memory-adapters`, so an adapter fix no longer has to be applied twice.
+
+- [#1414](https://github.com/usetheokit/theokit-sdk/pull/1414) [`9b7c142`](https://github.com/usetheokit/theokit-sdk/commit/9b7c142637e0944e7124851b47167b2835bbe899) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - fork: `ForkResult.toolCalls` now lists the tool calls the fork executed instead of always being empty.
+
+- [#1430](https://github.com/usetheokit/theokit-sdk/pull/1430) [`2f79474`](https://github.com/usetheokit/theokit-sdk/commit/2f79474d61f1e5198fcfed7fe03765be5e09752d) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The English-only lint test no longer treats words inside HTTP(S) URLs as prose, so a commit link in a generated changelog cannot fail it.
+
+- [#1429](https://github.com/usetheokit/theokit-sdk/pull/1429) [`422629d`](https://github.com/usetheokit/theokit-sdk/commit/422629d43b7d261c4f8ae0ad02305af55091ee81) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The English-only lint gate no longer reads Markdown link destinations as prose, so a commit hash in a generated changelog link cannot trip it.
+
 ## 6.1.0
 
 ### Minor Changes
