@@ -17,12 +17,14 @@ import { readMemoryFileBounded } from "./storage/reader.js";
  * `ResolvedTool` interface in `tool-dispatch.ts`.
  */
 
+/** The JSON-serialisable half of a memory tool: name, description and input schema. */
 export interface MemoryToolJson {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
 }
 
+/** A memory tool: its JSON description plus an async `execute`. */
 export interface MemoryTool extends MemoryToolJson {
   execute(input: Record<string, unknown>): Promise<string>;
 }
@@ -58,12 +60,14 @@ const MEMORY_GET_SCHEMA: Record<string, unknown> = {
 
 const DEFAULT_MAX_TOTAL_CHARS = 16384;
 
+/** Options for {@link createMemorySearchTool}. */
 export interface MemorySearchToolOptions {
   index: MemoryIndex;
   /** Cap on the JSON response size (EC-10 of edge-case review). Default 16384. */
   maxTotalChars?: number;
 }
 
+/** Builds the `memory_search` tool over a memory index. */
 export function createMemorySearchTool(opts: MemorySearchToolOptions): MemoryTool {
   const cap = opts.maxTotalChars ?? DEFAULT_MAX_TOTAL_CHARS;
   return {
@@ -87,6 +91,7 @@ export function createMemorySearchTool(opts: MemorySearchToolOptions): MemoryToo
   };
 }
 
+/** Options for {@link createMemoryGetTool}. */
 export interface MemoryGetToolOptions {
   /**
    * The RESOLVED memory root the tool may read inside — not a cwd (#463).
@@ -97,6 +102,7 @@ export interface MemoryGetToolOptions {
   root: MemoryRoot;
 }
 
+/** Builds the `memory_get` tool, which reads a bounded range of a memory file. */
 export function createMemoryGetTool(opts: MemoryGetToolOptions): MemoryTool {
   const memoryRoot = resolvePath(opts.root);
   return {

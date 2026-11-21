@@ -47,6 +47,7 @@ export interface ActiveMemoryOptions {
   recentUserTurns?: number;
 }
 
+/** Everything {@link runActiveMemory} needs for one attempt. */
 export interface RunActiveMemoryArgs {
   userText: string;
   priorMessages: ReadonlyArray<{ role: "user" | "assistant"; text: string }>;
@@ -100,6 +101,7 @@ const DEFAULTS: Required<Omit<ActiveMemoryOptions, "enabled">> = {
   recentUserTurns: 2,
 };
 
+/** Runs one blocking recall attempt before the system prompt is assembled. */
 export async function runActiveMemory(args: RunActiveMemoryArgs): Promise<ActiveMemoryResult> {
   const started = Date.now();
   // T0.1 — `memory.recall` span emitted around the entire body so skipped /
