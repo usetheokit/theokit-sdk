@@ -41,7 +41,7 @@
 
 import type { OTelSpan, TelemetryHandle } from "@theokit/sdk";
 
-import type { CircuitBreaker } from "@theokit/sdk/retry";
+import type { CircuitBreaker } from "../circuit-breaker.js";
 import type { MemorySearchHit } from "../index/index-manager-contract.js";
 import type { MemoryIndex } from "../index/memory-index.js";
 import { resolveMemoryRoot } from "../store/markdown-store.js";

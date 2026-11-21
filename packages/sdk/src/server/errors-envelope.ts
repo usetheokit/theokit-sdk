@@ -31,8 +31,6 @@ import {
  * Other layers (theokit/server, theokit/client, theokit/ui) handle the broader
  * union; the SDK never needs the HTTP-only codes (PRECONDITION_FAILED, etc.).
  *
- *
- * @deprecated Will be removed in the next major. Build the envelope from the error itself: read `name`, `isRetryable` and `metadata` from the `TheokitAgentError`. Theokit apps get the envelope from `theokit/server`.
  * @public
  */
 export type TheokitErrorCode =
@@ -50,8 +48,6 @@ export type TheokitErrorCode =
 /**
  * Envelope shape — structurally identical to theokit/server `TheoErrorEnvelope`.
  *
- *
- * @deprecated Will be removed in the next major. Build the envelope from the error itself: read `name`, `isRetryable` and `metadata` from the `TheokitAgentError`. Theokit apps get the envelope from `theokit/server`.
  * @public
  */
 export interface TheokitErrorEnvelope<TExt = unknown> {
@@ -96,8 +92,6 @@ const NAME_TO_CODE: ReadonlyMap<string, TheokitErrorCode> = new Map<string, Theo
  * / `meta.statusCode` for diagnostics. `RateLimitError` populates a
  * `RetryableExt`-shaped ext when `metadata.retryAfter` (seconds) is set.
  *
- *
- * @deprecated Will be removed in the next major. Build the envelope from the error itself: read `name`, `isRetryable` and `metadata` from the `TheokitAgentError`. Theokit apps get the envelope from `theokit/server`.
  * @public
  */
 export function toEnvelope(value: unknown): TheokitErrorEnvelope {
@@ -190,8 +184,6 @@ const CODE_TO_RECONSTRUCTOR: ReadonlyMap<
  * boundary (e.g., on a worker process receiving an envelope from the main
  * process via IPC, or on a client deserializing a `RunResult.error`).
  *
- *
- * @deprecated Will be removed in the next major. Build the envelope from the error itself: read `name`, `isRetryable` and `metadata` from the `TheokitAgentError`. Theokit apps get the envelope from `theokit/server`.
  * @public
  */
 export function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError {
@@ -203,9 +195,5 @@ export function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError {
   return new UnknownAgentError(env.message);
 }
 
-/**
- * Re-export of `MemoryAdapterError` for this subpath only.
- *
- * @deprecated Import `MemoryAdapterError` from `@theokit/sdk` instead; this re-export goes away with the subpath in the next major.
- */
+// Re-export for ergonomic consumption alongside fromEnvelope.
 export { MemoryAdapterError };

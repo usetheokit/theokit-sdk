@@ -230,15 +230,3 @@ describe("M107 T1.1 — atomicWriteJson honours mode and exclusive", () => {
     expect(readdirSync(dir).filter((f) => f.includes(".tmp"))).toEqual([]);
   });
 });
-
-describe.skipIf(process.platform === "win32")("atomicWriteJson dirMode", () => {
-  it("creates a missing parent as 0700", async () => {
-    const root = mkdtempSync(join(tmpdir(), "atomic-dirmode-"));
-    try {
-      await atomicWriteJson(join(root, "p", "f.json"), { a: 1 }, { dirMode: 0o700 });
-      expect(fileMode(join(root, "p"))).toBe(0o700);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-});

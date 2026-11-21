@@ -393,12 +393,7 @@ export {
 } from "./session-guard.js";
 // #546 — the history of a session the host is not holding an Agent for. `transcript()` serves a
 // live agent; re-rendering a RESUMED session needs the messages before there is one to ask.
-export {
-  type ReadSessionMessagesOptions,
-  readSessionHistory,
-  readSessionMessages,
-  type SessionHistory,
-} from "./session-messages.js";
+export { type ReadSessionMessagesOptions, readSessionMessages } from "./session-messages.js";
 // M3 #62 — scoped session state helpers (app:/user:/temp:).
 export { type SessionScope, scopedConversationId, sessionScopePrefix } from "./session-scope.js";
 // Squad — sequential multi-agent team (composes Workflow+agentStep; cross-val Gap 1)

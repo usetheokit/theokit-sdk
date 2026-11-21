@@ -110,19 +110,6 @@ When every model fails the run ends `error` and `RunResult.error.cause` is a
 This differs from `providers.fallback`, which only picks another provider when a route has none
 available. It does not resend a run that failed.
 
-### Retry and CircuitBreaker
-
-`@theokit/sdk/retry` exports `Retry.run(fn, options)` for retrying transient failures, and `CircuitBreaker` for skipping a flaky key. After `maxTimeouts` (default 3) consecutive `recordTimeout(key)` calls, `shouldSkip(key)` is true for `cooldownMs` (default 60000); `recordSuccess(key)` resets it, and other keys are unaffected. `@theokit/sdk-memory` re-exports the same class.
-
-```ts
-import { CircuitBreaker } from "@theokit/sdk/retry";
-
-const breaker = new CircuitBreaker({ maxTimeouts: 3, cooldownMs: 30_000 });
-if (!breaker.shouldSkip("remote")) {
-  // call the remote; on a timeout: breaker.recordTimeout("remote")
-}
-```
-
 ## Budgets: reserving in-flight spend
 
 `Budget.reserve` holds an estimate so concurrent calls cannot all pass a preflight that none has paid for:
@@ -178,19 +165,6 @@ const agent = await Agent.create({
 ```
 
 Extended-thinking `--continue` is out of scope for now (thinking signatures are written but dropped on read — issue #122). See the exported session-persistence types for the full contract.
-
-### Reading a stored session
-
-`readSessionMessages` returns a session's messages. `readSessionHistory` also tells you why there are none:
-
-```ts
-import { readSessionHistory } from "@theokit/sdk";
-
-const h = await readSessionHistory({ sessionId, cwd: projectDir });
-// h.state: "absent" (no transcript), "present" (read; h.skippedLines counts dropped lines,
-// a torn last line is 1) or "unreadable" (read error, or a non-empty file with no valid
-// record; h.reason has the error without file contents). It does not throw for these.
-```
 
 ## Incognito agents
 
@@ -620,34 +594,6 @@ export async function callback(request: Request) {
 
 `DEFAULT_PROVIDER_CANDIDATES` is the one default order: `openrouter` (`OPENROUTER_API_KEY`), `anthropic` (`ANTHROPIC_API_KEY`), `openai` (`OPENAI_API_KEY`). It matches the chain `@theokit/agents` already uses. Errors are `ProviderCredentialError`; messages name variables, never values.
 
-## `@theokit/sdk/persistence`: listing projects
-
-`listSessions(cwd)` lists one project's sessions. `listProjects({ baseDir?, idScanBytes? })` lists every `projects/<encoded>/` folder under `baseDir` (default: the transcript root, which honours `THEOKIT_HOME`) and says which working directory each belongs to. The folder name cannot be inverted (`/a-b` and `/a/b` encode the same), so the `cwd` is read from a transcript record, from the first `idScanBytes` (default 65536, must be a positive integer) of each `.jsonl` file.
-
-```ts
-import { listProjects } from "@theokit/sdk/persistence";
-
-for (const p of await listProjects()) {
-  // p.encoded, p.cwd, p.cwdSource ("transcript" | "unavailable"), p.cwdConflict, p.sessionCount, p.modifiedAt
-}
-```
-
-When no `cwd` could be read (an empty transcript, say) `cwdSource` is `"unavailable"` and `cwd` is absent. When transcripts in one folder name different cwds, `cwd` comes from the newest and `cwdConflict` is `true`. An absent `projects/` directory gives `[]`. The call only reads. `SessionListing` also carries `cwd`, from the same bounded scan.
-
-
-## `@theokit/sdk/persistence`: owner-only directories and synchronous atomic writes
-
-`ensureSecureDir(filePath)` makes the parent directory of `filePath` owner-only: it creates a missing one as `0700`, and if an existing one is writable by group or other it chmods it to `0700` and checks again. It throws `InsecureDirectoryError` (code `insecure_directory`, the directory in the message) when the repair does not hold. It does nothing on Windows.
-
-`atomicWriteJsonSync(filePath, data, options?)` is the synchronous twin of `atomicWriteJson`: same temp-file naming, same mode reassertion, same cleanup on failure, and a `TypeError` for `undefined` or circular data. `atomicWriteJson` and `atomicWriteJsonSync` both take `dirMode`, the mode for the parent directory when it has to be created (filtered by the `umask`; an existing directory is left as it is, so call `ensureSecureDir` to repair one).
-
-```ts
-import { atomicWriteJsonSync, ensureSecureDir } from "@theokit/sdk/persistence";
-
-ensureSecureDir(jobsPath);
-atomicWriteJsonSync(jobsPath, jobs, { mode: 0o600 });
-```
-
 ## `@theokit/sdk/persistence`: named profiles
 
 `resolveProfile(name, { profilesRoot?, appDirectories? })` maps a profile name to `<profilesRoot>/<name>` (default `getProfilesRoot()`, `~/.theokit/profiles`) and returns `directory`, `directories` and `env` (`THEOKIT_HOME` and `THEOKIT_AUTH_HOME` set to the profile directory, plus one entry per `appDirectories` item, joined under the profile). Names must match `^[a-z0-9][a-z0-9-]{0,15}$`, otherwise `ConfigurationError` code `profile_name_invalid` (the name is not echoed). App directory values must be relative and free of `..`. It touches no disk.
@@ -947,33 +893,6 @@ const agent = await Agent.create({
 
 A call to a filtered-out tool is refused in the client with a tool error naming the tool and the server; nothing is sent to the server. An `include` name the server does not list produces one diagnostics warning. A malformed filter makes `Agent.create` throw a `ConfigurationError` with code `invalid_mcp_tool_filter`.
 
-### MCP protocol revisions
-
-The MCP client supports the `2025-06-18`, `2025-03-26` and `2024-11-05` revisions. `initialize` offers the newest and keeps the revision the server answers; over HTTP that revision is then sent as `MCP-Protocol-Version` on every request. A server that answers a revision outside the list makes `initialize` reject with a `NetworkError` of code `mcp_protocol_unsupported`. To pin an older revision for a server that misbehaves on the newest, set `protocolVersion` on the server:
-
-```ts
-mcpServers: { legacy: { url: "https://mcp.example.com", protocolVersion: "2025-03-26" } }
-```
-
-### MCP elicitation
-
-A server can ask the user for input in the middle of a tool call (MCP `2025-06-18`). Pass `onMcpElicitation` to answer it:
-
-```ts
-const agent = await Agent.create({
-  mcpServers: { pay: { command: "pay-mcp" } },
-  onMcpElicitation: async ({ serverName, message, requestedSchema }, signal) => {
-    const ok = await askUser(`${serverName}: ${message}`, requestedSchema, signal);
-    return ok ? { action: "accept", content: { confirmed: true } } : { action: "decline" };
-  },
-});
-```
-
-- The client declares the `elicitation` capability only when a handler is set and the offered revision is `2025-06-18` or later. Without a handler, or on an older revision, an `elicitation/create` request gets JSON-RPC error `-32601`.
-- The handler returns `accept` with `content`, `decline` or `cancel`. `signal` aborts when the run is cancelled or the client closes.
-- A handler that throws answers `cancel`. An `accept` whose content lacks a required key or has a primitive of the wrong type also answers `cancel`. Both are reported on the diagnostics channel; the second as `ConfigurationError` code `mcp_elicitation_invalid`.
-- URL-mode elicitation and sampling are not supported.
-
 ## Reading the managed settings document
 
 `readManagedSettings()` returns only the four keys the SDK enforces. An app with its own keys (model, sandbox mode, approval policy) that an operator imposes through `managed-settings.json` can read the whole file with `readManagedSettingsDocument()` from `@theokit/sdk`:
@@ -998,7 +917,3 @@ await agent.send("...", { doomLoop: { window: 20, windowRepeatLimit: 3 } });
 ```
 
 Once a call (same tool, same arguments; key order does not matter) already occurs `windowRepeatLimit` times in the last `window` calls, the next identical call is not executed. The model receives a blocked tool result naming the tool so it can change course. Blocked attempts count toward the window. `window` and `windowRepeatLimit` must be positive integers set together, otherwise `send` rejects with `ConfigurationError` code `invalid_doom_loop`. The consecutive `softThreshold`/`hardThreshold` keep working.
-
-## Deprecated: `@theokit/sdk/server/errors-envelope`
-
-`toEnvelope`, `fromEnvelope`, `TheokitErrorCode` and `TheokitErrorEnvelope` are deprecated and will be removed in the next major. They still work. Build your own envelope from the error: read `name`, `isRetryable` and `metadata` (provider, endpoint, status code) from the `TheokitAgentError`. Theokit apps get the envelope from `theokit/server`.
