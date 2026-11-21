@@ -1,4 +1,12 @@
-import { chmodSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  closeSync,
+  fstatSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -25,11 +33,17 @@ describe("generation stores", () => {
     const g = jsonGenerations(file);
     const nums = await Promise.all([g.next("a"), g.next("a"), g.next("b")]);
     expect(nums).toEqual([1, 2, 1]);
-    expect(statSync(file).mode & 0o777).toBe(0o600);
-    expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({
-      version: 1,
-      generations: { a: 2, b: 1 },
-    });
+    // One descriptor for both the mode check and the read: no check-then-use race.
+    const fd = openSync(file, "r");
+    try {
+      expect(fstatSync(fd).mode & 0o777).toBe(0o600);
+      expect(JSON.parse(readFileSync(fd, "utf8"))).toEqual({
+        version: 1,
+        generations: { a: 2, b: 1 },
+      });
+    } finally {
+      closeSync(fd);
+    }
     expect(jsonGenerations(file).current("a")).toBe(2);
   });
 
