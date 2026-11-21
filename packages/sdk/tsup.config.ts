@@ -34,6 +34,8 @@ export default defineConfig({
     retry: "src/retry.ts",
     // V2-3: persistence helpers re-export internal/persistence; DTS via tsc (see concurrency/retry).
     persistence: "src/persistence.ts",
+    // Node-only OTLP provider registration; the OpenTelemetry SDK packages are optional peers (external).
+    "telemetry-node": "src/telemetry-node.ts",
     "task-store": "src/task-store.ts",
     workflow: "src/workflow.ts",
     eval: "src/eval.ts",
@@ -68,6 +70,7 @@ export default defineConfig({
     // withdrawing.
     // #1088: credential-free fake model server for agent tests; DTS via tsc.
     "testing/index": "src/testing/index.ts",
+    mcp: "src/mcp.ts",
     "mcp-auth": "src/mcp-auth.ts",
     "mcp-events": "src/mcp-events.ts",
     "internal/security/index": "src/internal/security/index.ts",

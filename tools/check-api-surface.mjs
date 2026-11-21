@@ -119,9 +119,29 @@ function membersOf(text) {
   };
 }
 
+const OPTIONAL_PROPERTY_LINE = /^\s*(?:readonly\s+)?[\w$]+\?:[^{}]*;$/;
+
+/**
+ * True when removing whole single-line optional properties from `next` gives `prev`: the same rule
+ * as below for members nested in an object type, a parameter or a class constructor.
+ */
+function onlyAddsOptionalPropertyLines(prev, next) {
+  const want = prev.split("\n");
+  let i = 0;
+  for (const line of next.split("\n")) {
+    if (line === want[i]) {
+      i += 1;
+    } else if (!OPTIONAL_PROPERTY_LINE.test(line)) {
+      return false;
+    }
+  }
+  return i === want.length;
+}
+
 /** True when `next` is `prev` plus new optional properties and nothing else. */
 export function onlyAddsOptionalProperties(prev, next) {
   if (prev === next) return true;
+  if (onlyAddsOptionalPropertyLines(prev, next)) return true;
   const a = membersOf(prev);
   const b = membersOf(next);
   if (!a || !b || a.header !== b.header) return false;

@@ -1811,6 +1811,74 @@
         "declaration": "export declare function verifyMcpEventSignature(secret: string, body: string | Buffer, signature: string | undefined): boolean;"
       }
     },
+    "./mcp#import": {
+      "McpConnection": {
+        "tier": "stable",
+        "declaration": "export interface McpConnection {\n    readonly protocolVersion: string;\n    listTools(): Promise<McpTool[]>;\n    callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult>;\n    listResources(): Promise<McpResource[]>;\n    readResource(uri: string): Promise<McpResourceContents[]>;\n    listPrompts(): Promise<McpPrompt[]>;\n    getPrompt(name: string, args?: Record<string, string>): Promise<{\n        description?: string;\n        messages: McpPromptMessage[];\n    }>;\n    close(): Promise<void>;\n}"
+      },
+      "McpPrompt": {
+        "tier": "stable",
+        "declaration": "export interface McpPrompt {\n    name: string;\n    description?: string;\n    arguments?: {\n        name: string;\n        description?: string;\n        required?: boolean;\n    }[];\n}"
+      },
+      "McpPromptMessage": {
+        "tier": "stable",
+        "declaration": "export interface McpPromptMessage {\n    role: \"user\" | \"assistant\";\n    content: unknown;\n}"
+      },
+      "McpResource": {
+        "tier": "stable",
+        "declaration": "export interface McpResource {\n    uri: string;\n    name: string;\n    description?: string;\n    mimeType?: string;\n}"
+      },
+      "McpResourceContents": {
+        "tier": "stable",
+        "declaration": "export interface McpResourceContents {\n    uri: string;\n    mimeType?: string;\n    text?: string;\n    blob?: string;\n}"
+      },
+      "McpTool": {
+        "tier": "stable",
+        "declaration": "export interface McpTool {\n    name: string;\n    description: string;\n    inputSchema: Record<string, unknown>;\n}"
+      },
+      "McpToolCallResult": {
+        "tier": "stable",
+        "declaration": "export interface McpToolCallResult {\n    content: Array<{\n        type: \"text\";\n        text: string;\n    }>;\n    isError?: boolean;\n}"
+      },
+      "connectMcpServer": {
+        "tier": "stable",
+        "declaration": "export declare function connectMcpServer(name: string, config: McpServerConfig): Promise<McpConnection>;"
+      }
+    },
+    "./mcp#require": {
+      "McpConnection": {
+        "tier": "stable",
+        "declaration": "export interface McpConnection {\n    readonly protocolVersion: string;\n    listTools(): Promise<McpTool[]>;\n    callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult>;\n    listResources(): Promise<McpResource[]>;\n    readResource(uri: string): Promise<McpResourceContents[]>;\n    listPrompts(): Promise<McpPrompt[]>;\n    getPrompt(name: string, args?: Record<string, string>): Promise<{\n        description?: string;\n        messages: McpPromptMessage[];\n    }>;\n    close(): Promise<void>;\n}"
+      },
+      "McpPrompt": {
+        "tier": "stable",
+        "declaration": "export interface McpPrompt {\n    name: string;\n    description?: string;\n    arguments?: {\n        name: string;\n        description?: string;\n        required?: boolean;\n    }[];\n}"
+      },
+      "McpPromptMessage": {
+        "tier": "stable",
+        "declaration": "export interface McpPromptMessage {\n    role: \"user\" | \"assistant\";\n    content: unknown;\n}"
+      },
+      "McpResource": {
+        "tier": "stable",
+        "declaration": "export interface McpResource {\n    uri: string;\n    name: string;\n    description?: string;\n    mimeType?: string;\n}"
+      },
+      "McpResourceContents": {
+        "tier": "stable",
+        "declaration": "export interface McpResourceContents {\n    uri: string;\n    mimeType?: string;\n    text?: string;\n    blob?: string;\n}"
+      },
+      "McpTool": {
+        "tier": "stable",
+        "declaration": "export interface McpTool {\n    name: string;\n    description: string;\n    inputSchema: Record<string, unknown>;\n}"
+      },
+      "McpToolCallResult": {
+        "tier": "stable",
+        "declaration": "export interface McpToolCallResult {\n    content: Array<{\n        type: \"text\";\n        text: string;\n    }>;\n    isError?: boolean;\n}"
+      },
+      "connectMcpServer": {
+        "tier": "stable",
+        "declaration": "export declare function connectMcpServer(name: string, config: McpServerConfig): Promise<McpConnection>;"
+      }
+    },
     "./messages#import": {
       "assistantText": {
         "tier": "stable",
@@ -2666,7 +2734,11 @@
       },
       "CreateSandboxBackendOptions": {
         "tier": "stable",
-        "declaration": "export interface CreateSandboxBackendOptions {\n    mode: SandboxMode;\n    workDir?: string;\n    network?: boolean | {\n        allow: readonly EgressRule[];\n    };\n    timeoutMs?: number;\n    denyReadPaths?: readonly string[];\n    detect?: () => BwrapDetection;\n    warn?: (message: string) => void;\n}"
+        "declaration": "export interface CreateSandboxBackendOptions {\n    mode: SandboxMode;\n    workDir?: string;\n    network?: boolean | {\n        allow: readonly EgressRule[];\n        credentials?: readonly CredentialRule[];\n    };\n    timeoutMs?: number;\n    denyReadPaths?: readonly string[];\n    detect?: () => BwrapDetection;\n    warn?: (message: string) => void;\n}"
+      },
+      "CredentialRule": {
+        "tier": "stable",
+        "declaration": "export interface CredentialRule {\n    readonly host: string;\n    readonly header: string;\n    readonly value: () => string | Promise<string>;\n    readonly placeholder: string;\n    readonly envVar?: string;\n}"
       },
       "DockerRunResult": {
         "tier": "stable",
@@ -2702,7 +2774,7 @@
       },
       "EgressProxy": {
         "tier": "stable",
-        "declaration": "export interface EgressProxy {\n    readonly socketPath: string;\n    readonly denied: readonly {\n        host: string;\n        port: number;\n        at: number;\n    }[];\n    close(): Promise<void>;\n}"
+        "declaration": "export interface EgressProxy {\n    readonly socketPath: string;\n    readonly denied: readonly {\n        host: string;\n        port: number;\n        at: number;\n        reason?: string;\n    }[];\n    readonly caCertPem?: string;\n    close(): Promise<void>;\n}"
       },
       "EgressRule": {
         "tier": "stable",
@@ -2718,7 +2790,7 @@
       },
       "LinuxSandbox": {
         "tier": "stable",
-        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly egress;\n    private disposed;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean | {\n            allow: readonly EgressRule[];\n        };\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    dispose(): Promise<void>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    executeStreaming(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    private plan;\n    private egressFailure;\n}"
+        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly egress;\n    private disposed;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean | {\n            allow: readonly EgressRule[];\n            credentials?: readonly CredentialRule[];\n        };\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    dispose(): Promise<void>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    executeStreaming(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    private plan;\n    private egressFailure;\n}"
       },
       "LocalSandbox": {
         "tier": "stable",
@@ -2864,7 +2936,7 @@
       },
       "startEgressProxy": {
         "tier": "stable",
-        "declaration": "export declare function startEgressProxy(options: {\n    allow: readonly EgressRule[];\n    socketPath?: string;\n}): Promise<EgressProxy>;"
+        "declaration": "export declare function startEgressProxy(options: {\n    allow: readonly EgressRule[];\n    credentials?: readonly CredentialRule[];\n    socketPath?: string;\n    log?: (line: string) => void;\n}): Promise<EgressProxy>;"
       },
       "wrapCommandForSandbox": {
         "tier": "stable",
@@ -2890,7 +2962,11 @@
       },
       "CreateSandboxBackendOptions": {
         "tier": "stable",
-        "declaration": "export interface CreateSandboxBackendOptions {\n    mode: SandboxMode;\n    workDir?: string;\n    network?: boolean | {\n        allow: readonly EgressRule[];\n    };\n    timeoutMs?: number;\n    denyReadPaths?: readonly string[];\n    detect?: () => BwrapDetection;\n    warn?: (message: string) => void;\n}"
+        "declaration": "export interface CreateSandboxBackendOptions {\n    mode: SandboxMode;\n    workDir?: string;\n    network?: boolean | {\n        allow: readonly EgressRule[];\n        credentials?: readonly CredentialRule[];\n    };\n    timeoutMs?: number;\n    denyReadPaths?: readonly string[];\n    detect?: () => BwrapDetection;\n    warn?: (message: string) => void;\n}"
+      },
+      "CredentialRule": {
+        "tier": "stable",
+        "declaration": "export interface CredentialRule {\n    readonly host: string;\n    readonly header: string;\n    readonly value: () => string | Promise<string>;\n    readonly placeholder: string;\n    readonly envVar?: string;\n}"
       },
       "DockerRunResult": {
         "tier": "stable",
@@ -2926,7 +3002,7 @@
       },
       "EgressProxy": {
         "tier": "stable",
-        "declaration": "export interface EgressProxy {\n    readonly socketPath: string;\n    readonly denied: readonly {\n        host: string;\n        port: number;\n        at: number;\n    }[];\n    close(): Promise<void>;\n}"
+        "declaration": "export interface EgressProxy {\n    readonly socketPath: string;\n    readonly denied: readonly {\n        host: string;\n        port: number;\n        at: number;\n        reason?: string;\n    }[];\n    readonly caCertPem?: string;\n    close(): Promise<void>;\n}"
       },
       "EgressRule": {
         "tier": "stable",
@@ -2942,7 +3018,7 @@
       },
       "LinuxSandbox": {
         "tier": "stable",
-        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly egress;\n    private disposed;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean | {\n            allow: readonly EgressRule[];\n        };\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    dispose(): Promise<void>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    executeStreaming(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    private plan;\n    private egressFailure;\n}"
+        "declaration": "export declare class LinuxSandbox extends LocalSandbox {\n    private readonly mode;\n    private readonly network;\n    private readonly egress;\n    private disposed;\n    private readonly cwd;\n    private readonly bin;\n    private readonly env;\n    private readonly seccompProgram;\n    private readonly denyReadPaths;\n    readonly networkPolicy: SandboxNetworkPolicy;\n    constructor(config: SandboxConfig, opts: {\n        mode: SandboxMode;\n        network?: boolean | {\n            allow: readonly EgressRule[];\n            credentials?: readonly CredentialRule[];\n        };\n        bin?: string;\n        env?: Record<string, string>;\n        denyReadPaths?: readonly string[];\n    });\n    wrapCommand(command: string): string | null;\n    dispose(): Promise<void>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    executeStreaming(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    private plan;\n    private egressFailure;\n}"
       },
       "LocalSandbox": {
         "tier": "stable",
@@ -3088,7 +3164,7 @@
       },
       "startEgressProxy": {
         "tier": "stable",
-        "declaration": "export declare function startEgressProxy(options: {\n    allow: readonly EgressRule[];\n    socketPath?: string;\n}): Promise<EgressProxy>;"
+        "declaration": "export declare function startEgressProxy(options: {\n    allow: readonly EgressRule[];\n    credentials?: readonly CredentialRule[];\n    socketPath?: string;\n    log?: (line: string) => void;\n}): Promise<EgressProxy>;"
       },
       "wrapCommandForSandbox": {
         "tier": "stable",
@@ -3609,6 +3685,34 @@
       "getTaskStoreFor": {
         "tier": "stable",
         "declaration": "export declare function getTaskStoreFor(options: TaskStoreOptions): TaskStore;"
+      }
+    },
+    "./telemetry-node#import": {
+      "RegisterTelemetryOptions": {
+        "tier": "stable",
+        "declaration": "export interface RegisterTelemetryOptions {\n    endpoint: string;\n    serviceName: string;\n    prometheusPort?: number;\n    exportTimeoutMs?: number;\n    metricIntervalMs?: number;\n    onExportError?: (line: string) => void;\n    spanExporter?: SpanExporter;\n    metricExporter?: PushMetricExporter;\n}"
+      },
+      "RegisteredTelemetry": {
+        "tier": "stable",
+        "declaration": "export interface RegisteredTelemetry {\n    readonly prometheusEndpoint: Promise<string | undefined>;\n    flush(): Promise<void>;\n    shutdown(): Promise<void>;\n}"
+      },
+      "registerTelemetry": {
+        "tier": "stable",
+        "declaration": "export declare function registerTelemetry(options: RegisterTelemetryOptions): Promise<RegisteredTelemetry>;"
+      }
+    },
+    "./telemetry-node#require": {
+      "RegisterTelemetryOptions": {
+        "tier": "stable",
+        "declaration": "export interface RegisterTelemetryOptions {\n    endpoint: string;\n    serviceName: string;\n    prometheusPort?: number;\n    exportTimeoutMs?: number;\n    metricIntervalMs?: number;\n    onExportError?: (line: string) => void;\n    spanExporter?: SpanExporter;\n    metricExporter?: PushMetricExporter;\n}"
+      },
+      "RegisteredTelemetry": {
+        "tier": "stable",
+        "declaration": "export interface RegisteredTelemetry {\n    readonly prometheusEndpoint: Promise<string | undefined>;\n    flush(): Promise<void>;\n    shutdown(): Promise<void>;\n}"
+      },
+      "registerTelemetry": {
+        "tier": "stable",
+        "declaration": "export declare function registerTelemetry(options: RegisterTelemetryOptions): Promise<RegisteredTelemetry>;"
       }
     },
     "./testing#import": {
