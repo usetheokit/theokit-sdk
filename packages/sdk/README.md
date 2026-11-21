@@ -950,6 +950,23 @@ A call to a filtered-out tool is refused in the client with a tool error naming 
 
 ### MCP protocol revisions
 
+### Resources and prompts
+
+`connectMcpServer` from `@theokit/sdk/mcp` returns a connected client for one server's tools, resources and prompts. Nothing is added to an agent's context; you choose what to use.
+
+```ts
+import { connectMcpServer } from "@theokit/sdk/mcp";
+
+const mcp = await connectMcpServer("docs", { command: "node", args: ["docs-server.js"] });
+const resources = await mcp.listResources(); // follows nextCursor
+const [contents] = await mcp.readResource(resources[0].uri);
+const prompts = await mcp.listPrompts();
+const greeting = await mcp.getPrompt("greet", { name: "Ana" });
+await mcp.close();
+```
+
+A server that does not advertise `resources` (or `prompts`) makes those calls reject with a `ConfigurationError` of code `mcp_capability_missing`. A JSON-RPC error from the server becomes a `NetworkError` of code `mcp_rpc_error`.
+
 The MCP client supports the `2025-06-18`, `2025-03-26` and `2024-11-05` revisions. `initialize` offers the newest and keeps the revision the server answers; over HTTP that revision is then sent as `MCP-Protocol-Version` on every request. A server that answers a revision outside the list makes `initialize` reject with a `NetworkError` of code `mcp_protocol_unsupported`. To pin an older revision for a server that misbehaves on the newest, set `protocolVersion` on the server:
 
 ```ts

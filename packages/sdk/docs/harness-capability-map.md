@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1552 export(s) across 58 entry point(s).
+1556 export(s) across 59 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1135,15 +1135,11 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `DiscoveryRunnerOptions` | interface | Input to the context-discovery run: where to walk, how much of each file to keep, and which trust boundary an `@import` may not cross.  |
 | `DiscoveryScope` | type | Single filename ("AGENTS.md") or relative glob (".cursor/rules/*.mdc"). |
 | `DiscoverySpec` | interface | One kind of context file the runner knows how to find and read.  |
-| `FrontmatterScalar` | type | A value the frontmatter YAML subset can carry: string, number, boolean or string list. |
-| `FrontmatterSplit` | interface | The two halves of a markdown file: the text between the `---` fences, and everything after. |
-| `parseFrontmatterYaml` | function | Parse the YAML subset the loaders accept: `key: scalar`, `key: [a, b]`, and `key:` followed by `- item` lines.  |
 | `parseRules` | function | Split a `.theokit/rules/*.md` document into its frontmatter and its body.  |
 | `resolveContextImports` | function | Expand `@path` import directives in `content`, confined to `options.projectRoot`.  |
 | `ResolveContextImportsOptions` | interface | Options for {@link resolveContextImports } .  |
 | `runDiscovery` | function | Find, read and parse every context file the specs describe, and return them ready for the aggregator.  |
 | `shouldActivateRule` | function | Decide whether a parsed rule applies to this turn, given the files in scope.  |
-| `splitFrontmatter` | function | Split `---`-fenced frontmatter from the body.  |
 | `WithheldSpec` | interface | A spec a declaration did not admit, with the grant that would.  |
 | `withheldSpecs` | function | The mirror of {@link admittedSpecs } : the specs a declaration did NOT admit.  |
 
@@ -1431,6 +1427,19 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `safePathJoin` | function | Join `base` with `...parts` and ensure the resolved absolute path stays under `base`.  |
 | `sanitizeIdentifier` | function | Validate that `input` is a safe path component (skill name, agent ID, namespace, etc.) and return its lowercase form.  |
 | `validateArtifactPath` | function | T1.4 — validate a relative artifact path string BEFORE it is used to look up a fixture or to fetch from PaaS.  |
+
+## `@theokit/sdk/mcp`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `connectMcpServer` | function | Connects to one MCP server (same timeouts, reconnect, OAuth and env policy as the agent loop) and runs `initialize`.  |
+| `McpConnection` | interface | A connected, initialized MCP server. |
+| `McpPrompt` | interface | A named prompt template a server publishes. |
+| `McpPromptMessage` | interface | One message of a rendered prompt. |
+| `McpResource` | interface | A resource a server publishes. |
+| `McpResourceContents` | interface | One content block of a resource read: `text` or base64 `blob`. |
+| `McpTool` | interface | A tool an MCP server advertises through `tools/list`. |
+| `McpToolCallResult` | interface | The result of an MCP `tools/call`. |
 
 ## `@theokit/sdk/mcp-auth`
 
