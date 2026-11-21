@@ -33,6 +33,7 @@ export type { ActiveMemoryQueryMode, ActiveMemoryResult, ActiveMemoryStatus };
 // T4.1 / D438 — `ActiveMemoryQueryMode`, `ActiveMemoryStatus`, and
 // `ActiveMemoryResult` now live in `./active-memory-types.ts` and are
 // re-exported at the top of this module for back-compat.
+/** Tuning options for blocking active-memory recall. */
 
 export interface ActiveMemoryOptions {
   /** Whether active recall is enabled. Default `false`. */

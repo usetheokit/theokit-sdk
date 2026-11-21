@@ -616,7 +616,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `ActiveMemoryCache` | class | TTL cache of active-memory results, bounded in size with oldest-first eviction. |
 | `ActiveMemoryCacheOptions` | interface | TTL-bounded cache for `runActiveMemory` results.  |
-| `ActiveMemoryOptions` | interface | Active Memory blocking recall (ADR D6 of memory-system-peer-project-parity).  |
+| `ActiveMemoryOptions` | interface | Tuning options for blocking active-memory recall. |
 | `ActiveMemoryQueryMode` | type | Type-leaf — shared types between `active-memory.ts` and `active-memory-cache.ts`.  |
 | `ActiveMemoryResult` | interface | Result of an active-memory recall. |
 | `ActiveMemoryStatus` | type | Outcome status of an active-memory recall. |
@@ -1297,7 +1297,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `ActiveMemoryCache` | class | TTL cache of active-memory results, bounded in size with oldest-first eviction. |
 | `ActiveMemoryCacheOptions` | interface | TTL-bounded cache for `runActiveMemory` results.  |
-| `ActiveMemoryOptions` | interface | Active Memory blocking recall (ADR D6 of memory-system-peer-project-parity).  |
+| `ActiveMemoryOptions` | interface | Tuning options for blocking active-memory recall. |
 | `ActiveMemoryQueryMode` | type | Type-leaf — shared types between `active-memory.ts` and `active-memory-cache.ts`.  |
 | `ActiveMemoryResult` | interface | Result of an active-memory recall. |
 | `ActiveMemoryStatus` | type | Outcome status of an active-memory recall. |
