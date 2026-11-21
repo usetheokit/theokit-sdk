@@ -207,7 +207,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `personality_reserved_name` | domain | ConfigurationError | `packages/sdk/src/internal/personality/registry.ts:110` |
 | `pinned_credential_missing` | domain | ProviderCredentialError | `packages/sdk/src/internal/auth/resolve-provider-credential.ts:161` +1 |
 | `pipeline_duplicate_provider` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/system-prompt/pipeline.ts:33` |
-| `plugin_already_installed` | domain | ConfigurationError | `packages/sdk/src/workspace-plugins.ts:178` |
+| `plugin_already_installed` | domain | ConfigurationError | `packages/sdk/src/workspace-plugins.ts:179` |
 | `plugin_entry_import_failed` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/manifest-entry-import.ts:78` |
 | `plugin_entry_missing` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/plugins-manager.ts:137` |
 | `plugin_entry_shape` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/plugin-loader/manifest-entry-import.ts:85` |
