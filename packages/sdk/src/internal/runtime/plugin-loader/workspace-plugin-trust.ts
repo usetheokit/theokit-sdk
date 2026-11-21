@@ -11,7 +11,6 @@
  * @internal
  */
 
-import { readFileSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { diag } from "../../diagnostics.js";
 import { readTrustArray, type TrustArrayShape, trustFilePath } from "../../providers/trust-gate.js";
@@ -40,32 +39,4 @@ export function readTrustedWorkspaceFolders(): Set<string> {
     );
   }
   return trusted;
-}
-
-/**
- * The raw record for a read-modify-write. Unlike {@link readTrustedWorkspaceFolders} it does not
- * fail closed to empty: `null` is a missing file, and a record that cannot be read as an array of
- * strings is reported through `onInvalid` (which throws) so a caller never overwrites it.
- */
-export function readWorkspaceTrustRecordStrict(
-  onInvalid: (path: string, reason: string, cause?: unknown) => never,
-): string[] {
-  const path = workspaceTrustRecordPath();
-  let raw: string;
-  try {
-    raw = readFileSync(path, "utf-8");
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
-    return onInvalid(path, "cannot be read", err);
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (err) {
-    return onInvalid(path, "is not valid JSON", err);
-  }
-  if (!Array.isArray(parsed) || !parsed.every((e) => typeof e === "string")) {
-    return onInvalid(path, "is not a JSON array of folder paths");
-  }
-  return parsed as string[];
 }

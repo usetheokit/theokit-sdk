@@ -349,28 +349,6 @@ import { listWorkspacePlugins } from "@theokit/sdk";
 const plugins = await listWorkspacePlugins(process.cwd(), { compatSources: ["claude-code"] });
 ```
 
-### Install and trust a workspace plugin
-
-The SDK imports a workspace plugin's `entry` only when the folder's realpath is listed in
-`~/.theokit/plugins/trusted-workspace-plugins.json`. Use these functions instead of editing that file:
-
-```ts
-import { installWorkspacePlugin, parsePluginManifest, trustWorkspacePlugin } from "@theokit/sdk";
-
-// Validate PLUGIN.md (name, relative entry, version defaulting to 0.0.0), copy the folder to
-// <workspace>/.theokit/plugins/<name>/ and trust the copy.
-const manifest = await installWorkspacePlugin({ source: "./echo-plugin", workspace: process.cwd() });
-// An existing destination is refused unless `replace: true`; the new copy is staged and renamed.
-
-await trustWorkspacePlugin("/path/to/plugin-folder"); // idempotent, atomic write, mode 0600
-await untrustWorkspacePlugin("/path/to/plugin-folder"); // true when an entry was removed
-```
-
-`parsePluginManifest(text)` throws `PluginManifestError` for a bad name or an entry that leaves the
-plugin folder; an entry that is missing, not a file, or a symlink out of the source is refused at
-install. A trust record that exists but cannot be parsed makes these calls throw `TrustRecordError`
-naming the file, and it is never overwritten.
-
 A `"general"` plugin registers hooks through `ctx.on`. The handler is typed by hook name, so the
 context needs no cast and a `pre_tool_call` veto is checked (`block` is the literal `true`):
 

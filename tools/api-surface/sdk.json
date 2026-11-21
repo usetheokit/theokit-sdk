@@ -1048,10 +1048,6 @@
         "tier": "stable",
         "declaration": "declare class NetworkError extends TheokitAgentError {\n    readonly name: string;\n    constructor(message: string, options?: {\n        code?: string;\n        cause?: unknown;\n        metadata?: ErrorMetadata;\n    });\n}"
       },
-      "PluginManifestError": {
-        "tier": "stable",
-        "declaration": "declare class PluginManifestError extends ConfigurationError {\n    readonly name: string;\n    constructor(message: string, options?: {\n        cause?: unknown;\n    });\n}"
-      },
       "ProfileConflictError": {
         "tier": "stable",
         "declaration": "declare class ProfileConflictError extends ConfigurationError {\n    readonly name: string;\n    readonly variables: readonly string[];\n    constructor(variables: readonly string[]);\n}"
@@ -1079,10 +1075,6 @@
       "ToolCallBlockedError": {
         "tier": "stable",
         "declaration": "declare class ToolCallBlockedError extends TheokitAgentError {\n    readonly name: string;\n    readonly toolName: string;\n    readonly pluginMessage: string;\n    constructor(toolName: string, pluginMessage: string);\n}"
-      },
-      "TrustRecordError": {
-        "tier": "stable",
-        "declaration": "declare class TrustRecordError extends ConfigurationError {\n    readonly name: string;\n    readonly path: string;\n    constructor(path: string, reason: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
       "UnknownAgentError": {
         "tier": "stable",
@@ -1190,10 +1182,6 @@
         "tier": "stable",
         "declaration": "declare class NetworkError extends TheokitAgentError {\n    readonly name: string;\n    constructor(message: string, options?: {\n        code?: string;\n        cause?: unknown;\n        metadata?: ErrorMetadata;\n    });\n}"
       },
-      "PluginManifestError": {
-        "tier": "stable",
-        "declaration": "declare class PluginManifestError extends ConfigurationError {\n    readonly name: string;\n    constructor(message: string, options?: {\n        cause?: unknown;\n    });\n}"
-      },
       "ProfileConflictError": {
         "tier": "stable",
         "declaration": "declare class ProfileConflictError extends ConfigurationError {\n    readonly name: string;\n    readonly variables: readonly string[];\n    constructor(variables: readonly string[]);\n}"
@@ -1221,10 +1209,6 @@
       "ToolCallBlockedError": {
         "tier": "stable",
         "declaration": "declare class ToolCallBlockedError extends TheokitAgentError {\n    readonly name: string;\n    readonly toolName: string;\n    readonly pluginMessage: string;\n    constructor(toolName: string, pluginMessage: string);\n}"
-      },
-      "TrustRecordError": {
-        "tier": "stable",
-        "declaration": "declare class TrustRecordError extends ConfigurationError {\n    readonly name: string;\n    readonly path: string;\n    constructor(path: string, reason: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
       "UnknownAgentError": {
         "tier": "stable",
@@ -5129,14 +5113,6 @@
         "tier": "stable",
         "declaration": "type PluginHookDisposer = () => void;"
       },
-      "PluginManifest": {
-        "tier": "stable",
-        "declaration": "interface PluginManifest {\n    name: string;\n    version: string;\n    entry: string;\n}"
-      },
-      "PluginManifestError": {
-        "tier": "stable",
-        "declaration": "declare class PluginManifestError extends ConfigurationError {\n    readonly name: string;\n    constructor(message: string, options?: {\n        cause?: unknown;\n    });\n}"
-      },
       "PluginsSettings": {
         "tier": "stable",
         "declaration": "interface PluginsSettings {\n    enabled?: string[];\n}"
@@ -5829,10 +5805,6 @@
         "tier": "stable",
         "declaration": "interface TrustPostureInput<K extends string> {\n    readonly capabilities: readonly K[];\n    readonly isTrusted: () => boolean;\n    readonly envOverride?: boolean;\n}"
       },
-      "TrustRecordError": {
-        "tier": "stable",
-        "declaration": "declare class TrustRecordError extends ConfigurationError {\n    readonly name: string;\n    readonly path: string;\n    constructor(path: string, reason: string, options?: {\n        cause?: unknown;\n    });\n}"
-      },
       "TrustSource": {
         "tier": "stable",
         "declaration": "type TrustSource = \"env\" | \"store\" | \"default\";"
@@ -6033,10 +6005,6 @@
         "tier": "stable",
         "declaration": "declare function inferApiMode(provider: string): ApiMode;"
       },
-      "installWorkspacePlugin": {
-        "tier": "stable",
-        "declaration": "declare function installWorkspacePlugin(input: {\n    source: string;\n    workspace: string;\n    replace?: boolean;\n}): Promise<PluginManifest>;"
-      },
       "isBuiltinToolName": {
         "tier": "stable",
         "declaration": "declare function isBuiltinToolName(name: string): name is BuiltinToolName;"
@@ -6092,10 +6060,6 @@
       "parsePermissionRules": {
         "tier": "stable",
         "declaration": "declare function parsePermissionRules(set: PermissionRuleSet): PermissionRule[];"
-      },
-      "parsePluginManifest": {
-        "tier": "stable",
-        "declaration": "declare function parsePluginManifest(text: string): PluginManifest;"
       },
       "permissionFloorReason": {
         "tier": "stable",
@@ -6160,14 +6124,6 @@
       "toShareGptTrajectory": {
         "tier": "stable",
         "declaration": "declare function toShareGptTrajectory(result: BatchResult, options?: {\n    messages?: SDKMessage[];\n    model?: string;\n}): ShareGptTrajectory | null;"
-      },
-      "trustWorkspacePlugin": {
-        "tier": "stable",
-        "declaration": "declare function trustWorkspacePlugin(folder: string): Promise<void>;"
-      },
-      "untrustWorkspacePlugin": {
-        "tier": "stable",
-        "declaration": "declare function untrustWorkspacePlugin(folder: string): Promise<boolean>;"
       },
       "verifyLayerOrdering": {
         "tier": "stable",
@@ -7108,14 +7064,6 @@
         "tier": "stable",
         "declaration": "type PluginHookDisposer = () => void;"
       },
-      "PluginManifest": {
-        "tier": "stable",
-        "declaration": "interface PluginManifest {\n    name: string;\n    version: string;\n    entry: string;\n}"
-      },
-      "PluginManifestError": {
-        "tier": "stable",
-        "declaration": "declare class PluginManifestError extends ConfigurationError {\n    readonly name: string;\n    constructor(message: string, options?: {\n        cause?: unknown;\n    });\n}"
-      },
       "PluginsSettings": {
         "tier": "stable",
         "declaration": "interface PluginsSettings {\n    enabled?: string[];\n}"
@@ -7808,10 +7756,6 @@
         "tier": "stable",
         "declaration": "interface TrustPostureInput<K extends string> {\n    readonly capabilities: readonly K[];\n    readonly isTrusted: () => boolean;\n    readonly envOverride?: boolean;\n}"
       },
-      "TrustRecordError": {
-        "tier": "stable",
-        "declaration": "declare class TrustRecordError extends ConfigurationError {\n    readonly name: string;\n    readonly path: string;\n    constructor(path: string, reason: string, options?: {\n        cause?: unknown;\n    });\n}"
-      },
       "TrustSource": {
         "tier": "stable",
         "declaration": "type TrustSource = \"env\" | \"store\" | \"default\";"
@@ -8012,10 +7956,6 @@
         "tier": "stable",
         "declaration": "declare function inferApiMode(provider: string): ApiMode;"
       },
-      "installWorkspacePlugin": {
-        "tier": "stable",
-        "declaration": "declare function installWorkspacePlugin(input: {\n    source: string;\n    workspace: string;\n    replace?: boolean;\n}): Promise<PluginManifest>;"
-      },
       "isBuiltinToolName": {
         "tier": "stable",
         "declaration": "declare function isBuiltinToolName(name: string): name is BuiltinToolName;"
@@ -8071,10 +8011,6 @@
       "parsePermissionRules": {
         "tier": "stable",
         "declaration": "declare function parsePermissionRules(set: PermissionRuleSet): PermissionRule[];"
-      },
-      "parsePluginManifest": {
-        "tier": "stable",
-        "declaration": "declare function parsePluginManifest(text: string): PluginManifest;"
       },
       "permissionFloorReason": {
         "tier": "stable",
@@ -8139,14 +8075,6 @@
       "toShareGptTrajectory": {
         "tier": "stable",
         "declaration": "declare function toShareGptTrajectory(result: BatchResult, options?: {\n    messages?: SDKMessage[];\n    model?: string;\n}): ShareGptTrajectory | null;"
-      },
-      "trustWorkspacePlugin": {
-        "tier": "stable",
-        "declaration": "declare function trustWorkspacePlugin(folder: string): Promise<void>;"
-      },
-      "untrustWorkspacePlugin": {
-        "tier": "stable",
-        "declaration": "declare function untrustWorkspacePlugin(folder: string): Promise<boolean>;"
       },
       "verifyLayerOrdering": {
         "tier": "stable",
