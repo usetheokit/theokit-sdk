@@ -154,7 +154,7 @@ function resolveEntryPath(
  *
  * @internal
  */
-function splitFrontmatter(
+export function splitFrontmatter(
   raw: string,
   source: string,
   errorCodePrefix: string,
