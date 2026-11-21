@@ -850,6 +850,19 @@ Workflow.create({ name: "checkout" })
 
 By default a workflow writes a snapshot only when a step calls `suspend()`. Set `persistence: { backend: "json", dir, durability: "step" }` and the run is also checkpointed after every completed top-level step (not the children of `parallel`, `branch` or `foreach`). A completed run deletes its checkpoint; a failed or cancelled run keeps it. After a crash, `Workflow.resume({ workflow, runId })` continues from the step after the last checkpoint, and `workflow.listRuns()` returns `{ runId, status: "suspended" | "running", currentStepId, updatedAt }` for the snapshots the store holds for that workflow name. `durability: "step"` with `backend: "memory"` is allowed (useful in tests) but does not survive a restart. A crash between a step's side effect and its checkpoint can repeat that step. The run lock is still per process: it does not stop a second process from resuming the same run.
 
+
+### Re-run from a step: `keepHistory`, `history()` and `rerunFrom()`
+
+With `durability: "step"`, set `keepHistory: true` to keep every checkpoint of a run instead of only the latest (the json backend writes `{dir}/{runId}/{index}-{stepId}.json`; a completed run keeps its history). `keepHistory` without `durability: "step"` makes `Workflow.create()` throw `ConfigurationError`.
+
+```ts
+const checkpoints = await workflow.history(runId); // [{ runId, stepId, output, state?, at }], oldest first
+const retry = await workflow.rerunFrom({ runId, stepId: "s3" }); // optional: input, signal
+retry.rerunOf; // { runId, stepId: "s3" }
+```
+
+`rerunFrom` forks the run: it mints a new run id and executes `stepId` and every top-level step after it, with the output and shared `state` the run had just before `stepId` (or `input` when given; for the first step, the original run's input). Steps before `stepId` do not run again, and the original run's history is not modified. An unknown `runId` (or one without history) throws `WorkflowSnapshotNotFoundError`; a `stepId` that is not a top-level step throws `WorkflowResumeStepNotFoundError`. Steps nested in `parallel`, `branch` or `foreach` cannot be a starting point.
+
 ## Resuming a workflow run by id: `WorkflowSet`
 
 When an app runs several workflows that suspend, the run id is the only token you hand out. `WorkflowSet.of([...]).resume(runId, payload)` finds the workflow that owns it:

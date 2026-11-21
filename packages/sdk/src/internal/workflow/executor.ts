@@ -178,6 +178,8 @@ interface LoopParams {
   initialStepResults?: ReadonlyArray<StepResult>;
   /** SE28 — sink for step-level stream events (top-level steps). */
   onStepEvent?: (event: WorkflowEvent) => void;
+  /** `keepHistory` — the shared state before any step ran, kept on the first checkpoint. */
+  startState?: unknown;
 }
 
 /** Emit events + branch on one step's outcome. Returns a terminal run, or the new acc. */
@@ -240,7 +242,7 @@ async function checkpointStep<TO>(
   const { options, runId, startedAt } = params;
   if (options.persistence?.durability !== "step") return undefined;
   try {
-    await saveSnapshot({
+    const snapshotParams: SnapshotParams = {
       runId,
       workflowName: options.name,
       currentStepId: step.id,
@@ -249,7 +251,15 @@ async function checkpointStep<TO>(
       state: params.ctx.state,
       options,
       status: "running",
-    });
+    };
+    await saveSnapshot(snapshotParams);
+    if (options.persistence.keepHistory === true) {
+      const index = stepResults.length - 1;
+      await getSnapshotStoreFor(options).appendHistory(index, {
+        snapshot: buildSnapshot(snapshotParams),
+        ...(index === 0 ? { runInput: params.input, initialState: params.startState } : {}),
+      });
+    }
     return undefined;
   } catch (snapErr) {
     return assembleRun<TO>({
@@ -339,13 +349,29 @@ async function runStepsLoop<TO>(params: LoopParams): Promise<WorkflowRun<TO>> {
 /** M3 #62 — internal-only resume seam: prior step outputs are NOT on the public
  * WorkflowRunOptions (a consumer must not inject fabricated results into a fresh run);
  * resumeWorkflow sets them via this cast. */
-type InternalRunOpts = WorkflowRunOptions & {
+export type InternalRunOpts = WorkflowRunOptions & {
   readonly initialStepResults?: ReadonlyArray<StepResult>;
   /** SE28 — internal step-event sink threaded by `Workflow.stream()`. */
   readonly onStepEvent?: (event: WorkflowEvent) => void;
   /** SE29 — shared state restored from a snapshot on resume. */
   readonly restoredState?: unknown;
+  /** `rerunFrom` — the input was validated for the whole workflow already (or does not apply). */
+  readonly skipInputValidation?: boolean;
 };
+
+function loopExtras(
+  options: WorkflowOptions,
+  internal: InternalRunOpts | undefined,
+  seededState: unknown,
+): Partial<LoopParams> {
+  return {
+    ...(internal?.initialStepResults !== undefined
+      ? { initialStepResults: internal.initialStepResults }
+      : {}),
+    ...(internal?.onStepEvent !== undefined ? { onStepEvent: internal.onStepEvent } : {}),
+    ...(options.persistence?.keepHistory === true ? { startState: cloneJson(seededState) } : {}),
+  };
+}
 
 export async function executeWorkflow<TInput, TOutput>(
   options: WorkflowOptions,
@@ -375,7 +401,9 @@ export async function executeWorkflow<TInput, TOutput>(
   const ctx: StepContext = makeStepContext(runId, signal, stateController);
   try {
     // SE27 — validate the whole-workflow input BEFORE any step runs (fail-fast).
-    const inputIssues = validateWorkflowSchema(options.inputSchema, input);
+    const inputIssues = internal?.skipInputValidation
+      ? undefined
+      : validateWorkflowSchema(options.inputSchema, input);
     if (inputIssues !== undefined) {
       return assembleRun<TOutput>({
         runId,
@@ -409,10 +437,7 @@ export async function executeWorkflow<TInput, TOutput>(
       runId,
       startedAt,
       signal,
-      ...(internal?.initialStepResults !== undefined
-        ? { initialStepResults: internal.initialStepResults }
-        : {}),
-      ...(internal?.onStepEvent !== undefined ? { onStepEvent: internal.onStepEvent } : {}),
+      ...loopExtras(options, internal, seededState),
     });
   } finally {
     runSpan.end();
@@ -468,8 +493,16 @@ interface SnapshotParams {
   status?: "running";
 }
 
-async function saveSnapshot(p: SnapshotParams): Promise<void> {
-  const snapshot: WorkflowSnapshot = {
+function cloneJson(value: unknown): unknown {
+  try {
+    return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+  } catch {
+    return undefined; // not serializable: appendHistory reports it with the step id
+  }
+}
+
+function buildSnapshot(p: SnapshotParams): WorkflowSnapshot {
+  return {
     _schemaVersion: p.status === "running" ? 3 : 2, // SE29 — carries `state`; v3 adds `status`
     ...(p.status !== undefined ? { status: p.status } : {}),
     runId: p.runId,
@@ -481,8 +514,10 @@ async function saveSnapshot(p: SnapshotParams): Promise<void> {
     ...(p.state !== undefined ? { state: p.state } : {}),
     suspendedAt: Date.now(),
   };
-  const store = getSnapshotStoreFor(p.options);
-  await store.save(snapshot);
+}
+
+async function saveSnapshot(p: SnapshotParams): Promise<void> {
+  await getSnapshotStoreFor(p.options).save(buildSnapshot(p));
 }
 
 /* ─── Resume ─── */

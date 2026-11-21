@@ -43,9 +43,11 @@ import type {
   Step,
   StepContext,
   SuspendStep,
+  WorkflowCheckpoint,
   WorkflowDescription,
   WorkflowEvent,
   WorkflowOptions,
+  WorkflowRerunOptions,
   WorkflowResumeOptions,
   WorkflowRun,
   WorkflowRunOptions,
@@ -373,6 +375,20 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
   static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO> {
     WorkflowOptionsSchema.parse(options);
     DurabilitySchema.parse(options.persistence?.durability);
+    if (
+      options.persistence?.keepHistory !== undefined &&
+      typeof options.persistence.keepHistory !== "boolean"
+    ) {
+      throw new ConfigurationError("persistence.keepHistory must be a boolean", {
+        code: "invalid_workflow_options",
+      });
+    }
+    if (options.persistence?.keepHistory === true && options.persistence.durability !== "step") {
+      throw new ConfigurationError(
+        'persistence.keepHistory requires persistence.durability: "step"',
+        { code: "invalid_workflow_options" },
+      );
+    }
     return new WorkflowBuilder<TI, TO>(options);
   }
 
@@ -487,6 +503,27 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
       }
     })();
     return Object.assign(queue, { result });
+  }
+
+  /**
+   * The checkpoints kept for `runId` (`keepHistory: true`), oldest first. Throws
+   * `WorkflowSnapshotNotFoundError` when the run has none.
+   */
+  async history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>> {
+    const { workflowHistory } = await import("./internal/workflow/executor-rerun.js");
+    return workflowHistory(this._options, runId);
+  }
+
+  /**
+   * Fork a run: execute `stepId` and every top-level step after it under a NEW run id, starting from
+   * the output and shared state the run had just before `stepId` (or `input` when given). The original
+   * run's checkpoints are not modified; the returned run carries `rerunOf`. Throws
+   * `WorkflowSnapshotNotFoundError` without history for `runId` and
+   * `WorkflowResumeStepNotFoundError` when `stepId` is not a top-level step. Needs `keepHistory: true`.
+   */
+  async rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>> {
+    const { rerunWorkflow } = await import("./internal/workflow/executor-rerun.js");
+    return rerunWorkflow<TOutput>(this._options, this._steps, opts);
   }
 
   /**
