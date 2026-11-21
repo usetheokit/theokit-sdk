@@ -22,6 +22,10 @@ const MAX_MD_FILE_BYTES = 1_048_576; // 1 MB
 import type { z } from "zod";
 
 import { ConfigurationError } from "../../errors.js";
+import {
+  type FrontmatterSplit,
+  splitFrontmatter as splitFences,
+} from "../runtime/context/frontmatter.js";
 import { parseSimpleYaml } from "../runtime/context/yaml-frontmatter.js";
 
 export interface MarkdownEntity<T> {
@@ -159,19 +163,19 @@ function splitFrontmatter(
   source: string,
   errorCodePrefix: string,
 ): { frontmatter: string; body: string } {
-  // Strict: file MUST start with `---\n`, then frontmatter content, then `---\n`.
-  // The body is whatever follows the closing `---`. Other `---` lines in body
-  // (horizontal rules) are NOT confused with the frontmatter delim because
-  // the regex anchors `^---\s*\n` at the start of the file.
-  const match = /^---\s*\n([\s\S]*?)\n---\s*(?:\n|$)/.exec(raw);
-  if (match === null) {
-    throw new ConfigurationError(
+  // Strict: the file MUST open with a `---` fence; other `---` lines in the body (horizontal
+  // rules) are not confused with the closing fence.
+  const missing = (cause?: unknown): ConfigurationError =>
+    new ConfigurationError(
       `Missing or malformed frontmatter in ${source} (expected \`---\` delimited block at file head)`,
-      { code: `${errorCodePrefix}_missing_frontmatter` },
+      { code: `${errorCodePrefix}_missing_frontmatter`, cause },
     );
+  let split: FrontmatterSplit;
+  try {
+    split = splitFences(raw);
+  } catch (cause) {
+    throw missing(cause);
   }
-  return {
-    frontmatter: match[1] ?? "",
-    body: raw.slice(match[0].length),
-  };
+  if (split.yaml === undefined) throw missing();
+  return { frontmatter: split.yaml, body: split.body };
 }
