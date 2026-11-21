@@ -122,4 +122,35 @@ describe("session pool", () => {
     expect(agents.get("a-g0")?.dispose).toHaveBeenCalledTimes(1);
     await pool.disposeAll();
   });
+
+  it("reset and disposeAll during a pending inner lease still dispose the agent", async () => {
+    for (const how of ["reset", "disposeAll"] as const) {
+      const agent = { agentId: "k-g0", dispose: vi.fn(async () => {}) } as never as SDKAgent;
+      let grant: () => void = () => {};
+      let calls = 0;
+      const lease = (agentId: string): Promise<AgentLease> =>
+        ++calls > 1
+          ? Promise.resolve({
+              agent: { agentId, dispose: async () => {} } as never as SDKAgent,
+              agentId,
+              release: () => {},
+            })
+          : new Promise((r) => {
+              grant = () => r({ agent, agentId, release: () => {} });
+            });
+      const pool = createSessionPool({ open: () => ({ model: { id: "m" } }) as never }, lease);
+      const pending = pool.lease("k").catch((e: unknown) => e);
+      await tick();
+      const done = how === "reset" ? pool.reset("k") : pool.disposeAll({ drainMs: 20 });
+      await tick();
+      grant();
+      await done.catch(() => undefined);
+      const got = await pending;
+      await tick();
+      if (how === "disposeAll") expect(got).toBeInstanceOf(SessionPoolClosedError);
+      else expect((got as AgentLease).agentId).toBe("k-g1");
+      await tick();
+      expect(agent.dispose).toHaveBeenCalledTimes(1);
+    }
+  });
 });

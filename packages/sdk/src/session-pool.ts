@@ -120,6 +120,8 @@ interface Entry {
   readonly options: AgentOptions;
   agent: SDKAgent | undefined;
   readonly leases: Set<AgentLease>;
+  /** Inner leases still being acquired: the agent is unknown until they settle. */
+  readonly inflight: Set<Promise<unknown>>;
   idleWaiters: Array<() => void>;
   lastUsed: number;
   disposed: Promise<void> | undefined;
@@ -165,7 +167,15 @@ class Pool implements SessionPool {
         continue;
       }
       const entry = this.#open.get(key) ?? (await this.#openEntry(key));
-      const lease = await this.#lease(entry.id, entry.options);
+      const acquiring = this.#lease(entry.id, entry.options);
+      entry.inflight.add(acquiring);
+      let lease: AgentLease;
+      try {
+        lease = await acquiring;
+      } finally {
+        entry.inflight.delete(acquiring);
+      }
+      entry.agent = lease.agent;
       if (this.#open.get(key) === entry && !this.#closed) return this.#track(entry, lease);
       lease.release();
       this.#assertOpen(key);
@@ -190,6 +200,7 @@ class Pool implements SessionPool {
         options,
         agent: undefined,
         leases: new Set(),
+        inflight: new Set(),
         idleWaiters: [],
         lastUsed: Date.now(),
         disposed: undefined,
@@ -239,6 +250,9 @@ class Pool implements SessionPool {
   #disposeEntry(entry: Entry): Promise<void> {
     entry.disposed ??= (async () => {
       try {
+        // An agent still being leased is not known yet; the lease() that asked for it releases it
+        // as soon as it settles, so wait for that before disposing.
+        await Promise.allSettled([...entry.inflight]);
         await entry.agent?.dispose();
       } catch (cause) {
         const msg = cause instanceof Error ? cause.message : String(cause);
