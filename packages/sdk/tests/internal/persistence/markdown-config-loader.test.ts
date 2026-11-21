@@ -11,7 +11,10 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { loadMarkdownEntities } from "../../../src/internal/persistence/markdown-config-loader.js";
+import {
+  loadMarkdownEntities,
+  splitFrontmatter,
+} from "../../../src/internal/persistence/markdown-config-loader.js";
 
 const HookSchema = z.object({
   event: z.enum(["preToolUse", "postToolUse"]),
@@ -176,4 +179,41 @@ describe("loadMarkdownEntities — EACCES distinguished from ENOENT (EC-11)", ()
       }
     },
   );
+});
+
+describe("splitFrontmatter", () => {
+  const legacy = /^---\s*\n([\s\S]*?)\n---\s*(?:\n|$)/;
+  const cases = [
+    "---\na: 1\n---\nbody",
+    "---\r\na: 1\r\n---\r\nbody",
+    "---  \n\n a: 1\n---  \n\n# hr\n---\nx",
+    "---\n\n---\nbody",
+    "---\n---\nbody",
+    "---\na: 1\n---",
+    "---\na: 1\n---   ",
+    "---\na: 1\n--- x\n---\nbody",
+    "---\na: 1\n",
+    "--\na: 1\n---\n",
+    "",
+  ];
+  for (const raw of cases) {
+    it(`matches the legacy regex for ${JSON.stringify(raw)}`, () => {
+      const m = legacy.exec(raw);
+      if (m === null) {
+        expect(() => splitFrontmatter(raw, "x.md", "t")).toThrow();
+      } else {
+        expect(splitFrontmatter(raw, "x.md", "t")).toEqual({
+          frontmatter: m[1] ?? "",
+          body: raw.slice(m[0].length),
+        });
+      }
+    });
+  }
+
+  it("rejects long whitespace-heavy malformed input quickly", () => {
+    const raw = `---\n${"\n ".repeat(50_000)}`;
+    const t = Date.now();
+    expect(() => splitFrontmatter(raw, "x.md", "t")).toThrow();
+    expect(Date.now() - t).toBeLessThan(1000);
+  });
 });
