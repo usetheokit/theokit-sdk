@@ -7,7 +7,7 @@ import type { MemoryIndex } from "./memory-index.js";
 import type { MemoryRoot } from "./storage/memory-root.js";
 import { readMemoryFileBounded } from "./storage/reader.js";
 
-/**
+/*
  * Memory tools (`memory_search` + `memory_get`) — ADR D5 of
  * memory-system-peer-project-parity. Tool schemas mirror peer-project
  * (`reference/peer-project/extensions/memory-core/src/tools.ts:228-475`).

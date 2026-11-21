@@ -18,7 +18,7 @@ import { persistActiveMemoryTranscript } from "./storage/transcript-store.js";
 
 export type { ActiveMemoryQueryMode, ActiveMemoryResult, ActiveMemoryStatus };
 
-/**
+/*
  * Active Memory blocking recall (ADR D6 of memory-system-peer-project-parity).
  *
  * Runs BEFORE `agent.send()` assembles the system prompt. Issues a direct
