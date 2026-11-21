@@ -78,9 +78,7 @@ function normalizeEndpoint(endpoint: string): string {
       code: "telemetry_endpoint_invalid",
     });
   }
-  let end = endpoint.length;
-  while (end > 0 && endpoint.charCodeAt(end - 1) === 47) end--;
-  return endpoint.slice(0, end);
+  return endpoint.replace(/\/+$/, "");
 }
 
 async function loadPeer<T>(name: string): Promise<T> {
