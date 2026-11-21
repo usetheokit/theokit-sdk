@@ -464,29 +464,15 @@ function parseRecordLine(line: string): SessionRecord | undefined {
   }
 }
 
-/** What {@link readTranscriptDetailed} found: records, how many lines were dropped, and absence. */
-export interface TranscriptRead {
-  /** True when there is no transcript (ENOENT, or a runtime with no filesystem). */
-  readonly absent: boolean;
-  readonly records: SessionRecord[];
-  /** Lines that were not valid records (a trailing newline is a delimiter, not a line). */
-  readonly skippedLines: number;
-}
-
 /** Parse a transcript `.jsonl` into records; a missing file yields `[]`; malformed lines are skipped. */
 export async function readTranscript(path: string): Promise<SessionRecord[]> {
-  return (await readTranscriptDetailed(path)).records;
-}
-
-/** Like {@link readTranscript}, but also reports absence and the count of skipped lines. */
-export async function readTranscriptDetailed(path: string): Promise<TranscriptRead> {
   let raw: string;
   try {
     raw = await readFile(path, "utf8");
   } catch (cause) {
     const code = (cause as NodeJS.ErrnoException).code;
     // An absent file is an empty transcript — a first turn has none, so this is the common case.
-    if (code === "ENOENT") return ABSENT_TRANSCRIPT();
+    if (code === "ENOENT") return [];
     // And so is a runtime with no filesystem. The only call inside this `try` is `readFile`, and a
     // real filesystem failure ALWAYS carries a code: ENOENT, EACCES, EISDIR, EMFILE. An error with
     // no code did not come from a filesystem; it came from the absence of one — `unenv`'s
@@ -506,16 +492,12 @@ export async function readTranscriptDetailed(path: string): Promise<TranscriptRe
           cause instanceof Error ? cause.message : String(cause)
         }\n`,
       );
-      return ABSENT_TRANSCRIPT();
+      return [];
     }
     throw cause;
   }
-  const lines = raw.split("\n");
-  if (lines[lines.length - 1] === "") lines.pop();
-  const records = lines.map(parseRecordLine).filter((r): r is SessionRecord => r !== undefined);
-  return { absent: false, records, skippedLines: lines.length - records.length };
-}
-
-function ABSENT_TRANSCRIPT(): TranscriptRead {
-  return { absent: true, records: [], skippedLines: 0 };
+  return raw
+    .split("\n")
+    .map(parseRecordLine)
+    .filter((r): r is SessionRecord => r !== undefined);
 }

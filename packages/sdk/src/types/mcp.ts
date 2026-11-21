@@ -24,13 +24,6 @@ export type McpStdioServerConfig = {
    */
   requestTimeoutMs?: number;
   /**
-   * Pin the MCP protocol revision `initialize` offers, for a server that misbehaves on the newest.
-   * Default: the newest supported (`"2025-06-18"`). The server may still answer an older supported
-   * revision; an answer outside `"2025-06-18" | "2025-03-26" | "2024-11-05"` rejects `initialize`
-   * with `NetworkError` code `mcp_protocol_unsupported`.
-   */
-  protocolVersion?: "2025-06-18" | "2025-03-26" | "2024-11-05";
-  /**
    * #54 — env inherit/scrub policy for the spawned MCP server process. Defaults
    * to `"inherit-scrubbed"` (drop secret-like host vars: `*KEY*`/`*SECRET*`/
    * `*TOKEN*`/`*PASSWORD*`/`*_AUTH*`/…) so a third-party MCP server binary cannot
@@ -111,13 +104,6 @@ export type McpHttpServerConfig = {
    */
   requestTimeoutMs?: number;
   /**
-   * Pin the MCP protocol revision `initialize` offers, for a server that misbehaves on the newest.
-   * Default: the newest supported (`"2025-06-18"`). The server may still answer an older supported
-   * revision; an answer outside `"2025-06-18" | "2025-03-26" | "2024-11-05"` rejects `initialize`
-   * with `NetworkError` code `mcp_protocol_unsupported`.
-   */
-  protocolVersion?: "2025-06-18" | "2025-03-26" | "2024-11-05";
-  /**
    * Run the calls a model makes to this server's tools in ONE step one at a time, in the order the
    * model listed them, instead of at once. Set it for a stateful server whose tools act on shared
    * state, such as a browser MCP server where a snapshot must wait for the navigation before it.
@@ -143,40 +129,3 @@ export type McpHttpServerConfig = {
  * @public
  */
 export type McpServerConfig = McpStdioServerConfig | McpHttpServerConfig;
-
-/**
- * A server's request for user input in the middle of a tool call (MCP elicitation, 2025-06-18).
- *
- * @public
- */
-export interface McpElicitationRequest {
-  /** The configured name of the MCP server that asks. */
-  readonly serverName: string;
-  /** The question to show the user. */
-  readonly message: string;
-  /** JSON Schema of the answer: a flat object of primitive properties, per the spec. */
-  readonly requestedSchema: Record<string, unknown>;
-}
-
-/**
- * The answer to an {@link McpElicitationRequest}. `accept` carries the content; it is checked
- * against `requestedSchema` (required keys present, primitive types match) before it is sent.
- *
- * @public
- */
-export type McpElicitationResult =
-  | { readonly action: "accept"; readonly content: Record<string, unknown> }
-  | { readonly action: "decline" }
-  | { readonly action: "cancel" };
-
-/**
- * Answers MCP elicitation requests. The signal aborts when the run is cancelled or the client
- * closes. A handler that throws answers `cancel` and the error is reported on the diagnostics
- * channel.
- *
- * @public
- */
-export type McpElicitationHandler = (
-  request: McpElicitationRequest,
-  signal: AbortSignal,
-) => Promise<McpElicitationResult>;

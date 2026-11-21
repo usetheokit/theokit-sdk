@@ -42,5 +42,3 @@ export class Retry {
     return Retry.run(fn, options);
   }
 }
-
-export { CircuitBreaker, type CircuitBreakerOptions } from "./internal/retry/circuit-breaker.js";

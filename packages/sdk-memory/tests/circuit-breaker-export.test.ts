@@ -13,16 +13,11 @@
  * happens when Stage 3 source-move completes (iter 30 target).
  */
 
-import { CircuitBreaker as SdkCircuitBreaker } from "@theokit/sdk/retry";
 import type { CircuitBreakerOptions } from "@theokit/sdk-memory";
 import { CircuitBreaker } from "@theokit/sdk-memory";
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 describe("sdk-memory CircuitBreaker export (iter 44)", () => {
-  it("is the same constructor as @theokit/sdk/retry", () => {
-    expect(CircuitBreaker).toBe(SdkCircuitBreaker);
-  });
-
   it("test_CircuitBreaker_class_exported", () => {
     expect(typeof CircuitBreaker).toBe("function");
     const cb = new CircuitBreaker();

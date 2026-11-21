@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1548 export(s) across 58 entry point(s).
+1535 export(s) across 58 entry point(s).
 
 ## `@theokit/acp`
 
@@ -266,9 +266,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ManagedSettingsDocument` | interface | The managed-settings file as read: where it was, and every top-level key as written. |
 | `managedSettingsPathFor` | function | Where the platform keeps its managed settings.  |
 | `McpAuthConfig` | interface | OAuth-style auth bundle for HTTP/SSE MCP servers. |
-| `McpElicitationHandler` | type | Answers MCP elicitation requests.  |
-| `McpElicitationRequest` | interface | A server's request for user input in the middle of a tool call (MCP elicitation, 2025-06-18). |
-| `McpElicitationResult` | type | The answer to an {@link McpElicitationRequest } .  |
 | `McpHttpServerConfig` | type | HTTP or SSE MCP server. |
 | `McpOAuthConfig` | interface | OAuth 2.1 PKCE flow descriptor.  |
 | `McpServerConfig` | type | Union of MCP server configs. |
@@ -361,7 +358,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `readManagedSettings` | function | Read the deployed policy, or `{}` when none is.  |
 | `readManagedSettingsDocument` | function | Read the whole managed-settings file, for an app that defines its own keys (model, sandbox mode, approval policy) and lets an operator impose them through it.  |
 | `ReadManagedSettingsDocumentOptions` | interface | Options for `readManagedSettingsDocument`. |
-| `readSessionHistory` | function | Like {@link readSessionMessages } , but tells a session that does not exist (`absent`) from one that was read (`present`) and one that could not be (`unreadable`: a read error other than ENOENT, or... |
 | `readSessionMessages` | function | Read the messages a session already contains, for a surface that needs to re-render it.  |
 | `ReadSessionMessagesOptions` | interface | Which session to read, in the terms a host already has. |
 | `ReapableArtifact` | interface | One artifact the caller is considering deleting, described well enough to decide about.  |
@@ -429,7 +425,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `Security` | class | Secret masking at consumer output boundaries: pattern-based `redact` / `addPattern` and exact-value `createMask`. |
 | `SecurityFloorInput` | interface | The vocabulary, the layer names, and the values to resolve.  |
 | `SendOptions` | interface | Per-send overrides and callbacks.  |
-| `SessionHistory` | interface | A stored session as a host sees it: found, not there, or there but not readable. |
 | `SessionLifecycleContext` | interface | #65 — context for the `on_session_start` / `on_session_end` hooks.  |
 | `SessionMessage` | interface | One turn of a session.  |
 | `SessionMessagePart` | type | One structured element of a {@link SessionMessage } .  |
@@ -633,8 +628,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ceilingReachedError` | function | The refusal of a new fact at a store's declared ceiling: where the store is, how many facts it holds, the ceiling, and what to consolidate.  |
 | `chunkMarkdown` | function | Split a markdown document into heading- and paragraph-aligned chunks. |
 | `ChunkMarkdownOptions` | interface | Split a markdown document into semantically meaningful chunks (ADR D1 of memory-system-peer-project-parity).  |
-| `CircuitBreaker` | class | Consecutive-failure circuit breaker — a cross-cutting resilience primitive.  |
-| `CircuitBreakerOptions` | interface | Options for {@link CircuitBreaker } . |
+| `CircuitBreaker` | class | Stops calling a recall path that keeps timing out.  |
+| `CircuitBreakerOptions` | interface | Consecutive-timeout circuit breaker for Active Memory recall.  |
 | `claudeProjectMemoryDir` | function | Where the Claude Code CLI keeps THIS project's memories.  |
 | `Cluster` | interface | A group of semantically similar facts, with the text chosen to represent them. |
 | `ClusterResult` | interface | What clustering produced: the clusters and how many facts the per-sweep cap left out. |
@@ -1503,25 +1498,20 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `applyWalWithFallback` | function | Apply WAL mode with DELETE fallback.  |
 | `atomicWriteJson` | function | Typed JSON atomic write helper.  |
 | `AtomicWriteJsonOptions` | interface | Options for `atomicWriteJson`. |
-| `atomicWriteJsonSync` | function | Synchronous twin of {@link atomicWriteJson } : same temp naming, same mode reassertion, same cleanup on failure.  |
 | `atomicWriteTempTarget` | function | U-9 — the file a leftover temp was replacing, or `undefined` if this is not one of ours.  |
 | `atomicWriteText` | function | Atomic text write.  |
 | `classifySessionArtifact` | function | U-1 — what is this entry, if it is one of ours?  |
 | `encodeProjectDir` | function | Claude Code path convention: cwd with every non-alphanumeric replaced by `-`. |
-| `ensureSecureDir` | function | Create the parent directory of `filePath` as 0700 if missing; if it exists and group or other can write it, chmod it to 0700 and check again.  |
 | `FileLockOptions` | interface | Retry and staleness tuning for `withFileLock`.  |
 | `forkTranscript` | function | Copy `src` into `dst`, keeping the first `beforeRecordIndex` records.  |
 | `ForkTranscriptOptions` | interface | Options for {@link forkTranscript } . |
 | `getProfilesRoot` | function | The directory holding every profile: always `~/.theokit/profiles`, from `os.homedir()`.  |
 | `InMemorySessionStore` | class | A {@link SessionStore } whose records live in this object only: nothing is written to disk, and the transcript disappears with the process.  |
-| `InsecureDirectoryError` | class | A directory that must be owner-only is still writable by group or other after the repair. |
 | `InstanceLock` | interface | A held instance lock. |
 | `InstanceLockedError` | class | Another live process holds the instance lock, or the filesystem cannot hold one. |
 | `isCorruptionError` | function | True when an open error indicates an unreadable / corrupt database file. |
 | `JsonlParseError` | class | Raised when a JSONL line is not valid JSON or is not a JSON object.  |
 | `legacyTranscriptPath` | function | The path this session used BEFORE #400 made transcript filenames UUIDs.  |
-| `listProjects` | function | Every project folder under `<baseDir>/projects/`, with its cwd read from the transcripts inside.  |
-| `ListProjectsOptions` | interface | Options for {@link listProjects } . |
 | `listSessions` | function | Every session transcript under `<baseDir>/projects/<encoded-cwd>/`, with the id read from inside each file.  |
 | `ListSessionsOptions` | interface | Options for {@link listSessions } . |
 | `LiveSessionError` | class | M81 — the target is a protected session (live pointer / most-recent transcript / active entry).  |
@@ -1531,7 +1521,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `OpenSqliteResilientOptions` | interface | Input to {@link openSqliteResilient } .  |
 | `PersistenceSchema` | const | `persistence?` opt-in JSON disk backend with `dir` required when chosen.  |
 | `ProfileConflictError` | class | Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a variable the profile owns.  |
-| `ProjectListing` | interface | One `projects/<encoded>/` folder found on disk. |
 | `readJsonlIds` | function | Read the set of keys from an existing JSONL file for which `keyFn(parsed)` returns a non-empty string.  |
 | `readJsonlTail` | function | Read the LAST records of a JSONL file without loading the whole thing.  |
 | `ReadJsonlTailOptions` | interface | Options for {@link readJsonlTail } . |
@@ -1589,8 +1578,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
-| `CircuitBreaker` | class | Consecutive-failure circuit breaker — a cross-cutting resilience primitive.  |
-| `CircuitBreakerOptions` | interface | Options for {@link CircuitBreaker } . |
 | `Retry` | class | SE36 — replaces `withRetry` (ADR 0015 / ADR-P2).  |
 | `RetryOptions` | interface | Options for {@link withRetry } .  |
 

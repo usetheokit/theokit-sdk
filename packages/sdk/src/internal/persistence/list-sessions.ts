@@ -69,8 +69,6 @@ export interface SessionListing {
   readonly id: string | undefined;
   /** Where {@link id} came from. Check this before acting on `id`. */
   readonly idSource: SessionIdSource;
-  /** The `cwd` of the first transcript record that carries one, within the same bounded scan. */
-  readonly cwd?: string | undefined;
   /** Absolute path to the `.jsonl` transcript. */
   readonly transcript: string;
   /** Last modification time of the transcript. */
@@ -94,7 +92,7 @@ export interface ListSessionsOptions {
   readonly idScanBytes?: number;
 }
 
-export const DEFAULT_ID_SCAN_BYTES = 64 * 1024;
+const DEFAULT_ID_SCAN_BYTES = 64 * 1024;
 
 /**
  * Every session transcript under `<baseDir>/projects/<encoded-cwd>/`, with the id read from inside
@@ -133,13 +131,9 @@ export async function listSessions(
       // reporting a file that no longer exists would be worse than omitting it.
       continue;
     }
-    const { id, cwd } = await scanTranscriptHead(
-      transcript,
-      options.idScanBytes ?? DEFAULT_ID_SCAN_BYTES,
-    );
+    const id = await readSessionId(transcript, options.idScanBytes ?? DEFAULT_ID_SCAN_BYTES);
     out.push({
       id,
-      cwd,
       idSource: id === undefined ? "unavailable" : "transcript",
       transcript,
       modifiedAt,
@@ -148,27 +142,15 @@ export async function listSessions(
   return out;
 }
 
-/** What a bounded scan of one transcript's head found. */
-export interface TranscriptHead {
-  readonly id?: string | undefined;
-  readonly cwd?: string | undefined;
-}
-
 /**
- * The first `sessionId` and the first string `cwd` found in the first `maxBytes` of a transcript.
+ * The `sessionId` of the first well-formed record, or `undefined`.
  *
- * Reads at most `maxBytes` and stops once both are found. Tolerant of malformed lines for the same
- * reason `readTranscript` is: a truncated final line in a live transcript is normal, and failing the
- * whole listing over it would make the function useless exactly when it matters.
+ * Reads at most `maxBytes` and stops at the first record that yields one. Tolerant of malformed
+ * lines for the same reason `readTranscript` is: a truncated final line in a live transcript is
+ * normal, and failing the whole listing over it would make the function useless exactly when it
+ * matters.
  */
-export async function scanTranscriptHead(path: string, maxBytes: number): Promise<TranscriptHead> {
-  const found: { id?: string; cwd?: string } = {};
-  const take = (line: string): boolean => {
-    const head = headOfLine(line);
-    found.id ??= head.id;
-    found.cwd ??= head.cwd;
-    return found.id !== undefined && found.cwd !== undefined;
-  };
+async function readSessionId(path: string, maxBytes: number): Promise<string | undefined> {
   let buffered = "";
   try {
     const stream = createReadStream(path, { encoding: "utf8", end: maxBytes - 1 });
@@ -176,30 +158,28 @@ export async function scanTranscriptHead(path: string, maxBytes: number): Promis
       buffered += chunk as string;
       const lines = buffered.split("\n");
       buffered = lines.pop() ?? "";
-      if (lines.some(take)) {
-        stream.destroy();
-        return found;
+      for (const line of lines) {
+        const id = sessionIdOfLine(line);
+        if (id !== undefined) {
+          stream.destroy();
+          return id;
+        }
       }
     }
   } catch {
-    return found;
+    return undefined;
   }
-  take(buffered);
-  return found;
+  return sessionIdOfLine(buffered);
 }
 
-function headOfLine(line: string): TranscriptHead {
-  const none: TranscriptHead = {};
-  if (line.trim() === "") return none;
+function sessionIdOfLine(line: string): string | undefined {
+  if (line.trim() === "") return undefined;
   try {
     const parsed: unknown = JSON.parse(line);
-    if (typeof parsed !== "object" || parsed === null) return none;
-    const { sessionId, cwd } = parsed as { sessionId?: unknown; cwd?: unknown };
-    return {
-      id: typeof sessionId === "string" && sessionId !== "" ? sessionId : undefined,
-      cwd: typeof cwd === "string" && cwd !== "" ? cwd : undefined,
-    };
+    if (typeof parsed !== "object" || parsed === null) return undefined;
+    const id = (parsed as { sessionId?: unknown }).sessionId;
+    return typeof id === "string" && id !== "" ? id : undefined;
   } catch {
-    return none;
+    return undefined;
   }
 }
