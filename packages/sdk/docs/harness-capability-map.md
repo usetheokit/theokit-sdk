@@ -235,6 +235,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `InlineSkill` | interface | A code-defined skill (from {@link createSkill } ) — a {@link Skill } plus its inline body. |
 | `InMemorySessionStore` | class | A {@link SessionStore } whose records live in this object only: nothing is written to disk, and the transcript disappears with the process.  |
 | `InputProcessorContext` | interface | Context passed to {@link Processor.processInput } . |
+| `installWorkspacePlugin` | function | Validate a plugin folder (`PLUGIN.md` and its entry), copy it to `<workspace>/.theokit/plugins/<name>/`, then trust the copy.  |
 | `IntegrationNotConnectedError` | class | Thrown when creating a cloud agent for a repo whose SCM provider is not connected.  |
 | `InteractionUpdate` | type | Lowest-level raw update from a run.  |
 | `InvalidateCacheOptions` | interface | Options for {@link SDKAgent.invalidateCache } . |
@@ -319,6 +320,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `OTelSpan` | interface | The subset of the OpenTelemetry `Span` API this SDK calls.  |
 | `OutputProcessorContext` | interface | Context passed to {@link Processor.processOutput } . |
 | `parsePermissionRules` | function | Parse a rule set into engine rules, DENY first.  |
+| `parsePluginManifest` | function | Parse the YAML frontmatter of a `PLUGIN.md`, with the SDK's own frontmatter schema.  |
 | `PartialToolCallUpdate` | interface | Tool call arguments streaming in incrementally. |
 | `PermissionAction` | type | `PermissionEngine` — first-match permission rules for tool invocations.  |
 | `PermissionEngine` | class | Ordered first-match permission rules for tool invocations — the policy object you hand to `PermissionPlugin.create()` to have it enforced.  |
@@ -338,6 +340,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `Plugin` | type | SE36 — `Plugin.create` replaces `definePlugin` (ADR 0015).  |
 | `PluginContext` | interface | The registration surface passed to a `"general"` plugin's `register(ctx)`, and the plugin's only route into the agent.  |
 | `PluginHookDisposer` | type | Detaches a hook handler attached with {@link PluginContext.on } .  |
+| `PluginManifest` | interface | What `PLUGIN.md` declares, with `version` defaulted to `0.0.0`. |
+| `PluginManifestError` | class | Thrown by `parsePluginManifest` and `installWorkspacePlugin` when a plugin's `PLUGIN.md` or its entry file is unusable.  |
 | `PluginsSettings` | interface | Plugins configuration accepted by `Agent.create()` via {@link AgentOptions.plugins } . |
 | `PostAssistantReplyContext` | interface | Context passed to `post_assistant_reply` hook handlers (ADR D145).  |
 | `PostToolCallContext` | interface | #65 — context for the `post_tool_call` hook (fired after a tool runs). |
@@ -528,7 +532,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `TrustLevel` | type | Whether a project directory may switch anything on.  |
 | `TrustPosture` | interface | The decision: the level, where it came from, and one boolean per declared capability.  |
 | `TrustPostureInput` | interface | What the decision is made from: the capability vocabulary, a way to read the operator's record, and an optional blanket override.  |
+| `TrustRecordError` | class | Thrown when the workspace plugin trust record exists but cannot be read as a JSON array of folder paths.  |
 | `TrustSource` | type | Where the decision came from. |
+| `trustWorkspacePlugin` | function | Add the folder's realpath to the workspace trust record.  |
 | `TurnEndedUpdate` | interface | Turn ended with usage summary. |
 | `TypedHookHandler` | type | A handler for hook `H`, with the context and return value checked.  |
 | `UngatedCapabilityError` | class | Raised when a recorded capability has no entry in the gate. |
@@ -539,6 +545,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `UnsupportedBudgetOperationError` | class | Thrown when a budget operation is requested on a `CloudAgent` (D388).  |
 | `UnsupportedRunOperationError` | class | Thrown when a {@link Run } or agent operation is not available on the current runtime.  |
 | `UnsupportedTaskOperationError` | class | Thrown when `CloudAgent` is asked to wrap a task (D370).  |
+| `untrustWorkspacePlugin` | function | Remove a folder from the trust record.  |
 | `UsageAccumulator` | class | Sums the per-step token counts of a multi-step run into one `TokenUsage`.  |
 | `UserMessage` | interface | User-authored message in a conversation history. |
 | `UserMessageAppendedUpdate` | interface | User message appended to the conversation. |
@@ -1185,6 +1192,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ModelFallbackAttempt` | interface | One failed attempt of a turn run under {@link AgentOptions.modelFallback } . |
 | `ModelFallbackExhaustedError` | class | Raised (as `RunResult.error.cause`) when the primary model and every {@link AgentOptions.modelFallback } model failed before any output.  |
 | `NetworkError` | class | Service unavailable, timeout, transport-level failure. |
+| `PluginManifestError` | class | Thrown by `parsePluginManifest` and `installWorkspacePlugin` when a plugin's `PLUGIN.md` or its entry file is unusable.  |
 | `ProfileConflictError` | class | Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a variable the profile owns.  |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
 | `SessionPoolClosedError` | class | `SessionPool.lease` was called after `disposeAll` started.  |
@@ -1193,6 +1201,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `TaskNotFoundError` | class | Thrown when `Task.subscribe(id)` is called for a task that has been evicted, never submitted, or evicted after retention (D373). |
 | `TheokitAgentError` | class | Base class for all errors thrown by `@theokit/sdk`.  |
 | `ToolCallBlockedError` | class | Thrown by a tool wrapped with `guardTools` when a `pre_tool_call` plugin vetoes the call.  |
+| `TrustRecordError` | class | Thrown when the workspace plugin trust record exists but cannot be read as a JSON array of folder paths.  |
 | `UnknownAgentError` | class | Catch-all for unclassified server or runtime errors. |
 | `UnsupportedBudgetOperationError` | class | Thrown when a budget operation is requested on a `CloudAgent` (D388).  |
 | `UnsupportedRunOperationError` | class | Thrown when a {@link Run } or agent operation is not available on the current runtime.  |
