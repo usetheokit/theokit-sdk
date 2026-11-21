@@ -1247,3 +1247,15 @@ export interface ModelFallbackOptions {
   /** Only "no-output" for now: fall over only while the failed run has streamed no assistant output. */
   when?: "no-output";
 }
+
+/**
+ * A hold on a live agent returned by `Agent.lease`.
+ *
+ * @public
+ */
+export interface AgentLease {
+  readonly agent: SDKAgent;
+  readonly agentId: string;
+  /** Ends this hold. Idempotent. */
+  release(): void;
+}

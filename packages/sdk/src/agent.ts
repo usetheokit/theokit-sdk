@@ -39,6 +39,7 @@ import { createTelemetry, type OTelSpan } from "./internal/telemetry/tracer.js";
 import { createSessionPool, type SessionPool, type SessionPoolOptions } from "./session-pool.js";
 import type {
   AgentDescription,
+  AgentLease,
   AgentOperationOptions,
   AgentOptions,
   GetAgentOptions,
@@ -64,17 +65,7 @@ let streamObjectImport: Promise<typeof import("./stream-object.js")> | undefined
  */
 export type AgentPromptResult = RunResult;
 
-/**
- * A hold on a live agent returned by {@link Agent.lease}.
- *
- * @public
- */
-export interface AgentLease {
-  readonly agent: SDKAgent;
-  readonly agentId: string;
-  /** Ends this hold. Idempotent. */
-  release(): void;
-}
+export type { AgentLease };
 
 /** In-flight `Agent.getOrCreate` builds, keyed by agent id (single-flight). */
 const getOrCreateInFlight = new Map<string, Promise<SDKAgent>>();

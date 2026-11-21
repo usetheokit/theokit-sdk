@@ -1,9 +1,8 @@
 import { readFileSync } from "node:fs";
-import type { AgentLease } from "./agent.js";
 import { GenerationFileError, SessionPoolClosedError } from "./errors.js";
 import { diag } from "./internal/diagnostics.js";
 import { atomicWriteJson } from "./internal/persistence/atomic-write.js";
-import type { AgentOptions, SDKAgent } from "./types/agent.js";
+import type { AgentLease, AgentOptions, SDKAgent } from "./types/agent.js";
 
 /**
  * The generation counter per session key. A reset moves a key to the next generation, which maps
