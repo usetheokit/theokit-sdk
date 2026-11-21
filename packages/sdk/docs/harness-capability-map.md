@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1550 export(s) across 58 entry point(s).
+1556 export(s) across 59 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1428,6 +1428,19 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `sanitizeIdentifier` | function | Validate that `input` is a safe path component (skill name, agent ID, namespace, etc.) and return its lowercase form.  |
 | `validateArtifactPath` | function | T1.4 — validate a relative artifact path string BEFORE it is used to look up a fixture or to fetch from PaaS.  |
 
+## `@theokit/sdk/mcp`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `connectMcpServer` | function | Connects to one MCP server (same timeouts, reconnect, OAuth and env policy as the agent loop) and runs `initialize`.  |
+| `McpConnection` | interface | A connected, initialized MCP server. |
+| `McpPrompt` | interface | A named prompt template a server publishes. |
+| `McpPromptMessage` | interface | One message of a rendered prompt. |
+| `McpResource` | interface | A resource a server publishes. |
+| `McpResourceContents` | interface | One content block of a resource read: `text` or base64 `blob`. |
+| `McpTool` | interface | A tool an MCP server advertises through `tools/list`. |
+| `McpToolCallResult` | interface | The result of an MCP `tools/call`. |
+
 ## `@theokit/sdk/mcp-auth`
 
 | Symbol | Kind | Summary |
@@ -1795,7 +1808,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `workflowAsTool` | function | SE19 — expose a {@link Workflow } as an agent {@link CustomTool } , completing the "X as tools" trio (tools; agents-as-tools via `defineSubAgent`; workflows-as-tools).  |
 | `WorkflowAsToolSpec` | interface | Spec for {@link workflowAsTool } .  |
 | `WorkflowBuilder` | class | Fluent step accumulator returned by {@link Workflow.create } .  |
-| `WorkflowCheckpoint` | interface | One kept checkpoint of a run (`keepHistory: true`): the state of the run just after `stepId`. |
 | `WorkflowCompensateNotImplementedError` | class | D238 — a `compensate` on a step nested in parallel/branch/foreach/dowhile (top-level steps are supported). |
 | `WorkflowDescription` | interface | theokit#161 — the read-only shape of a committed workflow.  |
 | `WorkflowDuplicateStepIdError` | class | Thrown by `.commit()` when one step id appears twice anywhere in the workflow — including inside a parallel branch, a branch predicate, the fallback, and the inner step of a `foreach` or `dowhile`.  |
@@ -1808,7 +1820,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WorkflowOutputError` | class | SE27 — the whole-workflow `outputSchema` rejected the final output (on `completed`).  |
 | `WorkflowParallelError` | class | Aggregate failure from parallel branches.  |
 | `WorkflowPersistenceOptions` | interface | Where suspend snapshots are kept.  |
-| `WorkflowRerunOptions` | interface | Options of `Workflow.rerunFrom()`. |
 | `WorkflowResumeOptions` | interface | Arguments for `Workflow.resume()`.  |
 | `WorkflowResumeStepNotFoundError` | class | EC-8 absorbed — `currentStepId` from snapshot not found in resumed workflow. |
 | `workflowResumeTool` | function | B-677 — a {@link CustomTool } that resumes a suspended run of `workflow` by its run id, with an optional payload validated against the suspend step's schema.  |
