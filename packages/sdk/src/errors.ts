@@ -855,3 +855,5 @@ export class ProfileConflictError extends ConfigurationError {
     this.variables = [...variables];
   }
 }
+
+export { GenerationFileError, SessionPoolClosedError } from "./session-pool-errors.js";
