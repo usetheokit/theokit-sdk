@@ -1,5 +1,15 @@
 # Changelog
 
+## 7.3.0
+
+### Minor Changes
+
+- [#1447](https://github.com/usetheokit/theokit-sdk/pull/1447) [`a89307c`](https://github.com/usetheokit/theokit-sdk/commit/a89307cda2184b35fad8afb24017788e1c6cce3e) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `parsePluginManifest`, `trustWorkspacePlugin`, `untrustWorkspacePlugin` and `installWorkspacePlugin` to parse a `PLUGIN.md`, and to install and trust a workspace plugin without editing the trust record by hand. A trust record that cannot be parsed throws `TrustRecordError` and is never overwritten; a bad manifest throws `PluginManifestError`.
+
+### Patch Changes
+
+- [#1454](https://github.com/usetheokit/theokit-sdk/pull/1454) [`a208b41`](https://github.com/usetheokit/theokit-sdk/commit/a208b414f93d5a6071afed36e1790e1d073465ea) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `registerTelemetry` strips trailing slashes from `endpoint` with a linear scan instead of a regular expression that could run slowly on long runs of `/`.
+
 ## 7.2.0
 
 ### Minor Changes
