@@ -23,6 +23,7 @@ import {
   SUPPORTED_MCP_PROTOCOL_VERSIONS,
 } from "./protocol-version.js";
 import {
+  capabilitiesOf,
   isAbortLike,
   type McpTool,
   type McpToolCallResult,
@@ -54,6 +55,8 @@ export interface McpClient {
   readonly sequential?: boolean;
   /** The version the server agreed to in `initialize`; undefined before it. */
   readonly protocolVersion?: McpProtocolVersion;
+  /** The `capabilities` object the server answered `initialize` with; refreshed on each handshake. */
+  readonly serverCapabilities?: Record<string, unknown>;
   initialize(): Promise<void>;
   listTools(): Promise<McpTool[]>;
   callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult>;
@@ -89,6 +92,7 @@ abstract class BaseMcpClient implements McpClient {
 
   protocolVersion: McpProtocolVersion | undefined;
 
+  serverCapabilities: Record<string, unknown> | undefined;
   protected readonly elicitation: ElicitationScope;
 
   protected constructor(hooks: McpClientHooks) {
@@ -108,8 +112,13 @@ abstract class BaseMcpClient implements McpClient {
 
   async initialize(): Promise<void> {
     this.protocolVersion = undefined;
+    this.serverCapabilities = undefined;
     this.protocolVersion = await rpcInitialize(
-      (method, params) => this.request(method, params),
+      async (method, params) => {
+        const response = await this.request(method, params);
+        if (method === "initialize") this.serverCapabilities = capabilitiesOf(response);
+        return response;
+      },
       this.name,
       this.pinnedVersion ?? SUPPORTED_MCP_PROTOCOL_VERSIONS[0],
       this.elicitation.hooks.onElicitation !== undefined,

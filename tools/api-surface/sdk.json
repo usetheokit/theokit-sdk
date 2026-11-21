@@ -1795,6 +1795,74 @@
         "declaration": "export declare function verifyMcpEventSignature(secret: string, body: string | Buffer, signature: string | undefined): boolean;"
       }
     },
+    "./mcp#import": {
+      "McpConnection": {
+        "tier": "stable",
+        "declaration": "export interface McpConnection {\n    readonly protocolVersion: string;\n    listTools(): Promise<McpTool[]>;\n    callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult>;\n    listResources(): Promise<McpResource[]>;\n    readResource(uri: string): Promise<McpResourceContents[]>;\n    listPrompts(): Promise<McpPrompt[]>;\n    getPrompt(name: string, args?: Record<string, string>): Promise<{\n        description?: string;\n        messages: McpPromptMessage[];\n    }>;\n    close(): Promise<void>;\n}"
+      },
+      "McpPrompt": {
+        "tier": "stable",
+        "declaration": "export interface McpPrompt {\n    name: string;\n    description?: string;\n    arguments?: {\n        name: string;\n        description?: string;\n        required?: boolean;\n    }[];\n}"
+      },
+      "McpPromptMessage": {
+        "tier": "stable",
+        "declaration": "export interface McpPromptMessage {\n    role: \"user\" | \"assistant\";\n    content: unknown;\n}"
+      },
+      "McpResource": {
+        "tier": "stable",
+        "declaration": "export interface McpResource {\n    uri: string;\n    name: string;\n    description?: string;\n    mimeType?: string;\n}"
+      },
+      "McpResourceContents": {
+        "tier": "stable",
+        "declaration": "export interface McpResourceContents {\n    uri: string;\n    mimeType?: string;\n    text?: string;\n    blob?: string;\n}"
+      },
+      "McpTool": {
+        "tier": "stable",
+        "declaration": "export interface McpTool {\n    name: string;\n    description: string;\n    inputSchema: Record<string, unknown>;\n}"
+      },
+      "McpToolCallResult": {
+        "tier": "stable",
+        "declaration": "export interface McpToolCallResult {\n    content: Array<{\n        type: \"text\";\n        text: string;\n    }>;\n    isError?: boolean;\n}"
+      },
+      "connectMcpServer": {
+        "tier": "stable",
+        "declaration": "export declare function connectMcpServer(name: string, config: McpServerConfig): Promise<McpConnection>;"
+      }
+    },
+    "./mcp#require": {
+      "McpConnection": {
+        "tier": "stable",
+        "declaration": "export interface McpConnection {\n    readonly protocolVersion: string;\n    listTools(): Promise<McpTool[]>;\n    callTool(name: string, args: Record<string, unknown>): Promise<McpToolCallResult>;\n    listResources(): Promise<McpResource[]>;\n    readResource(uri: string): Promise<McpResourceContents[]>;\n    listPrompts(): Promise<McpPrompt[]>;\n    getPrompt(name: string, args?: Record<string, string>): Promise<{\n        description?: string;\n        messages: McpPromptMessage[];\n    }>;\n    close(): Promise<void>;\n}"
+      },
+      "McpPrompt": {
+        "tier": "stable",
+        "declaration": "export interface McpPrompt {\n    name: string;\n    description?: string;\n    arguments?: {\n        name: string;\n        description?: string;\n        required?: boolean;\n    }[];\n}"
+      },
+      "McpPromptMessage": {
+        "tier": "stable",
+        "declaration": "export interface McpPromptMessage {\n    role: \"user\" | \"assistant\";\n    content: unknown;\n}"
+      },
+      "McpResource": {
+        "tier": "stable",
+        "declaration": "export interface McpResource {\n    uri: string;\n    name: string;\n    description?: string;\n    mimeType?: string;\n}"
+      },
+      "McpResourceContents": {
+        "tier": "stable",
+        "declaration": "export interface McpResourceContents {\n    uri: string;\n    mimeType?: string;\n    text?: string;\n    blob?: string;\n}"
+      },
+      "McpTool": {
+        "tier": "stable",
+        "declaration": "export interface McpTool {\n    name: string;\n    description: string;\n    inputSchema: Record<string, unknown>;\n}"
+      },
+      "McpToolCallResult": {
+        "tier": "stable",
+        "declaration": "export interface McpToolCallResult {\n    content: Array<{\n        type: \"text\";\n        text: string;\n    }>;\n    isError?: boolean;\n}"
+      },
+      "connectMcpServer": {
+        "tier": "stable",
+        "declaration": "export declare function connectMcpServer(name: string, config: McpServerConfig): Promise<McpConnection>;"
+      }
+    },
     "./messages#import": {
       "assistantText": {
         "tier": "stable",
