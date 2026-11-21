@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1556 export(s) across 59 entry point(s).
+1557 export(s) across 59 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1619,6 +1619,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `BwrapProbes` | interface | Injectable probes — each mirrors one Codex availability check. |
 | `createSandboxBackend` | function | Honest factory: bwrap available + mode wants confinement → `LinuxSandbox` (kernel enforcement, running the VALIDATED absolute bin); `danger-full-access` → plain `LocalSandbox` silently (explicit op... |
 | `CreateSandboxBackendOptions` | interface | Options for `createSandboxBackend`, which probes for bubblewrap and returns a {@link LinuxSandbox } when confinement is genuinely available or a `LocalSandbox` when it is not — warning once when th... |
+| `CredentialRule` | interface | A credential the proxy adds to requests for one host, so the sandbox only holds `placeholder`. |
 | `defaultDockerRunner` | function | The runner {@link DockerSandbox } uses by default; exported so a custom runner can wrap it. |
 | `detectBwrap` | function | Honest detection — fail-closed on every probe; NEVER throws (callers WARN + fall back). |
 | `detectBwrapMemoized` | function | `detectBwrap` with memoization — what production should call.  |
