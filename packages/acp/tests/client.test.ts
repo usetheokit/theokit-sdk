@@ -1,9 +1,10 @@
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import path, { join } from "node:path";
 import type * as acp from "@agentclientprotocol/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AcpAgentSpawnError, connectAcpAgent } from "../src/client.js";
+import { resolveCommand } from "../src/client-spawn.js";
 
 const FIXTURE = join(import.meta.dirname, "fixtures", "fixture-agent.mjs");
 
@@ -156,6 +157,11 @@ describe("connectAcpAgent spawn refusals", () => {
     }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AcpAgentSpawnError);
     expect(logLines()).toEqual([]); // nothing was spawned
+  });
+
+  it("resolves an absolute match found before a relative PATH entry", () => {
+    const node = resolveCommand("node", { PATH: `${path.dirname(process.execPath)}:.` });
+    expect(path.isAbsolute(node)).toBe(true);
   });
 
   it("rejects a bare command that is not on an absolute PATH", async () => {

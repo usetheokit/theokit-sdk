@@ -14,7 +14,7 @@
       "ignoreDependencies": ["jsonrepair"]
     },
     "packages/acp": {
-      "entry": ["bin/*.mjs", "tests/**/*.test.ts", "tests/fixtures/*.mjs"]
+      "entry": ["tests/fixtures/*.mjs"]
     },
     "packages/cli": {
       "entry": ["tests/**/*.test.ts"],

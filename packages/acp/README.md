@@ -75,7 +75,7 @@ for await (const note of agent.prompt("hi", ac.signal)) {
 await agent.close(); // kills the child (its process group on POSIX)
 ```
 
-- A bare `command` whose `env.PATH` has a relative or empty entry is refused before anything is spawned.
+- A bare `command` is resolved by searching `env.PATH` in order. A relative or empty entry reached before a match is refused before anything is spawned; an absolute match found earlier in the PATH still resolves.
 - One prompt at a time per connection; an overlapping `prompt()` throws.
 - `AcpAgentSpawnError` (`exitCode`, `stderrTail`) covers a missing or refused command, a child that exits during `initialize`, and a child that exits mid-prompt (the iterator ends with it).
 - `initializeTimeoutMs` (default 10 000) bounds `initialize` and `session/new`.
