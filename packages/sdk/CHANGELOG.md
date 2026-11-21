@@ -1,5 +1,13 @@
 # Changelog
 
+## 7.1.0
+
+### Minor Changes
+
+- [#1417](https://github.com/usetheokit/theokit-sdk/pull/1417) [`bb2be02`](https://github.com/usetheokit/theokit-sdk/commit/bb2be027246da58b331ae9e51365353d14e45b93) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - sandbox: `network: { allow, credentials }` injects credentials at the egress proxy. The sandbox gets only a placeholder (and optionally an env var set to it); the proxy swaps in the real value from `value()` for the rule's host, terminating TLS with a per-proxy in-memory CA for those hosts only. A placeholder sent to another host is refused as `credential_misroute`, and a rule for a host no `EgressRule` allows throws `ConfigurationError` `credential_host_not_allowed`. Exports `CredentialRule`.
+
+- [#1426](https://github.com/usetheokit/theokit-sdk/pull/1426) [`a18ee3c`](https://github.com/usetheokit/theokit-sdk/commit/a18ee3cd7dd54ed4c74e72f92193a3b76b266735) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `@theokit/sdk/mcp` with `connectMcpServer`, which lists and reads a server's resources and lists and renders its prompts. A server without the capability rejects with `mcp_capability_missing`; a JSON-RPC error becomes a `NetworkError` of code `mcp_rpc_error`.
+
 ## 7.0.0
 
 ### Major Changes
