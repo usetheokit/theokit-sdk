@@ -102,10 +102,12 @@ export {
   type ModelFallbackAttempt,
   ModelFallbackExhaustedError,
   NetworkError,
+  PluginManifestError,
   RateLimitError,
   TaskNotFoundError,
   TheokitAgentError,
   ToolCallBlockedError,
+  TrustRecordError,
   UnknownAgentError,
   UnsupportedBudgetOperationError,
   UnsupportedRunOperationError,
@@ -541,3 +543,11 @@ export {
  * `quality:dts-identity` now fails the build on the shape.
  */
 export { agentStep, fn, Workflow } from "./workflow.js";
+// Parse, install and trust a workspace plugin (#1041).
+export {
+  installWorkspacePlugin,
+  type PluginManifest,
+  parsePluginManifest,
+  trustWorkspacePlugin,
+  untrustWorkspacePlugin,
+} from "./workspace-plugins.js";
