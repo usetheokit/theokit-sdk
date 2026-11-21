@@ -193,9 +193,7 @@ function closingEnd(raw: string, dashEnd: number): number {
   return nl >= dashEnd ? nl + 1 : -1;
 }
 
-function scanFrontmatter(
-  raw: string,
-): { start: number; end: number; bodyStart: number } | null {
+function scanFrontmatter(raw: string): { start: number; end: number; bodyStart: number } | null {
   if (!raw.startsWith("---")) return null;
   const runEnd = wsRunEnd(raw, 3);
   const lastNl = raw.lastIndexOf("\n", runEnd - 1);
