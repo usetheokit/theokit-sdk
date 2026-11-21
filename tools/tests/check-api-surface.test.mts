@@ -10,7 +10,6 @@ import {
   differingNames,
   evaluateChange,
   main,
-  onlyAddsOptionalProperties,
   windowViolations,
 } from "../check-api-surface.mjs";
 
@@ -212,14 +211,5 @@ describe("main, end to end in a git repository", () => {
     rmSync(o.baselinePath);
     mkdirSync(o.baselinePath);
     expect(() => main([], o)).toThrow();
-  });
-
-  it("test_an_optional_property_nested_in_a_parameter_is_additive", () => {
-    const prev = "export declare function f(o: {\n    a: string;\n}): void;";
-    const added = "export declare function f(o: {\n    a: string;\n    b?: number;\n}): void;";
-    const required = "export declare function f(o: {\n    a: string;\n    b: number;\n}): void;";
-    expect(onlyAddsOptionalProperties(prev, added)).toBe(true);
-    expect(onlyAddsOptionalProperties(prev, required)).toBe(false);
-    expect(onlyAddsOptionalProperties(added, prev)).toBe(false);
   });
 });

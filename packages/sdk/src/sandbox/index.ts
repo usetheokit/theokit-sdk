@@ -36,12 +36,7 @@ export {
   type E2BSandboxConfig,
   type E2BSandboxHandle,
 } from "./e2b-sandbox.js";
-export {
-  type CredentialRule,
-  type EgressProxy,
-  type EgressRule,
-  startEgressProxy,
-} from "./egress-proxy.js";
+export { type EgressProxy, type EgressRule, startEgressProxy } from "./egress-proxy.js";
 // M75 T2.2 — the backend with kernel enforcement + the wrap + the posture. `wrapCommandForSandbox` is
 // `resolveSandboxPosture` are PUBLIC API as required by M75 (T2.3): the first for whoever composes the
 // wrap elsewhere (the interactive PTY), the second so the UI can answer "am I confined right now?".
