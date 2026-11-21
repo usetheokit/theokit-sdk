@@ -1,5 +1,12 @@
 # Changelog
 
+## 4.1.3
+
+### Patch Changes
+
+- Updated dependencies [[`616082e`](https://github.com/usetheokit/theokit-sdk/commit/616082e1a6426e7c8fd6a02ab0a48ee117b88cc6), [`24110d0`](https://github.com/usetheokit/theokit-sdk/commit/24110d0406c4f0e595acac568d84ca1d281bc725), [`30fabe6`](https://github.com/usetheokit/theokit-sdk/commit/30fabe699a6efd189555ae77545256a2f0599ea7), [`30fabe6`](https://github.com/usetheokit/theokit-sdk/commit/30fabe699a6efd189555ae77545256a2f0599ea7)]:
+  - @theokit/sdk@8.0.0
+
 ## 4.1.2
 
 ### Patch Changes
