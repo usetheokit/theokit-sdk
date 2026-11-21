@@ -35,10 +35,6 @@ const ALLOWLIST = new Map<string, string>([
     "sandbox/linux-sandbox.ts",
     "injectable `opts.warn` seam; console.warn is only the documented default",
   ],
-  [
-    "sandbox/egress-forwarder.ts",
-    "the console.error sits in the source string of the in-sandbox forwarder child, not host code",
-  ],
   ["internal/workflow/ctx.ts", "the Workflow DSL's own logger seam, injectable per run"],
   [
     "internal/memory/migrate-sqlite-to-lance.ts",

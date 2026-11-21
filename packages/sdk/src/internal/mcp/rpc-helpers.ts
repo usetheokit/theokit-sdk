@@ -28,13 +28,6 @@ export function isAbortLike(cause: unknown): boolean {
   return name === "TimeoutError" || name === "AbortError";
 }
 
-/** The `capabilities` object of an `initialize` response; `{}` when the server sent none. @internal */
-export function capabilitiesOf(response: unknown): Record<string, unknown> {
-  const caps = (response as { result?: { capabilities?: unknown } } | undefined)?.result
-    ?.capabilities;
-  return typeof caps === "object" && caps !== null ? (caps as Record<string, unknown>) : {};
-}
-
 function eventData(event: string): string | undefined {
   const lines = event
     .split("\n")
@@ -73,14 +66,12 @@ export async function* readSseData(body: ReadableStream<Uint8Array>): AsyncGener
   }
 }
 
-/** A tool an MCP server advertises through `tools/list`. */
 export interface McpTool {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
 }
 
-/** The result of an MCP `tools/call`. */
 export interface McpToolCallResult {
   content: Array<{ type: "text"; text: string }>;
   isError?: boolean;

@@ -68,7 +68,6 @@ export default defineConfig({
     // withdrawing.
     // #1088: credential-free fake model server for agent tests; DTS via tsc.
     "testing/index": "src/testing/index.ts",
-    mcp: "src/mcp.ts",
     "mcp-auth": "src/mcp-auth.ts",
     "mcp-events": "src/mcp-events.ts",
     "internal/security/index": "src/internal/security/index.ts",

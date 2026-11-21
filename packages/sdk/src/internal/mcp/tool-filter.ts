@@ -16,7 +16,6 @@ interface FilterableClient {
   readonly name: string;
   readonly sequential?: boolean;
   readonly protocolVersion?: string;
-  readonly serverCapabilities?: Record<string, unknown>;
   initialize(): Promise<void>;
   listTools(): Promise<Array<{ name: string }>>;
   callTool(name: string, args: Record<string, unknown>): Promise<unknown>;
@@ -98,9 +97,6 @@ export function withToolFilter<C extends FilterableClient>(
     },
     get protocolVersion() {
       return client.protocolVersion;
-    },
-    get serverCapabilities() {
-      return client.serverCapabilities;
     },
     initialize: () => client.initialize(),
     close: () => client.close(),
