@@ -645,10 +645,7 @@ export interface TelemetrySettings {
   enabled: boolean;
   /** Whether to include prompts/responses/tool args as span events. Default `false`. */
   includeContent?: boolean;
-  /**
-   * Not read by the SDK; setting it exports nothing. Spans go to whatever provider is registered
-   * globally: call `registerTelemetry` from `@theokit/sdk/telemetry-node` to register OTLP providers.
-   */
+  /** Exporter selection. Default `"console"`. Custom exporters are passed-through. */
   exporter?: "console" | "otlp" | unknown;
   /** Service name on emitted spans. Default `"theokit-sdk"`. */
   serviceName?: string;

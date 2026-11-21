@@ -34,8 +34,6 @@ export default defineConfig({
     retry: "src/retry.ts",
     // V2-3: persistence helpers re-export internal/persistence; DTS via tsc (see concurrency/retry).
     persistence: "src/persistence.ts",
-    // Node-only OTLP provider registration; the OpenTelemetry SDK packages are optional peers (external).
-    "telemetry-node": "src/telemetry-node.ts",
     "task-store": "src/task-store.ts",
     workflow: "src/workflow.ts",
     eval: "src/eval.ts",
