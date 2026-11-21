@@ -1,4 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { dirname, join } from "node:path";
 import { diag, metrics, trace } from "@opentelemetry/api";
 import {
@@ -87,11 +89,34 @@ describe("registerTelemetry", () => {
     expect(err.message).toContain("endpoint");
   });
 
-  it("accepts an endpoint with a very long run of trailing slashes in linear time", async () => {
-    const started = Date.now();
-    const { handle } = await register({ endpoint: `http://localhost:4318${"/".repeat(200_000)}` });
-    expect(Date.now() - started).toBeLessThan(5000);
-    await handle.shutdown();
+  it.each([
+    ["no trailing slash", "", ""],
+    ["one trailing slash", "", "/"],
+    ["several trailing slashes", "", "///"],
+    ["inner slash runs kept, trailing run stripped", "/a//b", "////"],
+    ["a long inner slash run, then a non-slash tail", `/a${"/".repeat(2_000)}b`, "/"],
+  ])("builds OTLP URLs from the normalized endpoint: %s", async (_name, path, trailing) => {
+    const paths: string[] = [];
+    const server = createServer((req, res) => {
+      paths.push(req.url ?? "");
+      req.resume();
+      res.writeHead(200).end();
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    try {
+      const { port } = server.address() as AddressInfo;
+      active = await registerTelemetry({
+        endpoint: `http://127.0.0.1:${port}${path}${trailing}`,
+        serviceName: "svc",
+        exportTimeoutMs: 2000,
+      });
+      trace.getTracer("t").startSpan("s").end();
+      metrics.getMeter("m").createCounter("c").add(1);
+      await active.flush();
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()));
+    }
+    expect(paths.sort()).toEqual([`${path}/v1/metrics`, `${path}/v1/traces`]);
   });
 
   it("masks URL userinfo in export errors before onExportError", async () => {
