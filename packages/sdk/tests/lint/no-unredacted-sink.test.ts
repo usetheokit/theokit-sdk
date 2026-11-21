@@ -118,6 +118,7 @@ const SINK_PATTERNS: Sink[] = [
  */
 const WHITELIST = new Set<string>([
   "sandbox/linux-sandbox.ts",
+  "sandbox/egress-forwarder.ts",
   "internal/security/redact.ts",
   "internal/error-mappers/shared.ts",
   "internal/telemetry/tracer.ts",
