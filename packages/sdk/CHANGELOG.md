@@ -1,5 +1,11 @@
 # Changelog
 
+## 7.2.0
+
+### Minor Changes
+
+- [#1439](https://github.com/usetheokit/theokit-sdk/pull/1439) [`4d7ded9`](https://github.com/usetheokit/theokit-sdk/commit/4d7ded9a50584253b3054d31f063c842b5133906) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - New optional sub-path `@theokit/sdk/telemetry-node` with `registerTelemetry`, which registers global OTLP/HTTP tracer and meter providers (plus an optional loopback Prometheus endpoint) for `AgentOptions.telemetry`. Export errors are redacted and masked before they reach `onExportError`. The OpenTelemetry SDK and exporter packages are optional peers.
+
 ## 7.1.0
 
 ### Minor Changes
