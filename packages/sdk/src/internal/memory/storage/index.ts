@@ -18,6 +18,22 @@
 
 // The index and store leaves (#1065): written twice before, now one copy each. None holds
 // module-level state, so a re-export does not merge two runtime states.
+// Active recall and the memory tools (#1069): the satellite's copies were strict subsets of these
+// (no abort signal, no `memoryRoot`, stderr instead of the diagnostics sink, no symlink-aware
+// containment in `memory_get`). Neither module holds module-level state.
+export {
+  type ActiveMemoryOptions,
+  type RunActiveMemoryArgs,
+  runActiveMemory,
+} from "../active-memory.js";
+export {
+  createMemoryGetTool,
+  createMemorySearchTool,
+  type MemoryGetToolOptions,
+  type MemorySearchToolOptions,
+  type MemoryTool,
+  type MemoryToolJson,
+} from "../tools.js";
 export {
   ActiveMemoryCache,
   type ActiveMemoryCacheOptions,
