@@ -61,7 +61,7 @@ describe("generation stores", () => {
     const blocked = join(d, "sub", "g.json");
     const g2 = jsonGenerations(blocked);
     writeFileSync(join(d, "sub"), "i am a file, not a directory");
-    await expect(g2.next("a")).rejects.toThrow();
+    await expect(g2.next("a")).rejects.toThrow(/ENOTDIR|EEXIST|not a directory/i);
     expect(g2.current("a")).toBe(0);
     expect(g.current("a")).toBe(1);
     chmodSync(file, 0o600);

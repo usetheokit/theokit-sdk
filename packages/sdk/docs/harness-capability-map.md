@@ -68,7 +68,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AgentDisposedError` | class | T1.6 — Thrown when a consumer calls `agent.send()` or any method on an agent that has already been `dispose()`d.  |
 | `AgentFactory` | class | Handle returned by {@link createAgentFactory } .  |
 | `AgentFactoryConfig` | interface | Config form of {@link AgentFactory.create } : base `defaults` that per-session overrides may change, and `pinned` options they cannot. |
-| `AgentLease` | interface | A hold on a live agent returned by {@link Agent.lease } . |
+| `AgentLease` | interface | A hold on a live agent returned by `Agent.lease`. |
 | `AgentLike` | interface | Narrow agent port: the part of `SDKAgent` a wrapper, test double or failover decorator needs.  |
 | `AgentMemory` | interface | Direct memory API exposed on `SDKAgent.memory`.  |
 | `AgentOperation` | type | An operation a consumer may ask an {@link SDKAgent } about via `supports()`.  |
