@@ -3595,6 +3595,34 @@
         "declaration": "export declare function getTaskStoreFor(options: TaskStoreOptions): TaskStore;"
       }
     },
+    "./telemetry-node#import": {
+      "RegisterTelemetryOptions": {
+        "tier": "stable",
+        "declaration": "export interface RegisterTelemetryOptions {\n    endpoint: string;\n    serviceName: string;\n    prometheusPort?: number;\n    exportTimeoutMs?: number;\n    metricIntervalMs?: number;\n    onExportError?: (line: string) => void;\n    spanExporter?: SpanExporter;\n    metricExporter?: PushMetricExporter;\n}"
+      },
+      "RegisteredTelemetry": {
+        "tier": "stable",
+        "declaration": "export interface RegisteredTelemetry {\n    readonly prometheusEndpoint: Promise<string | undefined>;\n    flush(): Promise<void>;\n    shutdown(): Promise<void>;\n}"
+      },
+      "registerTelemetry": {
+        "tier": "stable",
+        "declaration": "export declare function registerTelemetry(options: RegisterTelemetryOptions): Promise<RegisteredTelemetry>;"
+      }
+    },
+    "./telemetry-node#require": {
+      "RegisterTelemetryOptions": {
+        "tier": "stable",
+        "declaration": "export interface RegisterTelemetryOptions {\n    endpoint: string;\n    serviceName: string;\n    prometheusPort?: number;\n    exportTimeoutMs?: number;\n    metricIntervalMs?: number;\n    onExportError?: (line: string) => void;\n    spanExporter?: SpanExporter;\n    metricExporter?: PushMetricExporter;\n}"
+      },
+      "RegisteredTelemetry": {
+        "tier": "stable",
+        "declaration": "export interface RegisteredTelemetry {\n    readonly prometheusEndpoint: Promise<string | undefined>;\n    flush(): Promise<void>;\n    shutdown(): Promise<void>;\n}"
+      },
+      "registerTelemetry": {
+        "tier": "stable",
+        "declaration": "export declare function registerTelemetry(options: RegisterTelemetryOptions): Promise<RegisteredTelemetry>;"
+      }
+    },
     "./testing#import": {
       "FakeModelRequest": {
         "tier": "stable",
