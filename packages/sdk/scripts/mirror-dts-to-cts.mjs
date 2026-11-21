@@ -73,6 +73,7 @@ const targets = [
   join(DIST, "retry.d.ts"),
   // V2-3: persistence sub-path.
   join(DIST, "persistence.d.ts"),
+  join(DIST, "telemetry-node.d.ts"),
   // T1.3: MCP OAuth sub-path (PKCE + refresh + token storage).
   join(DIST, "testing"),
   join(DIST, "mcp.d.ts"),
