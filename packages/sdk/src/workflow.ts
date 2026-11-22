@@ -43,9 +43,11 @@ import type {
   Step,
   StepContext,
   SuspendStep,
+  WorkflowCheckpoint,
   WorkflowDescription,
   WorkflowEvent,
   WorkflowOptions,
+  WorkflowRerunOptions,
   WorkflowResumeOptions,
   WorkflowRun,
   WorkflowRunOptions,
@@ -82,6 +84,13 @@ const WorkflowOptionsSchema = z.object({
   inputSchema: z.custom<ZodType>().optional(),
   outputSchema: z.custom<ZodType>().optional(),
 });
+
+function assertKeepHistoryNeedsStepDurability(options: WorkflowOptions): void {
+  const p = options.persistence;
+  if (p?.keepHistory === true && p.durability !== "step") {
+    throw new ConfigurationError('persistence.keepHistory requires persistence.durability: "step"');
+  }
+}
 
 /* ─── Builder ─── */
 
@@ -373,6 +382,7 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
   static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO> {
     WorkflowOptionsSchema.parse(options);
     DurabilitySchema.parse(options.persistence?.durability);
+    assertKeepHistoryNeedsStepDurability(options);
     return new WorkflowBuilder<TI, TO>(options);
   }
 
@@ -398,6 +408,36 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
       currentStepId: e.currentStepId,
       updatedAt: e.suspendedAt,
     }));
+  }
+
+  /**
+   * The checkpoints `persistence.keepHistory` recorded for `runId`, oldest first (empty when there are
+   * none). A completed run keeps its history.
+   */
+  async history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>> {
+    const { getSnapshotStoreFor } = await import("./internal/workflow/snapshot-store.js");
+    const entries = await getSnapshotStoreFor(this._options).history(runId);
+    return entries.map((e) => ({
+      runId: e.runId,
+      stepId: e.stepId,
+      output: e.output,
+      ...(e.state !== undefined ? { state: e.state } : {}),
+      at: e.at,
+    }));
+  }
+
+  /**
+   * Fork a new run from a top-level step of a recorded run: `stepId` and every step after it run
+   * again under a new run id, starting from the stored output and state of the step before it (or
+   * from `input` when given; for the first step, the original run's input). The original run's
+   * history is left untouched, and the returned run carries `rerunOf`. Throws
+   * `WorkflowSnapshotNotFoundError` when there is no history to replay from and
+   * `WorkflowResumeStepNotFoundError` when `stepId` is not a top-level step. Steps nested in
+   * `parallel`, `branch` or `foreach` cannot be replayed from.
+   */
+  async rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>> {
+    const { rerunWorkflow } = await import("./internal/workflow/executor-rerun.js");
+    return rerunWorkflow<TOutput>(this._options, this._steps, opts);
   }
 
   /**
