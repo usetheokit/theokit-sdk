@@ -84,3 +84,32 @@ rather than the version someone wrote a page about.
 ## License
 
 Apache-2.0
+
+## Client: drive another ACP agent
+
+`@theokit/acp/client` is a separate entry (server-only consumers never load it). It spawns an ACP agent as a child process and drives it through the ACP SDK's `ClientSideConnection`.
+
+```ts
+import { connectAcpAgent, AcpAgentSpawnError } from "@theokit/acp/client";
+
+const agent = await connectAcpAgent({
+  command: "my-agent",              // absolute path, or a bare name found on absolute PATH entries of `env`
+  args: ["--stdio"],
+  cwd: "/work/project",
+  env: { PATH: "/usr/local/bin:/usr/bin" }, // passed as is; nothing is inherited from process.env
+  onPermission: async (request) => ({ outcome: { outcome: "selected", optionId: "deny" } }),
+});
+
+const controller = new AbortController();
+for await (const { update } of agent.prompt("hi", controller.signal)) {
+  console.log(update);
+}
+await agent.close();
+```
+
+- **Command resolution.** A relative `command` with a path separator is refused. A bare name is resolved only against `env.PATH`, and a relative or empty `PATH` entry (`.`, `::`) refuses it before anything is spawned.
+- **Environment.** `env` is the child's whole environment; `process.env` is never merged in.
+- **Permissions.** The agent's `session/request_permission` reaches `onPermission`; its answer is sent back unchanged.
+- **Cancellation.** Aborting the `signal` passed to `prompt` sends `session/cancel`. One prompt may be in flight per connection.
+- **Failures.** `AcpAgentSpawnError` is raised when the command is refused or not found, or when the child exits (or stalls past `initializeTimeoutMs`, default 10 s) during `initialize`. A child that exits mid-prompt ends the iterator with the same error, naming the exit code and the last (bounded) stderr lines.
+- **Cleanup.** `close()` kills the child, and its whole process group on POSIX. It is idempotent.
