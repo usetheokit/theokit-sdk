@@ -31,7 +31,7 @@
 import { z } from "zod";
 
 import { anyGlobMatches } from "./context-glob.js";
-import { parseSimpleYaml, splitFrontmatter } from "./context-yaml-lite.js";
+import { type FrontmatterSplit, parseSimpleYaml, splitFrontmatter } from "./context-yaml-lite.js";
 
 /**
  * YAML frontmatter schema for `.theokit/rules/*.md` files.
@@ -80,7 +80,13 @@ export interface RulesParseResult {
  * @public — re-exported from `@theokit/sdk/context`, and therefore under semver.
  */
 export function parseRules(content: string): RulesParseResult | undefined {
-  const { yaml, body } = splitFrontmatter(content);
+  let split: FrontmatterSplit;
+  try {
+    split = splitFrontmatter(content);
+  } catch {
+    return undefined; // unterminated frontmatter is malformed
+  }
+  const { yaml, body } = split;
   if (yaml === undefined) {
     return { frontmatter: { alwaysApply: true }, body: content };
   }

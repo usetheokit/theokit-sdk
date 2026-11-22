@@ -17,20 +17,22 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import * as contextBarrel from "../src/context/index.js";
+import * as contextBarrel from "../../src/context/index.js";
 import {
   type ResolveContextImportsOptions,
   resolveContextImports,
   runDiscovery,
-} from "../src/context/index.js";
+} from "../../src/context/index.js";
 
 /** Exactly what the barrel promises. A new symbol here is a deliberate public-surface decision. */
 const DECLARED_SYMBOLS = [
   "DEFAULT_DISCOVERY_SPECS",
+  "parseFrontmatterYaml",
   "parseRules",
   "resolveContextImports",
   "runDiscovery",
   "shouldActivateRule",
+  "splitFrontmatter",
   "withheldSpecs",
 ] as const;
 
@@ -80,7 +82,7 @@ describe("the context barrel is a curated public surface", () => {
     // REPLACES the built-in conventions. Without the constant on the public surface a consumer
     // registering one convention of its own silently loses AGENTS.md, CLAUDE.md and the rules
     // globs, and the loss is invisible: discovery just returns fewer sources.
-    const { DEFAULT_DISCOVERY_SPECS } = await import("../src/context/index.js");
+    const { DEFAULT_DISCOVERY_SPECS } = await import("../../src/context/index.js");
 
     expect(DEFAULT_DISCOVERY_SPECS.length).toBeGreaterThan(0);
     expect(DEFAULT_DISCOVERY_SPECS.map((s) => s.id)).toContain("AGENTS.md");

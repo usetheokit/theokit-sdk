@@ -20,7 +20,11 @@
  * @internal
  */
 
-import { parseSimpleYaml, splitFrontmatter } from "../../runtime/context/context-yaml-lite.js";
+import {
+  type FrontmatterSplit,
+  parseSimpleYaml,
+  splitFrontmatter,
+} from "../../runtime/context/context-yaml-lite.js";
 import { safeFilenameForId } from "../../security/path-guard.js";
 import { MEMORY_KINDS, type MemoryKind } from "../types.js";
 
@@ -338,7 +342,13 @@ export function renderMemoryFile(fields: MemoryFileFields): string {
  * a fact would put text into recall that nobody recorded as one.
  */
 export function parseMemoryFile(raw: string): MemoryFileFields | undefined {
-  const { yaml, body } = splitFrontmatter(raw);
+  let split: FrontmatterSplit;
+  try {
+    split = splitFrontmatter(raw);
+  } catch {
+    return undefined; // unterminated frontmatter is not a memory
+  }
+  const { yaml, body } = split;
   if (yaml === undefined) return undefined;
 
   let fields: Record<string, unknown>;

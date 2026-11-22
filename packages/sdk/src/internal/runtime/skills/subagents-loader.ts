@@ -8,6 +8,10 @@ import { diag } from "../../diagnostics.js";
 import { projectConfigRoots } from "../../persistence/paths.js";
 import type { CompatSourceDeclaration } from "../compat/foreign-config-sources.js";
 import { readWorkspaceDir } from "../config/workspace-dir.js";
+import {
+  type FrontmatterSplit,
+  splitFrontmatter as splitFrontmatterShared,
+} from "../context/frontmatter.js";
 import { type FrontmatterValue, parseSimpleYaml } from "../context/yaml-frontmatter.js";
 import { pluginBundleDirs } from "../plugin-loader/plugin-bundles.js";
 
@@ -343,17 +347,26 @@ function toStringList(v: FrontmatterValue | undefined): string[] {
 
 /** Does this file open with a frontmatter block at all? Its ABSENCE means "not an agent". */
 function hasFrontmatter(raw: string): boolean {
-  return /^---\s*\n/.test(raw);
+  try {
+    return splitFrontmatterShared(raw).yaml !== undefined;
+  } catch {
+    return true; // opened but never closed: a broken agent, not a non-agent
+  }
 }
 
 function splitFrontmatter(raw: string, filename: string): { frontmatter: string; body: string } {
-  const match = /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/.exec(raw);
-  if (match === null) {
+  let split: FrontmatterSplit | undefined;
+  try {
+    split = splitFrontmatterShared(raw);
+  } catch {
+    split = undefined;
+  }
+  if (split === undefined || split.yaml === undefined) {
     throw new ConfigurationError(`Subagent ${filename} is missing frontmatter`, {
       code: "subagent_missing_frontmatter",
     });
   }
-  return { frontmatter: match[1] ?? "", body: (match[2] ?? "").trim() };
+  return { frontmatter: split.yaml, body: split.body.trim() };
 }
 
 function parseFrontmatterFields(frontmatter: string): Record<string, FrontmatterValue | undefined> {
