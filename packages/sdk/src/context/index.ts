@@ -108,3 +108,11 @@ export function resolveContextImports(
 }
 export type { WithheldSpec } from "../internal/runtime/context/context-discovery.js";
 export { withheldSpecs } from "../internal/runtime/context/context-discovery.js";
+export type {
+  FrontmatterScalar,
+  FrontmatterSplit,
+} from "../internal/runtime/context/frontmatter.js";
+export {
+  parseFrontmatterYaml,
+  splitFrontmatter,
+} from "../internal/runtime/context/frontmatter.js";

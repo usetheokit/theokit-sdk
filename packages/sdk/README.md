@@ -741,6 +741,7 @@ await applyProfile(profile, process.env);
 - **List patterns.** A `DiscoverySpec` with `scope: "cwd-only"` or `"git-root-walk"` may set `pattern: ["THEO.md", "AGENTS.md", "CLAUDE.md"]`. Each directory contributes only the first name that exists. A list on a `"globbed"` spec throws `ConfigurationError` naming the spec id.
 - **`wrapImport(name, content)`.** Wraps each inlined `@import` at every depth, e.g. `(n, c) => \`--- import: ${n} ---\n${c}\n--- end import ---\``. Refusal and not-found placeholders are never wrapped. Default: content unchanged.
 - **Already loaded.** A file discovery emits is not inlined again by an import; the import line becomes `[@import already loaded: <path>]`.
+- **Frontmatter.** `splitFrontmatter(raw)` returns `{ yaml, body }` for a file with `---` frontmatter (CRLF-safe; the closing fence may be the last line; `yaml` is `undefined` with no opening fence; an unclosed fence throws `ConfigurationError` code `frontmatter_unterminated`). `parseFrontmatterYaml(yaml)` parses the `key: value` subset (strings, numbers, booleans, lists) and throws code `frontmatter_invalid` naming the line.
 
 ## `@theokit/sdk/a2a`: reaching agents in other processes
 

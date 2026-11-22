@@ -1,4 +1,5 @@
 import { ConfigurationError } from "../../../errors.js";
+import { splitFrontmatter } from "../context/frontmatter.js";
 import { type FrontmatterValue, parseSimpleYaml } from "../context/yaml-frontmatter.js";
 
 type StringFields = Record<string, string | undefined>;
@@ -80,21 +81,29 @@ export function parseSkillFrontmatter(raw: string, fallbackName: string): SkillF
  * frontmatter regex as {@link parseSkillFrontmatter} (DRY).
  */
 export function stripSkillFrontmatter(raw: string): string {
-  const match = /^---\s*\n[\s\S]*?\n---\s*\n/.exec(raw);
-  return (match === null ? raw : raw.slice(match[0].length)).trim();
+  try {
+    return splitFrontmatter(raw).body.trim();
+  } catch {
+    return raw.trim(); // unterminated fence: not a frontmatter block
+  }
 }
 
 function extractAndParseFrontmatter(
   raw: string,
   fallbackName: string,
 ): Record<string, FrontmatterValue | undefined> {
-  const match = /^---\s*\n([\s\S]*?)\n---\s*\n/.exec(raw);
-  if (match === null) {
+  let yaml: string | undefined;
+  try {
+    yaml = splitFrontmatter(raw).yaml;
+  } catch {
+    yaml = undefined;
+  }
+  if (yaml === undefined) {
     throw new ConfigurationError(`Skill ${fallbackName} is missing frontmatter`, {
       code: "missing_frontmatter",
     });
   }
-  const frontmatter = match[1] ?? "";
+  const frontmatter = yaml;
   // EC-5: guard against syntactically invalid frontmatter so the loader
   // surfaces schema_invalid rather than crashing.
   try {
