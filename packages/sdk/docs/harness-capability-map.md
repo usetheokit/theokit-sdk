@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1582 export(s) across 61 entry point(s).
+1578 export(s) across 60 entry point(s).
 
 ## `@theokit/acp`
 
@@ -19,15 +19,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `PermissionMode` | type | How tool calls are gated before they execute (D355).  |
 | `PromptTooLargeError` | class | Raised when a prompt's accumulated size passes `maxPromptBytes` (D360).  |
 | `serveAcp` | function | Serve `options.agent` to an ACP host over JSON-RPC on stdio, blocking until the input stream ends.  |
-
-## `@theokit/acp/client`
-
-| Symbol | Kind | Summary |
-|---|---|---|
-| `AcpAgentConnection` | interface | A live connection to a spawned ACP agent with one open session. |
-| `AcpAgentSpawnError` | class | A child agent could not be started, was refused before starting, or exited before it finished what it was asked to do. |
-| `connectAcpAgent` | function | Spawn an ACP agent as a child process, complete the handshake and open one session. |
-| `ConnectAcpAgentOptions` | interface | Options for {@link connectAcpAgent } . |
 
 ## `@theokit/cli`
 
