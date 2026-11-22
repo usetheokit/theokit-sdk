@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1587 export(s) across 60 entry point(s).
+1584 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -19,6 +19,15 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `PermissionMode` | type | How tool calls are gated before they execute (D355).  |
 | `PromptTooLargeError` | class | Raised when a prompt's accumulated size passes `maxPromptBytes` (D360).  |
 | `serveAcp` | function | Serve `options.agent` to an ACP host over JSON-RPC on stdio, blocking until the input stream ends.  |
+
+## `@theokit/acp/client`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `AcpAgentConnection` | interface | A live connection to a spawned ACP agent with one open session. |
+| `AcpAgentSpawnError` | class | A child agent could not be started, was refused before starting, or exited before it finished what it was asked to do. |
+| `connectAcpAgent` | function | Spawn an ACP agent as a child process, complete the handshake and open one session. |
+| `ConnectAcpAgentOptions` | interface | Options for {@link connectAcpAgent } . |
 
 ## `@theokit/cli`
 
@@ -630,7 +639,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `ActiveMemoryCache` | class | TTL cache of active-memory results, bounded in size with oldest-first eviction. |
 | `ActiveMemoryCacheOptions` | interface | TTL-bounded cache for `runActiveMemory` results.  |
-| `ActiveMemoryOptions` | interface | Active Memory blocking recall (ADR D6 of memory-system-peer-project-parity).  |
+| `ActiveMemoryOptions` | interface | Tuning for one recall attempt.  |
 | `ActiveMemoryQueryMode` | type | Type-leaf — shared types between `active-memory.ts` and `active-memory-cache.ts`.  |
 | `ActiveMemoryResult` | interface | Result of an active-memory recall. |
 | `ActiveMemoryStatus` | type | Outcome status of an active-memory recall. |
@@ -658,8 +667,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `createCategorizedMemory` | function | Create a typed categorized memory store over the closed `categories` taxonomy.  |
 | `CreateCategorizedMemoryOptions` | interface | Options for {@link createCategorizedMemory } . |
 | `createInMemoryMarkdownProvider` | function | Build a fresh `MemoryProvider` whose facts live in-process.  |
-| `createMemoryGetTool` | function | Build the `memory_get` tool, which reads a bounded excerpt of a file inside the memory root. |
-| `createMemorySearchTool` | function | Build the `memory_search` tool, which runs a ranked search over the memory index. |
+| `createMemoryGetTool` | function | Build the `memory_get` tool, which reads an exact excerpt from a file under `<cwd>/.theokit/memory`.  |
+| `createMemorySearchTool` | function | Build the `memory_search` tool over an index that is already open.  |
 | `createOpenAiCompatibleRuntime` | function | Build an {@link EmbeddingRuntime } for a provider that speaks the OpenAI embedding wire — or, through `cfg.dialect`, one that deviates from it in a known way.  |
 | `createVectorIndex` | function | Create the `embeddings` vec0 table for vectors of the given dimension. |
 | `DedupResult` | interface | Dreaming/REM phase logic.  |
@@ -726,7 +735,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryEmbeddingProviderAdapter` | interface | Memory embedding provider adapter contract (ADR D3 of memory-system-peer-project-parity).  |
 | `MemoryFact` | interface | One remembered statement.  |
 | `MemoryFileEntry` | interface | Lightweight reference to a markdown file in the memory corpus.  |
-| `MemoryGetToolOptions` | interface | Inputs for {@link createMemoryGetTool } : the memory root that paths resolve against. |
+| `MemoryGetToolOptions` | interface | Options for {@link createMemoryGetTool } .  |
 | `MemoryIndex` | interface | The four operations both backends implement, and the type every consumer should hold.  |
 | `memoryIndexRoot` | function | Where the search index belongs for this configuration (theokit-sdk#554).  |
 | `MemoryLocationConfig` | type | Only `directory` and `userId` are read; the full config is accepted so callers pass what they already hold. |
@@ -735,8 +744,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `memoryReadRoots` | function | Every directory a read must cover, deduplicated and in precedence order.  |
 | `MemoryRoot` | type | A directory that has been RESOLVED as a memory root, distinguished from a bare `cwd`.  |
 | `MemorySearchHit` | interface | Memory index manager contract — leaf types shared by `index-manager.ts` (orchestrator), `index-manager-dispatch.ts` (backend dispatch), `lance-memory-adapter.ts` (Lance backend), and `memory-index.... |
-| `MemorySearchToolOptions` | interface | Inputs for {@link createMemorySearchTool } : the index to search and the output size caps. |
-| `MemoryTool` | interface | A memory tool ready for the agent loop: its JSON description plus an `execute` resolving to a JSON string. |
+| `MemorySearchToolOptions` | interface | Options for {@link createMemorySearchTool } . |
+| `MemoryTool` | interface | A memory tool ready to hand to the agent loop: the JSON-serialisable description an LLM sees, plus the `execute` that runs it.  |
 | `MemoryToolJson` | interface | Memory tools (`memory_search` + `memory_get`) — ADR D5 of memory-system-peer-project-parity.  |
 | `META_KEY_DIMENSION` | const | `meta` table key holding the embedding dimension. |
 | `META_KEY_MODEL` | const | `meta` table key holding the embedding model name. |
@@ -778,8 +787,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `renderDiaryEntry` | function | One diary entry as the markdown that gets appended: a timestamp heading, the short entry hash, and the counts the sweep produced.  |
 | `resolveMaxFacts` | function | The ceiling a caller declared, or `undefined` when none was declared.  |
 | `resolveMemoryRoot` | function | The memory root for this agent: `memory.directory` when set, the project store otherwise.  |
-| `runActiveMemory` | function | Run one blocking recall before the system prompt is assembled.  |
-| `RunActiveMemoryArgs` | interface | Everything {@link runActiveMemory } needs for one attempt; breaker, cache, transcript and telemetry fields are inert when omitted. |
+| `runActiveMemory` | function | Run one blocking recall before the system prompt is assembled, and report what happened.  |
+| `RunActiveMemoryArgs` | interface | Everything {@link runActiveMemory } needs for one attempt.  |
 | `runDreamingSweep` | function | Run one dreaming sweep (dedupe, cluster, write a consolidated note), serialised per `cwd`. |
 | `SCHEMA_STATEMENTS` | const | SQLite schema for the memory index.  |
 | `SearchOptions` | interface | Search tuning.  |
@@ -1315,7 +1324,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `ActiveMemoryCache` | class | TTL cache of active-memory results, bounded in size with oldest-first eviction. |
 | `ActiveMemoryCacheOptions` | interface | TTL-bounded cache for `runActiveMemory` results.  |
-| `ActiveMemoryOptions` | interface | Active Memory blocking recall (ADR D6 of memory-system-peer-project-parity).  |
 | `ActiveMemoryQueryMode` | type | Type-leaf — shared types between `active-memory.ts` and `active-memory-cache.ts`.  |
 | `ActiveMemoryResult` | interface | Result of an active-memory recall. |
 | `ActiveMemoryStatus` | type | Outcome status of an active-memory recall. |
@@ -1332,8 +1340,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `Cluster` | interface | A group of semantically similar facts, with the text chosen to represent them. |
 | `ClusterResult` | interface | What clustering produced: the clusters and how many facts the per-sweep cap left out. |
 | `collectMarkdownFiles` | function | Every markdown file the memory corpus holds: the index, the per-memory files, `notes/`, `wiki/` and `sessions/`, each tagged with the bucket `memory_search`'s `corpus` filters on.  |
-| `createMemoryGetTool` | function | Build the `memory_get` tool, which reads a bounded excerpt of a file inside the memory root. |
-| `createMemorySearchTool` | function | Build the `memory_search` tool, which runs a ranked search over the memory index. |
 | `createVectorIndex` | function | Create the `embeddings` vec0 table for vectors of the given dimension. |
 | `DedupResult` | interface | Dreaming/REM phase logic.  |
 | `deepPhase` | function | Deep phase — render consolidated markdown for the dreamed note. |
@@ -1371,7 +1377,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MEMORY_INDEX_MAX_LINES` | const | The line limit the Claude Code CLI applies when it loads a `MEMORY.md`.  |
 | `MemoryBackend` | type | Vector backend selector.  |
 | `MemoryDb` | interface | Memory index DB handle + opener.  |
-| `MemoryGetToolOptions` | interface | Inputs for {@link createMemoryGetTool } : the memory root that paths resolve against. |
 | `MemoryIndex` | interface | Contract every memory index backend implements. |
 | `memoryIndexRoot` | function | Where the search index belongs for this configuration (theokit-sdk#554).  |
 | `MemoryLocationConfig` | type | Only `directory` and `userId` are read; the full config is accepted so callers pass what they already hold. |
@@ -1379,9 +1384,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `memoryReadRoots` | function | Every directory a read must cover, deduplicated and in precedence order.  |
 | `MemoryRoot` | type | A directory that has been RESOLVED as a memory root, distinguished from a bare `cwd`.  |
 | `MemorySearchHit` | interface | Memory index manager contract — leaf types shared by `index-manager.ts` (orchestrator), `index-manager-dispatch.ts` (backend dispatch), `lance-memory-adapter.ts` (Lance backend), and `memory-index.... |
-| `MemorySearchToolOptions` | interface | Inputs for {@link createMemorySearchTool } : the index to search and the output size caps. |
-| `MemoryTool` | interface | A memory tool ready for the agent loop: its JSON description plus an `execute` resolving to a JSON string. |
-| `MemoryToolJson` | interface | Memory tools (`memory_search` + `memory_get`) — ADR D5 of memory-system-peer-project-parity.  |
 | `META_KEY_DIMENSION` | const | `meta` table key holding the embedding dimension. |
 | `META_KEY_MODEL` | const | `meta` table key holding the embedding model name. |
 | `META_KEY_PROVIDER_ID` | const | Vector index helpers (ADR D2 + D4 of memory-system-peer-project-parity).  |
@@ -1415,8 +1417,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `resetMigrationStateForTests` | function | Test-only — reset the in-process migration flag map. |
 | `resolveMaxFacts` | function | The ceiling a caller declared, or `undefined` when none was declared.  |
 | `resolveMemoryRoot` | function | The memory root for this agent: `memory.directory` when set, the project store otherwise.  |
-| `runActiveMemory` | function | Run one blocking recall before the system prompt is assembled.  |
-| `RunActiveMemoryArgs` | interface | Everything {@link runActiveMemory } needs for one attempt; breaker, cache, transcript and telemetry fields are inert when omitted. |
 | `runDreamingSweep` | function | Run one dreaming sweep (dedupe, cluster, write a consolidated note), serialised per `cwd`. |
 | `SCHEMA_STATEMENTS` | const | SQLite schema for the memory index.  |
 | `SearchOptions` | interface | Options for a memory search. |
@@ -1844,6 +1844,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `workflowAsTool` | function | SE19 — expose a {@link Workflow } as an agent {@link CustomTool } , completing the "X as tools" trio (tools; agents-as-tools via `defineSubAgent`; workflows-as-tools).  |
 | `WorkflowAsToolSpec` | interface | Spec for {@link workflowAsTool } .  |
 | `WorkflowBuilder` | class | Fluent step accumulator returned by {@link Workflow.create } .  |
+| `WorkflowCheckpoint` | interface | One checkpoint of a run, as listed by `Workflow.history()`. |
 | `WorkflowCompensateNotImplementedError` | class | D238 — a `compensate` on a step nested in parallel/branch/foreach/dowhile (top-level steps are supported). |
 | `WorkflowDescription` | interface | theokit#161 — the read-only shape of a committed workflow.  |
 | `WorkflowDuplicateStepIdError` | class | Thrown by `.commit()` when one step id appears twice anywhere in the workflow — including inside a parallel branch, a branch predicate, the fallback, and the inner step of a `foreach` or `dowhile`.  |
@@ -1856,6 +1857,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WorkflowOutputError` | class | SE27 — the whole-workflow `outputSchema` rejected the final output (on `completed`).  |
 | `WorkflowParallelError` | class | Aggregate failure from parallel branches.  |
 | `WorkflowPersistenceOptions` | interface | Where suspend snapshots are kept.  |
+| `WorkflowRerunOptions` | interface | Arguments for `Workflow.rerunFrom()`. |
 | `WorkflowResumeOptions` | interface | Arguments for `Workflow.resume()`.  |
 | `WorkflowResumeStepNotFoundError` | class | EC-8 absorbed — `currentStepId` from snapshot not found in resumed workflow. |
 | `workflowResumeTool` | function | B-677 — a {@link CustomTool } that resumes a suspended run of `workflow` by its run id, with an optional payload validated against the suspend step's schema.  |
