@@ -1,5 +1,21 @@
 # Changelog
 
+## 8.0.0
+
+### Major Changes
+
+- [#1446](https://github.com/usetheokit/theokit-sdk/pull/1446) [`30fabe6`](https://github.com/usetheokit/theokit-sdk/commit/30fabe699a6efd189555ae77545256a2f0599ea7) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `Agent` gains the static `sessionPool` method. The change is additive; it is marked major only because the API-surface gate treats any change to a class declaration as breaking.
+
+### Minor Changes
+
+- [#1446](https://github.com/usetheokit/theokit-sdk/pull/1446) [`30fabe6`](https://github.com/usetheokit/theokit-sdk/commit/30fabe699a6efd189555ae77545256a2f0599ea7) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `Agent.sessionPool` keeps one agent per session key with per-key generations: `lease(key)`, `reset(key)` (next generation, old agent disposed once no turn holds it), `rebuild(key)` (same id, fresh options) and `disposeAll({ drainMs })`. Adds `memoryGenerations`, `jsonGenerations`, `SessionPoolClosedError` and `GenerationFileError`.
+
+### Patch Changes
+
+- [#1466](https://github.com/usetheokit/theokit-sdk/pull/1466) [`616082e`](https://github.com/usetheokit/theokit-sdk/commit/616082e1a6426e7c8fd6a02ab0a48ee117b88cc6) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Read the generation file test through a single file descriptor, removing a check-then-use file system race flagged by CodeQL.
+
+- [#1458](https://github.com/usetheokit/theokit-sdk/pull/1458) [`24110d0`](https://github.com/usetheokit/theokit-sdk/commit/24110d0406c4f0e595acac568d84ca1d281bc725) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Replace the backtracking frontmatter regular expression in the markdown config loader with a linear scan, removing a polynomial-time (ReDoS) path on long whitespace runs.
+
 ## 7.3.0
 
 ### Minor Changes
