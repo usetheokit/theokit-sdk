@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import * as activeMemory from "../../src/internal/memory/active-memory.js";
 import * as activeCache from "../../src/internal/memory/active-memory-cache.js";
 import * as diary from "../../src/internal/memory/dreaming/diary.js";
 import * as phases from "../../src/internal/memory/dreaming/phases.js";
@@ -26,7 +25,6 @@ import * as sessionLoader from "../../src/internal/memory/storage/session-loader
 import * as sessionWriter from "../../src/internal/memory/storage/session-summary-writer.js";
 import * as transcripts from "../../src/internal/memory/storage/transcript-store.js";
 import * as wiki from "../../src/internal/memory/storage/wiki-loader.js";
-import * as memoryTools from "../../src/internal/memory/tools.js";
 import * as vecIndex from "../../src/internal/memory/vec-index.js";
 
 /*
@@ -92,8 +90,6 @@ describe("the internal/memory-store sub-path", () => {
       ...indexManager,
       ...dispatch,
       ...activeCache,
-      ...activeMemory,
-      ...memoryTools,
       ...indexSchema,
       ...memoryIndex,
       ...sqliteVecLoader,
