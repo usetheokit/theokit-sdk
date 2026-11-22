@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.2.0
+
+### Minor Changes
+
+- [#1471](https://github.com/usetheokit/theokit-sdk/pull/1471) [`7884ffb`](https://github.com/usetheokit/theokit-sdk/commit/7884ffbe11f78a09083a663ef82e0b12b18be590) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `@theokit/acp/client`: `connectAcpAgent` spawns an ACP agent and drives it through the ACP SDK's `ClientSideConnection` (streamed prompt updates, permission callback, `session/cancel` on abort, process-group cleanup). Commands resolve on absolute `PATH` entries only and `process.env` is never inherited. Also exports `AcpAgentSpawnError`.
+
 ## 4.1.3
 
 ### Patch Changes
