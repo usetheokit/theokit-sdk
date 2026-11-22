@@ -14,6 +14,7 @@ import type {
   StepResult,
   WorkflowEvent,
   WorkflowOptions,
+  WorkflowRerunOptions,
   WorkflowResumeOptions,
   WorkflowRun,
   WorkflowRunOptions,
@@ -38,7 +39,7 @@ import {
 } from "./executor-helpers.js";
 import { mintRunId } from "./run-id.js";
 import { acquireSingleFlight } from "./single-flight.js";
-import { getSnapshotStoreFor } from "./snapshot-store.js";
+import { getSnapshotStoreFor, type WorkflowHistoryEntry } from "./snapshot-store.js";
 import { runAgentStep } from "./step-agent.js";
 import { runBranchStep } from "./step-branch.js";
 import { runDowhileStep } from "./step-dowhile.js";
@@ -250,6 +251,17 @@ async function checkpointStep<TO>(
       options,
       status: "running",
     });
+    if (options.persistence?.keepHistory === true) {
+      await getSnapshotStoreFor(options).appendHistory({
+        runId,
+        workflowName: options.name,
+        stepId: step.id,
+        output: acc,
+        ...(params.ctx.state !== undefined ? { state: params.ctx.state } : {}),
+        at: Date.now(),
+        runInput: params.input,
+      });
+    }
     return undefined;
   } catch (snapErr) {
     return assembleRun<TO>({
@@ -345,7 +357,13 @@ type InternalRunOpts = WorkflowRunOptions & {
   readonly onStepEvent?: (event: WorkflowEvent) => void;
   /** SE29 — shared state restored from a snapshot on resume. */
   readonly restoredState?: unknown;
+  /** `rerunFrom` — the input is a stored intermediate output, not the workflow's input. */
+  readonly skipInputValidation?: boolean;
 };
+
+function validateEntryInput(options: WorkflowOptions, input: unknown, skip: boolean | undefined) {
+  return skip === true ? undefined : validateWorkflowSchema(options.inputSchema, input);
+}
 
 export async function executeWorkflow<TInput, TOutput>(
   options: WorkflowOptions,
@@ -375,7 +393,7 @@ export async function executeWorkflow<TInput, TOutput>(
   const ctx: StepContext = makeStepContext(runId, signal, stateController);
   try {
     // SE27 — validate the whole-workflow input BEFORE any step runs (fail-fast).
-    const inputIssues = validateWorkflowSchema(options.inputSchema, input);
+    const inputIssues = validateEntryInput(options, input, internal?.skipInputValidation);
     if (inputIssues !== undefined) {
       return assembleRun<TOutput>({
         runId,
@@ -556,4 +574,50 @@ export async function resumeWorkflow<TO>(opts: WorkflowResumeOptions): Promise<W
     // executeWorkflow falls back to `options.initialState`.
     ...(snapshot.state !== undefined ? { restoredState: snapshot.state } : {}),
   } as InternalRunOpts);
+}
+
+/* ─── Rerun from a step (fork) ─── */
+
+/** The input and state a fork of `stepId` starts with, from the run's stored history. */
+function replayPoint(
+  history: ReadonlyArray<WorkflowHistoryEntry>,
+  steps: ReadonlyArray<Step>,
+  stepIdx: number,
+): { input: unknown; state?: unknown } | undefined {
+  if (stepIdx === 0) {
+    const first = history[0];
+    return first === undefined ? undefined : { input: first.runInput };
+  }
+  const previousId = steps[stepIdx - 1]?.id;
+  const entry = [...history].reverse().find((h) => h.stepId === previousId);
+  if (entry === undefined) return undefined;
+  return { input: entry.output, ...(entry.state !== undefined ? { state: entry.state } : {}) };
+}
+
+/**
+ * Fork a new run from a top-level step of a recorded run (LangGraph-style): the original run's
+ * history is read, never written. Needs `persistence.keepHistory`.
+ */
+export async function rerunWorkflow<TO>(
+  options: WorkflowOptions,
+  steps: ReadonlyArray<Step>,
+  opts: WorkflowRerunOptions,
+): Promise<WorkflowRun<TO>> {
+  const history = await getSnapshotStoreFor(options).history(opts.runId);
+  const first = history[0];
+  if (first === undefined) throw new WorkflowSnapshotNotFoundError(opts.runId);
+  if (first.workflowName !== options.name) {
+    throw new WorkflowResumeWorkflowMismatchError(opts.runId, first.workflowName, options.name);
+  }
+  const stepIdx = steps.findIndex((s) => s.id === opts.stepId);
+  if (stepIdx < 0) throw new WorkflowResumeStepNotFoundError(opts.stepId, options.name);
+  const point = replayPoint(history, steps, stepIdx);
+  if (point === undefined) throw new WorkflowSnapshotNotFoundError(opts.runId);
+  const input = "input" in opts ? opts.input : point.input;
+  const run = await executeWorkflow<unknown, TO>(options, steps.slice(stepIdx), input, {
+    ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
+    ...(point.state !== undefined ? { restoredState: point.state } : {}),
+    skipInputValidation: stepIdx > 0,
+  } as InternalRunOpts);
+  return { ...run, rerunOf: { runId: opts.runId, stepId: opts.stepId } };
 }
