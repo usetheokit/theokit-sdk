@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.8
+
+### Patch Changes
+
+- Updated dependencies [[`f836198`](https://github.com/usetheokit/theokit-sdk/commit/f8361986f4366174486f903a8eea29abd1376cff)]:
+  - @theokit/sdk@9.0.0
+
 ## 3.0.7
 
 ### Patch Changes

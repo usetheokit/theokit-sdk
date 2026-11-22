@@ -1,5 +1,17 @@
 # Changelog
 
+## 9.0.0
+
+### Major Changes
+
+- [#1473](https://github.com/usetheokit/theokit-sdk/pull/1473) [`f836198`](https://github.com/usetheokit/theokit-sdk/commit/f8361986f4366174486f903a8eea29abd1376cff) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/workflow`: `persistence.keepHistory` (with `durability: "step"`) keeps every checkpoint of a run; `workflow.history(runId)` lists them and `workflow.rerunFrom({ runId, stepId })` forks a new run from a top-level step, leaving the original run's history untouched. The new run carries `rerunOf`.
+
+## 8.0.1
+
+### Patch Changes
+
+- [#1471](https://github.com/usetheokit/theokit-sdk/pull/1471) [`7884ffb`](https://github.com/usetheokit/theokit-sdk/commit/7884ffbe11f78a09083a663ef82e0b12b18be590) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Regenerate the harness capability map for the new `@theokit/acp/client` entry.
+
 ## 8.0.0
 
 ### Major Changes
