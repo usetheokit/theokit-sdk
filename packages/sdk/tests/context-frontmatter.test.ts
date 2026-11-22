@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseFrontmatterYaml, splitFrontmatter } from "../../src/context/index.js";
-import { ConfigurationError } from "../../src/errors.js";
+import { parseFrontmatterYaml, splitFrontmatter } from "../src/context/index.js";
+import { ConfigurationError } from "../src/errors.js";
 
 function codeOf(fn: () => unknown): { code?: string; message: string } {
   try {
@@ -54,7 +54,7 @@ describe("parseFrontmatterYaml", () => {
 
 describe("parseSimpleYaml (loader adapter) stays lenient", async () => {
   const { parseSimpleYaml } = await import(
-    "../../src/internal/runtime/context/yaml-frontmatter.js"
+    "../src/internal/runtime/context/yaml-frontmatter.js"
   );
   it("skips folded-scalar continuation lines instead of throwing", () => {
     expect(parseSimpleYaml("name: a\ndescription: >\n  folded text\n  more\nmodel: x")).toEqual({

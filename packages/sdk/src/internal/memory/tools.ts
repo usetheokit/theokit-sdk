@@ -15,8 +15,6 @@ import { readMemoryFileBounded } from "./storage/reader.js";
  * Each tool is exposed as a `MemoryTool` (name + description + JSON schema +
  * async execute). The agent-loop integration wires them via the existing
  * `ResolvedTool` interface in `tool-dispatch.ts`.
- *
- * @internal
  */
 
 export interface MemoryToolJson {
@@ -25,6 +23,7 @@ export interface MemoryToolJson {
   inputSchema: Record<string, unknown>;
 }
 
+/** A memory tool ready for the agent loop: its JSON description plus an `execute` resolving to a JSON string. */
 export interface MemoryTool extends MemoryToolJson {
   execute(input: Record<string, unknown>): Promise<string>;
 }
@@ -60,12 +59,14 @@ const MEMORY_GET_SCHEMA: Record<string, unknown> = {
 
 const DEFAULT_MAX_TOTAL_CHARS = 16384;
 
+/** Inputs for {@link createMemorySearchTool}: the index to search and the output size caps. */
 export interface MemorySearchToolOptions {
-  index: MemoryIndex;
+  index: Pick<MemoryIndex, "search">;
   /** Cap on the JSON response size (EC-10 of edge-case review). Default 16384. */
   maxTotalChars?: number;
 }
 
+/** Build the `memory_search` tool, which runs a ranked search over the memory index. */
 export function createMemorySearchTool(opts: MemorySearchToolOptions): MemoryTool {
   const cap = opts.maxTotalChars ?? DEFAULT_MAX_TOTAL_CHARS;
   return {
@@ -89,6 +90,7 @@ export function createMemorySearchTool(opts: MemorySearchToolOptions): MemoryToo
   };
 }
 
+/** Inputs for {@link createMemoryGetTool}: the memory root that paths resolve against. */
 export interface MemoryGetToolOptions {
   /**
    * The RESOLVED memory root the tool may read inside — not a cwd (#463).
@@ -99,6 +101,7 @@ export interface MemoryGetToolOptions {
   root: MemoryRoot;
 }
 
+/** Build the `memory_get` tool, which reads a bounded excerpt of a file inside the memory root. */
 export function createMemoryGetTool(opts: MemoryGetToolOptions): MemoryTool {
   const memoryRoot = resolvePath(opts.root);
   return {

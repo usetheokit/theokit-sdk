@@ -28,8 +28,6 @@ export type { ActiveMemoryQueryMode, ActiveMemoryResult, ActiveMemoryStatus };
  * Returns a `summary` string capped at `maxSummaryChars` (default 220 to
  * match peer-project's `DEFAULT_MAX_SUMMARY_CHARS`) which the system-prompt
  * pipeline prepends as a `<active-memory>` block (priority 5).
- *
- * @internal
  */
 
 // T4.1 / D438 — `ActiveMemoryQueryMode`, `ActiveMemoryStatus`, and
@@ -49,10 +47,11 @@ export interface ActiveMemoryOptions {
   recentUserTurns?: number;
 }
 
+/** Everything {@link runActiveMemory} needs for one attempt; breaker, cache, transcript and telemetry fields are inert when omitted. */
 export interface RunActiveMemoryArgs {
   userText: string;
   priorMessages: ReadonlyArray<{ role: "user" | "assistant"; text: string }>;
-  index: MemoryIndex | undefined;
+  index: Pick<MemoryIndex, "search"> | undefined;
   options: ActiveMemoryOptions;
   /** Per-agent circuit breaker (Phase 8). */
   breaker?: CircuitBreaker;
@@ -102,6 +101,7 @@ const DEFAULTS: Required<Omit<ActiveMemoryOptions, "enabled">> = {
   recentUserTurns: 2,
 };
 
+/** Run one blocking recall before the system prompt is assembled. Never throws for a recall failure: it returns a `skipped`, `timeout` or `error` result. */
 export async function runActiveMemory(args: RunActiveMemoryArgs): Promise<ActiveMemoryResult> {
   const started = Date.now();
   // T0.1 — `memory.recall` span emitted around the entire body so skipped /
