@@ -860,14 +860,6 @@
         "tier": "stable",
         "declaration": "export interface DiscoverySpec {\n    readonly id: string;\n    readonly priority: number;\n    readonly pattern: string | readonly string[];\n    readonly scope: DiscoveryScope;\n    readonly parser: DiscoveryParser;\n    readonly followImports: boolean;\n    readonly dialect?: string;\n}"
       },
-      "FrontmatterScalar": {
-        "tier": "stable",
-        "declaration": "export type FrontmatterScalar = string | number | boolean | string[];"
-      },
-      "FrontmatterSplit": {
-        "tier": "stable",
-        "declaration": "export interface FrontmatterSplit {\n    readonly yaml: string | undefined;\n    readonly body: string;\n}"
-      },
       "ResolveContextImportsOptions": {
         "tier": "stable",
         "declaration": "export interface ResolveContextImportsOptions {\n    readonly projectRoot: string;\n    readonly maxBytesPerFile: number;\n    readonly visited?: Set<string>;\n    readonly depth?: number;\n}"
@@ -875,10 +867,6 @@
       "WithheldSpec": {
         "tier": "stable",
         "declaration": "export interface WithheldSpec {\n    readonly id: string;\n    readonly pattern: string | readonly string[];\n    readonly grant: string;\n}"
-      },
-      "parseFrontmatterYaml": {
-        "tier": "stable",
-        "declaration": "export declare function parseFrontmatterYaml(yaml: string): Record<string, FrontmatterScalar>;"
       },
       "parseRules": {
         "tier": "stable",
@@ -895,10 +883,6 @@
       "shouldActivateRule": {
         "tier": "stable",
         "declaration": "export declare function shouldActivateRule(fm: RulesFrontmatter, inScopePaths: ReadonlyArray<string>): boolean;"
-      },
-      "splitFrontmatter": {
-        "tier": "stable",
-        "declaration": "export declare function splitFrontmatter(raw: string): FrontmatterSplit;"
       },
       "withheldSpecs": {
         "tier": "stable",
@@ -926,14 +910,6 @@
         "tier": "stable",
         "declaration": "export interface DiscoverySpec {\n    readonly id: string;\n    readonly priority: number;\n    readonly pattern: string | readonly string[];\n    readonly scope: DiscoveryScope;\n    readonly parser: DiscoveryParser;\n    readonly followImports: boolean;\n    readonly dialect?: string;\n}"
       },
-      "FrontmatterScalar": {
-        "tier": "stable",
-        "declaration": "export type FrontmatterScalar = string | number | boolean | string[];"
-      },
-      "FrontmatterSplit": {
-        "tier": "stable",
-        "declaration": "export interface FrontmatterSplit {\n    readonly yaml: string | undefined;\n    readonly body: string;\n}"
-      },
       "ResolveContextImportsOptions": {
         "tier": "stable",
         "declaration": "export interface ResolveContextImportsOptions {\n    readonly projectRoot: string;\n    readonly maxBytesPerFile: number;\n    readonly visited?: Set<string>;\n    readonly depth?: number;\n}"
@@ -941,10 +917,6 @@
       "WithheldSpec": {
         "tier": "stable",
         "declaration": "export interface WithheldSpec {\n    readonly id: string;\n    readonly pattern: string | readonly string[];\n    readonly grant: string;\n}"
-      },
-      "parseFrontmatterYaml": {
-        "tier": "stable",
-        "declaration": "export declare function parseFrontmatterYaml(yaml: string): Record<string, FrontmatterScalar>;"
       },
       "parseRules": {
         "tier": "stable",
@@ -961,10 +933,6 @@
       "shouldActivateRule": {
         "tier": "stable",
         "declaration": "export declare function shouldActivateRule(fm: RulesFrontmatter, inScopePaths: ReadonlyArray<string>): boolean;"
-      },
-      "splitFrontmatter": {
-        "tier": "stable",
-        "declaration": "export declare function splitFrontmatter(raw: string): FrontmatterSplit;"
       },
       "withheldSpecs": {
         "tier": "stable",

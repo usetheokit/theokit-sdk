@@ -22,7 +22,7 @@
 import { z } from "zod";
 
 import { anyGlobMatches } from "./context-glob.js";
-import { type FrontmatterSplit, parseSimpleYaml, splitFrontmatter } from "./context-yaml-lite.js";
+import { parseSimpleYaml, splitFrontmatter } from "./context-yaml-lite.js";
 
 /** YAML frontmatter schema for MDC files. @internal */
 export const McdFrontmatterSchema = z.object({
@@ -49,13 +49,7 @@ export interface McdParseResult {
  * @internal
  */
 export function parseMdc(content: string): McdParseResult | undefined {
-  let split: FrontmatterSplit;
-  try {
-    split = splitFrontmatter(content);
-  } catch {
-    return undefined; // unterminated frontmatter is malformed
-  }
-  const { yaml, body } = split;
+  const { yaml, body } = splitFrontmatter(content);
   if (yaml === undefined) {
     // EC-18: no frontmatter — treat as alwaysApply
     return { frontmatter: { alwaysApply: true }, body: content };
