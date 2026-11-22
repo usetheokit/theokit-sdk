@@ -436,7 +436,7 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
    * `parallel`, `branch` or `foreach` cannot be replayed from.
    */
   async rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>> {
-    const { rerunWorkflow } = await import("./internal/workflow/executor.js");
+    const { rerunWorkflow } = await import("./internal/workflow/executor-rerun.js");
     return rerunWorkflow<TOutput>(this._options, this._steps, opts);
   }
 
