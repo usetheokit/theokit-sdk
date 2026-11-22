@@ -135,7 +135,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_squad` | domain | ConfigurationError | `packages/sdk/src/squad.ts:138` |
 | `invalid_task_id` | domain | — | `packages/sdk/src/task-errors.ts:33` +1 |
 | `invalid_timezone` | domain | ConfigurationError | `packages/sdk/src/internal/cron/validate.ts:135` |
-| `invalid_workflow_step` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:244` |
+| `invalid_workflow_step` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:235` |
 | `iteration_limit_reached` | domain | — | `packages/sdk/src/internal/agent-loop/loop-finalize.ts:51` |
 | `jsonl_parse_failed` | domain | — | `packages/sdk/src/internal/persistence/jsonl.ts:37` |
 | `judge_credential` | domain | — | `packages/sdk/src/internal/judge/judge-call.ts:72` +1 |
@@ -304,7 +304,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `upstream_run_failed` | domain | — | `packages/sdk/src/errors.ts:770` |
 | `valibot_converter_missing` | domain | ConfigurationError | `packages/sdk/src/schema-normalizer.ts:81` +1 |
 | `work_threw` | domain | — | `packages/sdk/src/internal/task/registry.ts:295` |
-| `workflow_already_committed` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:282` |
+| `workflow_already_committed` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:273` |
 | `workflow_already_running` | domain | — | `packages/sdk/src/workflow-errors.ts:141` |
 | `workflow_compensate_not_implemented` | domain | — | `packages/sdk/src/workflow-errors.ts:270` +1 |
 | `workflow_duplicate_step_id` | domain | — | `packages/sdk/src/workflow-errors.ts:31` |
