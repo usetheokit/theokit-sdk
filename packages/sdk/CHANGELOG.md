@@ -1,5 +1,11 @@
 # Changelog
 
+## 9.0.0
+
+### Major Changes
+
+- [#1473](https://github.com/usetheokit/theokit-sdk/pull/1473) [`f836198`](https://github.com/usetheokit/theokit-sdk/commit/f8361986f4366174486f903a8eea29abd1376cff) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/workflow`: `persistence.keepHistory` (with `durability: "step"`) keeps every checkpoint of a run; `workflow.history(runId)` lists them and `workflow.rerunFrom({ runId, stepId })` forks a new run from a top-level step, leaving the original run's history untouched. The new run carries `rerunOf`.
+
 ## 8.0.1
 
 ### Patch Changes
