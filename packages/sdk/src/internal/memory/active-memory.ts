@@ -28,8 +28,6 @@ export type { ActiveMemoryQueryMode, ActiveMemoryResult, ActiveMemoryStatus };
  * Returns a `summary` string capped at `maxSummaryChars` (default 220 to
  * match peer-project's `DEFAULT_MAX_SUMMARY_CHARS`) which the system-prompt
  * pipeline prepends as a `<active-memory>` block (priority 5).
- *
- * @internal
  */
 
 // T4.1 / D438 — `ActiveMemoryQueryMode`, `ActiveMemoryStatus`, and
@@ -52,7 +50,7 @@ export interface ActiveMemoryOptions {
 export interface RunActiveMemoryArgs {
   userText: string;
   priorMessages: ReadonlyArray<{ role: "user" | "assistant"; text: string }>;
-  index: MemoryIndex | undefined;
+  index: Pick<MemoryIndex, "search"> | undefined;
   options: ActiveMemoryOptions;
   /** Per-agent circuit breaker (Phase 8). */
   breaker?: CircuitBreaker;

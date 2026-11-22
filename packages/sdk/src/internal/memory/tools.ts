@@ -15,8 +15,6 @@ import { readMemoryFileBounded } from "./storage/reader.js";
  * Each tool is exposed as a `MemoryTool` (name + description + JSON schema +
  * async execute). The agent-loop integration wires them via the existing
  * `ResolvedTool` interface in `tool-dispatch.ts`.
- *
- * @internal
  */
 
 export interface MemoryToolJson {
@@ -61,7 +59,7 @@ const MEMORY_GET_SCHEMA: Record<string, unknown> = {
 const DEFAULT_MAX_TOTAL_CHARS = 16384;
 
 export interface MemorySearchToolOptions {
-  index: MemoryIndex;
+  index: Pick<MemoryIndex, "search">;
   /** Cap on the JSON response size (EC-10 of edge-case review). Default 16384. */
   maxTotalChars?: number;
 }
