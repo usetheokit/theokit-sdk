@@ -645,7 +645,10 @@ export interface TelemetrySettings {
   enabled: boolean;
   /** Whether to include prompts/responses/tool args as span events. Default `false`. */
   includeContent?: boolean;
-  /** Exporter selection. Default `"console"`. Custom exporters are passed-through. */
+  /**
+   * Not read by the SDK; setting it exports nothing. Spans go to whatever provider is registered
+   * globally: call `registerTelemetry` from `@theokit/sdk/telemetry-node` to register OTLP providers.
+   */
   exporter?: "console" | "otlp" | unknown;
   /** Service name on emitted spans. Default `"theokit-sdk"`. */
   serviceName?: string;
@@ -1246,4 +1249,16 @@ export interface ModelFallbackOptions {
   models: string[];
   /** Only "no-output" for now: fall over only while the failed run has streamed no assistant output. */
   when?: "no-output";
+}
+
+/**
+ * A hold on a live agent returned by `Agent.lease`.
+ *
+ * @public
+ */
+export interface AgentLease {
+  readonly agent: SDKAgent;
+  readonly agentId: string;
+  /** Ends this hold. Idempotent. */
+  release(): void;
 }

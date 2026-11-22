@@ -154,16 +154,17 @@ function resolveEntryPath(
  *
  * @internal
  */
-function splitFrontmatter(
+export function splitFrontmatter(
   raw: string,
   source: string,
   errorCodePrefix: string,
 ): { frontmatter: string; body: string } {
-  // Strict: file MUST start with `---\n`, then frontmatter content, then `---\n`.
-  // The body is whatever follows the closing `---`. Other `---` lines in body
-  // (horizontal rules) are NOT confused with the frontmatter delim because
-  // the regex anchors `^---\s*\n` at the start of the file.
-  const match = /^---\s*\n([\s\S]*?)\n---\s*(?:\n|$)/.exec(raw);
+  // Strict: file MUST start with `---`, whitespace containing a newline, then
+  // frontmatter content, then `\n---` + whitespace + (newline | end). Other
+  // `---` lines in the body (horizontal rules) are not confused with the
+  // delimiter. Hand-rolled linear scan: the equivalent regex backtracks
+  // polynomially on long whitespace runs (ReDoS).
+  const match = scanFrontmatter(raw);
   if (match === null) {
     throw new ConfigurationError(
       `Missing or malformed frontmatter in ${source} (expected \`---\` delimited block at file head)`,
@@ -171,7 +172,52 @@ function splitFrontmatter(
     );
   }
   return {
-    frontmatter: match[1] ?? "",
-    body: raw.slice(match[0].length),
+    frontmatter: raw.slice(match.start, match.end),
+    body: raw.slice(match.bodyStart),
   };
+}
+
+const WS = /\s/;
+
+function wsRunEnd(raw: string, from: number): number {
+  let i = from;
+  while (i < raw.length && WS.test(raw[i] as string)) i++;
+  return i;
+}
+
+/** Returns the end of a `---` delimiter's trailing part, or -1 if invalid. */
+function closingEnd(raw: string, dashEnd: number): number {
+  const runEnd = wsRunEnd(raw, dashEnd);
+  if (runEnd === raw.length) return runEnd;
+  const nl = raw.lastIndexOf("\n", runEnd - 1);
+  return nl >= dashEnd ? nl + 1 : -1;
+}
+
+/** Empty frontmatter split across an earlier newline of the opening run. */
+function scanEmptyFrontmatter(
+  raw: string,
+  start: number,
+  runEnd: number,
+  lastNl: number,
+): { start: number; end: number; bodyStart: number } | null {
+  if (runEnd !== start || lastNl <= 3 || !raw.startsWith("---", start)) return null;
+  const end = closingEnd(raw, start + 3);
+  return end === -1 ? null : { start: start - 1, end: start - 1, bodyStart: end };
+}
+
+function scanFrontmatter(raw: string): { start: number; end: number; bodyStart: number } | null {
+  if (!raw.startsWith("---")) return null;
+  const runEnd = wsRunEnd(raw, 3);
+  const lastNl = raw.lastIndexOf("\n", runEnd - 1);
+  if (lastNl < 3) return null;
+  const start = lastNl + 1;
+  let i = start;
+  for (;;) {
+    const nl = raw.indexOf("\n---", i);
+    if (nl === -1) break;
+    const end = closingEnd(raw, nl + 4);
+    if (end !== -1) return { start, end: nl, bodyStart: end };
+    i = nl + 1;
+  }
+  return scanEmptyFrontmatter(raw, start, runEnd, lastNl);
 }

@@ -1,5 +1,79 @@
 # Changelog
 
+## 8.0.0
+
+### Major Changes
+
+- [#1446](https://github.com/usetheokit/theokit-sdk/pull/1446) [`30fabe6`](https://github.com/usetheokit/theokit-sdk/commit/30fabe699a6efd189555ae77545256a2f0599ea7) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `Agent` gains the static `sessionPool` method. The change is additive; it is marked major only because the API-surface gate treats any change to a class declaration as breaking.
+
+### Minor Changes
+
+- [#1446](https://github.com/usetheokit/theokit-sdk/pull/1446) [`30fabe6`](https://github.com/usetheokit/theokit-sdk/commit/30fabe699a6efd189555ae77545256a2f0599ea7) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `Agent.sessionPool` keeps one agent per session key with per-key generations: `lease(key)`, `reset(key)` (next generation, old agent disposed once no turn holds it), `rebuild(key)` (same id, fresh options) and `disposeAll({ drainMs })`. Adds `memoryGenerations`, `jsonGenerations`, `SessionPoolClosedError` and `GenerationFileError`.
+
+### Patch Changes
+
+- [#1466](https://github.com/usetheokit/theokit-sdk/pull/1466) [`616082e`](https://github.com/usetheokit/theokit-sdk/commit/616082e1a6426e7c8fd6a02ab0a48ee117b88cc6) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Read the generation file test through a single file descriptor, removing a check-then-use file system race flagged by CodeQL.
+
+- [#1458](https://github.com/usetheokit/theokit-sdk/pull/1458) [`24110d0`](https://github.com/usetheokit/theokit-sdk/commit/24110d0406c4f0e595acac568d84ca1d281bc725) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Replace the backtracking frontmatter regular expression in the markdown config loader with a linear scan, removing a polynomial-time (ReDoS) path on long whitespace runs.
+
+## 7.3.0
+
+### Minor Changes
+
+- [#1447](https://github.com/usetheokit/theokit-sdk/pull/1447) [`a89307c`](https://github.com/usetheokit/theokit-sdk/commit/a89307cda2184b35fad8afb24017788e1c6cce3e) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `parsePluginManifest`, `trustWorkspacePlugin`, `untrustWorkspacePlugin` and `installWorkspacePlugin` to parse a `PLUGIN.md`, and to install and trust a workspace plugin without editing the trust record by hand. A trust record that cannot be parsed throws `TrustRecordError` and is never overwritten; a bad manifest throws `PluginManifestError`.
+
+### Patch Changes
+
+- [#1454](https://github.com/usetheokit/theokit-sdk/pull/1454) [`a208b41`](https://github.com/usetheokit/theokit-sdk/commit/a208b414f93d5a6071afed36e1790e1d073465ea) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `registerTelemetry` strips trailing slashes from `endpoint` with a linear scan instead of a regular expression that could run slowly on long runs of `/`.
+
+## 7.2.0
+
+### Minor Changes
+
+- [#1439](https://github.com/usetheokit/theokit-sdk/pull/1439) [`4d7ded9`](https://github.com/usetheokit/theokit-sdk/commit/4d7ded9a50584253b3054d31f063c842b5133906) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - New optional sub-path `@theokit/sdk/telemetry-node` with `registerTelemetry`, which registers global OTLP/HTTP tracer and meter providers (plus an optional loopback Prometheus endpoint) for `AgentOptions.telemetry`. Export errors are redacted and masked before they reach `onExportError`. The OpenTelemetry SDK and exporter packages are optional peers.
+
+## 7.1.0
+
+### Minor Changes
+
+- [#1417](https://github.com/usetheokit/theokit-sdk/pull/1417) [`bb2be02`](https://github.com/usetheokit/theokit-sdk/commit/bb2be027246da58b331ae9e51365353d14e45b93) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - sandbox: `network: { allow, credentials }` injects credentials at the egress proxy. The sandbox gets only a placeholder (and optionally an env var set to it); the proxy swaps in the real value from `value()` for the rule's host, terminating TLS with a per-proxy in-memory CA for those hosts only. A placeholder sent to another host is refused as `credential_misroute`, and a rule for a host no `EgressRule` allows throws `ConfigurationError` `credential_host_not_allowed`. Exports `CredentialRule`.
+
+- [#1426](https://github.com/usetheokit/theokit-sdk/pull/1426) [`a18ee3c`](https://github.com/usetheokit/theokit-sdk/commit/a18ee3cd7dd54ed4c74e72f92193a3b76b266735) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `@theokit/sdk/mcp` with `connectMcpServer`, which lists and reads a server's resources and lists and renders its prompts. A server without the capability rejects with `mcp_capability_missing`; a JSON-RPC error becomes a `NetworkError` of code `mcp_rpc_error`.
+
+## 7.0.0
+
+### Major Changes
+
+- [#1398](https://github.com/usetheokit/theokit-sdk/pull/1398) [`48205d6`](https://github.com/usetheokit/theokit-sdk/commit/48205d688a87831bf6c1f16be3f03a524a1cada3) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add the optional `SandboxBackend.executeStreaming` capability, implemented by `LocalSandbox` and `LinuxSandbox`: it reports stdout line by line while the command runs and stops the command when an `AbortSignal` aborts ([#883](https://github.com/usetheokit/theokit-sdk/issues/883)).
+
+### Minor Changes
+
+- [#1412](https://github.com/usetheokit/theokit-sdk/pull/1412) [`3365e10`](https://github.com/usetheokit/theokit-sdk/commit/3365e10f1889a962111fb7956aed017ce5bc9a5e) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/retry` now exports `CircuitBreaker` and `CircuitBreakerOptions`; `@theokit/sdk-memory` re-exports that class instead of shipping its own copy.
+
+- [#1403](https://github.com/usetheokit/theokit-sdk/pull/1403) [`2e0b1af`](https://github.com/usetheokit/theokit-sdk/commit/2e0b1afa300d46baa9f098a423f31e2908a0a59b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/persistence` now exports `listProjects`, which lists the project folders under `projects/` and reads each one's working directory from its transcripts, and `SessionListing` gains `cwd`.
+
+- [#1428](https://github.com/usetheokit/theokit-sdk/pull/1428) [`52ed77d`](https://github.com/usetheokit/theokit-sdk/commit/52ed77dee461a07c94535915659c76071850f79a) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - New `onMcpElicitation` agent option answers MCP elicitation requests from a server. The MCP client now routes server-to-client requests (stdio and the Streamable HTTP event stream) instead of mistaking them for replies, declares the `elicitation` capability only when a handler is set, and exports `McpElicitationHandler`, `McpElicitationRequest` and `McpElicitationResult`.
+
+- [#1405](https://github.com/usetheokit/theokit-sdk/pull/1405) [`f327fe1`](https://github.com/usetheokit/theokit-sdk/commit/f327fe1b27f033765cfae46481d2c2a9ce6b0fcf) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The MCP client now negotiates the protocol version: `initialize` offers `2025-06-18` (or the server's new `protocolVersion` pin), accepts `2025-03-26` and `2024-11-05` answers, rejects others with `mcp_protocol_unsupported`, sends `MCP-Protocol-Version` on HTTP requests, and reports the SDK version in `clientInfo`.
+
+- [#1399](https://github.com/usetheokit/theokit-sdk/pull/1399) [`20bbcdb`](https://github.com/usetheokit/theokit-sdk/commit/20bbcdb58b2f53153f484d7f0ad2f46dccb2bdb7) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/persistence` adds `ensureSecureDir` (owner-only directory, repairs a loose one), `InsecureDirectoryError` (code `insecure_directory`), `atomicWriteJsonSync`, and a `dirMode` option on `atomicWriteJson`.
+
+- [#1402](https://github.com/usetheokit/theokit-sdk/pull/1402) [`e476785`](https://github.com/usetheokit/theokit-sdk/commit/e47678530db226342f7097827f9315bbf317965b) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `readSessionHistory`, which tells a session with no transcript (`absent`) from one that was read (`present`, with a `skippedLines` count) and one that could not be read (`unreadable`, with a `reason`).
+
+### Patch Changes
+
+- [#1427](https://github.com/usetheokit/theokit-sdk/pull/1427) [`3467c6c`](https://github.com/usetheokit/theokit-sdk/commit/3467c6c4e200c79eb2d494f8e75bf6beb06b7984) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The English-only lint no longer reads commit hashes inside link URLs as Portuguese.
+
+- [#1424](https://github.com/usetheokit/theokit-sdk/pull/1424) [`273b354`](https://github.com/usetheokit/theokit-sdk/commit/273b354228b661473a2b7bb3e0eb87db0c6f8505) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Deprecate `@theokit/sdk/server/errors-envelope` (`toEnvelope`, `fromEnvelope`, `TheokitErrorCode`, `TheokitErrorEnvelope`). It keeps working, and will be removed in the next major. Read `name`, `isRetryable` and `metadata` from the error to build your own envelope; theokit apps get the envelope from `theokit/server`.
+
+- [#1404](https://github.com/usetheokit/theokit-sdk/pull/1404) [`70eed5a`](https://github.com/usetheokit/theokit-sdk/commit/70eed5a1c78cfdc693e6fbd032834471efde4c38) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The ten embedding provider adapters now live only in `@theokit/sdk`; `@theokit/sdk-memory` re-exports them from `@theokit/sdk/internal/memory-adapters`, so an adapter fix no longer has to be applied twice.
+
+- [#1414](https://github.com/usetheokit/theokit-sdk/pull/1414) [`9b7c142`](https://github.com/usetheokit/theokit-sdk/commit/9b7c142637e0944e7124851b47167b2835bbe899) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - fork: `ForkResult.toolCalls` now lists the tool calls the fork executed instead of always being empty.
+
+- [#1430](https://github.com/usetheokit/theokit-sdk/pull/1430) [`2f79474`](https://github.com/usetheokit/theokit-sdk/commit/2f79474d61f1e5198fcfed7fe03765be5e09752d) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The English-only lint test no longer treats words inside HTTP(S) URLs as prose, so a commit link in a generated changelog cannot fail it.
+
+- [#1429](https://github.com/usetheokit/theokit-sdk/pull/1429) [`422629d`](https://github.com/usetheokit/theokit-sdk/commit/422629d43b7d261c4f8ae0ad02305af55091ee81) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The English-only lint gate no longer reads Markdown link destinations as prose, so a commit hash in a generated changelog link cannot trip it.
+
 ## 6.1.0
 
 ### Minor Changes

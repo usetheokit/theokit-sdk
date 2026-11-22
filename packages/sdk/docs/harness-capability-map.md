@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1565 export(s) across 59 entry point(s).
+1587 export(s) across 60 entry point(s).
 
 ## `@theokit/acp`
 
@@ -68,7 +68,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `AgentDisposedError` | class | T1.6 — Thrown when a consumer calls `agent.send()` or any method on an agent that has already been `dispose()`d.  |
 | `AgentFactory` | class | Handle returned by {@link createAgentFactory } .  |
 | `AgentFactoryConfig` | interface | Config form of {@link AgentFactory.create } : base `defaults` that per-session overrides may change, and `pinned` options they cannot. |
-| `AgentLease` | interface | A hold on a live agent returned by {@link Agent.lease } . |
+| `AgentLease` | interface | A hold on a live agent returned by `Agent.lease`. |
 | `AgentLike` | interface | Narrow agent port: the part of `SDKAgent` a wrapper, test double or failover decorator needs.  |
 | `AgentMemory` | interface | Direct memory API exposed on `SDKAgent.memory`.  |
 | `AgentOperation` | type | An operation a consumer may ask an {@link SDKAgent } about via `supports()`.  |
@@ -210,6 +210,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `GenerateObjectResult` | interface | Successful return from {@link Agent.generateObject } . |
 | `GenerateOptions` | interface | SE9 — options for the integrated structured-output method `agent.generate`: the {@link SendOptions } that drive the tool loop (phase 1) plus the required `output` Zod schema and structuring knobs (... |
 | `GenerateRunResult` | interface | SE9 — result of `agent.generate`: the validated typed object plus the underlying tool-loop {@link RunResult } (status / usage / model) and the raw pre-parse input. |
+| `GenerationFileError` | class | `jsonGenerations` was pointed at a file that is not `{ version: 1, generations }`.  |
+| `GenerationStore` | interface | The generation counter per session key.  |
 | `GetAgentOptions` | interface | Options for `Agent.get()`.  |
 | `getPricingEntry` | function | Returns the pricing entry for a given `{provider, model}` route.  |
 | `GetRunOptions` | type | Options for `Agent.getRun()`.  |
@@ -233,6 +235,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `InlineSkill` | interface | A code-defined skill (from {@link createSkill } ) — a {@link Skill } plus its inline body. |
 | `InMemorySessionStore` | class | A {@link SessionStore } whose records live in this object only: nothing is written to disk, and the transcript disappears with the process.  |
 | `InputProcessorContext` | interface | Context passed to {@link Processor.processInput } . |
+| `installWorkspacePlugin` | function | Validate a plugin folder (`PLUGIN.md` and its entry), copy it to `<workspace>/.theokit/plugins/<name>/`, then trust the copy.  |
 | `IntegrationNotConnectedError` | class | Thrown when creating a cloud agent for a repo whose SCM provider is not connected.  |
 | `InteractionUpdate` | type | Lowest-level raw update from a run.  |
 | `InvalidateCacheOptions` | interface | Options for {@link SDKAgent.invalidateCache } . |
@@ -243,6 +246,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `isValidTaskId` | function | Validates a task ID against the public grammar + reserved prefixes.  |
 | `JobQueue` | class | An in-process queue of background jobs with status tracking, cancellation, and an optional concurrency bound.  |
 | `JobQueueOptions` | interface | #58 — construction options. |
+| `jsonGenerations` | function | Generations persisted to a JSON file (`{ version: 1, generations }`, mode 0600), one write at a time.  |
 | `JudgeCredentialError` | class | M80 — the judge's credential or model does not work: 401/404.  |
 | `JudgeResult` | interface | M80 — the result of a judge call, now public.  |
 | `KeepReason` | type | Why an artifact survived. |
@@ -282,6 +286,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryFact` | interface | A single memory fact returned by `recall` or `get`. |
 | `MemoryFactAmbiguousError` | class | Thrown by `removeMemoryFact` when the id names entries in more than one memory root (the same per-memory file name in the write root and the Claude Code CLI's store).  |
 | `MemoryFactNotRemovableError` | class | Thrown by `removeMemoryFact` when the entry exists but lives outside the write root, for example in the Claude Code CLI's store.  |
+| `memoryGenerations` | function | Generations kept in memory only. |
 | `MemoryId` | type | Branded provider memory ID.  |
 | `MemoryMirrorOptions` | interface | How the built-in fact store is mirrored to memory adapters.  |
 | `MemoryProvider` | interface | The kernel-facing contract.  |
@@ -315,6 +320,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `OTelSpan` | interface | The subset of the OpenTelemetry `Span` API this SDK calls.  |
 | `OutputProcessorContext` | interface | Context passed to {@link Processor.processOutput } . |
 | `parsePermissionRules` | function | Parse a rule set into engine rules, DENY first.  |
+| `parsePluginManifest` | function | Parse the YAML frontmatter of a `PLUGIN.md`, with the SDK's own frontmatter schema.  |
 | `PartialToolCallUpdate` | interface | Tool call arguments streaming in incrementally. |
 | `PermissionAction` | type | `PermissionEngine` — first-match permission rules for tool invocations.  |
 | `PermissionEngine` | class | Ordered first-match permission rules for tool invocations — the policy object you hand to `PermissionPlugin.create()` to have it enforced.  |
@@ -334,6 +340,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `Plugin` | type | SE36 — `Plugin.create` replaces `definePlugin` (ADR 0015).  |
 | `PluginContext` | interface | The registration surface passed to a `"general"` plugin's `register(ctx)`, and the plugin's only route into the agent.  |
 | `PluginHookDisposer` | type | Detaches a hook handler attached with {@link PluginContext.on } .  |
+| `PluginManifest` | interface | What `PLUGIN.md` declares, with `version` defaulted to `0.0.0`. |
+| `PluginManifestError` | class | Thrown by `parsePluginManifest` and `installWorkspacePlugin` when a plugin's `PLUGIN.md` or its entry file is unusable.  |
 | `PluginsSettings` | interface | Plugins configuration accepted by `Agent.create()` via {@link AgentOptions.plugins } . |
 | `PostAssistantReplyContext` | interface | Context passed to `post_assistant_reply` hook handlers (ADR D145).  |
 | `PostToolCallContext` | interface | #65 — context for the `post_tool_call` hook (fired after a tool runs). |
@@ -433,6 +441,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SessionLifecycleContext` | interface | #65 — context for the `on_session_start` / `on_session_end` hooks.  |
 | `SessionMessage` | interface | One turn of a session.  |
 | `SessionMessagePart` | type | One structured element of a {@link SessionMessage } .  |
+| `SessionPool` | interface | One agent per session key, with resets, rebuilds and a drained shutdown. |
+| `SessionPoolClosedError` | class | `SessionPool.lease` was called after `disposeAll` started.  |
+| `SessionPoolOptions` | interface | Options of {@link Agent.sessionPool } . |
 | `SessionRecord` | interface | One transcript record — a single line of the session JSONL file, and the unit the pluggable `SessionStore` seam reads and writes.  |
 | `SessionScope` | type | M3 #62 — session state scope. |
 | `sessionScopePrefix` | function | M3 #62 — the id prefix (`"<scope>__"`) used to match a scope's conversations. |
@@ -521,7 +532,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `TrustLevel` | type | Whether a project directory may switch anything on.  |
 | `TrustPosture` | interface | The decision: the level, where it came from, and one boolean per declared capability.  |
 | `TrustPostureInput` | interface | What the decision is made from: the capability vocabulary, a way to read the operator's record, and an optional blanket override.  |
+| `TrustRecordError` | class | Thrown when the workspace plugin trust record exists but cannot be read as a JSON array of folder paths.  |
 | `TrustSource` | type | Where the decision came from. |
+| `trustWorkspacePlugin` | function | Add the folder's realpath to the workspace trust record.  |
 | `TurnEndedUpdate` | interface | Turn ended with usage summary. |
 | `TypedHookHandler` | type | A handler for hook `H`, with the context and return value checked.  |
 | `UngatedCapabilityError` | class | Raised when a recorded capability has no entry in the gate. |
@@ -532,6 +545,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `UnsupportedBudgetOperationError` | class | Thrown when a budget operation is requested on a `CloudAgent` (D388).  |
 | `UnsupportedRunOperationError` | class | Thrown when a {@link Run } or agent operation is not available on the current runtime.  |
 | `UnsupportedTaskOperationError` | class | Thrown when `CloudAgent` is asked to wrap a task (D370).  |
+| `untrustWorkspacePlugin` | function | Remove a folder from the trust record.  |
 | `UsageAccumulator` | class | Sums the per-step token counts of a multi-step run into one `TokenUsage`.  |
 | `UserMessage` | interface | User-authored message in a conversation history. |
 | `UserMessageAppendedUpdate` | interface | User message appended to the conversation. |
@@ -1166,6 +1180,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `CredentialPoolExhaustedError` | class | Thrown when every credential in a per-provider pool is in cooldown and no healthy key is available (ADR D133).  |
 | `ErrorCode` | type | Finite, machine-readable error codes for provider-originated errors (ADR D66).  |
 | `ErrorMetadata` | interface | Structured context for errors that originated from a provider HTTP call (ADR D65).  |
+| `GenerationFileError` | class | `jsonGenerations` was pointed at a file that is not `{ version: 1, generations }`.  |
 | `IntegrationNotConnectedError` | class | Thrown when creating a cloud agent for a repo whose SCM provider is not connected.  |
 | `InvalidTaskIdError` | class | Thrown when a user-supplied task ID violates the grammar `^[a-z0-9][a-z0-9_-]*$` (D368) OR starts with a reserved adapter prefix (`wf-` / `b-` / `cron-`, EC-5). |
 | `isTransientError` | function | Is this error transient (worth retrying)?  |
@@ -1177,13 +1192,16 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ModelFallbackAttempt` | interface | One failed attempt of a turn run under {@link AgentOptions.modelFallback } . |
 | `ModelFallbackExhaustedError` | class | Raised (as `RunResult.error.cause`) when the primary model and every {@link AgentOptions.modelFallback } model failed before any output.  |
 | `NetworkError` | class | Service unavailable, timeout, transport-level failure. |
+| `PluginManifestError` | class | Thrown by `parsePluginManifest` and `installWorkspacePlugin` when a plugin's `PLUGIN.md` or its entry file is unusable.  |
 | `ProfileConflictError` | class | Thrown by `applyProfile` (`@theokit/sdk/persistence`) when the environment already sets a variable the profile owns.  |
 | `RateLimitError` | class | Too many requests or usage limits exceeded. |
+| `SessionPoolClosedError` | class | `SessionPool.lease` was called after `disposeAll` started.  |
 | `StructuredOutputError` | class | The failure contract shared by `generateObject` and `streamObject`.  |
 | `StructuredOutputErrorCode` | type | Why a structured-output call failed.  |
 | `TaskNotFoundError` | class | Thrown when `Task.subscribe(id)` is called for a task that has been evicted, never submitted, or evicted after retention (D373). |
 | `TheokitAgentError` | class | Base class for all errors thrown by `@theokit/sdk`.  |
 | `ToolCallBlockedError` | class | Thrown by a tool wrapped with `guardTools` when a `pre_tool_call` plugin vetoes the call.  |
+| `TrustRecordError` | class | Thrown when the workspace plugin trust record exists but cannot be read as a JSON array of folder paths.  |
 | `UnknownAgentError` | class | Catch-all for unclassified server or runtime errors. |
 | `UnsupportedBudgetOperationError` | class | Thrown when a budget operation is requested on a `CloudAgent` (D388).  |
 | `UnsupportedRunOperationError` | class | Thrown when a {@link Run } or agent operation is not available on the current runtime.  |
@@ -1628,6 +1646,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `BwrapProbes` | interface | Injectable probes — each mirrors one Codex availability check. |
 | `createSandboxBackend` | function | Honest factory: bwrap available + mode wants confinement → `LinuxSandbox` (kernel enforcement, running the VALIDATED absolute bin); `danger-full-access` → plain `LocalSandbox` silently (explicit op... |
 | `CreateSandboxBackendOptions` | interface | Options for `createSandboxBackend`, which probes for bubblewrap and returns a {@link LinuxSandbox } when confinement is genuinely available or a `LocalSandbox` when it is not — warning once when th... |
+| `CredentialRule` | interface | A credential the proxy adds to requests for one host, so the sandbox only holds `placeholder`. |
 | `defaultDockerRunner` | function | The runner {@link DockerSandbox } uses by default; exported so a custom runner can wrap it. |
 | `detectBwrap` | function | Honest detection — fail-closed on every probe; NEVER throws (callers WARN + fall back). |
 | `detectBwrapMemoized` | function | `detectBwrap` with memoization — what production should call.  |
@@ -1774,6 +1793,14 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `InMemoryTaskStore` | class | Default `TaskStore` — a plain `Map` living in the current process.  |
 | `JsonFileTaskStore` | class | Opt-in `TaskStore` that keeps one JSON file per task under `dir`, so another process can read the registry off disk.  |
 | `TaskStore` | interface | Storage interface used by `TaskRegistry`. |
+
+## `@theokit/sdk/telemetry-node`
+
+| Symbol | Kind | Summary |
+|---|---|---|
+| `RegisteredTelemetry` | interface | Handle returned by {@link registerTelemetry } . |
+| `registerTelemetry` | function | Registers global OTLP tracer and meter providers.  |
+| `RegisterTelemetryOptions` | interface | Options for {@link registerTelemetry } . |
 
 ## `@theokit/sdk/testing`
 

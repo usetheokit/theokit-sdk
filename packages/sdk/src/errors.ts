@@ -538,6 +538,39 @@ export class MemoryFactAmbiguousError extends TheokitAgentError {
 }
 
 /**
+ * Thrown by `parsePluginManifest` and `installWorkspacePlugin` when a plugin's `PLUGIN.md` or its
+ * entry file is unusable. The message names the first problem.
+ *
+ * @public
+ */
+export class PluginManifestError extends ConfigurationError {
+  override readonly name: string = "PluginManifestError";
+
+  constructor(message: string, options: { cause?: unknown } = {}) {
+    super(message, { ...options, code: "plugin_manifest_invalid" });
+  }
+}
+
+/**
+ * Thrown when the workspace plugin trust record exists but cannot be read as a JSON array of
+ * folder paths. The file is left untouched. `path` names it.
+ *
+ * @public
+ */
+export class TrustRecordError extends ConfigurationError {
+  override readonly name: string = "TrustRecordError";
+  readonly path: string;
+
+  constructor(path: string, reason: string, options: { cause?: unknown } = {}) {
+    super(`Workspace plugin trust record ${path} ${reason}; it was left unchanged.`, {
+      ...options,
+      code: "trust_record_invalid",
+    });
+    this.path = path;
+  }
+}
+
+/**
  * Thrown by `Budget` enforcement (ADR D386) when a `mode: "block"`
  * budget would be exceeded by the upcoming LLM call. The caller catches a
  * typed error to retry after the window resets, or surfaces it to the user.
@@ -822,3 +855,5 @@ export class ProfileConflictError extends ConfigurationError {
     this.variables = [...variables];
   }
 }
+
+export { GenerationFileError, SessionPoolClosedError } from "./session-pool-errors.js";

@@ -92,6 +92,7 @@ export {
   ConfigurationError,
   type ErrorCode,
   type ErrorMetadata,
+  GenerationFileError,
   IntegrationNotConnectedError,
   InvalidTaskIdError,
   isTransientError,
@@ -102,10 +103,13 @@ export {
   type ModelFallbackAttempt,
   ModelFallbackExhaustedError,
   NetworkError,
+  PluginManifestError,
   RateLimitError,
+  SessionPoolClosedError,
   TaskNotFoundError,
   TheokitAgentError,
   ToolCallBlockedError,
+  TrustRecordError,
   UnknownAgentError,
   UnsupportedBudgetOperationError,
   UnsupportedRunOperationError,
@@ -399,6 +403,13 @@ export {
   readSessionMessages,
   type SessionHistory,
 } from "./session-messages.js";
+export {
+  type GenerationStore,
+  jsonGenerations,
+  memoryGenerations,
+  type SessionPool,
+  type SessionPoolOptions,
+} from "./session-pool.js";
 // M3 #62 — scoped session state helpers (app:/user:/temp:).
 export { type SessionScope, scopedConversationId, sessionScopePrefix } from "./session-scope.js";
 // Squad — sequential multi-agent team (composes Workflow+agentStep; cross-val Gap 1)
@@ -541,3 +552,11 @@ export {
  * `quality:dts-identity` now fails the build on the shape.
  */
 export { agentStep, fn, Workflow } from "./workflow.js";
+// Parse, install and trust a workspace plugin (#1041).
+export {
+  installWorkspacePlugin,
+  type PluginManifest,
+  parsePluginManifest,
+  trustWorkspacePlugin,
+  untrustWorkspacePlugin,
+} from "./workspace-plugins.js";

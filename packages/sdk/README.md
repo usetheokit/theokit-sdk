@@ -69,6 +69,31 @@ diagFailure(`[my-adapter] handler threw: ${Security.redact(err.message)}`); // s
 
 The SDK does not redact the message. A caller passing provider or platform text must redact it first, for example with `Security.redact`.
 
+## `@theokit/sdk/telemetry-node`: register OTLP providers
+
+`AgentOptions.telemetry` records spans through the global OpenTelemetry API, so nothing is exported until a provider is registered. `registerTelemetry` registers a global tracer provider (batch export to `<endpoint>/v1/traces`) and meter provider (`<endpoint>/v1/metrics`), both with a `service.name` resource and a 5 s export timeout, so exports never run on the turn path.
+
+```ts
+import { Agent } from "@theokit/sdk";
+import { registerTelemetry } from "@theokit/sdk/telemetry-node";
+
+const telemetry = await registerTelemetry({
+  endpoint: "http://localhost:4318", // http(s) OTLP/HTTP base URL
+  serviceName: "my-app",
+  prometheusPort: 9464, // optional: http://127.0.0.1:9464/metrics, loopback only
+});
+const agent = await Agent.create({
+  apiKey: process.env.THEO_API_KEY,
+  model: { id: "openai/gpt-4o-mini" },
+  telemetry: { enabled: true, includeContent: false, autoDetect: false },
+});
+// ... agent.send(...)
+await telemetry.flush();
+await telemetry.shutdown(); // never rejects
+```
+
+Export failures reach `onExportError` (default: the diagnostics sink) as one line with secrets redacted and URL userinfo shown as `***`. Install the optional peers `@opentelemetry/api`, `sdk-trace-base`, `sdk-metrics`, `resources`, `exporter-trace-otlp-http`, `exporter-metrics-otlp-http` and (for `prometheusPort`) `exporter-prometheus`; a missing one rejects with `ConfigurationError` code `telemetry_peer_missing`. `TelemetrySettings.exporter` is not read.
+
 ## Masking secrets: `Security.redact` and `Security.createMask`
 
 `Security.redact(text)` masks known credential *shapes* (API keys, `Bearer`, `key=value`).
@@ -324,6 +349,28 @@ import { listWorkspacePlugins } from "@theokit/sdk";
 const plugins = await listWorkspacePlugins(process.cwd(), { compatSources: ["claude-code"] });
 ```
 
+### Install and trust a workspace plugin
+
+The SDK imports a workspace plugin's `entry` only when the folder's realpath is listed in
+`~/.theokit/plugins/trusted-workspace-plugins.json`. Use these functions instead of editing that file:
+
+```ts
+import { installWorkspacePlugin, parsePluginManifest, trustWorkspacePlugin } from "@theokit/sdk";
+
+// Validate PLUGIN.md (name, relative entry, version defaulting to 0.0.0), copy the folder to
+// <workspace>/.theokit/plugins/<name>/ and trust the copy.
+const manifest = await installWorkspacePlugin({ source: "./echo-plugin", workspace: process.cwd() });
+// An existing destination is refused unless `replace: true`; the new copy is staged and renamed.
+
+await trustWorkspacePlugin("/path/to/plugin-folder"); // idempotent, atomic write, mode 0600
+await untrustWorkspacePlugin("/path/to/plugin-folder"); // true when an entry was removed
+```
+
+`parsePluginManifest(text)` throws `PluginManifestError` for a bad name or an entry that leaves the
+plugin folder; an entry that is missing, not a file, or a symlink out of the source is refused at
+install. A trust record that exists but cannot be parsed makes these calls throw `TrustRecordError`
+naming the file, and it is never overwritten.
+
 A `"general"` plugin registers hooks through `ctx.on`. The handler is typed by hook name, so the
 context needs no cast and a `pre_tool_call` veto is checked (`block` is the literal `true`):
 
@@ -537,6 +584,32 @@ How it works: the command keeps an empty network namespace (loopback only). A fo
 What it blocks: a process that ignores the proxy variables and opens its own socket has no route out, and raw TCP, SSH git remotes and other non-HTTP protocols stay blocked. What it does not do: HTTPS is tunnelled without inspection, so the proxy sees the host and port but not the traffic, and an allowed host can receive anything the command sends it. Under an allowlist the seccomp network-syscall filter is not installed (the command must open a socket to the forwarder); the namespace is what blocks egress.
 
 Bubblewrap is required. Without it, or under `danger-full-access`, `network: { allow }` throws `SandboxNotAvailableError` rather than falling back to an unconfined `LocalSandbox`. `startEgressProxy({ allow })` is exported for use on its own and returns `{ socketPath, denied, close() }`. `DockerSandbox`, `E2BSandbox` and macOS are not covered.
+
+### Credential rules: the sandbox holds a placeholder, the proxy adds the secret
+
+A command that calls an API needs a credential, and one in its environment or files is readable by a prompt-injected `env` or `cat`. A `CredentialRule` keeps the real value on the host:
+
+```ts
+new LinuxSandbox(config, {
+  mode: "workspace-write",
+  network: {
+    allow: [{ host: "api.github.com" }],
+    credentials: [{
+      host: "api.github.com",
+      header: "authorization",
+      value: () => `Bearer ${process.env.GITHUB_TOKEN}`, // read on the host, per request
+      placeholder: "THEOKIT_PLACEHOLDER_GITHUB",
+      envVar: "GITHUB_TOKEN",                            // the sandbox sees the placeholder
+    }],
+  },
+});
+```
+
+The proxy replaces `placeholder` in `header` with `value()` and sets the header when it is absent. A rule whose `host` no `EgressRule` allows throws `ConfigurationError` (`credential_host_not_allowed`). A placeholder sent to any other host (or over plain HTTP) is refused with `403` and recorded in `denied` with `reason: "credential_misroute"`; neither the real value nor an error from `value()` is logged or returned.
+
+To see the headers, HTTPS to a credential host is **terminated at the proxy**: it presents a certificate from a per-proxy CA generated in memory at start (the key is never written to disk and is dropped on `close()`), and opens its own verified TLS connection upstream. The sandbox trusts that CA through `SSL_CERT_FILE`, `NODE_EXTRA_CA_CERTS`, `REQUESTS_CA_BUNDLE` and `GIT_SSL_CAINFO`, pointing at a read-only bundle of the system roots plus the proxy CA. Other hosts keep the plain `CONNECT` tunnel.
+
+Limits: a client that pins certificates or ignores those variables cannot connect to a credential host. A placeholder is not a secret, so a command can copy it, and for a host reached through an opaque `CONNECT` tunnel the proxy cannot see a placeholder sent in its headers. The placeholder is replaced in one header only, not in bodies or URLs. A service that echoes the injected credential back returns it to the command. Credentials in files (`~/.npmrc`, SSH keys) and SSH remotes are not covered, and neither are the Docker and E2B backends.
 
 ## `@theokit/sdk/persistence`: single instance lock
 
@@ -801,6 +874,32 @@ try {
 ```
 
 LRU and the idle sweep skip held entries (the cache may exceed `maxAgents` until a release, which re-checks the bound). `evict(id)` and `evictAll()` drop a held entry from the cache at once and dispose it after the last release. A failed build rejects and holds nothing. `Agent.registry.leaseCount(id)` reports the holds for diagnostics.
+
+## Session pool: `Agent.sessionPool`
+
+One agent per conversation, built on `Agent.lease`. `reset(key)` starts the conversation afresh (next generation, new agent id) while a turn in flight finishes on the old agent, which is disposed once released. `rebuild(key)` retires the agent but keeps its id, so the next lease reopens the same transcript with fresh options. `disposeAll({ drainMs })` refuses new leases (`SessionPoolClosedError`), waits for held turns, returns the keys still running, then disposes everything. `idleMs` and `maxOpen` retire only unheld agents. Agent ids from a custom `agentId` must be unique.
+
+```ts
+const pool = Agent.sessionPool({
+  open: (chatId) => ({ model: { id: "openai/gpt-4o-mini" }, local: { cwd: process.cwd() } }),
+  generations: jsonGenerations("./generations.json"), // survives restarts; default is in memory
+  idleMs: 15 * 60_000,
+});
+
+async function onMessage(chatId: string, text: string) {
+  if (text === "/new") return pool.reset(chatId);
+  const lease = await pool.lease(chatId);
+  try {
+    await lease.agent.send(text);
+  } finally {
+    lease.release();
+  }
+}
+
+process.on("SIGTERM", () => void pool.disposeAll({ drainMs: 30_000 }));
+```
+
+`jsonGenerations` writes `{ version: 1, generations }` with mode 0600, one write at a time; a failed write leaves the generation unchanged, and a file it did not write throws `GenerationFileError`.
 
 ## Workflow compensation (saga rollback)
 
