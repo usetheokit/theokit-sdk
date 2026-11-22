@@ -16,6 +16,13 @@
  * `package.json` `exports`, so the names below must survive into the published declarations.
  */
 
+// Recall and the memory tools, shared with `@theokit/sdk-memory` for the same reason (#1069): both
+// packages carried copies with the same exported names, and a fix to one did not reach the other.
+export {
+  type ActiveMemoryOptions,
+  type RunActiveMemoryArgs,
+  runActiveMemory,
+} from "../active-memory.js";
 // The index and store leaves (#1065): written twice before, now one copy each. None holds
 // module-level state, so a re-export does not merge two runtime states.
 export {
@@ -101,6 +108,14 @@ export {
   resetMigrationStateForTests,
 } from "../migration.js";
 export { loadSqliteVecExtension } from "../sqlite-vec-loader.js";
+export {
+  createMemoryGetTool,
+  createMemorySearchTool,
+  type MemoryGetToolOptions,
+  type MemorySearchToolOptions,
+  type MemoryTool,
+  type MemoryToolJson,
+} from "../tools.js";
 export {
   createVectorIndex,
   dropVectorIndex,
