@@ -6,12 +6,22 @@
  */
 import { ConfigurationError } from "../../../errors.js";
 
+/**
+ * Result of {@link splitFrontmatter}: the text between the `---` fences and the markdown body.
+ *
+ * @public
+ */
 export interface FrontmatterSplit {
   /** Text between the fences; undefined when the file has no opening fence. */
   readonly yaml: string | undefined;
   readonly body: string;
 }
 
+/**
+ * A value {@link parseFrontmatterYaml} can return: string, number, boolean or a list of strings.
+ *
+ * @public
+ */
 export type FrontmatterScalar = string | number | boolean | string[];
 
 const FENCE = "---";
@@ -22,6 +32,8 @@ const FENCE = "---";
  *
  * Throws `ConfigurationError` code `frontmatter_unterminated` when an opening fence has no closing
  * one. With no opening fence, `yaml` is undefined and `body` is the input unchanged.
+ *
+ * @public
  */
 export function splitFrontmatter(raw: string): FrontmatterSplit {
   const lines = raw.replace(/\r\n/g, "\n").split("\n");

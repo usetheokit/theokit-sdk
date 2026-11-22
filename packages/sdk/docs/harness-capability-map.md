@@ -1158,8 +1158,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `DiscoveryRunnerOptions` | interface | Input to the context-discovery run: where to walk, how much of each file to keep, and which trust boundary an `@import` may not cross.  |
 | `DiscoveryScope` | type | Single filename ("AGENTS.md") or relative glob (".cursor/rules/*.mdc"). |
 | `DiscoverySpec` | interface | One kind of context file the runner knows how to find and read.  |
-| `FrontmatterScalar` | type |  |
-| `FrontmatterSplit` | interface |  |
+| `FrontmatterScalar` | type | A value {@link parseFrontmatterYaml } can return: string, number, boolean or a list of strings. |
+| `FrontmatterSplit` | interface | Result of {@link splitFrontmatter } : the text between the `---` fences and the markdown body. |
 | `parseFrontmatterYaml` | function | Parse the YAML subset the loaders accept: `key: scalar` (string, number, boolean), inline `[a, b]` lists and `key:` followed by `- item` lines.  |
 | `parseRules` | function | Split a `.theokit/rules/*.md` document into its frontmatter and its body.  |
 | `resolveContextImports` | function | Expand `@path` import directives in `content`, confined to `options.projectRoot`.  |
