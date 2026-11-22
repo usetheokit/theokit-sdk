@@ -53,9 +53,7 @@ describe("parseFrontmatterYaml", () => {
 });
 
 describe("parseSimpleYaml (loader adapter) stays lenient", async () => {
-  const { parseSimpleYaml } = await import(
-    "../src/internal/runtime/context/yaml-frontmatter.js"
-  );
+  const { parseSimpleYaml } = await import("../src/internal/runtime/context/yaml-frontmatter.js");
   it("skips folded-scalar continuation lines instead of throwing", () => {
     expect(parseSimpleYaml("name: a\ndescription: >\n  folded text\n  more\nmodel: x")).toEqual({
       name: "a",
