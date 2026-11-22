@@ -24,10 +24,10 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
-| `AcpAgentConnection` | interface |  |
+| `AcpAgentConnection` | interface | A live connection to a spawned ACP agent with one open session. |
 | `AcpAgentSpawnError` | class | A child agent could not be started, was refused before starting, or exited before it finished what it was asked to do. |
 | `connectAcpAgent` | function | Spawn an ACP agent as a child process, complete the handshake and open one session. |
-| `ConnectAcpAgentOptions` | interface |  |
+| `ConnectAcpAgentOptions` | interface | Options for {@link connectAcpAgent } . |
 
 ## `@theokit/cli`
 

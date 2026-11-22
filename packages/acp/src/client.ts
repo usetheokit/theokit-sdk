@@ -32,7 +32,11 @@ const DEFAULT_INITIALIZE_TIMEOUT_MS = 10_000;
 /** How long to wait for the child's exit event after a broken pipe, to learn its exit code. */
 const EXIT_SETTLE_MS = 1_000;
 
-/** @public */
+/**
+ * Options for {@link connectAcpAgent}.
+ *
+ * @public
+ */
 export interface ConnectAcpAgentOptions {
   /** Absolute path, or a bare name resolved on absolute `PATH` entries of `env` only. */
   command: string;
@@ -46,7 +50,11 @@ export interface ConnectAcpAgentOptions {
   initializeTimeoutMs?: number;
 }
 
-/** @public */
+/**
+ * A live connection to a spawned ACP agent with one open session.
+ *
+ * @public
+ */
 export interface AcpAgentConnection {
   /**
    * Send one prompt and stream the session updates it produces. Only one prompt may be in flight.
