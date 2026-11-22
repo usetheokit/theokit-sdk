@@ -51,3 +51,22 @@ describe("parseFrontmatterYaml", () => {
     expect(err.message).toContain("line 1");
   });
 });
+
+describe("parseSimpleYaml (loader adapter) stays lenient", async () => {
+  const { parseSimpleYaml } = await import(
+    "../../src/internal/runtime/context/yaml-frontmatter.js"
+  );
+  it("skips folded-scalar continuation lines instead of throwing", () => {
+    expect(parseSimpleYaml("name: a\ndescription: >\n  folded text\n  more\nmodel: x")).toEqual({
+      name: "a",
+      description: ">",
+      model: "x",
+    });
+  });
+  it("still reads block lists and skips stray dash lines", () => {
+    expect(parseSimpleYaml("- stray\ntags:\n  - a\n  - b\nz: 1")).toEqual({
+      tags: ["a", "b"],
+      z: 1,
+    });
+  });
+});

@@ -189,16 +189,26 @@ describe("splitFrontmatter", () => {
     ["---\n\n---\nbody", { frontmatter: "", body: "body" }],
     ["---\n---\nbody", { frontmatter: "", body: "body" }],
     ["---\na: 1\n---", { frontmatter: "a: 1", body: "" }],
+    // Trailing whitespace on a fence line is deliberately tolerated: `---   ` is a fence.
     ["---\na: 1\n---   ", { frontmatter: "a: 1", body: "" }],
+    ["---   \na: 1\n---\nbody", { frontmatter: "a: 1", body: "body" }],
+    // `--- x` is text after the dashes, not a fence, so it stays inside the frontmatter.
+    ["---\na: 1\n--- x\n---\nbody", { frontmatter: "a: 1\n--- x", body: "body" }],
   ];
   for (const [raw, expected] of ok) {
-    it(`splits ${JSON.stringify(raw)}`, () => {
+    it(`splits to the expected frontmatter and body: ${JSON.stringify(raw)}`, () => {
       expect(splitFrontmatter(raw, "x.md", "t")).toEqual(expected);
     });
   }
 
-  for (const raw of ["---\na: 1\n", "--\na: 1\n---\n", "", "+++\na: 1\n+++\n"]) {
-    it(`rejects ${JSON.stringify(raw)}`, () => {
+  for (const raw of [
+    "---\na: 1\n",
+    "--- x\na: 1\n---\n",
+    "--\na: 1\n---\n",
+    "",
+    "+++\na: 1\n+++\n",
+  ]) {
+    it(`rejects as missing or malformed: ${JSON.stringify(raw)}`, () => {
       expect(() => splitFrontmatter(raw, "x.md", "t")).toThrow(/Missing or malformed frontmatter/);
     });
   }
