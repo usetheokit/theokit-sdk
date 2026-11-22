@@ -27,10 +27,12 @@ import {
 /** Exactly what the barrel promises. A new symbol here is a deliberate public-surface decision. */
 const DECLARED_SYMBOLS = [
   "DEFAULT_DISCOVERY_SPECS",
+  "parseFrontmatterYaml",
   "parseRules",
   "resolveContextImports",
   "runDiscovery",
   "shouldActivateRule",
+  "splitFrontmatter",
   "withheldSpecs",
 ] as const;
 

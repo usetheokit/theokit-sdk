@@ -182,33 +182,34 @@ describe("loadMarkdownEntities — EACCES distinguished from ENOENT (EC-11)", ()
 });
 
 describe("splitFrontmatter", () => {
-  const legacy = /^---\s*\n([\s\S]*?)\n---\s*(?:\n|$)/;
-  const cases = [
-    "---\na: 1\n---\nbody",
-    "---\r\na: 1\r\n---\r\nbody",
-    "---  \n\n a: 1\n---  \n\n# hr\n---\nx",
-    "---\n\n---\nbody",
-    "---\n---\nbody",
-    "---\na: 1\n---",
-    "---\na: 1\n---   ",
-    "---\na: 1\n--- x\n---\nbody",
+  const ok: [string, { frontmatter: string; body: string }][] = [
+    ["---\na: 1\n---\nbody", { frontmatter: "a: 1", body: "body" }],
+    ["---\r\na: 1\r\n---\r\nbody", { frontmatter: "a: 1", body: "body" }],
+    ["---  \n\n a: 1\n---  \n\n# hr\n---\nx", { frontmatter: "\n a: 1", body: "\n# hr\n---\nx" }],
+    ["---\n\n---\nbody", { frontmatter: "", body: "body" }],
+    ["---\n---\nbody", { frontmatter: "", body: "body" }],
+    ["---\na: 1\n---", { frontmatter: "a: 1", body: "" }],
+    // Trailing whitespace on a fence line is deliberately tolerated: `---   ` is a fence.
+    ["---\na: 1\n---   ", { frontmatter: "a: 1", body: "" }],
+    ["---   \na: 1\n---\nbody", { frontmatter: "a: 1", body: "body" }],
+    // `--- x` is text after the dashes, not a fence, so it stays inside the frontmatter.
+    ["---\na: 1\n--- x\n---\nbody", { frontmatter: "a: 1\n--- x", body: "body" }],
+  ];
+  for (const [raw, expected] of ok) {
+    it(`splits to the expected frontmatter and body: ${JSON.stringify(raw)}`, () => {
+      expect(splitFrontmatter(raw, "x.md", "t")).toEqual(expected);
+    });
+  }
+
+  for (const raw of [
     "---\na: 1\n",
+    "--- x\na: 1\n---\n",
     "--\na: 1\n---\n",
     "",
-  ];
-  for (const raw of cases) {
-    it(`matches the legacy regex for ${JSON.stringify(raw)}`, () => {
-      const m = legacy.exec(raw);
-      if (m === null) {
-        expect(() => splitFrontmatter(raw, "x.md", "t")).toThrow(
-          /Missing or malformed frontmatter/,
-        );
-      } else {
-        expect(splitFrontmatter(raw, "x.md", "t")).toEqual({
-          frontmatter: m[1] ?? "",
-          body: raw.slice(m[0].length),
-        });
-      }
+    "+++\na: 1\n+++\n",
+  ]) {
+    it(`rejects as missing or malformed: ${JSON.stringify(raw)}`, () => {
+      expect(() => splitFrontmatter(raw, "x.md", "t")).toThrow(/Missing or malformed frontmatter/);
     });
   }
 
