@@ -250,6 +250,17 @@ async function checkpointStep<TO>(
       options,
       status: "running",
     });
+    if (options.persistence?.keepHistory === true) {
+      await getSnapshotStoreFor(options).appendHistory({
+        runId,
+        workflowName: options.name,
+        stepId: step.id,
+        output: acc,
+        ...(params.ctx.state !== undefined ? { state: params.ctx.state } : {}),
+        at: Date.now(),
+        runInput: params.input,
+      });
+    }
     return undefined;
   } catch (snapErr) {
     return assembleRun<TO>({
@@ -339,13 +350,19 @@ async function runStepsLoop<TO>(params: LoopParams): Promise<WorkflowRun<TO>> {
 /** M3 #62 — internal-only resume seam: prior step outputs are NOT on the public
  * WorkflowRunOptions (a consumer must not inject fabricated results into a fresh run);
  * resumeWorkflow sets them via this cast. */
-type InternalRunOpts = WorkflowRunOptions & {
+export type InternalRunOpts = WorkflowRunOptions & {
   readonly initialStepResults?: ReadonlyArray<StepResult>;
   /** SE28 — internal step-event sink threaded by `Workflow.stream()`. */
   readonly onStepEvent?: (event: WorkflowEvent) => void;
   /** SE29 — shared state restored from a snapshot on resume. */
   readonly restoredState?: unknown;
+  /** `rerunFrom` — the input is a stored intermediate output, not the workflow's input. */
+  readonly skipInputValidation?: boolean;
 };
+
+function validateEntryInput(options: WorkflowOptions, input: unknown, skip: boolean | undefined) {
+  return skip === true ? undefined : validateWorkflowSchema(options.inputSchema, input);
+}
 
 export async function executeWorkflow<TInput, TOutput>(
   options: WorkflowOptions,
@@ -375,7 +392,7 @@ export async function executeWorkflow<TInput, TOutput>(
   const ctx: StepContext = makeStepContext(runId, signal, stateController);
   try {
     // SE27 — validate the whole-workflow input BEFORE any step runs (fail-fast).
-    const inputIssues = validateWorkflowSchema(options.inputSchema, input);
+    const inputIssues = validateEntryInput(options, input, internal?.skipInputValidation);
     if (inputIssues !== undefined) {
       return assembleRun<TOutput>({
         runId,
