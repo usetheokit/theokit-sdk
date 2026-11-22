@@ -1,5 +1,11 @@
 # Changelog
 
+## 8.0.1
+
+### Patch Changes
+
+- [#1471](https://github.com/usetheokit/theokit-sdk/pull/1471) [`7884ffb`](https://github.com/usetheokit/theokit-sdk/commit/7884ffbe11f78a09083a663ef82e0b12b18be590) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Regenerate the harness capability map for the new `@theokit/acp/client` entry.
+
 ## 8.0.0
 
 ### Major Changes
