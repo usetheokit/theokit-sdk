@@ -658,8 +658,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `createCategorizedMemory` | function | Create a typed categorized memory store over the closed `categories` taxonomy.  |
 | `CreateCategorizedMemoryOptions` | interface | Options for {@link createCategorizedMemory } . |
 | `createInMemoryMarkdownProvider` | function | Build a fresh `MemoryProvider` whose facts live in-process.  |
-| `createMemoryGetTool` | function |  |
-| `createMemorySearchTool` | function |  |
+| `createMemoryGetTool` | function | Build the `memory_get` tool, which reads a bounded excerpt of a file inside the memory root. |
+| `createMemorySearchTool` | function | Build the `memory_search` tool, which runs a ranked search over the memory index. |
 | `createOpenAiCompatibleRuntime` | function | Build an {@link EmbeddingRuntime } for a provider that speaks the OpenAI embedding wire — or, through `cfg.dialect`, one that deviates from it in a known way.  |
 | `createVectorIndex` | function | Create the `embeddings` vec0 table for vectors of the given dimension. |
 | `DedupResult` | interface | Dreaming/REM phase logic.  |
@@ -726,7 +726,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemoryEmbeddingProviderAdapter` | interface | Memory embedding provider adapter contract (ADR D3 of memory-system-peer-project-parity).  |
 | `MemoryFact` | interface | One remembered statement.  |
 | `MemoryFileEntry` | interface | Lightweight reference to a markdown file in the memory corpus.  |
-| `MemoryGetToolOptions` | interface |  |
+| `MemoryGetToolOptions` | interface | Inputs for {@link createMemoryGetTool } : the memory root that paths resolve against. |
 | `MemoryIndex` | interface | The four operations both backends implement, and the type every consumer should hold.  |
 | `memoryIndexRoot` | function | Where the search index belongs for this configuration (theokit-sdk#554).  |
 | `MemoryLocationConfig` | type | Only `directory` and `userId` are read; the full config is accepted so callers pass what they already hold. |
@@ -735,8 +735,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `memoryReadRoots` | function | Every directory a read must cover, deduplicated and in precedence order.  |
 | `MemoryRoot` | type | A directory that has been RESOLVED as a memory root, distinguished from a bare `cwd`.  |
 | `MemorySearchHit` | interface | Memory index manager contract — leaf types shared by `index-manager.ts` (orchestrator), `index-manager-dispatch.ts` (backend dispatch), `lance-memory-adapter.ts` (Lance backend), and `memory-index.... |
-| `MemorySearchToolOptions` | interface |  |
-| `MemoryTool` | interface |  |
+| `MemorySearchToolOptions` | interface | Inputs for {@link createMemorySearchTool } : the index to search and the output size caps. |
+| `MemoryTool` | interface | A memory tool ready for the agent loop: its JSON description plus an `execute` resolving to a JSON string. |
 | `MemoryToolJson` | interface | Memory tools (`memory_search` + `memory_get`) — ADR D5 of memory-system-peer-project-parity.  |
 | `META_KEY_DIMENSION` | const | `meta` table key holding the embedding dimension. |
 | `META_KEY_MODEL` | const | `meta` table key holding the embedding model name. |
@@ -778,8 +778,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `renderDiaryEntry` | function | One diary entry as the markdown that gets appended: a timestamp heading, the short entry hash, and the counts the sweep produced.  |
 | `resolveMaxFacts` | function | The ceiling a caller declared, or `undefined` when none was declared.  |
 | `resolveMemoryRoot` | function | The memory root for this agent: `memory.directory` when set, the project store otherwise.  |
-| `runActiveMemory` | function |  |
-| `RunActiveMemoryArgs` | interface |  |
+| `runActiveMemory` | function | Run one blocking recall before the system prompt is assembled.  |
+| `RunActiveMemoryArgs` | interface | Everything {@link runActiveMemory } needs for one attempt; breaker, cache, transcript and telemetry fields are inert when omitted. |
 | `runDreamingSweep` | function | Run one dreaming sweep (dedupe, cluster, write a consolidated note), serialised per `cwd`. |
 | `SCHEMA_STATEMENTS` | const | SQLite schema for the memory index.  |
 | `SearchOptions` | interface | Search tuning.  |
@@ -1332,8 +1332,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `Cluster` | interface | A group of semantically similar facts, with the text chosen to represent them. |
 | `ClusterResult` | interface | What clustering produced: the clusters and how many facts the per-sweep cap left out. |
 | `collectMarkdownFiles` | function | Every markdown file the memory corpus holds: the index, the per-memory files, `notes/`, `wiki/` and `sessions/`, each tagged with the bucket `memory_search`'s `corpus` filters on.  |
-| `createMemoryGetTool` | function |  |
-| `createMemorySearchTool` | function |  |
+| `createMemoryGetTool` | function | Build the `memory_get` tool, which reads a bounded excerpt of a file inside the memory root. |
+| `createMemorySearchTool` | function | Build the `memory_search` tool, which runs a ranked search over the memory index. |
 | `createVectorIndex` | function | Create the `embeddings` vec0 table for vectors of the given dimension. |
 | `DedupResult` | interface | Dreaming/REM phase logic.  |
 | `deepPhase` | function | Deep phase — render consolidated markdown for the dreamed note. |
@@ -1371,7 +1371,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MEMORY_INDEX_MAX_LINES` | const | The line limit the Claude Code CLI applies when it loads a `MEMORY.md`.  |
 | `MemoryBackend` | type | Vector backend selector.  |
 | `MemoryDb` | interface | Memory index DB handle + opener.  |
-| `MemoryGetToolOptions` | interface |  |
+| `MemoryGetToolOptions` | interface | Inputs for {@link createMemoryGetTool } : the memory root that paths resolve against. |
 | `MemoryIndex` | interface | Contract every memory index backend implements. |
 | `memoryIndexRoot` | function | Where the search index belongs for this configuration (theokit-sdk#554).  |
 | `MemoryLocationConfig` | type | Only `directory` and `userId` are read; the full config is accepted so callers pass what they already hold. |
@@ -1379,8 +1379,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `memoryReadRoots` | function | Every directory a read must cover, deduplicated and in precedence order.  |
 | `MemoryRoot` | type | A directory that has been RESOLVED as a memory root, distinguished from a bare `cwd`.  |
 | `MemorySearchHit` | interface | Memory index manager contract — leaf types shared by `index-manager.ts` (orchestrator), `index-manager-dispatch.ts` (backend dispatch), `lance-memory-adapter.ts` (Lance backend), and `memory-index.... |
-| `MemorySearchToolOptions` | interface |  |
-| `MemoryTool` | interface |  |
+| `MemorySearchToolOptions` | interface | Inputs for {@link createMemorySearchTool } : the index to search and the output size caps. |
+| `MemoryTool` | interface | A memory tool ready for the agent loop: its JSON description plus an `execute` resolving to a JSON string. |
 | `MemoryToolJson` | interface | Memory tools (`memory_search` + `memory_get`) — ADR D5 of memory-system-peer-project-parity.  |
 | `META_KEY_DIMENSION` | const | `meta` table key holding the embedding dimension. |
 | `META_KEY_MODEL` | const | `meta` table key holding the embedding model name. |
@@ -1415,8 +1415,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `resetMigrationStateForTests` | function | Test-only — reset the in-process migration flag map. |
 | `resolveMaxFacts` | function | The ceiling a caller declared, or `undefined` when none was declared.  |
 | `resolveMemoryRoot` | function | The memory root for this agent: `memory.directory` when set, the project store otherwise.  |
-| `runActiveMemory` | function |  |
-| `RunActiveMemoryArgs` | interface |  |
+| `runActiveMemory` | function | Run one blocking recall before the system prompt is assembled.  |
+| `RunActiveMemoryArgs` | interface | Everything {@link runActiveMemory } needs for one attempt; breaker, cache, transcript and telemetry fields are inert when omitted. |
 | `runDreamingSweep` | function | Run one dreaming sweep (dedupe, cluster, write a consolidated note), serialised per `cwd`. |
 | `SCHEMA_STATEMENTS` | const | SQLite schema for the memory index.  |
 | `SearchOptions` | interface | Options for a memory search. |
