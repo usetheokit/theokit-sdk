@@ -229,26 +229,52 @@ function tryGit(root, args) {
   }
 }
 
-function baseBranches(env) {
-  const named = env.API_SURFACE_BASE ?? env.GITHUB_BASE_REF;
-  return [named, "workspace", "main"].filter(Boolean).map((r) => r.replace(/^origin\//, ""));
+function namedBase(env) {
+  const named = env.API_SURFACE_BASE || env.GITHUB_BASE_REF;
+  return named ? named.replace(/^origin\//, "") : undefined;
+}
+
+function gitError(err) {
+  return String(err?.stderr || err?.message || err).trim();
+}
+
+/** Fetch `branch` when its remote ref is missing; returns the git error text, if any. */
+function ensureRef(root, branch, ref) {
+  if (tryGit(root, ["rev-parse", "--verify", "-q", ref])) return undefined;
+  try {
+    execFileSync("git", ["fetch", "--no-tags", "--depth=1", "origin", `+refs/heads/${branch}:${ref}`], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (err) {
+    return gitError(err);
+  }
+  return undefined;
 }
 
 /**
  * The commit to compare against: the merge base with the PR base branch, else that branch's tip
  * (a shallow checkout has no merge base). A missing remote ref is fetched, so no workflow change
- * is needed. `undefined` means the base cannot be established, which the caller treats as a failure.
+ * is needed. When API_SURFACE_BASE or GITHUB_BASE_REF names a branch, only that branch is used and a
+ * failure to resolve it is an error; otherwise workspace, then main. `error` means the base cannot
+ * be established, which the caller treats as a failure.
  */
 function resolveBase(root, env) {
-  for (const branch of baseBranches(env)) {
+  const named = namedBase(env);
+  const candidates = named ? [named] : ["workspace", "main"];
+  let fetchError;
+  for (const branch of candidates) {
     const ref = `refs/remotes/origin/${branch}`;
-    if (!tryGit(root, ["rev-parse", "--verify", "-q", ref])) {
-      tryGit(root, ["fetch", "--no-tags", "--depth=1", "origin", `+refs/heads/${branch}:${ref}`]);
-    }
+    const failure = ensureRef(root, branch, ref);
     const tip = tryGit(root, ["rev-parse", "--verify", "-q", ref]);
-    if (tip) return tryGit(root, ["merge-base", "HEAD", ref]) ?? tip;
+    if (tip) return { branch, commit: tryGit(root, ["merge-base", "HEAD", ref]) ?? tip };
+    fetchError ??= failure;
   }
-  return undefined;
+  if (named) {
+    return { error: `cannot resolve the PR base branch "${named}": ${fetchError || "origin/" + named + " not found"}` };
+  }
+  return { error: "cannot resolve the PR base branch (set API_SURFACE_BASE, or fetch origin/workspace)" };
 }
 
 function addedChangesets(root, base) {
@@ -289,9 +315,10 @@ export function evaluateChange({ before, current, changesets, today }) {
 }
 
 function compareToBase(current, today, log, ctx) {
-  const base = resolveBase(ctx.root, ctx.env);
-  if (!base)
-    return ["cannot resolve the PR base branch (set API_SURFACE_BASE, or fetch origin/workspace)"];
+  const resolved = resolveBase(ctx.root, ctx.env);
+  if (resolved.error) return [resolved.error];
+  const base = resolved.commit;
+  log(`api-surface: comparing against origin/${resolved.branch} at ${base}`);
   const before = baseBaseline(ctx.root, base, ctx.rel);
   if (!before) {
     log(`base ${base.slice(0, 8)} has no ${ctx.rel}: first baseline, nothing to compare`);
