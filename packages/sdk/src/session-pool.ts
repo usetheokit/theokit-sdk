@@ -21,18 +21,9 @@ export interface GenerationStore {
  *
  * @public
  */
-export interface SessionPoolOptions<C = unknown> {
-  /**
-   * Options for the agent of `key`, with the context of the lease that opens it. Called when an
-   * agent opens. Required unless `agent` is given.
-   */
-  open?(key: string, context: C): AgentOptions | Promise<AgentOptions>;
-  /**
-   * Build the agent of `key` instead of calling `Agent.lease`. Called once per opening, so
-   * concurrent leases of one key share one call; `context` is the one of the first of them. The
-   * pool disposes the returned agent when it retires it.
-   */
-  agent?(args: { key: string; agentId: string; context: C }): SDKAgent | Promise<SDKAgent>;
+export interface SessionPoolOptions {
+  /** Options for the agent of `key`. Called when an agent opens. */
+  open(key: string): AgentOptions | Promise<AgentOptions>;
   /** Retire an agent no turn holds after this many ms without use. */
   idleMs?: number;
   /** Bound on open agents; only agents no turn holds are retired to meet it. */
@@ -48,11 +39,9 @@ export interface SessionPoolOptions<C = unknown> {
  *
  * @public
  */
-export interface SessionPool<C = unknown> {
+export interface SessionPool {
   /** Hold the agent of `key`, opening it if needed. Release in a `finally`. */
-  lease(key: string, context?: C): Promise<AgentLease>;
-  /** Ids of the agents the pool still holds: open, idle, and retired ones not yet disposed. */
-  heldIds(): string[];
+  lease(key: string): Promise<AgentLease>;
   /** Move `key` to the next generation. Turns in flight finish on the old agent, which is then disposed. */
   reset(key: string): Promise<void>;
   /** Retire the agent of `key` but keep its id: the next lease reopens it with fresh options. */
@@ -128,9 +117,7 @@ export function jsonGenerations(file: string): GenerationStore {
 interface Entry {
   readonly key: string;
   readonly id: string;
-  readonly options: AgentOptions | undefined;
-  /** An agent built by the `agent` factory, not leased from `Agent.lease`. */
-  readonly owned: boolean;
+  readonly options: AgentOptions;
   agent: SDKAgent | undefined;
   readonly leases: Set<AgentLease>;
   /** Inner leases still being acquired: the agent is unknown until they settle. */
@@ -142,8 +129,8 @@ interface Entry {
 
 type LeaseFn = (agentId: string, options: AgentOptions) => Promise<AgentLease>;
 
-class Pool<C> implements SessionPool<C> {
-  readonly #opts: SessionPoolOptions<C>;
+class Pool implements SessionPool {
+  readonly #opts: SessionPoolOptions;
   readonly #lease: LeaseFn;
   readonly #gens: GenerationStore;
   readonly #open = new Map<string, Entry>();
@@ -153,10 +140,9 @@ class Pool<C> implements SessionPool<C> {
   /** Every entry whose agent is not disposed yet, retired ones included. */
   readonly #all = new Set<Entry>();
   #closed = false;
-  #capWarned = false;
   #sweep: NodeJS.Timeout | undefined;
 
-  constructor(opts: SessionPoolOptions<C>, lease: LeaseFn) {
+  constructor(opts: SessionPoolOptions, lease: LeaseFn) {
     this.#opts = opts;
     this.#lease = lease;
     this.#gens = opts.generations ?? memoryGenerations();
@@ -172,7 +158,7 @@ class Pool<C> implements SessionPool<C> {
     return this.#opts.agentId?.(key, gen) ?? `${key}-g${String(gen)}`;
   }
 
-  async lease(key: string, context?: C): Promise<AgentLease> {
+  async lease(key: string): Promise<AgentLease> {
     for (;;) {
       this.#assertOpen(key);
       const wait = this.#resets.get(key) ?? this.#disposing.get(this.#idFor(key));
@@ -180,64 +166,46 @@ class Pool<C> implements SessionPool<C> {
         await wait.catch(() => undefined);
         continue;
       }
-      const entry = this.#open.get(key) ?? (await this.#openEntry(key, context as C));
-      const lease = await this.#acquire(entry);
+      const entry = this.#open.get(key) ?? (await this.#openEntry(key));
+      const acquiring = this.#lease(entry.id, entry.options);
+      entry.inflight.add(acquiring);
+      let lease: AgentLease;
+      try {
+        lease = await acquiring;
+      } finally {
+        entry.inflight.delete(acquiring);
+      }
+      entry.agent = lease.agent;
       if (this.#open.get(key) === entry && !this.#closed) return this.#track(entry, lease);
       lease.release();
       this.#assertOpen(key);
     }
   }
 
-  async #acquire(entry: Entry): Promise<AgentLease> {
-    if (entry.owned) return this.#ownedLease(entry);
-    const acquiring = this.#lease(entry.id, entry.options as AgentOptions);
-    entry.inflight.add(acquiring);
-    try {
-      const lease = await acquiring;
-      entry.agent = lease.agent;
-      return lease;
-    } finally {
-      entry.inflight.delete(acquiring);
-    }
-  }
-
-  #ownedLease(entry: Entry): AgentLease {
-    return { agent: entry.agent as SDKAgent, agentId: entry.id, release: () => undefined };
-  }
-
   #assertOpen(key: string): void {
     if (this.#closed) throw new SessionPoolClosedError(key);
   }
 
-  #openEntry(key: string, context: C): Promise<Entry> {
+  #openEntry(key: string): Promise<Entry> {
     const pending = this.#opening.get(key);
     if (pending !== undefined) return pending;
     const p = (async (): Promise<Entry> => {
       const id = this.#idFor(key);
       const existing = this.#open.get(key);
       if (existing !== undefined) return existing;
-      const factory = this.#opts.agent;
-      let agent: SDKAgent | undefined;
-      let options: AgentOptions | undefined;
-      if (factory !== undefined) agent = await factory({ key, agentId: id, context });
-      else options = await this.#requireOpen()(key, context);
+      const options = await this.#opts.open(key);
       const entry: Entry = {
         key,
         id,
         options,
-        owned: agent !== undefined,
-        agent,
+        agent: undefined,
         leases: new Set(),
         inflight: new Set(),
         idleWaiters: [],
         lastUsed: Date.now(),
         disposed: undefined,
       };
-      if (this.#closed || this.#idFor(key) !== id) {
-        // lease() loop discards it; an agent built by the factory has no lease to release.
-        await agent?.dispose().catch(() => undefined);
-        return entry;
-      }
+      if (this.#closed || this.#idFor(key) !== id) return entry; // lease() loop discards it
       this.#open.set(key, entry);
       this.#all.add(entry);
       return entry;
@@ -248,24 +216,6 @@ class Pool<C> implements SessionPool<C> {
     };
     p.then(clear, clear);
     return p;
-  }
-
-  #requireOpen(): NonNullable<SessionPoolOptions<C>["open"]> {
-    const open = this.#opts.open;
-    if (open === undefined) throw new TypeError("sessionPool needs `open` or `agent`");
-    return open;
-  }
-
-  heldIds(): string[] {
-    return [...this.#all].map((e) => e.id);
-  }
-
-  #warnCap(max: number): void {
-    if (this.#capWarned) return;
-    this.#capWarned = true;
-    diag(
-      `[theokit-sdk] session pool: ${String(this.#open.size)} agents open above maxOpen ${String(max)}; all are held\n`,
-    );
   }
 
   #track(entry: Entry, inner: AgentLease): AgentLease {
@@ -342,10 +292,7 @@ class Pool<C> implements SessionPool<C> {
     const max = this.#opts.maxOpen;
     while (max !== undefined && this.#open.size > max) {
       const oldest = this.#oldestUnheld(keep);
-      if (oldest === undefined) {
-        this.#warnCap(max);
-        return;
-      }
+      if (oldest === undefined) return;
       this.#retire(oldest.key);
     }
   }
@@ -396,9 +343,6 @@ class Pool<C> implements SessionPool<C> {
 }
 
 /** @internal Built by `Agent.sessionPool`, which passes `Agent.lease`. */
-export function createSessionPool<C = unknown>(
-  options: SessionPoolOptions<C>,
-  lease: LeaseFn,
-): SessionPool<C> {
+export function createSessionPool(options: SessionPoolOptions, lease: LeaseFn): SessionPool {
   return new Pool(options, lease);
 }
