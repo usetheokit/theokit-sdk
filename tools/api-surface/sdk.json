@@ -3966,11 +3966,15 @@
       },
       "Workflow": {
         "tier": "stable",
-        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
+        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    static fromDefinition(definition: WorkflowDefinition, options: {\n        generate: (prompt: string, input: unknown, ctx: StepContext) => Promise<unknown> | unknown;\n        persistence?: WorkflowPersistenceOptions;\n    }): Workflow;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
       },
       "WorkflowAlreadyRunningError": {
         "tier": "stable",
         "declaration": "declare class WorkflowAlreadyRunningError extends TheokitAgentError {\n    readonly workflowName: string;\n    readonly runId: string;\n    readonly name = \"WorkflowAlreadyRunningError\";\n    constructor(workflowName: string, runId: string);\n}"
+      },
+      "WorkflowApprovalStepDefinition": {
+        "tier": "stable",
+        "declaration": "interface WorkflowApprovalStepDefinition {\n    readonly id: string;\n    readonly approve: true;\n}"
       },
       "WorkflowAsToolSpec": {
         "tier": "stable",
@@ -3987,6 +3991,18 @@
       "WorkflowCompensateNotImplementedError": {
         "tier": "stable",
         "declaration": "declare class WorkflowCompensateNotImplementedError extends TheokitAgentError {\n    readonly stepId: string;\n    readonly name = \"WorkflowCompensateNotImplementedError\";\n    constructor(stepId: string);\n}"
+      },
+      "WorkflowDefinition": {
+        "tier": "stable",
+        "declaration": "interface WorkflowDefinition {\n    readonly name: string;\n    readonly steps: ReadonlyArray<WorkflowPromptStepDefinition | WorkflowApprovalStepDefinition>;\n}"
+      },
+      "WorkflowDefinitionError": {
+        "tier": "stable",
+        "declaration": "declare class WorkflowDefinitionError extends ConfigurationError {\n    readonly file: string | undefined;\n    readonly field: string;\n    readonly detail: string;\n    readonly name = \"WorkflowDefinitionError\";\n    constructor(file: string | undefined, field: string, detail: string);\n}"
+      },
+      "WorkflowDefinitionOptions": {
+        "tier": "stable",
+        "declaration": "type WorkflowDefinitionOptions = Parameters<typeof Workflow.fromDefinition>[1];"
       },
       "WorkflowDescription": {
         "tier": "stable",
@@ -4031,6 +4047,10 @@
       "WorkflowPersistenceOptions": {
         "tier": "stable",
         "declaration": "interface WorkflowPersistenceOptions {\n    readonly backend: \"memory\" | \"json\";\n    readonly dir?: string;\n    readonly durability?: \"suspend\" | \"step\";\n    readonly keepHistory?: boolean;\n}"
+      },
+      "WorkflowPromptStepDefinition": {
+        "tier": "stable",
+        "declaration": "interface WorkflowPromptStepDefinition {\n    readonly id: string;\n    readonly prompt: string;\n}"
       },
       "WorkflowRerunOptions": {
         "tier": "stable",
@@ -4099,6 +4119,14 @@
       "fn": {
         "tier": "stable",
         "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n    compensate?: FnStep[\"compensate\"];\n}): FnStep;"
+      },
+      "loadWorkflowDir": {
+        "tier": "stable",
+        "declaration": "declare function loadWorkflowDir(dir: string, options: WorkflowDefinitionOptions): Promise<Workflow[]>;"
+      },
+      "parseWorkflowDefinition": {
+        "tier": "stable",
+        "declaration": "declare function parseWorkflowDefinition(input: unknown, file?: string): WorkflowDefinition;"
       },
       "workflowAsTool": {
         "tier": "stable",
@@ -4168,11 +4196,15 @@
       },
       "Workflow": {
         "tier": "stable",
-        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
+        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    static fromDefinition(definition: WorkflowDefinition, options: {\n        generate: (prompt: string, input: unknown, ctx: StepContext) => Promise<unknown> | unknown;\n        persistence?: WorkflowPersistenceOptions;\n    }): Workflow;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
       },
       "WorkflowAlreadyRunningError": {
         "tier": "stable",
         "declaration": "declare class WorkflowAlreadyRunningError extends TheokitAgentError {\n    readonly workflowName: string;\n    readonly runId: string;\n    readonly name = \"WorkflowAlreadyRunningError\";\n    constructor(workflowName: string, runId: string);\n}"
+      },
+      "WorkflowApprovalStepDefinition": {
+        "tier": "stable",
+        "declaration": "interface WorkflowApprovalStepDefinition {\n    readonly id: string;\n    readonly approve: true;\n}"
       },
       "WorkflowAsToolSpec": {
         "tier": "stable",
@@ -4189,6 +4221,18 @@
       "WorkflowCompensateNotImplementedError": {
         "tier": "stable",
         "declaration": "declare class WorkflowCompensateNotImplementedError extends TheokitAgentError {\n    readonly stepId: string;\n    readonly name = \"WorkflowCompensateNotImplementedError\";\n    constructor(stepId: string);\n}"
+      },
+      "WorkflowDefinition": {
+        "tier": "stable",
+        "declaration": "interface WorkflowDefinition {\n    readonly name: string;\n    readonly steps: ReadonlyArray<WorkflowPromptStepDefinition | WorkflowApprovalStepDefinition>;\n}"
+      },
+      "WorkflowDefinitionError": {
+        "tier": "stable",
+        "declaration": "declare class WorkflowDefinitionError extends ConfigurationError {\n    readonly file: string | undefined;\n    readonly field: string;\n    readonly detail: string;\n    readonly name = \"WorkflowDefinitionError\";\n    constructor(file: string | undefined, field: string, detail: string);\n}"
+      },
+      "WorkflowDefinitionOptions": {
+        "tier": "stable",
+        "declaration": "type WorkflowDefinitionOptions = Parameters<typeof Workflow.fromDefinition>[1];"
       },
       "WorkflowDescription": {
         "tier": "stable",
@@ -4233,6 +4277,10 @@
       "WorkflowPersistenceOptions": {
         "tier": "stable",
         "declaration": "interface WorkflowPersistenceOptions {\n    readonly backend: \"memory\" | \"json\";\n    readonly dir?: string;\n    readonly durability?: \"suspend\" | \"step\";\n    readonly keepHistory?: boolean;\n}"
+      },
+      "WorkflowPromptStepDefinition": {
+        "tier": "stable",
+        "declaration": "interface WorkflowPromptStepDefinition {\n    readonly id: string;\n    readonly prompt: string;\n}"
       },
       "WorkflowRerunOptions": {
         "tier": "stable",
@@ -4301,6 +4349,14 @@
       "fn": {
         "tier": "stable",
         "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n    compensate?: FnStep[\"compensate\"];\n}): FnStep;"
+      },
+      "loadWorkflowDir": {
+        "tier": "stable",
+        "declaration": "declare function loadWorkflowDir(dir: string, options: WorkflowDefinitionOptions): Promise<Workflow[]>;"
+      },
+      "parseWorkflowDefinition": {
+        "tier": "stable",
+        "declaration": "declare function parseWorkflowDefinition(input: unknown, file?: string): WorkflowDefinition;"
       },
       "workflowAsTool": {
         "tier": "stable",
@@ -6039,7 +6095,7 @@
       },
       "Workflow": {
         "tier": "stable",
-        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
+        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    static fromDefinition(definition: WorkflowDefinition, options: {\n        generate: (prompt: string, input: unknown, ctx: StepContext) => Promise<unknown> | unknown;\n        persistence?: WorkflowPersistenceOptions;\n    }): Workflow;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
       },
       "WorkspacePluginListing": {
         "tier": "stable",
@@ -8046,7 +8102,7 @@
       },
       "Workflow": {
         "tier": "stable",
-        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
+        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    static fromDefinition(definition: WorkflowDefinition, options: {\n        generate: (prompt: string, input: unknown, ctx: StepContext) => Promise<unknown> | unknown;\n        persistence?: WorkflowPersistenceOptions;\n    }): Workflow;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
       },
       "WorkspacePluginListing": {
         "tier": "stable",

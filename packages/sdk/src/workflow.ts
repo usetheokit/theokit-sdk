@@ -47,6 +47,7 @@ import type {
   WorkflowDescription,
   WorkflowEvent,
   WorkflowOptions,
+  WorkflowPersistenceOptions,
   WorkflowRerunOptions,
   WorkflowResumeOptions,
   WorkflowRun,
@@ -54,6 +55,7 @@ import type {
   WorkflowStepDescription,
   WorkflowStream,
 } from "./types/workflow.js";
+import { parseWorkflowDefinition, type WorkflowDefinition } from "./workflow-definition.js";
 import { WorkflowDuplicateStepIdError, WorkflowNestedError } from "./workflow-errors.js";
 
 /* ─── Zod validation schemas ─── */
@@ -387,6 +389,36 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
   }
 
   /**
+   * Compile a linear {@link WorkflowDefinition} (prompt and approval steps) into a `Workflow`.
+   *
+   * A prompt step calls `generate(prompt, input, ctx)`, where `input` is the previous step's value
+   * (the run input for the first step), and its result is the step's value. An approval step suspends
+   * the run; `Workflow.resume({ workflow, runId, payload })` continues it with `payload` as the value,
+   * or with the value held before the approval when `payload` is omitted. The definition is
+   * validated first and throws {@link WorkflowDefinitionError}.
+   */
+  static fromDefinition(
+    definition: WorkflowDefinition,
+    options: {
+      generate: (prompt: string, input: unknown, ctx: StepContext) => Promise<unknown> | unknown;
+      persistence?: WorkflowPersistenceOptions;
+    },
+  ): Workflow {
+    const def = parseWorkflowDefinition(definition);
+    let builder = Workflow.create({
+      name: def.name,
+      ...(options.persistence !== undefined ? { persistence: options.persistence } : {}),
+    });
+    for (const step of def.steps) {
+      builder =
+        "prompt" in step
+          ? builder.then(fn(step.id, (input, ctx) => options.generate(step.prompt, input, ctx)))
+          : builder.suspend({ id: step.id });
+    }
+    return builder.commit();
+  }
+
+  /**
    * List the snapshots the persistence store holds for this workflow's name: suspended runs and, with
    * `durability: "step"`, runs with a checkpoint. `currentStepId` is the suspending step, or the last
    * completed step for a `"running"` run. The run lock is still per process, so a `"running"` entry may
@@ -710,4 +742,13 @@ function walkStepsValidating(steps: ReadonlyArray<Step>, seen: Set<string>): voi
   }
 }
 
+export {
+  loadWorkflowDir,
+  parseWorkflowDefinition,
+  type WorkflowApprovalStepDefinition,
+  type WorkflowDefinition,
+  WorkflowDefinitionError,
+  type WorkflowDefinitionOptions,
+  type WorkflowPromptStepDefinition,
+} from "./workflow-definition.js";
 export { WorkflowSet } from "./workflow-set.js";
