@@ -78,12 +78,11 @@ export {
   RepoProvisionError,
 } from "./provision.js";
 export { buildSeccompFilter, type SeccompOptions } from "./seccomp.js";
+export { parseSandboxMode, SANDBOX_MODES } from "./modes.js";
 export { shellEscapePosix } from "./shell-escape.js";
 export {
   type ExecuteResult,
-  parseSandboxMode,
   resolveSandbox,
-  SANDBOX_MODES,
   SandboxBackend,
   type SandboxConfig,
   type SandboxNetworkPolicy,

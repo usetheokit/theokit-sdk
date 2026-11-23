@@ -31,6 +31,12 @@ describe("addMemoryFact", () => {
     );
   });
 
+  it("writes to the default store when settings are omitted", async () => {
+    const cwd = cwdDir();
+    await addMemoryFact(cwd, "default store fact");
+    expect((await listMemoryFacts(cwd)).map((f) => f.text)).toEqual(["default store fact"]);
+  });
+
   it("refuses a write past maxFacts with memory_ceiling_reached and leaves the list unchanged", async () => {
     const cwd = cwdDir();
     const s = { userId: "u1", maxFacts: 1 };
