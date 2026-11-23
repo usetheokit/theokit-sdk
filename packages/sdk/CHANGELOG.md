@@ -1,5 +1,11 @@
 # Changelog
 
+## 13.0.0
+
+### Major Changes
+
+- [#1534](https://github.com/usetheokit/theokit-sdk/pull/1534) [`9b094dd`](https://github.com/usetheokit/theokit-sdk/commit/9b094dd0065d3e147d82bf19c51a7ee887adf233) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `recordWiring` records each entity's scope (`scopes` input, `entities` output) and why a capability is off (`disabled` input, `off` output: `suppressed-by-trust`, `disabled-by-config` or a caller-defined reason). New `offCapabilities(record)` lists the capabilities that are off with their reasons.
+
 ## 12.0.0
 
 ### Major Changes
