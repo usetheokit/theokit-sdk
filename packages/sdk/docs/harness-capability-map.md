@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1603 export(s) across 61 entry point(s).
+1605 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1679,6 +1679,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `LinuxSandbox` | class | Kernel-confined backend for Linux hosts: a `LocalSandbox` whose commands are rewritten as `bwrap <policy flags> -- /bin/sh -c '<command>'` before they are spawned.  |
 | `listSandboxContainers` | function | Lists containers (running or not) that carry every one of `labels`. |
 | `LocalSandbox` | class | Runs a command with `/bin/sh -c` on the host.  |
+| `parseSandboxMode` | function | Validate an untrusted value (config file, env var) as a {@link SandboxMode } ; throws {@link ConfigurationError } listing the valid modes. |
 | `provisionRepo` | function | Clone `repoUrl` into `<sandbox workdir>/<instanceId>` and check out `ref`.  |
 | `ProvisionRepoOptions` | interface | Options for {@link provisionRepo } . |
 | `realProbeCount` | function | How many real probes ran.  |
@@ -1691,6 +1692,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `resolveSandbox` | function | Resolve a {@link SandboxProvider } to a concrete backend for `ctx`. |
 | `resolveSandboxPosture` | function | MEDIUM-2: compute the posture so a surface (TUI footer) can show enforcement DURABLY instead of a one-shot warn.  |
 | `restrictedSeccompPath` | function | M57 — the memoized x64-gated seccomp program, written once per process to a temp file. |
+| `SANDBOX_MODES` | const | The sandbox modes, as a runtime list; kept in lockstep with {@link SandboxMode } by `satisfies` and a type test. |
 | `SandboxBackend` | class | The execution capability handed to an agent tool, and the extension point for new environments.  |
 | `SandboxConfig` | interface | Construction-time settings shared by every {@link SandboxBackend } .  |
 | `SandboxContainer` | interface | A container started by a `DockerSandbox`, as `docker ps -a` reports it. |

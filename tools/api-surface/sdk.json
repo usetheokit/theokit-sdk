@@ -2852,6 +2852,10 @@
         "tier": "stable",
         "declaration": "export declare class RepoProvisionError extends TheokitAgentError {\n    readonly instanceId: string;\n    readonly name = \"RepoProvisionError\";\n    constructor(instanceId: string, message: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
+      "SANDBOX_MODES": {
+        "tier": "stable",
+        "declaration": "SANDBOX_MODES: readonly [\n    \"read-only\",\n    \"workspace-write\",\n    \"danger-full-access\"\n]"
+      },
       "SandboxBackend": {
         "tier": "stable",
         "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    executeStreaming?(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
@@ -2931,6 +2935,10 @@
       "listSandboxContainers": {
         "tier": "stable",
         "declaration": "export declare function listSandboxContainers(labels: Record<string, string>, options?: {\n    runner?: DockerRunner;\n}): Promise<SandboxContainer[]>;"
+      },
+      "parseSandboxMode": {
+        "tier": "stable",
+        "declaration": "export declare function parseSandboxMode(value: unknown): SandboxMode;"
       },
       "provisionRepo": {
         "tier": "stable",
@@ -3080,6 +3088,10 @@
         "tier": "stable",
         "declaration": "export declare class RepoProvisionError extends TheokitAgentError {\n    readonly instanceId: string;\n    readonly name = \"RepoProvisionError\";\n    constructor(instanceId: string, message: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
+      "SANDBOX_MODES": {
+        "tier": "stable",
+        "declaration": "SANDBOX_MODES: readonly [\n    \"read-only\",\n    \"workspace-write\",\n    \"danger-full-access\"\n]"
+      },
       "SandboxBackend": {
         "tier": "stable",
         "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    executeStreaming?(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
@@ -3159,6 +3171,10 @@
       "listSandboxContainers": {
         "tier": "stable",
         "declaration": "export declare function listSandboxContainers(labels: Record<string, string>, options?: {\n    runner?: DockerRunner;\n}): Promise<SandboxContainer[]>;"
+      },
+      "parseSandboxMode": {
+        "tier": "stable",
+        "declaration": "export declare function parseSandboxMode(value: unknown): SandboxMode;"
       },
       "provisionRepo": {
         "tier": "stable",
