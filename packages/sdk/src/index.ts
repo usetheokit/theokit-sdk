@@ -321,7 +321,8 @@ export {
   addMemoryFact,
   listMemoryFacts,
   memoryPartitionId,
-  removeMemoryFact, type StoredMemoryFact,
+  removeMemoryFact,
+  type StoredMemoryFact,
 } from "./memory-facts.js";
 // Migration helper (ADR D44) — re-exported for use by the bin CLI.
 export {
