@@ -556,6 +556,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `UnsupportedBudgetOperationError` | class | Thrown when a budget operation is requested on a `CloudAgent` (D388).  |
 | `UnsupportedRunOperationError` | class | Thrown when a {@link Run } or agent operation is not available on the current runtime.  |
 | `UnsupportedTaskOperationError` | class | Thrown when `CloudAgent` is asked to wrap a task (D370).  |
+| `UNTRUSTED_TOOL_OUTPUT_NOTICE` | const | System-prompt line the SDK adds when `toolResultGuard.delimit` is on, so the model knows what the `<untrusted-tool-output>` tag means. |
 | `untrustWorkspacePlugin` | function | Remove a folder from the trust record.  |
 | `UsageAccumulator` | class | Sums the per-step token counts of a multi-step run into one `TokenUsage`.  |
 | `UserMessage` | interface | User-authored message in a conversation history. |
