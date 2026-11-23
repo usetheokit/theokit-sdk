@@ -39,10 +39,11 @@ export interface ExactValueMask {
   stream(): { push(delta: string): string; flush(): string };
   /**
    * Route `write` (and `end(chunk)`) of each stream through the mask, byte-exact for any encoding.
-   * Returns an uninstall that flushes held bytes first. A write held back whole calls its callback
+   * Returns an uninstall that flushes held bytes first; its `flush()` writes the held bytes, masked,
+   * and keeps the mask installed. A write held back whole calls its callback
    * before its bytes reach the stream. Throws `ConfigurationError` when a stream is already wrapped.
    */
-  wrapStreams(streams: readonly NodeJS.WritableStream[]): () => void;
+  wrapStreams(streams: readonly NodeJS.WritableStream[]): (() => void) & { flush(): void };
 }
 
 /**

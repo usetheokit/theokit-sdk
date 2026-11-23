@@ -4867,7 +4867,7 @@
       },
       "ExactValueMask": {
         "tier": "stable",
-        "declaration": "interface ExactValueMask {\n    text(text: string): string;\n    deep<T>(value: T): T;\n    stream(): {\n        push(delta: string): string;\n        flush(): string;\n    };\n    wrapStreams(streams: readonly NodeJS.WritableStream[]): () => void;\n}"
+        "declaration": "interface ExactValueMask {\n    text(text: string): string;\n    deep<T>(value: T): T;\n    stream(): {\n        push(delta: string): string;\n        flush(): string;\n    };\n    wrapStreams(streams: readonly NodeJS.WritableStream[]): (() => void) & {\n        flush(): void;\n    };\n}"
       },
       "ForkOptions": {
         "tier": "stable",
@@ -6886,7 +6886,7 @@
       },
       "ExactValueMask": {
         "tier": "stable",
-        "declaration": "interface ExactValueMask {\n    text(text: string): string;\n    deep<T>(value: T): T;\n    stream(): {\n        push(delta: string): string;\n        flush(): string;\n    };\n    wrapStreams(streams: readonly NodeJS.WritableStream[]): () => void;\n}"
+        "declaration": "interface ExactValueMask {\n    text(text: string): string;\n    deep<T>(value: T): T;\n    stream(): {\n        push(delta: string): string;\n        flush(): string;\n    };\n    wrapStreams(streams: readonly NodeJS.WritableStream[]): (() => void) & {\n        flush(): void;\n    };\n}"
       },
       "ForkOptions": {
         "tier": "stable",
