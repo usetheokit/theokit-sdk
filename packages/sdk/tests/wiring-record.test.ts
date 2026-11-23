@@ -158,7 +158,7 @@ describe("recordWiring — a capability nobody gates is an error, not a default"
 });
 
 describe("recordWiring — scopes and off reasons", () => {
-  it("test_scope_is_recorded_per_entity_and_missing_scope_is_undefined", () => {
+  it("records the scope per entity and leaves a missing scope undefined", () => {
     const r = recordWiring({
       posture: TRUSTED,
       requested: { mcp: ["a", "b"], skills: ["s"] },
@@ -180,7 +180,7 @@ describe("recordWiring — scopes and off reasons", () => {
     expect(bare.mcp.off).toBeUndefined();
   });
 
-  it("test_off_reasons_trust_config_and_custom", async () => {
+  it("reports trust, config and custom off reasons", async () => {
     const { offCapabilities } = await import("../src/wiring-record.js");
     const r = recordWiring({
       posture: { allows: { mcp: false, skills: true, hooks: true, cmds: true } },

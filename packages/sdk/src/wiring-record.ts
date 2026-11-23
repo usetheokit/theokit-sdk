@@ -133,6 +133,8 @@ export interface WiringRecordInput<K extends string> {
   readonly disabled?: Readonly<Partial<Record<K, WiringOffReason>>>;
 }
 
+const TRUST_OFF: WiringOffReason = { reason: "suppressed-by-trust" };
+
 /**
  * Record what a build actually wired, per capability.
  *
@@ -171,21 +173,15 @@ export function recordWiring<K extends string>(
           `gated capabilities are: ${Object.keys(input.posture.allows).join(", ") || "(none)"}`,
       );
     }
-    const suppressedByTrust = !allowed && requested.length > 0;
-    const disabled = input.disabled?.[capability];
-    const scoped = input.scopes?.[capability] ?? [];
-    let off: WiringOffReason | undefined;
-    if (suppressedByTrust) off = { reason: "suppressed-by-trust" };
-    else if (disabled !== undefined) off = { ...disabled };
-    else if (!allowed) off = { reason: "suppressed-by-trust" };
+    const off = allowed ? input.disabled?.[capability] : TRUST_OFF;
     record[capability] = {
       // Copied, not aliased. See the @returns note.
-      active: allowed && disabled === undefined ? [...requested] : [],
+      active: off ? [] : [...requested],
       requested: [...requested],
-      suppressedByTrust,
+      suppressedByTrust: !allowed && requested.length > 0,
       entities: requested.map((name) => ({
         name,
-        scope: scoped.find((e) => e.name === name)?.scope,
+        scope: input.scopes?.[capability]?.find((e) => e.name === name)?.scope,
       })),
       off,
     };
