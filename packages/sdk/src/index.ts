@@ -136,7 +136,6 @@ export { fingerprintHookGate, hookFingerprint, listProjectHooks } from "./hooks-
 export type { PruneToolResultsOptions } from "./internal/agent-loop/prune-tool-results.js";
 // #57 — tool-result content guard options (SendOptions.toolResultGuard).
 export type { ToolResultGuardOptions } from "./internal/agent-loop/tool-result-guard.js";
-export { UNTRUSTED_TOOL_OUTPUT_NOTICE } from "./internal/agent-loop/tool-result-guard.js";
 // BudgetTracker interface (SDK 2.0 Phase 2 / T2.1 foundation — ADR D1).
 // Kernel-facing contract for budget/usage tracking. Default impl lives in
 // internal/budget/ today; will move to @theokit/sdk-budget in Phase 2.

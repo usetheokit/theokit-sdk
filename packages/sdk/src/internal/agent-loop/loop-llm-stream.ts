@@ -16,7 +16,6 @@ import type { LoopContext } from "./loop-context-init.js";
 import { buildAssistantEvent, buildThinkingEvent } from "./message-builders.js";
 import { pruneToolResultsForRequest } from "./prune-tool-results.js";
 import type { ResolvedTool } from "./tool-dispatch.js";
-import { withUntrustedOutputNotice } from "./tool-result-guard.js";
 import type { AgentLoopInputs } from "./types.js";
 
 /** @internal */
@@ -163,7 +162,7 @@ export async function streamLlmTurn(
       model: inputs.model.id ?? "auto",
       ...((): { system?: string | LlmSystemBlock[] } => {
         const effective = buildLoopSystem(
-          withUntrustedOutputNotice(inputs.systemPrompt, inputs.toolResultGuard),
+          inputs.systemPrompt,
           ctx.memorySystemPromptAdditions,
           inputs.model.id,
         );

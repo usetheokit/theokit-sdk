@@ -31,20 +31,6 @@ describe("Security.createMask", () => {
     expect(m.text("an abc here")).toBe("an abc here");
   });
 
-  it("wrapStreams handle flush() writes held text masked and keeps masking", () => {
-    const { s, out } = fakeStream();
-    const undo = Security.createMask(["abc12345"]).wrapStreams([s as never]);
-    s.write("key abc1");
-    s.write("2345 and abc");
-    undo.flush();
-    expect(out()).toBe("key [redacted] and abc");
-    s.write("12345 tail abc12");
-    s.write("345");
-    undo.flush();
-    expect(out()).toBe("key [redacted] and abc12345 tail [redacted]");
-    undo();
-  });
-
   it("wrapStreams masks split writes and end(chunk), and uninstall restores write", () => {
     const { s, out } = fakeStream();
     const original = s.write;

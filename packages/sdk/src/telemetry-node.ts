@@ -12,7 +12,6 @@
  */
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { LogRecordExporter } from "@opentelemetry/sdk-logs";
 import type { PushMetricExporter } from "@opentelemetry/sdk-metrics";
 import type { SpanExporter } from "@opentelemetry/sdk-trace-base";
 import { ConfigurationError } from "./errors.js";
@@ -33,38 +32,17 @@ export interface RegisterTelemetryOptions {
   metricIntervalMs?: number;
   /** Receives one redacted line per export failure. Default: the SDK diagnostics channel. */
   onExportError?: (line: string) => void;
-  /**
-   * Log record exporter. When set, `registerTelemetry` also builds a `LoggerProvider` (same resource,
-   * batch export) and the returned `log` emits through it. Without it, `log` is a no-op.
-   */
-  logExporter?: LogRecordExporter;
   /** Test seam: replaces the OTLP span exporter. */
   spanExporter?: SpanExporter;
   /** Test seam: replaces the OTLP metric exporter. */
   metricExporter?: PushMetricExporter;
 }
 
-/** A log record passed to {@link RegisteredTelemetry.log}. @public */
-export interface TelemetryLogRecord {
-  /** Log body. */
-  body?: unknown;
-  /** OpenTelemetry severity number (1-24). */
-  severityNumber?: number;
-  /** Severity label, e.g. `"INFO"`. */
-  severityText?: string;
-  /** Record attributes. */
-  attributes?: Record<string, unknown>;
-  /** Event time (epoch ms, `Date`, or hr-time). Default: now. */
-  timestamp?: number | Date | [number, number];
-}
-
 /** Handle returned by {@link registerTelemetry}. @public */
 export interface RegisteredTelemetry {
   /** `http://127.0.0.1:<port>/metrics` once listening, or `undefined` without `prometheusPort`. */
   readonly prometheusEndpoint: Promise<string | undefined>;
-  /** Emits a log record through the configured `logExporter`; a no-op without one. Never throws. */
-  log(record: TelemetryLogRecord): void;
-  /** Exports pending spans, metrics and logs. */
+  /** Exports pending spans and metrics. */
   flush(): Promise<void>;
   /** Flushes, stops both providers and the Prometheus server, and disables the globals. Never rejects. */
   shutdown(): Promise<void>;
@@ -125,37 +103,7 @@ const peers = {
   trace: () => loadPeer<Peer>("@opentelemetry/sdk-trace-base"),
   metrics: () => loadPeer<Peer>("@opentelemetry/sdk-metrics"),
   resources: () => loadPeer<Peer>("@opentelemetry/resources"),
-  logs: () => loadPeer<Peer>("@opentelemetry/sdk-logs"),
 };
-
-interface LogSetup {
-  readonly provider: { forceFlush(): Promise<void>; shutdown(): Promise<void> } | undefined;
-  readonly log: (record: TelemetryLogRecord) => void;
-}
-
-async function setupLogs(
-  exporter: LogRecordExporter | undefined,
-  resource: unknown,
-  timeout: number,
-): Promise<LogSetup> {
-  if (exporter === undefined) return { provider: undefined, log() {} };
-  const logsSdk = await peers.logs();
-  const provider = new logsSdk.LoggerProvider({
-    resource,
-    processors: [new logsSdk.BatchLogRecordProcessor({ exporter, exportTimeoutMillis: timeout })],
-  });
-  const logger = provider.getLogger("@theokit/sdk");
-  return {
-    provider,
-    log(record) {
-      try {
-        logger.emit(record);
-      } catch {
-        // logging must never break the caller
-      }
-    },
-  };
-}
 
 async function loadTraceExporter(
   options: RegisterTelemetryOptions,
@@ -241,9 +189,6 @@ export async function registerTelemetry(
   ]);
   const spanExporter = await loadTraceExporter(options, base);
   const metricExporter = await loadMetricExporter(options, base);
-  const resource = resources.resourceFromAttributes({ "service.name": options.serviceName });
-  const timeout = options.exportTimeoutMs ?? DEFAULT_EXPORT_TIMEOUT_MS;
-  const logSetup = await setupLogs(options.logExporter, resource, timeout);
   const prometheus =
     options.prometheusPort === undefined
       ? undefined
@@ -257,6 +202,8 @@ export async function registerTelemetry(
       // A throwing error sink must not break the export path.
     }
   };
+  const resource = resources.resourceFromAttributes({ "service.name": options.serviceName });
+  const timeout = options.exportTimeoutMs ?? DEFAULT_EXPORT_TIMEOUT_MS;
 
   const tracerProvider = new traceSdk.BasicTracerProvider({
     resource,
@@ -278,7 +225,6 @@ export async function registerTelemetry(
     await Promise.allSettled([
       tracerProvider.shutdown(),
       meterProvider.shutdown(),
-      logSetup.provider?.shutdown(),
       prometheus?.close(),
     ]);
   };
@@ -301,13 +247,8 @@ export async function registerTelemetry(
 
   return {
     prometheusEndpoint: prometheus === undefined ? Promise.resolve(undefined) : prometheus.endpoint,
-    log: logSetup.log,
     async flush() {
-      await Promise.allSettled([
-        tracerProvider.forceFlush(),
-        meterProvider.forceFlush(),
-        logSetup.provider?.forceFlush(),
-      ]);
+      await Promise.allSettled([tracerProvider.forceFlush(), meterProvider.forceFlush()]);
     },
     async shutdown() {
       try {

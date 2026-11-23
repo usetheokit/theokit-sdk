@@ -24,7 +24,6 @@ vi.mock("../src/internal/agent-loop/loop.js", async (importOriginal) => {
 import { Agent } from "../src/agent.js";
 import { Tool } from "../src/define-tool.js";
 import { ConfigurationError } from "../src/errors.js";
-import { UNTRUSTED_TOOL_OUTPUT_NOTICE } from "../src/internal/agent-loop/tool-result-guard.js";
 import {
   clearAgentRegistry,
   invalidateRegistryHydration,
@@ -45,7 +44,7 @@ import { useTempCwd } from "./helpers/temp-workspace.js";
 interface Stub {
   server: Server;
   url: string;
-  bodies: Array<{ messages: unknown[]; system?: unknown }>;
+  bodies: Array<{ messages: unknown[] }>;
 }
 
 /** Round 1 calls `probe` when `withTool`; every other round replies with `reply`. */
@@ -147,44 +146,6 @@ describe("AgentOptions.sendDefaults (#1020)", () => {
     expect(s.bodies).toHaveLength(2);
     expect(toolResultSeenByModel(s)).toContain("<untrusted-tool-output>");
     expect(toolResultSeenByModel(s)).toContain("tool text for ada@example.com");
-    await agent.dispose();
-  });
-
-  const systemSeenByModel = (s: Stub): string => JSON.stringify(s.bodies[0]?.system ?? "");
-
-  it("delimit on adds the untrusted-output notice to the system prompt the provider receives", async () => {
-    const s = await useStub(false);
-    const agent = await Agent.create(
-      base({ sendDefaults: { toolResultGuard: { delimit: true } } }),
-    );
-    await (await agent.send("hi")).wait();
-    expect(systemSeenByModel(s)).toContain(UNTRUSTED_TOOL_OUTPUT_NOTICE);
-    await agent.dispose();
-  });
-
-  it("delimit off or absent leaves the notice out of the system prompt", async () => {
-    const s = await useStub(false);
-    const off = await Agent.create(base({ sendDefaults: { toolResultGuard: { delimit: false } } }));
-    await (await off.send("hi")).wait();
-    const none = await Agent.create(base());
-    await (await none.send("hi")).wait();
-    expect(s.bodies).toHaveLength(2);
-    for (const b of s.bodies) {
-      expect(JSON.stringify(b.system ?? "")).not.toContain(UNTRUSTED_TOOL_OUTPUT_NOTICE);
-    }
-    await off.dispose();
-    await none.dispose();
-  });
-
-  it("a call's toolResultGuard override decides the notice, both ways", async () => {
-    const s = await useStub(false);
-    const agent = await Agent.create(
-      base({ sendDefaults: { toolResultGuard: { delimit: true } } }),
-    );
-    await (await agent.send("a", { toolResultGuard: { redactPii: true } })).wait();
-    await (await agent.send("b", { toolResultGuard: { delimit: true } })).wait();
-    expect(JSON.stringify(s.bodies[0]?.system ?? "")).not.toContain(UNTRUSTED_TOOL_OUTPUT_NOTICE);
-    expect(JSON.stringify(s.bodies[1]?.system ?? "")).toContain(UNTRUSTED_TOOL_OUTPUT_NOTICE);
     await agent.dispose();
   });
 

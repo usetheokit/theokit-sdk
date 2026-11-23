@@ -16,13 +16,7 @@ export interface ExactValueMaskImpl {
   text(text: string): string;
   deep<T>(value: T): T;
   stream(): { push(delta: string): string; flush(): string };
-  wrapStreams(streams: readonly NodeJS.WritableStream[]): MaskStreamsHandle;
-}
-
-/** Uninstall function returned by `wrapStreams`; `flush()` writes held text, masked, and keeps the mask installed. */
-export interface MaskStreamsHandle {
-  (): void;
-  flush(): void;
+  wrapStreams(streams: readonly NodeJS.WritableStream[]): () => void;
 }
 
 const DEFAULT_PLACEHOLDER = "[redacted]";
@@ -138,10 +132,7 @@ function toBytes(chunk: unknown, encoding: unknown): Buffer | undefined {
 }
 
 /** Wraps one stream. Bytes travel as latin1 so any encoding is masked byte-exact. */
-function wrapOne(
-  stream: NodeJS.WritableStream,
-  core: Core,
-): { uninstall: () => void; flush: () => void } {
+function wrapOne(stream: NodeJS.WritableStream, core: Core): () => void {
   const target = stream as unknown as Record<string, AnyFn>;
   const ownWrite = Object.hasOwn(target, "write");
   const ownEnd = Object.hasOwn(target, "end");
@@ -174,11 +165,7 @@ function wrapOne(
     return all.length > 0 ? origEnd.call(stream, all, ...rest) : origEnd.call(stream, ...rest);
   };
 
-  const flush = () => {
-    const tail = Buffer.from(masker.flush(), "latin1");
-    if (tail.length > 0) origWrite.call(stream, tail);
-  };
-  const uninstall = () => {
+  return () => {
     const tail = Buffer.from(masker.flush(), "latin1");
     if (ownWrite) target.write = origWrite;
     else delete target.write;
@@ -187,7 +174,6 @@ function wrapOne(
     wrapped.delete(stream);
     if (tail.length > 0) origWrite.call(stream, tail);
   };
-  return { uninstall, flush };
 }
 
 /** Build an exact-value masker; `makeError` builds the error thrown for an already-wrapped stream. */
@@ -222,13 +208,9 @@ export function createExactMask(
         wrapped.add(s);
         return wrapOne(s, byteCore);
       });
-      const handle = (() => {
-        for (const u of undo.splice(0)) u.uninstall();
-      }) as MaskStreamsHandle;
-      handle.flush = () => {
-        for (const u of undo) u.flush();
+      return () => {
+        for (const u of undo.splice(0)) u();
       };
-      return handle;
     },
   };
 }
