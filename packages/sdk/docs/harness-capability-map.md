@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1614 export(s) across 61 entry point(s).
+1616 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -556,6 +556,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `UnsupportedBudgetOperationError` | class | Thrown when a budget operation is requested on a `CloudAgent` (D388).  |
 | `UnsupportedRunOperationError` | class | Thrown when a {@link Run } or agent operation is not available on the current runtime.  |
 | `UnsupportedTaskOperationError` | class | Thrown when `CloudAgent` is asked to wrap a task (D370).  |
+| `UNTRUSTED_TOOL_OUTPUT_NOTICE` | const | System-prompt line the SDK adds when `toolResultGuard.delimit` is on, so the model knows what the `<untrusted-tool-output>` tag means. |
 | `untrustWorkspacePlugin` | function | Remove a folder from the trust record.  |
 | `UsageAccumulator` | class | Sums the per-step token counts of a multi-step run into one `TokenUsage`.  |
 | `UserMessage` | interface | User-authored message in a conversation history. |
@@ -1824,6 +1825,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `RegisteredTelemetry` | interface | Handle returned by {@link registerTelemetry } . |
 | `registerTelemetry` | function | Registers global OTLP tracer and meter providers.  |
 | `RegisterTelemetryOptions` | interface | Options for {@link registerTelemetry } . |
+| `TelemetryLogRecord` | interface | A log record passed to {@link RegisteredTelemetry.log } . |
 
 ## `@theokit/sdk/testing`
 

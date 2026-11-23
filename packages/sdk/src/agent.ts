@@ -398,8 +398,8 @@ export class Agent {
    *
    * @public
    */
-  static sessionPool(options: SessionPoolOptions): SessionPool {
-    return createSessionPool(options, (id, opts) => Agent.lease(id, opts));
+  static sessionPool<C = unknown>(options: SessionPoolOptions<C>): SessionPool<C> {
+    return createSessionPool<C>(options, (id, opts) => Agent.lease(id, opts));
   }
 
   /**

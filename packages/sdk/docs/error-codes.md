@@ -120,7 +120,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_identifier` | domain | ConfigurationError | `packages/sdk/src/internal/security/path-guard.ts:434` +2 |
 | `invalid_input` | domain | MemoryAdapterError | `packages/memory-honcho/src/adapter.ts:98` +9 |
 | `invalid_local_registry` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:62` |
-| `invalid_mask_stream` | domain | ConfigurationError | `packages/sdk/src/security.ts:137` |
+| `invalid_mask_stream` | domain | ConfigurationError | `packages/sdk/src/security.ts:138` |
 | `invalid_max_iterations` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/real-local-run.ts:94` |
 | `invalid_mcp_tool_filter` | domain | ConfigurationError | `packages/sdk/src/internal/mcp/tool-filter.ts:38` +1 |
 | `invalid_memory_backend` | domain | ConfigurationError | `packages/sdk/src/internal/memory/index-manager-dispatch.ts:24` |
@@ -131,7 +131,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_model_selection` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/model-selection.ts:25` |
 | `invalid_processor_options` | domain | ConfigurationError | `packages/sdk/src/built-in-processors.ts:86` |
 | `invalid_prune_tool_results` | domain | ConfigurationError | `packages/sdk/src/internal/agent-loop/prune-tool-results.ts:78` |
-| `invalid_redaction_pattern` | domain | ConfigurationError | `packages/sdk/src/security.ts:109` |
+| `invalid_redaction_pattern` | domain | ConfigurationError | `packages/sdk/src/security.ts:110` |
 | `invalid_request` | domain | — | `packages/sdk/src/internal/error-mappers/vertex.ts:53` +1 |
 | `invalid_retry_config` | domain | ConfigurationError | `packages/sdk/src/internal/retry/with-retry.ts:67` |
 | `invalid_sandbox_mode` | domain | ConfigurationError | `packages/sdk/src/sandbox/modes.ts:16` |
@@ -276,9 +276,9 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `subscription_not_found` | domain | SubscriptionError | `packages/sdk/src/subscription/internal/subscription-runtime.ts:130` |
 | `task_not_found` | domain | — | `packages/sdk/src/task-errors.ts:53` +1 |
 | `task_op_unsupported` | domain | — | `packages/sdk/src/task-errors.ts:73` +1 |
-| `telemetry_endpoint_invalid` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:77` |
-| `telemetry_peer_missing` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:90` |
-| `telemetry_provider_registered` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:238` |
+| `telemetry_endpoint_invalid` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:99` |
+| `telemetry_peer_missing` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:112` |
+| `telemetry_provider_registered` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:292` |
 | `timeout` | domain | — | `packages/sdk/src/internal/error-mappers/vertex.ts:55` |
 | `tool_decision_duplicate` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:424` |
 | `tool_decision_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:429` |
