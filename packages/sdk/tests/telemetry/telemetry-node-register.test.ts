@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { dirname, join } from "node:path";
 import { diag, metrics, trace } from "@opentelemetry/api";
+import { InMemoryLogRecordExporter } from "@opentelemetry/sdk-logs";
 import {
   AggregationTemporality,
   InMemoryMetricExporter,
@@ -186,4 +187,24 @@ describe("main entry isolation", () => {
       }
     },
   );
+});
+
+describe("registerTelemetry logs", () => {
+  it("emits a log record through the configured log exporter with the resource", async () => {
+    const logExporter = new InMemoryLogRecordExporter();
+    const { handle } = await register({ logExporter });
+    handle.log({ body: "hello", severityText: "INFO", attributes: { k: "v" } });
+    await handle.flush();
+    const records = logExporter.getFinishedLogRecords();
+    expect(records).toHaveLength(1);
+    expect(records[0]?.body).toBe("hello");
+    expect(records[0]?.attributes.k).toBe("v");
+    expect(records[0]?.resource.attributes["service.name"]).toBe("svc-under-test");
+  });
+
+  it("keeps working without a log exporter: log is a no-op", async () => {
+    const { handle } = await register();
+    expect(() => handle.log({ body: "dropped" })).not.toThrow();
+    await expect(handle.flush()).resolves.toBeUndefined();
+  });
 });
