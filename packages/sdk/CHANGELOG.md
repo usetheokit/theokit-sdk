@@ -1,5 +1,17 @@
 # Changelog
 
+## 10.0.0
+
+### Major Changes
+
+- [#1498](https://github.com/usetheokit/theokit-sdk/pull/1498) [`b091ca2`](https://github.com/usetheokit/theokit-sdk/commit/b091ca2baa84295face7df3d592940fe9497369d) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/skills`: add `skills.userDir`, a user-level skills root read after project and plugin roots and before `bundledDirs`. Export `resolveSkillRoots` (the ordered roots `explainSkills` reports), `parseSkillFrontmatter` and `binaryOnPath`.
+  
+  Breaking for type consumers: `SkillsExplanation.roots[].kind` gains `"user"`, so an exhaustive switch over it must handle the new kind.
+
+### Minor Changes
+
+- [#1500](https://github.com/usetheokit/theokit-sdk/pull/1500) [`4af5a9e`](https://github.com/usetheokit/theokit-sdk/commit/4af5a9ee1bed97e9a41ac719789bac0f05ae2939) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `readSessionMessages` and `readSessionHistory` accept `scope: "all"` to return every message record in file order, including both sides of a compaction boundary and every branch. The default `"active-chain"` is unchanged.
+
 ## 9.1.0
 
 ### Minor Changes
