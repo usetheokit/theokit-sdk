@@ -100,6 +100,28 @@ describe("B-546 lazy skill reader", () => {
 });
 
 describe("B-546 bundled roots through the public option", () => {
+  it("loads a skill from SkillsSettings.userDir for a project with no skills", async () => {
+    const ws = tempDir("b546-ws-");
+    const user = tempDir("b546-user-");
+    writeSkill(user, "mine", "operator skill");
+
+    const sub = bootstrapSubmanagers({
+      options: { skills: { userDir: user } },
+      workspaceCwd: ws,
+      settingSourcesIncludeProject: true,
+      settingSourcesIncludePlugins: false,
+    } as unknown as Parameters<typeof bootstrapSubmanagers>[0]);
+    await sub.skillsManager?.initialize();
+
+    expect((await sub.skills?.list())?.map((s) => s.name)).toEqual(["mine"]);
+  });
+
+  it("exports binaryOnPath from the skills entry point", async () => {
+    const { binaryOnPath } = await import("../src/skills.js");
+    expect(binaryOnPath("definitely-not-a-real-binary-xyz")).toBe(false);
+    expect(binaryOnPath("a/b")).toBe(false);
+  });
+
   it("lists a bundled skill from SkillsSettings.bundledDirs when project setting sources are off", async () => {
     const ws = tempDir("b546-ws-");
     const bundled = tempDir("b546-pub-bundled-");

@@ -1,6 +1,7 @@
 import type { CompatSource, SettingSource, SkillsSettings } from "../../../types/agent.js";
 import { resolveCompatSources } from "../compat/compat-config-file.js";
 import type { InvalidSkillInfo } from "./discover-skills.js";
+import { resolveSkillRootsFor, type SkillRoot } from "./skill-roots.js";
 import { SkillsManager } from "./skills-manager.js";
 
 /** Input to {@link explainSkills}. */
@@ -15,7 +16,7 @@ export interface ExplainSkillsInput {
 /** What {@link explainSkills} reports. */
 export interface SkillsExplanation {
   /** Directories consulted, in precedence order. */
-  roots: { dir: string; kind: "skillsDir" | "project" | "plugin" | "bundled" }[];
+  roots: SkillRoot[];
   /** What the agent will see, after shadowing, inline override and `enabled`. */
   loaded: { name: string; source: string | "inline"; root: string | "inline" }[];
   invalid: InvalidSkillInfo[];
@@ -32,22 +33,43 @@ export interface SkillsExplanation {
  * `agent.skills.list()`.
  */
 export async function explainSkills(input: ExplainSkillsInput): Promise<SkillsExplanation> {
-  const sources = input.settingSources;
-  // Same rule as the agent: project settings are read only when asked for (or via "all").
-  const includeProject =
-    sources !== undefined && (sources.includes("project") || sources.includes("all"));
   const manager = new SkillsManager(
     input.cwd,
     input.skills?.enabled,
-    includeProject,
+    includesProject(input.settingSources),
     input.skills?.skillsDir,
     input.skills?.inline as never,
-    resolveCompatSources(
-      { local: input.compatSources === undefined ? {} : { compatSources: input.compatSources } },
-      input.cwd,
-    ),
+    compatFor(input),
     input.skills?.bundledDirs,
+    input.skills?.userDir,
   );
   await manager.initialize();
   return manager.explain();
+}
+
+// Same rule as the agent: project settings are read only when asked for (or via "all").
+function includesProject(sources: SettingSource[] | undefined): boolean {
+  return sources !== undefined && (sources.includes("project") || sources.includes("all"));
+}
+
+function compatFor(input: ExplainSkillsInput) {
+  return resolveCompatSources(
+    { local: input.compatSources === undefined ? {} : { compatSources: input.compatSources } },
+    input.cwd,
+  );
+}
+
+/**
+ * The ordered roots an agent created with these options reads (first declaration of a name wins).
+ * Equals `explainSkills(input).roots`.
+ */
+export function resolveSkillRoots(input: ExplainSkillsInput): Promise<SkillRoot[]> {
+  return resolveSkillRootsFor({
+    cwd: input.cwd,
+    includeProject: includesProject(input.settingSources),
+    skillsDir: input.skills?.skillsDir,
+    userDir: input.skills?.userDir,
+    bundledDirs: input.skills?.bundledDirs,
+    compatSources: compatFor(input),
+  });
 }
