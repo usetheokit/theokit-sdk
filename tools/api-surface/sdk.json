@@ -3802,11 +3802,15 @@
     "./telemetry-node#import": {
       "RegisterTelemetryOptions": {
         "tier": "stable",
-        "declaration": "export interface RegisterTelemetryOptions {\n    endpoint: string;\n    serviceName: string;\n    prometheusPort?: number;\n    exportTimeoutMs?: number;\n    metricIntervalMs?: number;\n    onExportError?: (line: string) => void;\n    spanExporter?: SpanExporter;\n    metricExporter?: PushMetricExporter;\n}"
+        "declaration": "export interface RegisterTelemetryOptions {\n    endpoint: string;\n    serviceName: string;\n    prometheusPort?: number;\n    exportTimeoutMs?: number;\n    metricIntervalMs?: number;\n    onExportError?: (line: string) => void;\n    logExporter?: LogRecordExporter;\n    spanExporter?: SpanExporter;\n    metricExporter?: PushMetricExporter;\n}"
       },
       "RegisteredTelemetry": {
         "tier": "stable",
-        "declaration": "export interface RegisteredTelemetry {\n    readonly prometheusEndpoint: Promise<string | undefined>;\n    flush(): Promise<void>;\n    shutdown(): Promise<void>;\n}"
+        "declaration": "export interface RegisteredTelemetry {\n    readonly prometheusEndpoint: Promise<string | undefined>;\n    log(record: TelemetryLogRecord): void;\n    flush(): Promise<void>;\n    shutdown(): Promise<void>;\n}"
+      },
+      "TelemetryLogRecord": {
+        "tier": "stable",
+        "declaration": "export interface TelemetryLogRecord {\n    body?: unknown;\n    severityNumber?: number;\n    severityText?: string;\n    attributes?: Record<string, unknown>;\n    timestamp?: number | Date | [\n        number,\n        number\n    ];\n}"
       },
       "registerTelemetry": {
         "tier": "stable",
@@ -3816,11 +3820,15 @@
     "./telemetry-node#require": {
       "RegisterTelemetryOptions": {
         "tier": "stable",
-        "declaration": "export interface RegisterTelemetryOptions {\n    endpoint: string;\n    serviceName: string;\n    prometheusPort?: number;\n    exportTimeoutMs?: number;\n    metricIntervalMs?: number;\n    onExportError?: (line: string) => void;\n    spanExporter?: SpanExporter;\n    metricExporter?: PushMetricExporter;\n}"
+        "declaration": "export interface RegisterTelemetryOptions {\n    endpoint: string;\n    serviceName: string;\n    prometheusPort?: number;\n    exportTimeoutMs?: number;\n    metricIntervalMs?: number;\n    onExportError?: (line: string) => void;\n    logExporter?: LogRecordExporter;\n    spanExporter?: SpanExporter;\n    metricExporter?: PushMetricExporter;\n}"
       },
       "RegisteredTelemetry": {
         "tier": "stable",
-        "declaration": "export interface RegisteredTelemetry {\n    readonly prometheusEndpoint: Promise<string | undefined>;\n    flush(): Promise<void>;\n    shutdown(): Promise<void>;\n}"
+        "declaration": "export interface RegisteredTelemetry {\n    readonly prometheusEndpoint: Promise<string | undefined>;\n    log(record: TelemetryLogRecord): void;\n    flush(): Promise<void>;\n    shutdown(): Promise<void>;\n}"
+      },
+      "TelemetryLogRecord": {
+        "tier": "stable",
+        "declaration": "export interface TelemetryLogRecord {\n    body?: unknown;\n    severityNumber?: number;\n    severityText?: string;\n    attributes?: Record<string, unknown>;\n    timestamp?: number | Date | [\n        number,\n        number\n    ];\n}"
       },
       "registerTelemetry": {
         "tier": "stable",
