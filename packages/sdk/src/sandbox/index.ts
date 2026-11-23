@@ -72,13 +72,13 @@ export {
   wrapCommandForSandbox,
 } from "./linux-sandbox.js";
 export { LocalSandbox } from "./local-sandbox.js";
+export { parseSandboxMode, SANDBOX_MODES } from "./modes.js";
 export {
   type ProvisionRepoOptions,
   provisionRepo,
   RepoProvisionError,
 } from "./provision.js";
 export { buildSeccompFilter, type SeccompOptions } from "./seccomp.js";
-export { parseSandboxMode, SANDBOX_MODES } from "./modes.js";
 export { shellEscapePosix } from "./shell-escape.js";
 export {
   type ExecuteResult,
