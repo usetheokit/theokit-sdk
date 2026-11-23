@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-314 distinct code(s).
+316 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -66,6 +66,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `cron_missing_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:269` +1 |
 | `cron_no_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:257` +1 |
 | `cron_workflow_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:263` |
+| `custom` | domain | — | `packages/sdk/src/workflow-definition.ts:40` |
 | `decision_checksum_mismatch` | domain | — | `packages/sdk/src/decide.ts:59` |
 | `deferred_schema_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:365` |
 | `discovery_list_pattern_globbed` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-discovery-runner.ts:144` |
@@ -137,7 +138,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_squad` | domain | ConfigurationError | `packages/sdk/src/squad.ts:138` |
 | `invalid_task_id` | domain | — | `packages/sdk/src/task-errors.ts:33` +1 |
 | `invalid_timezone` | domain | ConfigurationError | `packages/sdk/src/internal/cron/validate.ts:135` |
-| `invalid_workflow_step` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:244` |
+| `invalid_workflow_step` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:261` |
 | `iteration_limit_reached` | domain | — | `packages/sdk/src/internal/agent-loop/loop-finalize.ts:51` |
 | `jsonl_parse_failed` | domain | — | `packages/sdk/src/internal/persistence/jsonl.ts:37` |
 | `judge_credential` | domain | — | `packages/sdk/src/internal/judge/judge-call.ts:72` +1 |
@@ -306,9 +307,10 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `upstream_run_failed` | domain | — | `packages/sdk/src/errors.ts:770` |
 | `valibot_converter_missing` | domain | ConfigurationError | `packages/sdk/src/schema-normalizer.ts:81` +1 |
 | `work_threw` | domain | — | `packages/sdk/src/internal/task/registry.ts:295` |
-| `workflow_already_committed` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:282` |
+| `workflow_already_committed` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:299` |
 | `workflow_already_running` | domain | — | `packages/sdk/src/workflow-errors.ts:141` |
 | `workflow_compensate_not_implemented` | domain | — | `packages/sdk/src/workflow-errors.ts:270` +1 |
+| `workflow_definition_invalid` | domain | — | `packages/sdk/src/workflow-definition.ts:79` |
 | `workflow_duplicate_step_id` | domain | — | `packages/sdk/src/workflow-errors.ts:31` |
 | `workflow_input_invalid` | domain | — | `packages/sdk/src/workflow-errors.ts:48` |
 | `workflow_max_iterations_exceeded` | domain | — | `packages/sdk/src/workflow-errors.ts:181` |
