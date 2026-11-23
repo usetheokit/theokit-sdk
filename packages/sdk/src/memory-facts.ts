@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { MemoryFactAmbiguousError, MemoryFactNotRemovableError } from "./errors.js";
 import type { MemorySettings } from "./types/agent.js";
 
@@ -64,6 +65,33 @@ export function removeMemoryFact(
   settings?: Partial<MemorySettings>,
 ): Promise<boolean> {
   return load().then((m) => m.removeFactAndForget(cwd, id, settings));
+}
+
+/**
+ * Append a fact to the built-in store for `settings`, without a live agent. Writes under the same
+ * root `listMemoryFacts` reads first (`directory`, partitioned by `userId`), honours `maxFacts`,
+ * and ignores `enabled`. The fact is then listed by {@link listMemoryFacts} and recalled by an
+ * agent created with the same settings. Secrets in `text` are redacted, as for agent writes.
+ *
+ * @public
+ */
+export function addMemoryFact(
+  cwd: string,
+  text: string,
+  settings?: Partial<MemorySettings>,
+): Promise<void> {
+  return load().then((m) => m.addFact(cwd, text, settings));
+}
+
+/**
+ * Turn any scope string into a valid `MemorySettings.userId`: `s-` followed by 32 hex characters of
+ * its SHA-256. Deterministic, so the same scope always names the same partition, and distinct
+ * scopes do not collide in practice.
+ *
+ * @public
+ */
+export function memoryPartitionId(scope: string): string {
+  return `s-${createHash("sha256").update(scope).digest("hex").slice(0, 32)}`;
 }
 
 // Loaded on demand so the store and index code stay out of the entry bundle.

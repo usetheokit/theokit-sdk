@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1603 export(s) across 61 entry point(s).
+1614 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -68,6 +68,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `ActiveMemoryPassArgs` | interface | Arguments for `MemoryProvider.runActivePass(...)`. |
 | `ActiveMemoryPassResult` | interface | Result of `MemoryProvider.runActivePass(...)` — what the kernel injects into the LLM call. |
+| `addMemoryFact` | function | Append a fact to the built-in store for `settings`, without a live agent.  |
 | `Agent` | class | Static façade for creating and managing Theo agents. |
 | `AgentBuilder` | class | Fluent builder for {@link AgentOptions } .  |
 | `AgentBuilderDeps` | interface | Terminal-method callbacks injected by `Agent.builder()` so that `agent-builder.ts` does NOT need a static import of `Agent` — keeps the dependency graph acyclic (G6).  |
@@ -298,6 +299,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `memoryGenerations` | function | Generations kept in memory only. |
 | `MemoryId` | type | Branded provider memory ID.  |
 | `MemoryMirrorOptions` | interface | How the built-in fact store is mirrored to memory adapters.  |
+| `memoryPartitionId` | function | Turn any scope string into a valid `MemorySettings.userId`: `s-` followed by 32 hex characters of its SHA-256.  |
 | `MemoryProvider` | interface | The kernel-facing contract.  |
 | `MemoryProviderAgentRef` | interface | The agent identity a `MemoryProvider` is given — the whole of it.  |
 | `MemoryProviderFactory` | type | Memory provider factory shape (ADR D141).  |
@@ -1679,6 +1681,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `LinuxSandbox` | class | Kernel-confined backend for Linux hosts: a `LocalSandbox` whose commands are rewritten as `bwrap <policy flags> -- /bin/sh -c '<command>'` before they are spawned.  |
 | `listSandboxContainers` | function | Lists containers (running or not) that carry every one of `labels`. |
 | `LocalSandbox` | class | Runs a command with `/bin/sh -c` on the host.  |
+| `parseSandboxMode` | function | Validate an untrusted value (config file, env var) as a {@link SandboxMode } ; throws {@link ConfigurationError } listing the valid modes. |
 | `provisionRepo` | function | Clone `repoUrl` into `<sandbox workdir>/<instanceId>` and check out `ref`.  |
 | `ProvisionRepoOptions` | interface | Options for {@link provisionRepo } . |
 | `realProbeCount` | function | How many real probes ran.  |
@@ -1691,6 +1694,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `resolveSandbox` | function | Resolve a {@link SandboxProvider } to a concrete backend for `ctx`. |
 | `resolveSandboxPosture` | function | MEDIUM-2: compute the posture so a surface (TUI footer) can show enforcement DURABLY instead of a one-shot warn.  |
 | `restrictedSeccompPath` | function | M57 — the memoized x64-gated seccomp program, written once per process to a temp file. |
+| `SANDBOX_MODES` | const | The sandbox modes, as a runtime list; kept in lockstep with {@link SandboxMode } by `satisfies` and a type test. |
 | `SandboxBackend` | class | The execution capability handed to an agent tool, and the extension point for new environments.  |
 | `SandboxConfig` | interface | Construction-time settings shared by every {@link SandboxBackend } .  |
 | `SandboxContainer` | interface | A container started by a `DockerSandbox`, as `docker ps -a` reports it. |
@@ -1851,7 +1855,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `fn` | function | Build a `FnStep`.  |
 | `FnStep` | interface | A pure function step. |
 | `ForeachStep` | interface | Map a step over an upstream array output. |
+| `loadWorkflowDir` | function | Load every `*.json` file directly in `dir` (not recursive, filename order) and compile each with `Workflow.fromDefinition`.  |
 | `ParallelStep` | interface | N concurrent branches, each its own mini-step-list. |
+| `parseWorkflowDefinition` | function | Validate `input` as a {@link WorkflowDefinition } ; throws {@link WorkflowDefinitionError } . |
 | `RetryPolicy` | interface | D237 — retry policy applied per fn/agent step. |
 | `SleepStep` | interface | Pause for a fixed duration. |
 | `Step` | type | Any node of a committed workflow, discriminated by `kind`.  |
@@ -1860,11 +1866,15 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SuspendStep` | interface | Standalone explicit suspend point. |
 | `Workflow` | class | A committed, immutable workflow: a fixed list of steps you can `run`, `stream` or `resume`.  |
 | `WorkflowAlreadyRunningError` | class | Thrown out of `Workflow.run()` — one of the few workflow failures that rejects instead of arriving as `run.status === "failed"` — when the committed workflow already has a run in flight under the s... |
+| `WorkflowApprovalStepDefinition` | interface | An approval step: suspends the run until `Workflow.resume`. |
 | `workflowAsTool` | function | SE19 — expose a {@link Workflow } as an agent {@link CustomTool } , completing the "X as tools" trio (tools; agents-as-tools via `defineSubAgent`; workflows-as-tools).  |
 | `WorkflowAsToolSpec` | interface | Spec for {@link workflowAsTool } .  |
 | `WorkflowBuilder` | class | Fluent step accumulator returned by {@link Workflow.create } .  |
 | `WorkflowCheckpoint` | interface | One checkpoint of a run, as listed by `Workflow.history()`. |
 | `WorkflowCompensateNotImplementedError` | class | D238 — a `compensate` on a step nested in parallel/branch/foreach/dowhile (top-level steps are supported). |
+| `WorkflowDefinition` | interface | A linear workflow as data. |
+| `WorkflowDefinitionError` | class | Thrown for a definition that is not valid.  |
+| `WorkflowDefinitionOptions` | interface | Options for `Workflow.fromDefinition`: the prompt callback and optional persistence. |
 | `WorkflowDescription` | interface | theokit#161 — the read-only shape of a committed workflow.  |
 | `WorkflowDuplicateStepIdError` | class | Thrown by `.commit()` when one step id appears twice anywhere in the workflow — including inside a parallel branch, a branch predicate, the fallback, and the inner step of a `foreach` or `dowhile`.  |
 | `WorkflowEvent` | type | SE28 — a step-level workflow event emitted by `Workflow.stream()` as top-level steps run.  |
@@ -1876,6 +1886,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WorkflowOutputError` | class | SE27 — the whole-workflow `outputSchema` rejected the final output (on `completed`).  |
 | `WorkflowParallelError` | class | Aggregate failure from parallel branches.  |
 | `WorkflowPersistenceOptions` | interface | Where suspend snapshots are kept.  |
+| `WorkflowPromptStepDefinition` | interface | A prompt step: calls `generate(prompt, ...)` with the previous step's value. |
 | `WorkflowRerunOptions` | interface | Arguments for `Workflow.rerunFrom()`. |
 | `WorkflowResumeOptions` | interface | Arguments for `Workflow.resume()`.  |
 | `WorkflowResumeStepNotFoundError` | class | EC-8 absorbed — `currentStepId` from snapshot not found in resumed workflow. |

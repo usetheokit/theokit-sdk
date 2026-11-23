@@ -48,7 +48,7 @@ interface Stub {
 }
 
 /** Round 1 calls `probe` when `withTool`; every other round replies with `reply`. */
-function startStub(withTool: boolean, reply: string): Promise<Stub> {
+function startStub(withTool: boolean, reply: string, toolRounds = 1): Promise<Stub> {
   const bodies: Stub["bodies"] = [];
   let call = 0;
   const server = createServer((req, res) => {
@@ -62,7 +62,7 @@ function startStub(withTool: boolean, reply: string): Promise<Stub> {
       res.statusCode = 200;
       res.setHeader("content-type", "text/event-stream");
       res.write(sseFrame("message_start", "{}"));
-      if (withTool && call === 1) {
+      if (withTool && call <= toolRounds) {
         res.write(toolBlockStart("tu-1", "probe"));
         res.write(toolInputDelta("{}"));
         res.write(blockStop());
@@ -127,8 +127,8 @@ describe("AgentOptions.sendDefaults (#1020)", () => {
     }
   });
 
-  async function useStub(withTool: boolean, reply = "done"): Promise<Stub> {
-    stub = await startStub(withTool, reply);
+  async function useStub(withTool: boolean, reply = "done", toolRounds = 1): Promise<Stub> {
+    stub = await startStub(withTool, reply, toolRounds);
     process.env.ANTHROPIC_API_KEY = "sk-stub";
     process.env.ANTHROPIC_API_BASE_URL = stub.url;
     return stub;
@@ -181,6 +181,34 @@ describe("AgentOptions.sendDefaults (#1020)", () => {
     await (await agent.send("hi")).wait();
     expect(loopInputs[0]?.pruneToolResults).toEqual({ olderThanRounds: 2 });
     expect(loopInputs[0]?.perToolTimeoutMs).toBe(1234);
+    await agent.dispose();
+  });
+
+  it("a doomLoop default blocks the repeated call on a send that passes none", async () => {
+    const s = await useStub(true, "done", 4);
+    const agent = await Agent.create(
+      base({ sendDefaults: { doomLoop: { window: 4, windowRepeatLimit: 1 } } }),
+    );
+    await (await agent.send("go")).wait();
+    expect(JSON.stringify(s.bodies.at(-1)?.messages)).toContain("Blocked: `probe`");
+    await agent.dispose();
+  });
+
+  it("a call's doomLoop wins over the default; false disables the guard", async () => {
+    const s = await useStub(true, "done", 3);
+    const agent = await Agent.create(
+      base({ sendDefaults: { doomLoop: { window: 4, windowRepeatLimit: 1 } } }),
+    );
+    await (await agent.send("go", { doomLoop: false })).wait();
+    expect(JSON.stringify(s.bodies.at(-1)?.messages)).not.toContain("Blocked: `probe`");
+    await agent.dispose();
+  });
+
+  it("an invalid doomLoop default is rejected at send, and a valid call value overrides it", async () => {
+    await useStub(false);
+    const agent = await Agent.create(base({ sendDefaults: { doomLoop: { window: 0 } } }));
+    await expect(agent.send("hi")).rejects.toBeInstanceOf(ConfigurationError);
+    await (await agent.send("hi", { doomLoop: false })).wait();
     await agent.dispose();
   });
 

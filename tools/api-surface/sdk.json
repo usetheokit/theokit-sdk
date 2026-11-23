@@ -608,7 +608,7 @@
       "ClientOptions": {
         "tier": "stable",
         "declaration": "export interface ClientOptions {\n    baseUrl: string;\n    basePath?: string;\n    headers?: Record<string, string>;\n}",
-        "deprecatedSince": "2026-11-20"
+        "deprecatedSince": "2026-11-23"
       },
       "SendResponse": {
         "tier": "stable",
@@ -2852,6 +2852,10 @@
         "tier": "stable",
         "declaration": "export declare class RepoProvisionError extends TheokitAgentError {\n    readonly instanceId: string;\n    readonly name = \"RepoProvisionError\";\n    constructor(instanceId: string, message: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
+      "SANDBOX_MODES": {
+        "tier": "stable",
+        "declaration": "SANDBOX_MODES: readonly [\n    \"read-only\",\n    \"workspace-write\",\n    \"danger-full-access\"\n]"
+      },
       "SandboxBackend": {
         "tier": "stable",
         "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    executeStreaming?(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
@@ -2931,6 +2935,10 @@
       "listSandboxContainers": {
         "tier": "stable",
         "declaration": "export declare function listSandboxContainers(labels: Record<string, string>, options?: {\n    runner?: DockerRunner;\n}): Promise<SandboxContainer[]>;"
+      },
+      "parseSandboxMode": {
+        "tier": "stable",
+        "declaration": "export declare function parseSandboxMode(value: unknown): SandboxMode;"
       },
       "provisionRepo": {
         "tier": "stable",
@@ -3080,6 +3088,10 @@
         "tier": "stable",
         "declaration": "export declare class RepoProvisionError extends TheokitAgentError {\n    readonly instanceId: string;\n    readonly name = \"RepoProvisionError\";\n    constructor(instanceId: string, message: string, options?: {\n        cause?: unknown;\n    });\n}"
       },
+      "SANDBOX_MODES": {
+        "tier": "stable",
+        "declaration": "SANDBOX_MODES: readonly [\n    \"read-only\",\n    \"workspace-write\",\n    \"danger-full-access\"\n]"
+      },
       "SandboxBackend": {
         "tier": "stable",
         "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    executeStreaming?(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
@@ -3160,6 +3172,10 @@
         "tier": "stable",
         "declaration": "export declare function listSandboxContainers(labels: Record<string, string>, options?: {\n    runner?: DockerRunner;\n}): Promise<SandboxContainer[]>;"
       },
+      "parseSandboxMode": {
+        "tier": "stable",
+        "declaration": "export declare function parseSandboxMode(value: unknown): SandboxMode;"
+      },
       "provisionRepo": {
         "tier": "stable",
         "declaration": "export declare function provisionRepo(opts: ProvisionRepoOptions): Promise<{\n    repoDir: string;\n}>;\nexport declare function provisionRepo(sandbox: SandboxBackend, opts: ProvisionRepoOptions): Promise<{\n    repoDir: string;\n}>;"
@@ -3199,12 +3215,12 @@
       "restrictedSeccompPath": {
         "tier": "stable",
         "declaration": "export declare function restrictedSeccompPath(): string | undefined;",
-        "deprecatedSince": "2026-11-20"
+        "deprecatedSince": "2026-11-23"
       },
       "seccompPathForArch": {
         "tier": "stable",
         "declaration": "export declare function seccompPathForArch(arch: string, warn: (m: string) => void): string | undefined;",
-        "deprecatedSince": "2026-11-20"
+        "deprecatedSince": "2026-11-23"
       },
       "shellEscapePosix": {
         "tier": "stable",
@@ -3417,22 +3433,22 @@
       "TheokitErrorCode": {
         "tier": "stable",
         "declaration": "type TheokitErrorCode = \"UNAUTHORIZED\" | \"RATE_LIMITED\" | \"INTERNAL_SERVER_ERROR\" | \"SERVICE_UNAVAILABLE\" | \"GATEWAY_TIMEOUT\" | \"AGENT_RUN_ERROR\" | \"PROVIDER_KEY_MISSING\" | \"BUDGET_EXCEEDED\" | \"CREDENTIAL_POOL_EXHAUSTED\";",
-        "deprecatedSince": "2026-11-20"
+        "deprecatedSince": "2026-11-23"
       },
       "TheokitErrorEnvelope": {
         "tier": "stable",
         "declaration": "interface TheokitErrorEnvelope<TExt = unknown> {\n    readonly code: TheokitErrorCode;\n    readonly message: string;\n    readonly cause?: unknown;\n    readonly meta?: Record<string, unknown>;\n    readonly ext?: TExt;\n}",
-        "deprecatedSince": "2026-11-20"
+        "deprecatedSince": "2026-11-23"
       },
       "fromEnvelope": {
         "tier": "stable",
         "declaration": "declare function fromEnvelope(env: TheokitErrorEnvelope): TheokitAgentError;",
-        "deprecatedSince": "2026-11-20"
+        "deprecatedSince": "2026-11-23"
       },
       "toEnvelope": {
         "tier": "stable",
         "declaration": "declare function toEnvelope(value: unknown): TheokitErrorEnvelope;",
-        "deprecatedSince": "2026-11-20"
+        "deprecatedSince": "2026-11-23"
       }
     },
     "./skills#import": {
@@ -3966,11 +3982,15 @@
       },
       "Workflow": {
         "tier": "stable",
-        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
+        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    static fromDefinition(definition: WorkflowDefinition, options: WorkflowDefinitionOptions): Workflow;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
       },
       "WorkflowAlreadyRunningError": {
         "tier": "stable",
         "declaration": "declare class WorkflowAlreadyRunningError extends TheokitAgentError {\n    readonly workflowName: string;\n    readonly runId: string;\n    readonly name = \"WorkflowAlreadyRunningError\";\n    constructor(workflowName: string, runId: string);\n}"
+      },
+      "WorkflowApprovalStepDefinition": {
+        "tier": "stable",
+        "declaration": "interface WorkflowApprovalStepDefinition {\n    readonly id: string;\n    readonly approve: true;\n}"
       },
       "WorkflowAsToolSpec": {
         "tier": "stable",
@@ -3987,6 +4007,18 @@
       "WorkflowCompensateNotImplementedError": {
         "tier": "stable",
         "declaration": "declare class WorkflowCompensateNotImplementedError extends TheokitAgentError {\n    readonly stepId: string;\n    readonly name = \"WorkflowCompensateNotImplementedError\";\n    constructor(stepId: string);\n}"
+      },
+      "WorkflowDefinition": {
+        "tier": "stable",
+        "declaration": "interface WorkflowDefinition {\n    readonly name: string;\n    readonly steps: ReadonlyArray<WorkflowPromptStepDefinition | WorkflowApprovalStepDefinition>;\n}"
+      },
+      "WorkflowDefinitionError": {
+        "tier": "stable",
+        "declaration": "declare class WorkflowDefinitionError extends ConfigurationError {\n    readonly file: string | undefined;\n    readonly field: string;\n    readonly detail: string;\n    readonly name = \"WorkflowDefinitionError\";\n    constructor(file: string | undefined, field: string, detail: string);\n}"
+      },
+      "WorkflowDefinitionOptions": {
+        "tier": "stable",
+        "declaration": "interface WorkflowDefinitionOptions {\n    readonly generate: (prompt: string, input: unknown, ctx: StepContext) => Promise<unknown> | unknown;\n    readonly persistence?: WorkflowPersistenceOptions;\n}"
       },
       "WorkflowDescription": {
         "tier": "stable",
@@ -4031,6 +4063,10 @@
       "WorkflowPersistenceOptions": {
         "tier": "stable",
         "declaration": "interface WorkflowPersistenceOptions {\n    readonly backend: \"memory\" | \"json\";\n    readonly dir?: string;\n    readonly durability?: \"suspend\" | \"step\";\n    readonly keepHistory?: boolean;\n}"
+      },
+      "WorkflowPromptStepDefinition": {
+        "tier": "stable",
+        "declaration": "interface WorkflowPromptStepDefinition {\n    readonly id: string;\n    readonly prompt: string;\n}"
       },
       "WorkflowRerunOptions": {
         "tier": "stable",
@@ -4099,6 +4135,14 @@
       "fn": {
         "tier": "stable",
         "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n    compensate?: FnStep[\"compensate\"];\n}): FnStep;"
+      },
+      "loadWorkflowDir": {
+        "tier": "stable",
+        "declaration": "declare function loadWorkflowDir(dir: string, options: WorkflowDefinitionOptions): Promise<Workflow[]>;"
+      },
+      "parseWorkflowDefinition": {
+        "tier": "stable",
+        "declaration": "declare function parseWorkflowDefinition(input: unknown, file?: string): WorkflowDefinition;"
       },
       "workflowAsTool": {
         "tier": "stable",
@@ -4168,11 +4212,15 @@
       },
       "Workflow": {
         "tier": "stable",
-        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
+        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    static fromDefinition(definition: WorkflowDefinition, options: WorkflowDefinitionOptions): Workflow;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
       },
       "WorkflowAlreadyRunningError": {
         "tier": "stable",
         "declaration": "declare class WorkflowAlreadyRunningError extends TheokitAgentError {\n    readonly workflowName: string;\n    readonly runId: string;\n    readonly name = \"WorkflowAlreadyRunningError\";\n    constructor(workflowName: string, runId: string);\n}"
+      },
+      "WorkflowApprovalStepDefinition": {
+        "tier": "stable",
+        "declaration": "interface WorkflowApprovalStepDefinition {\n    readonly id: string;\n    readonly approve: true;\n}"
       },
       "WorkflowAsToolSpec": {
         "tier": "stable",
@@ -4189,6 +4237,18 @@
       "WorkflowCompensateNotImplementedError": {
         "tier": "stable",
         "declaration": "declare class WorkflowCompensateNotImplementedError extends TheokitAgentError {\n    readonly stepId: string;\n    readonly name = \"WorkflowCompensateNotImplementedError\";\n    constructor(stepId: string);\n}"
+      },
+      "WorkflowDefinition": {
+        "tier": "stable",
+        "declaration": "interface WorkflowDefinition {\n    readonly name: string;\n    readonly steps: ReadonlyArray<WorkflowPromptStepDefinition | WorkflowApprovalStepDefinition>;\n}"
+      },
+      "WorkflowDefinitionError": {
+        "tier": "stable",
+        "declaration": "declare class WorkflowDefinitionError extends ConfigurationError {\n    readonly file: string | undefined;\n    readonly field: string;\n    readonly detail: string;\n    readonly name = \"WorkflowDefinitionError\";\n    constructor(file: string | undefined, field: string, detail: string);\n}"
+      },
+      "WorkflowDefinitionOptions": {
+        "tier": "stable",
+        "declaration": "interface WorkflowDefinitionOptions {\n    readonly generate: (prompt: string, input: unknown, ctx: StepContext) => Promise<unknown> | unknown;\n    readonly persistence?: WorkflowPersistenceOptions;\n}"
       },
       "WorkflowDescription": {
         "tier": "stable",
@@ -4233,6 +4293,10 @@
       "WorkflowPersistenceOptions": {
         "tier": "stable",
         "declaration": "interface WorkflowPersistenceOptions {\n    readonly backend: \"memory\" | \"json\";\n    readonly dir?: string;\n    readonly durability?: \"suspend\" | \"step\";\n    readonly keepHistory?: boolean;\n}"
+      },
+      "WorkflowPromptStepDefinition": {
+        "tier": "stable",
+        "declaration": "interface WorkflowPromptStepDefinition {\n    readonly id: string;\n    readonly prompt: string;\n}"
       },
       "WorkflowRerunOptions": {
         "tier": "stable",
@@ -4301,6 +4365,14 @@
       "fn": {
         "tier": "stable",
         "declaration": "declare function fn<I = unknown, O = unknown>(id: string, step: (input: I, ctx: StepContext) => Promise<O> | O, opts?: {\n    inputSchema?: ZodType;\n    outputSchema?: ZodType;\n    retry?: RetryPolicy;\n    compensate?: FnStep[\"compensate\"];\n}): FnStep;"
+      },
+      "loadWorkflowDir": {
+        "tier": "stable",
+        "declaration": "declare function loadWorkflowDir(dir: string, options: WorkflowDefinitionOptions): Promise<Workflow[]>;"
+      },
+      "parseWorkflowDefinition": {
+        "tier": "stable",
+        "declaration": "declare function parseWorkflowDefinition(input: unknown, file?: string): WorkflowDefinition;"
       },
       "workflowAsTool": {
         "tier": "stable",
@@ -4382,7 +4454,7 @@
       },
       "AgentOptions": {
         "tier": "stable",
-        "declaration": "interface AgentOptions {\n    model?: string | ModelSelection;\n    apiKey?: string;\n    name?: string;\n    throwOnError?: boolean;\n    systemPrompt?: string | SystemPromptResolver;\n    sendDefaults?: Pick<SendOptions, \"toolResultGuard\" | \"pruneToolResults\" | \"perToolTimeoutMs\">;\n    local?: LocalOptions;\n    cloud?: CloudOptions;\n    mcpServers?: Record<string, McpServerConfig>;\n    mcpLifecycle?: \"run\" | \"session\";\n    onMcpElicitation?: McpElicitationHandler;\n    agents?: Record<string, AgentDefinition>;\n    agentId?: string;\n    context?: ContextSettings;\n    providers?: ProviderRoutingSettings;\n    modelFallback?: ModelFallbackOptions;\n    plugins?: PluginsSettings | readonly Plugin[];\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n    skills?: SkillsSettings | SkillsResolver;\n    inputProcessors?: readonly Processor[];\n    outputProcessors?: readonly Processor[];\n    memory?: MemorySettings;\n    tools?: CustomTool[];\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n    reasoning?: boolean;\n    telemetry?: TelemetrySettings;\n    metadata?: Record<string, unknown>;\n    memoryContext?: MemoryContext;\n    maxRecallContextBytes?: number;\n    handoffs?: ReadonlyArray<SDKAgent | unknown>;\n    maxHandoffDepth?: number;\n    onBeforeCreate?: (event: {\n        conversationId: string;\n        userId?: string;\n    }) => Promise<void> | void;\n    sessionIdleResetMinutes?: number;\n    onBeforeSend?: (event: {\n        conversationId: string;\n        previousMessageCount: number;\n    }) => Promise<void> | void;\n    onToolStart?: (event: {\n        toolName: string;\n        args: unknown;\n        conversationId: string;\n        callId: string;\n    }) => void | Promise<void>;\n    onToolEnd?: (event: {\n        toolName: string;\n        args: unknown;\n        result: unknown;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n    }) => void | Promise<void>;\n    onToolError?: (event: {\n        toolName: string;\n        args: unknown;\n        error: Error;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n        attempt: number;\n    }) => void | Promise<void>;\n    budgetTracker?: BudgetTracker;\n    memoryProvider?: MemoryProvider;\n}"
+        "declaration": "interface AgentOptions {\n    model?: string | ModelSelection;\n    apiKey?: string;\n    name?: string;\n    throwOnError?: boolean;\n    systemPrompt?: string | SystemPromptResolver;\n    sendDefaults?: Pick<SendOptions, \"toolResultGuard\" | \"pruneToolResults\" | \"perToolTimeoutMs\" | \"doomLoop\">;\n    local?: LocalOptions;\n    cloud?: CloudOptions;\n    mcpServers?: Record<string, McpServerConfig>;\n    mcpLifecycle?: \"run\" | \"session\";\n    onMcpElicitation?: McpElicitationHandler;\n    agents?: Record<string, AgentDefinition>;\n    agentId?: string;\n    context?: ContextSettings;\n    providers?: ProviderRoutingSettings;\n    modelFallback?: ModelFallbackOptions;\n    plugins?: PluginsSettings | readonly Plugin[];\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n    skills?: SkillsSettings | SkillsResolver;\n    inputProcessors?: readonly Processor[];\n    outputProcessors?: readonly Processor[];\n    memory?: MemorySettings;\n    tools?: CustomTool[];\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n    reasoning?: boolean;\n    telemetry?: TelemetrySettings;\n    metadata?: Record<string, unknown>;\n    memoryContext?: MemoryContext;\n    maxRecallContextBytes?: number;\n    handoffs?: ReadonlyArray<SDKAgent | unknown>;\n    maxHandoffDepth?: number;\n    onBeforeCreate?: (event: {\n        conversationId: string;\n        userId?: string;\n    }) => Promise<void> | void;\n    sessionIdleResetMinutes?: number;\n    onBeforeSend?: (event: {\n        conversationId: string;\n        previousMessageCount: number;\n    }) => Promise<void> | void;\n    onToolStart?: (event: {\n        toolName: string;\n        args: unknown;\n        conversationId: string;\n        callId: string;\n    }) => void | Promise<void>;\n    onToolEnd?: (event: {\n        toolName: string;\n        args: unknown;\n        result: unknown;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n    }) => void | Promise<void>;\n    onToolError?: (event: {\n        toolName: string;\n        args: unknown;\n        error: Error;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n        attempt: number;\n    }) => void | Promise<void>;\n    budgetTracker?: BudgetTracker;\n    memoryProvider?: MemoryProvider;\n}"
       },
       "AgentPromptResult": {
         "tier": "stable",
@@ -4475,7 +4547,7 @@
       "Budget": {
         "tier": "stable",
         "declaration": "declare class Budget {\n    private constructor();\n    static create(options: BudgetOptions): BudgetHandle;\n    static get(name: string): BudgetHandle | undefined;\n    static list(): readonly BudgetHandle[];\n    static delete(name: string): boolean;\n    static snapshot(): readonly BudgetSnapshot[];\n    static reserve(name: string, estimatedUsd: number): BudgetReservation;\n}",
-        "deprecatedSince": "2026-11-20"
+        "deprecatedSince": "2026-11-23"
       },
       "BudgetCheck": {
         "tier": "stable",
@@ -6039,11 +6111,15 @@
       },
       "Workflow": {
         "tier": "stable",
-        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
+        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    static fromDefinition(definition: WorkflowDefinition, options: WorkflowDefinitionOptions): Workflow;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
       },
       "WorkspacePluginListing": {
         "tier": "stable",
         "declaration": "interface WorkspacePluginListing {\n    readonly name: string;\n    readonly root: string;\n    readonly manifestPath: string;\n    readonly format: \"claude-plugin-json\" | \"plugin-md\" | \"plugin-json\";\n}"
+      },
+      "addMemoryFact": {
+        "tier": "stable",
+        "declaration": "declare function addMemoryFact(cwd: string, text: string, settings?: Partial<MemorySettings>): Promise<void>;"
       },
       "agentStep": {
         "tier": "stable",
@@ -6212,6 +6288,10 @@
       "memoryGenerations": {
         "tier": "stable",
         "declaration": "declare function memoryGenerations(): GenerationStore;"
+      },
+      "memoryPartitionId": {
+        "tier": "stable",
+        "declaration": "declare function memoryPartitionId(scope: string): string;"
       },
       "migrateSqliteToLance": {
         "tier": "stable",
@@ -6389,7 +6469,7 @@
       },
       "AgentOptions": {
         "tier": "stable",
-        "declaration": "interface AgentOptions {\n    model?: string | ModelSelection;\n    apiKey?: string;\n    name?: string;\n    throwOnError?: boolean;\n    systemPrompt?: string | SystemPromptResolver;\n    sendDefaults?: Pick<SendOptions, \"toolResultGuard\" | \"pruneToolResults\" | \"perToolTimeoutMs\">;\n    local?: LocalOptions;\n    cloud?: CloudOptions;\n    mcpServers?: Record<string, McpServerConfig>;\n    mcpLifecycle?: \"run\" | \"session\";\n    onMcpElicitation?: McpElicitationHandler;\n    agents?: Record<string, AgentDefinition>;\n    agentId?: string;\n    context?: ContextSettings;\n    providers?: ProviderRoutingSettings;\n    modelFallback?: ModelFallbackOptions;\n    plugins?: PluginsSettings | readonly Plugin[];\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n    skills?: SkillsSettings | SkillsResolver;\n    inputProcessors?: readonly Processor[];\n    outputProcessors?: readonly Processor[];\n    memory?: MemorySettings;\n    tools?: CustomTool[];\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n    reasoning?: boolean;\n    telemetry?: TelemetrySettings;\n    metadata?: Record<string, unknown>;\n    memoryContext?: MemoryContext;\n    maxRecallContextBytes?: number;\n    handoffs?: ReadonlyArray<SDKAgent | unknown>;\n    maxHandoffDepth?: number;\n    onBeforeCreate?: (event: {\n        conversationId: string;\n        userId?: string;\n    }) => Promise<void> | void;\n    sessionIdleResetMinutes?: number;\n    onBeforeSend?: (event: {\n        conversationId: string;\n        previousMessageCount: number;\n    }) => Promise<void> | void;\n    onToolStart?: (event: {\n        toolName: string;\n        args: unknown;\n        conversationId: string;\n        callId: string;\n    }) => void | Promise<void>;\n    onToolEnd?: (event: {\n        toolName: string;\n        args: unknown;\n        result: unknown;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n    }) => void | Promise<void>;\n    onToolError?: (event: {\n        toolName: string;\n        args: unknown;\n        error: Error;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n        attempt: number;\n    }) => void | Promise<void>;\n    budgetTracker?: BudgetTracker;\n    memoryProvider?: MemoryProvider;\n}"
+        "declaration": "interface AgentOptions {\n    model?: string | ModelSelection;\n    apiKey?: string;\n    name?: string;\n    throwOnError?: boolean;\n    systemPrompt?: string | SystemPromptResolver;\n    sendDefaults?: Pick<SendOptions, \"toolResultGuard\" | \"pruneToolResults\" | \"perToolTimeoutMs\" | \"doomLoop\">;\n    local?: LocalOptions;\n    cloud?: CloudOptions;\n    mcpServers?: Record<string, McpServerConfig>;\n    mcpLifecycle?: \"run\" | \"session\";\n    onMcpElicitation?: McpElicitationHandler;\n    agents?: Record<string, AgentDefinition>;\n    agentId?: string;\n    context?: ContextSettings;\n    providers?: ProviderRoutingSettings;\n    modelFallback?: ModelFallbackOptions;\n    plugins?: PluginsSettings | readonly Plugin[];\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n    skills?: SkillsSettings | SkillsResolver;\n    inputProcessors?: readonly Processor[];\n    outputProcessors?: readonly Processor[];\n    memory?: MemorySettings;\n    tools?: CustomTool[];\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n    reasoning?: boolean;\n    telemetry?: TelemetrySettings;\n    metadata?: Record<string, unknown>;\n    memoryContext?: MemoryContext;\n    maxRecallContextBytes?: number;\n    handoffs?: ReadonlyArray<SDKAgent | unknown>;\n    maxHandoffDepth?: number;\n    onBeforeCreate?: (event: {\n        conversationId: string;\n        userId?: string;\n    }) => Promise<void> | void;\n    sessionIdleResetMinutes?: number;\n    onBeforeSend?: (event: {\n        conversationId: string;\n        previousMessageCount: number;\n    }) => Promise<void> | void;\n    onToolStart?: (event: {\n        toolName: string;\n        args: unknown;\n        conversationId: string;\n        callId: string;\n    }) => void | Promise<void>;\n    onToolEnd?: (event: {\n        toolName: string;\n        args: unknown;\n        result: unknown;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n    }) => void | Promise<void>;\n    onToolError?: (event: {\n        toolName: string;\n        args: unknown;\n        error: Error;\n        conversationId: string;\n        callId: string;\n        durationMs: number;\n        attempt: number;\n    }) => void | Promise<void>;\n    budgetTracker?: BudgetTracker;\n    memoryProvider?: MemoryProvider;\n}"
       },
       "AgentPromptResult": {
         "tier": "stable",
@@ -6482,7 +6562,7 @@
       "Budget": {
         "tier": "stable",
         "declaration": "declare class Budget {\n    private constructor();\n    static create(options: BudgetOptions): BudgetHandle;\n    static get(name: string): BudgetHandle | undefined;\n    static list(): readonly BudgetHandle[];\n    static delete(name: string): boolean;\n    static snapshot(): readonly BudgetSnapshot[];\n    static reserve(name: string, estimatedUsd: number): BudgetReservation;\n}",
-        "deprecatedSince": "2026-11-20"
+        "deprecatedSince": "2026-11-23"
       },
       "BudgetCheck": {
         "tier": "stable",
@@ -8046,11 +8126,15 @@
       },
       "Workflow": {
         "tier": "stable",
-        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
+        "declaration": "declare class Workflow<TInput = unknown, TOutput = unknown> {\n    private readonly _options;\n    private readonly _steps;\n    static create<TI = unknown, TO = unknown>(options: WorkflowOptions): WorkflowBuilder<TI, TO>;\n    static fromDefinition(definition: WorkflowDefinition, options: WorkflowDefinitionOptions): Workflow;\n    listRuns(): Promise<ReadonlyArray<{\n        runId: string;\n        status: \"suspended\" | \"running\";\n        currentStepId: string;\n        updatedAt: number;\n    }>>;\n    history(runId: string): Promise<ReadonlyArray<WorkflowCheckpoint>>;\n    rerunFrom(opts: WorkflowRerunOptions): Promise<WorkflowRun<TOutput>>;\n    describe(): WorkflowDescription;\n    run(input: TInput, opts?: WorkflowRunOptions): Promise<WorkflowRun<TOutput>>;\n    stream(input: TInput, opts?: WorkflowRunOptions): WorkflowStream<TOutput>;\n    static resume<TO = unknown, TI = unknown>(opts: WorkflowResumeOptions<TI>): Promise<WorkflowRun<TO>>;\n}"
       },
       "WorkspacePluginListing": {
         "tier": "stable",
         "declaration": "interface WorkspacePluginListing {\n    readonly name: string;\n    readonly root: string;\n    readonly manifestPath: string;\n    readonly format: \"claude-plugin-json\" | \"plugin-md\" | \"plugin-json\";\n}"
+      },
+      "addMemoryFact": {
+        "tier": "stable",
+        "declaration": "declare function addMemoryFact(cwd: string, text: string, settings?: Partial<MemorySettings>): Promise<void>;"
       },
       "agentStep": {
         "tier": "stable",
@@ -8219,6 +8303,10 @@
       "memoryGenerations": {
         "tier": "stable",
         "declaration": "declare function memoryGenerations(): GenerationStore;"
+      },
+      "memoryPartitionId": {
+        "tier": "stable",
+        "declaration": "declare function memoryPartitionId(scope: string): string;"
       },
       "migrateSqliteToLance": {
         "tier": "stable",
