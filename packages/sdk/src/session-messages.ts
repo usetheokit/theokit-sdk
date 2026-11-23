@@ -1,7 +1,6 @@
 import { FsSessionStore } from "./internal/persistence/fs-session-store.js";
 import { resolveSessionDir } from "./internal/persistence/session-dir.js";
 import {
-  allMessagesFromRecords,
   messagesFromRecords,
   readSessionMessages as readFromStore,
 } from "./internal/session/agent-session-store.js";
@@ -21,12 +20,6 @@ export interface ReadSessionMessagesOptions {
    * `local.sessionDir`; otherwise the SDK's default location is used.
    */
   sessionDir?: string;
-  /**
-   * `"active-chain"` (default) returns the latest `parentUuid` chain, ending at a compaction
-   * boundary. `"all"` returns every message record in file order — both sides of a compaction
-   * boundary, every branch — and tolerates records the chain reader skips.
-   */
-  scope?: "active-chain" | "all";
 }
 
 /**
@@ -58,11 +51,7 @@ export async function readSessionMessages(
 ): Promise<SessionMessage[]> {
   const cwd = options.cwd ?? process.cwd();
   const baseDir = resolveSessionDir({ sessionDir: options.sessionDir });
-  const store = new FsSessionStore({ baseDir, cwd });
-  if (options.scope === "all") {
-    return allMessagesFromRecords(await store.readAllRecords(options.sessionId));
-  }
-  return readFromStore(store, options.sessionId);
+  return readFromStore(new FsSessionStore({ baseDir, cwd }), options.sessionId);
 }
 
 /** A stored session as a host sees it: found, not there, or there but not readable. */
@@ -88,9 +77,7 @@ export async function readSessionHistory(
   const store = new FsSessionStore({ baseDir, cwd });
   let read: Awaited<ReturnType<FsSessionStore["readHistory"]>>;
   try {
-    read = await store.readHistory(options.sessionId, {
-      lenient: options.scope === "all",
-    });
+    read = await store.readHistory(options.sessionId);
   } catch (cause) {
     const code = (cause as NodeJS.ErrnoException).code;
     return unreadable(
@@ -107,10 +94,7 @@ export async function readSessionHistory(
   try {
     return {
       state: "present",
-      messages:
-        options.scope === "all"
-          ? allMessagesFromRecords(read.records)
-          : messagesFromRecords(read.records),
+      messages: messagesFromRecords(read.records),
       skippedLines: read.skippedLines,
     };
   } catch {

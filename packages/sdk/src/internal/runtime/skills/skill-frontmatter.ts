@@ -27,6 +27,7 @@ function toStringFields(raw: Record<string, FrontmatterValue | undefined>): Stri
  * required fields surface as `ConfigurationError` with one of the typed
  * codes below.
  *
+ * @internal
  */
 export interface SkillFrontmatter {
   name: string;
@@ -64,6 +65,7 @@ export interface SkillFrontmatter {
  * @throws ConfigurationError(code: "missing_frontmatter") — no `---` block at file head.
  * @throws ConfigurationError(code: "schema_invalid") — YAML malformed OR required field missing.
  *
+ * @internal
  */
 export function parseSkillFrontmatter(raw: string, fallbackName: string): SkillFrontmatter {
   const parsed = extractAndParseFrontmatter(raw, fallbackName);

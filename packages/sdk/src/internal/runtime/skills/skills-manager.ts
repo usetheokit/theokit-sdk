@@ -1,10 +1,12 @@
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { SystemPromptSkillRef } from "../../../types/sdk-agent.js";
 import { diag } from "../../diagnostics.js";
+import { projectConfigRoots } from "../../persistence/paths.js";
 import type { CompatSourceDeclaration } from "../compat/foreign-config-sources.js";
+import { pluginBundleDirs } from "../plugin-loader/plugin-bundles.js";
 import { discoverSkills, type InvalidSkillInfo, type Skill } from "./discover-skills.js";
 import { stripSkillFrontmatter } from "./skill-frontmatter.js";
-import { resolveSkillRootsFor, type SkillRoot } from "./skill-roots.js";
 
 /**
  * Skill metadata exposed via `agent.skills.list()`. Full skill prompt bodies
@@ -46,7 +48,14 @@ export interface SkillsHandle {
   get: (name: string) => Promise<SkillDetail | undefined>;
 }
 
-type TaggedRoot = SkillRoot;
+/** The kind of a consulted skill root, in the order `explainSkills` reports them. @internal */
+export type SkillRootKind = "skillsDir" | "project" | "plugin" | "bundled";
+
+/** One consulted root. @internal */
+interface TaggedRoot {
+  dir: string;
+  kind: SkillRootKind;
+}
 
 /** What one walk saw: the report `explainSkills` returns, recorded by `discoverFrom`. @internal */
 export interface SkillsExplanationReport {
@@ -99,28 +108,45 @@ export class SkillsManager {
      * first declaration of a name wins, so a workspace skill shadows a bundled one.
      */
     private readonly bundledDirs: readonly string[] = [],
-    /** An application-provided user-level root, read after project and plugin roots, before bundled. */
-    private readonly userDir?: string,
   ) {}
 
   async initialize(): Promise<void> {
     // M22 — inline skills work even without project setting sources (they need no filesystem).
-    // B-546 — user and bundled roots are the application's own, not project settings, so they are
+    // B-546 — bundled roots are the application's own package, not project settings, so they are
     // read even when project sources are off.
+    if (!this.settingSourcesIncludeProject) {
+      this.skills = this.mergeInline(await this.discoverFrom(this.bundled()));
+      return;
+    }
     await this.refresh();
   }
 
   async refresh(): Promise<void> {
-    // Order and rules live in `resolveSkillRootsFor`, shared with the public root list.
-    const roots = await resolveSkillRootsFor({
-      cwd: this.cwd,
-      includeProject: this.settingSourcesIncludeProject,
-      skillsDir: this.skillsDir,
-      userDir: this.userDir,
-      bundledDirs: this.bundledDirs,
-      compatSources: this.compatSources,
-    });
-    this.skills = this.mergeInline(await this.discoverFrom(roots));
+    // M22 — a custom skillsDir overrides the roots entirely: an explicit directory means THAT
+    // directory, so it must not quietly gain a second source.
+    //
+    // Otherwise every project config root is read (`.theokit/skills`, then `.claude/skills`), and
+    // the FIRST declaration of a name wins. Skills authored for the Claude Code CLI need no
+    // conversion — measured 2026-08-26, `SkillFrontmatter` requires exactly the `name` and
+    // `description` the CLI writes; only the directory was never looked at.
+    // A Claude Code plugin is a bundle whose `skills/` is what it contributes; bundles come after
+    // the project's own roots so a project can shadow a skill a plugin ships without editing it.
+    const ownRoots: TaggedRoot[] =
+      this.skillsDir === undefined
+        ? [
+            ...projectConfigRoots(this.cwd, this.compatSources, "skills").map(
+              (root): TaggedRoot => ({ dir: join(root, "skills"), kind: "project" }),
+            ),
+            ...(await pluginBundleDirs(this.cwd, this.compatSources)).map(
+              (b): TaggedRoot => ({ dir: join(b, "skills"), kind: "plugin" }),
+            ),
+          ]
+        : [{ dir: this.skillsDir, kind: "skillsDir" }];
+    this.skills = this.mergeInline(await this.discoverFrom([...ownRoots, ...this.bundled()]));
+  }
+
+  private bundled(): TaggedRoot[] {
+    return this.bundledDirs.map((dir): TaggedRoot => ({ dir, kind: "bundled" }));
   }
 
   private async discoverFrom(roots: readonly TaggedRoot[]): Promise<StoredSkill[]> {

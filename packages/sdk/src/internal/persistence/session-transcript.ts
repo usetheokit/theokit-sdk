@@ -287,29 +287,6 @@ function recordToMessage(rec: SessionRecord): LlmMessage | undefined {
   return { role: rec.type, content: parts };
 }
 
-/** Content as a block list, tolerating a bare string and dropping non-object entries. */
-function lenientBlocks(content: unknown): Block[] {
-  if (typeof content === "string") return [{ type: "text", text: content }];
-  if (!Array.isArray(content)) return [];
-  return content.filter((b): b is Block => typeof b === "object" && b !== null);
-}
-
-/**
- * Every conversational record as a message, in file order: no dedup, no DAG walk, no compaction
- * cut-off, and tolerant of records the chain reader skips (no uuid, string or irregular content).
- */
-export function reconstructAllMessages(records: readonly SessionRecord[]): LlmMessage[] {
-  const msgs: LlmMessage[] = [];
-  for (const rec of records) {
-    if (rec.type !== "user" && rec.type !== "assistant") continue;
-    const parts = lenientBlocks(rec.message?.content)
-      .map(blockToPart)
-      .filter((p): p is LlmContentPart => p !== undefined);
-    msgs.push({ role: rec.type, content: parts });
-  }
-  return msgs;
-}
-
 /** The most-recent leaf: the LAST record (in input order) whose uuid is never used as a parentUuid. */
 function findLatestLeaf(
   records: readonly SessionRecord[],
@@ -476,15 +453,12 @@ export async function writeTranscript(
 }
 
 /** Parse one JSONL line to a record; `undefined` for blank/torn/invalid lines (skipped on read). */
-function parseRecordLine(line: string, lenient = false): SessionRecord | undefined {
+function parseRecordLine(line: string): SessionRecord | undefined {
   const trimmed = line.trim();
   if (trimmed.length === 0) return undefined;
   try {
     const rec = JSON.parse(trimmed) as SessionRecord;
-    if (typeof rec.type !== "string") return undefined;
-    if (typeof rec.uuid === "string") return rec;
-    // A lenient read keeps message records that carry no uuid; they only matter in file order.
-    return lenient && (rec.type === "user" || rec.type === "assistant") ? rec : undefined;
+    return typeof rec.uuid === "string" && typeof rec.type === "string" ? rec : undefined;
   } catch {
     return undefined; // a torn last line (crash mid-write) — the rest of the DAG still reconstructs
   }
@@ -505,10 +479,7 @@ export async function readTranscript(path: string): Promise<SessionRecord[]> {
 }
 
 /** Like {@link readTranscript}, but also reports absence and the count of skipped lines. */
-export async function readTranscriptDetailed(
-  path: string,
-  options: { lenient?: boolean } = {},
-): Promise<TranscriptRead> {
+export async function readTranscriptDetailed(path: string): Promise<TranscriptRead> {
   let raw: string;
   try {
     raw = await readFile(path, "utf8");
@@ -541,9 +512,7 @@ export async function readTranscriptDetailed(
   }
   const lines = raw.split("\n");
   if (lines[lines.length - 1] === "") lines.pop();
-  const records = lines
-    .map((l) => parseRecordLine(l, options.lenient === true))
-    .filter((r): r is SessionRecord => r !== undefined);
+  const records = lines.map(parseRecordLine).filter((r): r is SessionRecord => r !== undefined);
   return { absent: false, records, skippedLines: lines.length - records.length };
 }
 

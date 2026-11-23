@@ -432,13 +432,6 @@ export interface SkillsSettings {
    */
   bundledDirs?: string[];
   /**
-   * A user-level skills root (for example `~/.theokit/skills`) holding `<name>/SKILL.md`. The SDK
-   * never guesses a home directory; the application names it. Read AFTER project roots and plugin
-   * bundles and BEFORE `bundledDirs`, so a project skill shadows a user skill, which shadows a
-   * bundled one. Kept when `skillsDir` is set, and read even when project sources are off.
-   */
-  userDir?: string;
-  /**
    * M22 — code-defined skills (from `createSkill`) merged with the discovered ones. An inline skill
    * overrides a discovered file skill of the same name.
    */

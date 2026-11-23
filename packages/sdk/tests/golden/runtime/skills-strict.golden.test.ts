@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { Agent } from "../../../src/index.js";
-import { parseSkillFrontmatter } from "../../../src/skills.js";
+import { parseSkillFrontmatter } from "../../../src/internal/runtime/skills/skill-frontmatter.js";
 import { removeTempDirRobust } from "../../helpers/temp-workspace.js";
 
 /**

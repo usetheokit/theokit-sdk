@@ -60,7 +60,6 @@ export async function resolveSendSkills(
     settings.inline,
     resolveCompatSources(inputs.options, inputs.workspaceCwd),
     settings.bundledDirs,
-    settings.userDir,
   );
   // `initialize()` skips the filesystem scan when project sources are off (fast
   // path — inline-only), so a per-send resolver is cheap for inline skills.
