@@ -162,7 +162,13 @@ describe("recordWiring — scopes and off reasons", () => {
     const r = recordWiring({
       posture: TRUSTED,
       requested: { mcp: ["a", "b"], skills: ["s"] },
-      scopes: { mcp: [{ name: "a", scope: "personal" }, { name: "b", scope: "project" }], skills: [{ name: "s", scope: "operator" }] },
+      scopes: {
+        mcp: [
+          { name: "a", scope: "personal" },
+          { name: "b", scope: "project" },
+        ],
+        skills: [{ name: "s", scope: "operator" }],
+      },
     });
     expect(r.mcp.entities).toEqual([
       { name: "a", scope: "personal" },

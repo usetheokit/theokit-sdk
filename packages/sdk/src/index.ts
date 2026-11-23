@@ -536,11 +536,11 @@ export type {
 // through an inline `import(...)` in the emitted .d.ts.
 export type { SessionMessage, SessionMessagePart } from "./types/session-message.js";
 export {
+  type OffCapability,
   offCapabilities,
   recordWiring,
-  UngatedCapabilityError,
-  type OffCapability,
   type ScopedEntityName,
+  UngatedCapabilityError,
   type WiredEntity,
   type WiredEntityScope,
   type WiringOffReason,
