@@ -294,7 +294,11 @@ export async function resolveSandbox<Ctx>(
 export type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
 
 /** The sandbox modes, as a runtime list; kept in lockstep with {@link SandboxMode} by `satisfies` and a type test. */
-export const SANDBOX_MODES = ["read-only", "workspace-write", "danger-full-access"] as const satisfies readonly SandboxMode[];
+export const SANDBOX_MODES = [
+  "read-only",
+  "workspace-write",
+  "danger-full-access",
+] as const satisfies readonly SandboxMode[];
 
 /** Validate an untrusted value (config file, env var) as a {@link SandboxMode}; throws {@link ConfigurationError} listing the valid modes. */
 export function parseSandboxMode(value: unknown): SandboxMode {
