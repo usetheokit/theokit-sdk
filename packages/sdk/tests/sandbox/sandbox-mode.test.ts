@@ -12,7 +12,9 @@ describe("SANDBOX_MODES / parseSandboxMode", () => {
   });
   it("throws a ConfigurationError listing the modes", () => {
     expect(() => parseSandboxMode("nope")).toThrow(ConfigurationError);
-    expect(() => parseSandboxMode("nope")).toThrow(/read-only, workspace-write, danger-full-access/);
+    expect(() => parseSandboxMode("nope")).toThrow(
+      /read-only, workspace-write, danger-full-access/,
+    );
     expect(() => parseSandboxMode(undefined)).toThrow(ConfigurationError);
   });
 });
