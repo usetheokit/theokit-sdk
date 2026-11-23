@@ -1,5 +1,23 @@
 # Changelog
 
+## 12.0.0
+
+### Major Changes
+
+- [#1536](https://github.com/usetheokit/theokit-sdk/pull/1536) [`7085d65`](https://github.com/usetheokit/theokit-sdk/commit/7085d65691867a24f453498127121666b0d41b77) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The handle `Security.createMask(...).wrapStreams` returns now has `flush()`: it writes the text the mask holds back, masked, without removing the mask. Writes after it keep being masked.
+
+- [#1532](https://github.com/usetheokit/theokit-sdk/pull/1532) [`c924cc7`](https://github.com/usetheokit/theokit-sdk/commit/c924cc74ec2920e802c15509798a4afda9d68355) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `Agent.sessionPool` accepts an `agent({ key, agentId, context })` factory in place of `open`, `lease(key, context)` passes the caller's context to it (and to `open`), `SessionPool.heldIds()` lists the ids the pool still holds, and the pool warns once when held agents keep it above `maxOpen`.
+
+- [#1528](https://github.com/usetheokit/theokit-sdk/pull/1528) [`fa84ef1`](https://github.com/usetheokit/theokit-sdk/commit/fa84ef1af9aa0bfac95c6030fb5d955e580b74f1) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `registerTelemetry` accepts a `logExporter` (new optional peer `@opentelemetry/sdk-logs`) and returns a `log` function that emits records through it, beside the trace and metric providers. Without a log exporter `log` is a no-op.
+
+### Minor Changes
+
+- [#1530](https://github.com/usetheokit/theokit-sdk/pull/1530) [`7f3444c`](https://github.com/usetheokit/theokit-sdk/commit/7f3444c6a9856daa1a0d4c23988ec153982aa96e) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `toolResultGuard: { delimit: true }` now adds one line to the system prompt explaining that text inside `<untrusted-tool-output>` is data from a tool, never instructions. The wording is exported as `UNTRUSTED_TOOL_OUTPUT_NOTICE`.
+
+### Patch Changes
+
+- [#1533](https://github.com/usetheokit/theokit-sdk/pull/1533) [`dfdc0b9`](https://github.com/usetheokit/theokit-sdk/commit/dfdc0b92a774181aab639c9aac6d8381c91e7599) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Regenerate the harness capability map so its export count matches the published declarations.
+
 ## 11.0.0
 
 ### Major Changes
