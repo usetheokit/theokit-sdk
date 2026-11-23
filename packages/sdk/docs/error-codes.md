@@ -174,7 +174,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `migration_destination_exists` | domain | ConfigurationError | `packages/sdk/src/internal/memory/migrate-sqlite-to-lance.ts:172` |
 | `missing_api_key` | domain | AuthenticationError, ConfigurationError | `packages/sdk/src/internal/agent/helpers.ts:227` +2 |
 | `missing_credential` | domain | AuthenticationError | `packages/sdk/src/internal/providers/builtin/openai-chatgpt.ts:72` |
-| `missing_frontmatter` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:102` |
+| `missing_frontmatter` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:100` |
 | `missing_model` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:42` |
 | `model_fallback_exhausted` | domain | — | `packages/sdk/src/errors.ts:660` +1 |
 | `model_provider_without_credential` | domain | ProviderCredentialError | `packages/sdk/src/internal/auth/resolve-provider-credential.ts:200` |
@@ -242,7 +242,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `sandbox_docker_error` | domain | SandboxDockerError | `packages/sdk/src/sandbox/docker-containers.ts:29` +1 |
 | `sandbox_not_available` | domain | SandboxNotAvailableError | `packages/sdk/src/sandbox/types.ts:110` +1 |
 | `sandbox_security` | domain | SandboxSecurityError | `packages/sdk/src/sandbox/types.ts:91` +1 |
-| `schema_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:113` +5 |
+| `schema_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/skills/skill-frontmatter.ts:111` +5 |
 | `server_error` | domain | buildErrorMetadata | `packages/sdk/src/internal/error-mappers/ollama.ts:92` +1 |
 | `session_busy` | domain | — | `packages/sdk/src/internal/persistence/session-writer.ts:56` +1 |
 | `session_pool_closed` | domain | — | `packages/sdk/src/session-pool-errors.ts:19` +1 |

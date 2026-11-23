@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1597 export(s) across 61 entry point(s).
+1603 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1751,6 +1751,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 
 | Symbol | Kind | Summary |
 |---|---|---|
+| `binaryOnPath` | function | B-546 — whether `bin` resolves to an executable file in one of the PATH directories, read at call time so installing the tool later makes the skill appear without restarting the agent.  |
 | `buildSkillsBlock` | function | Render the `<skills>` system-prompt block from a skill list.  |
 | `discoverSkills` | function | Discover `SKILL.md` skills under an arbitrary directory.  |
 | `DiscoverSkillsOptions` | interface | Options for {@link discoverSkills } . |
@@ -1758,7 +1759,12 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `ExplainSkillsInput` | interface | Input to {@link explainSkills } . |
 | `InvalidSkillInfo` | interface | Information passed to `onInvalidSkill` when a `SKILL.md` is present but its frontmatter is malformed (missing required field or invalid YAML). |
 | `loadSkillInstructions` | function | Read the BODY of a discovered skill — everything after its frontmatter.  |
+| `parseSkillFrontmatter` | function | Parse a SKILL.md file body into validated frontmatter. |
+| `resolveSkillRoots` | function | The ordered roots an agent created with these options reads (first declaration of a name wins).  |
 | `Skill` | interface | A discovered skill's metadata.  |
+| `SkillFrontmatter` | interface | Strict skill frontmatter schema (ADR D10).  |
+| `SkillRoot` | interface | One consulted skill root. |
+| `SkillRootKind` | type | The kind of a consulted skill root, in the order `explainSkills` reports them. |
 | `SkillsExplanation` | interface | What {@link explainSkills } reports. |
 
 ## `@theokit/sdk/subagents`

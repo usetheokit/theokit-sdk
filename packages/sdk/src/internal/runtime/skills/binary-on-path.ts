@@ -20,8 +20,6 @@ function isExecutable(file: string): boolean {
  * B-546 — whether `bin` resolves to an executable file in one of the PATH directories, read at
  * call time so installing the tool later makes the skill appear without restarting the agent.
  * A name containing a path separator is never a PATH lookup and is reported absent.
- *
- * @internal
  */
 export function binaryOnPath(bin: string): boolean {
   if (bin.length === 0 || /[\\/]/.test(bin)) return false;
