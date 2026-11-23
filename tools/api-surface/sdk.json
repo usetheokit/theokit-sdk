@@ -5307,7 +5307,7 @@
       },
       "ReadSessionMessagesOptions": {
         "tier": "stable",
-        "declaration": "interface ReadSessionMessagesOptions {\n    sessionId: string;\n    cwd?: string;\n    sessionDir?: string;\n}"
+        "declaration": "interface ReadSessionMessagesOptions {\n    sessionId: string;\n    cwd?: string;\n    sessionDir?: string;\n    scope?: \"active-chain\" | \"all\";\n}"
       },
       "ReapPlan": {
         "tier": "stable",
@@ -7314,7 +7314,7 @@
       },
       "ReadSessionMessagesOptions": {
         "tier": "stable",
-        "declaration": "interface ReadSessionMessagesOptions {\n    sessionId: string;\n    cwd?: string;\n    sessionDir?: string;\n}"
+        "declaration": "interface ReadSessionMessagesOptions {\n    sessionId: string;\n    cwd?: string;\n    sessionDir?: string;\n    scope?: \"active-chain\" | \"all\";\n}"
       },
       "ReapPlan": {
         "tier": "stable",

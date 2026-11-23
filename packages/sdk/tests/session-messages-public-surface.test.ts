@@ -1,10 +1,12 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import * as sdk from "../src/index.js";
 import { FsSessionStore } from "../src/internal/persistence/fs-session-store.js";
+import { transcriptPath } from "../src/internal/persistence/session-transcript.js";
 import {
   persistTurn,
   type TranscriptLocation,
@@ -80,5 +82,90 @@ describe("#546 — a resumed session's messages are readable from the public sur
     // private. If this ever needs a path, the narrow API failed its purpose.
     const arity = (sdk.readSessionMessages as (...a: unknown[]) => unknown).length;
     expect(arity, "readSessionMessages takes one options object").toBe(1);
+  });
+});
+
+describe("#1494 — scope: 'all' reads the whole transcript", () => {
+  let sessionDir: string;
+  const cwd = "/tmp/theokit-1494-proj";
+  const sessionId = "agent-1494";
+
+  beforeEach(async () => {
+    sessionDir = await mkdtemp(join(tmpdir(), "theokit-1494-"));
+  });
+  afterEach(async () => {
+    await rm(sessionDir, { recursive: true, force: true });
+  });
+
+  const rec = (
+    uuid: string | undefined,
+    parentUuid: string | null,
+    type: "user" | "assistant" | "system",
+    content: unknown,
+    extra: Record<string, unknown> = {},
+  ) => ({
+    type,
+    ...(uuid === undefined ? {} : { uuid }),
+    parentUuid,
+    sessionId,
+    timestamp: "2026-01-01T00:00:00Z",
+    message: type === "system" ? undefined : { role: type, content },
+    ...extra,
+  });
+  const text = (t: string) => [{ type: "text", text: t }];
+
+  async function write(records: unknown[]): Promise<void> {
+    const path = transcriptPath(sessionDir, cwd, sessionId);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, `${records.map((r) => JSON.stringify(r)).join("\n")}\n`);
+  }
+  const texts = (m: { text: string }[]) => m.map((x) => x.text);
+
+  it("returns both sides of a compaction boundary; the default only the active side", async () => {
+    await write([
+      rec("a", null, "user", text("before-q")),
+      rec("b", "a", "assistant", text("before-a")),
+      rec("c", null, "system", undefined, { subtype: "compact_boundary" }),
+      rec("d", "c", "user", text("after-q")),
+      rec("e", "d", "assistant", text("after-a")),
+    ]);
+    const opts = { sessionId, cwd, sessionDir };
+    expect(texts(await sdk.readSessionMessages({ ...opts, scope: "all" }))).toEqual([
+      "before-q",
+      "before-a",
+      "after-q",
+      "after-a",
+    ]);
+    expect(texts(await sdk.readSessionMessages(opts))).toEqual(["after-q", "after-a"]);
+  });
+
+  it("returns the messages of both branches", async () => {
+    await write([
+      rec("a", null, "user", text("root")),
+      rec("b", "a", "assistant", text("branch-1")),
+      rec("c", "a", "assistant", text("branch-2")),
+    ]);
+    const opts = { sessionId, cwd, sessionDir };
+    expect(texts(await sdk.readSessionMessages({ ...opts, scope: "all" }))).toEqual([
+      "root",
+      "branch-1",
+      "branch-2",
+    ]);
+    expect(texts(await sdk.readSessionMessages(opts))).toEqual(["root", "branch-2"]);
+  });
+
+  it("tolerates records without a uuid and string or irregular content", async () => {
+    await write([
+      rec(undefined, null, "user", "plain string"),
+      rec("a", null, "assistant", ["junk", null, { type: "text", text: "ok" }]),
+      rec("b", "a", "assistant", { not: "an array" }),
+    ]);
+    const all = await sdk.readSessionHistory({ sessionId, cwd, sessionDir, scope: "all" });
+    expect(all.state).toBe("present");
+    expect(all.messages.map((m) => [m.role, m.text])).toEqual([
+      ["user", "plain string"],
+      ["assistant", "ok"],
+      ["assistant", ""],
+    ]);
   });
 });
