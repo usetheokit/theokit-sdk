@@ -19,7 +19,6 @@
  * orient an agent with one import instead of hand-rolling discovery.
  */
 
-export { binaryOnPath } from "./internal/runtime/skills/binary-on-path.js";
 export {
   type DiscoverSkillsOptions,
   discoverSkills,
@@ -30,12 +29,6 @@ export {
 export {
   type ExplainSkillsInput,
   explainSkills,
-  resolveSkillRoots,
   type SkillsExplanation,
 } from "./internal/runtime/skills/explain-skills.js";
-export {
-  parseSkillFrontmatter,
-  type SkillFrontmatter,
-} from "./internal/runtime/skills/skill-frontmatter.js";
-export type { SkillRoot, SkillRootKind } from "./internal/runtime/skills/skill-roots.js";
 export { buildSkillsBlock } from "./internal/runtime/skills/skills-block.js";

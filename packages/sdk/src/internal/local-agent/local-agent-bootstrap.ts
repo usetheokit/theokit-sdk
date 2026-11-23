@@ -102,7 +102,6 @@ function buildSkills(args: BootstrapArgs, out: BootstrappedSubmanagers): void {
     // `agent.skills` disagree with the system prompt about which skills exist.
     resolveCompatSources(args.options, args.workspaceCwd),
     staticSkills?.bundledDirs,
-    staticSkills?.userDir,
   );
   const localSkills = out.skillsManager;
   out.skills = {
