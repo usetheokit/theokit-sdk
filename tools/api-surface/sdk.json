@@ -3452,9 +3452,25 @@
         "tier": "stable",
         "declaration": "export interface Skill {\n    name: string;\n    description: string;\n    source: string;\n    category?: string;\n    dependencies?: string[];\n    requiresBins?: string[];\n    disableModelInvocation?: boolean;\n    userInvocable?: boolean;\n}"
       },
+      "SkillFrontmatter": {
+        "tier": "stable",
+        "declaration": "export interface SkillFrontmatter {\n    name: string;\n    description: string;\n    category?: string;\n    dependencies?: string[];\n    requiresBins?: string[];\n    disableModelInvocation?: boolean;\n    userInvocable?: boolean;\n}"
+      },
+      "SkillRoot": {
+        "tier": "stable",
+        "declaration": "export interface SkillRoot {\n    dir: string;\n    kind: SkillRootKind;\n}"
+      },
+      "SkillRootKind": {
+        "tier": "stable",
+        "declaration": "export type SkillRootKind = \"skillsDir\" | \"project\" | \"plugin\" | \"user\" | \"bundled\";"
+      },
       "SkillsExplanation": {
         "tier": "stable",
-        "declaration": "export interface SkillsExplanation {\n    roots: {\n        dir: string;\n        kind: \"skillsDir\" | \"project\" | \"plugin\" | \"bundled\";\n    }[];\n    loaded: {\n        name: string;\n        source: string | \"inline\";\n        root: string | \"inline\";\n    }[];\n    invalid: InvalidSkillInfo[];\n    shadowed: {\n        name: string;\n        winner: string;\n        loser: string;\n    }[];\n    enabledButMissing: string[];\n    disabled: string[];\n}"
+        "declaration": "export interface SkillsExplanation {\n    roots: SkillRoot[];\n    loaded: {\n        name: string;\n        source: string | \"inline\";\n        root: string | \"inline\";\n    }[];\n    invalid: InvalidSkillInfo[];\n    shadowed: {\n        name: string;\n        winner: string;\n        loser: string;\n    }[];\n    enabledButMissing: string[];\n    disabled: string[];\n}"
+      },
+      "binaryOnPath": {
+        "tier": "stable",
+        "declaration": "export declare function binaryOnPath(bin: string): boolean;"
       },
       "buildSkillsBlock": {
         "tier": "stable",
@@ -3471,6 +3487,14 @@
       "loadSkillInstructions": {
         "tier": "stable",
         "declaration": "export declare function loadSkillInstructions(skill: Skill): Promise<string>;"
+      },
+      "parseSkillFrontmatter": {
+        "tier": "stable",
+        "declaration": "export declare function parseSkillFrontmatter(raw: string, fallbackName: string): SkillFrontmatter;"
+      },
+      "resolveSkillRoots": {
+        "tier": "stable",
+        "declaration": "export declare function resolveSkillRoots(input: ExplainSkillsInput): Promise<SkillRoot[]>;"
       }
     },
     "./skills#require": {
@@ -3490,9 +3514,25 @@
         "tier": "stable",
         "declaration": "export interface Skill {\n    name: string;\n    description: string;\n    source: string;\n    category?: string;\n    dependencies?: string[];\n    requiresBins?: string[];\n    disableModelInvocation?: boolean;\n    userInvocable?: boolean;\n}"
       },
+      "SkillFrontmatter": {
+        "tier": "stable",
+        "declaration": "export interface SkillFrontmatter {\n    name: string;\n    description: string;\n    category?: string;\n    dependencies?: string[];\n    requiresBins?: string[];\n    disableModelInvocation?: boolean;\n    userInvocable?: boolean;\n}"
+      },
+      "SkillRoot": {
+        "tier": "stable",
+        "declaration": "export interface SkillRoot {\n    dir: string;\n    kind: SkillRootKind;\n}"
+      },
+      "SkillRootKind": {
+        "tier": "stable",
+        "declaration": "export type SkillRootKind = \"skillsDir\" | \"project\" | \"plugin\" | \"user\" | \"bundled\";"
+      },
       "SkillsExplanation": {
         "tier": "stable",
-        "declaration": "export interface SkillsExplanation {\n    roots: {\n        dir: string;\n        kind: \"skillsDir\" | \"project\" | \"plugin\" | \"bundled\";\n    }[];\n    loaded: {\n        name: string;\n        source: string | \"inline\";\n        root: string | \"inline\";\n    }[];\n    invalid: InvalidSkillInfo[];\n    shadowed: {\n        name: string;\n        winner: string;\n        loser: string;\n    }[];\n    enabledButMissing: string[];\n    disabled: string[];\n}"
+        "declaration": "export interface SkillsExplanation {\n    roots: SkillRoot[];\n    loaded: {\n        name: string;\n        source: string | \"inline\";\n        root: string | \"inline\";\n    }[];\n    invalid: InvalidSkillInfo[];\n    shadowed: {\n        name: string;\n        winner: string;\n        loser: string;\n    }[];\n    enabledButMissing: string[];\n    disabled: string[];\n}"
+      },
+      "binaryOnPath": {
+        "tier": "stable",
+        "declaration": "export declare function binaryOnPath(bin: string): boolean;"
       },
       "buildSkillsBlock": {
         "tier": "stable",
@@ -3509,6 +3549,14 @@
       "loadSkillInstructions": {
         "tier": "stable",
         "declaration": "export declare function loadSkillInstructions(skill: Skill): Promise<string>;"
+      },
+      "parseSkillFrontmatter": {
+        "tier": "stable",
+        "declaration": "export declare function parseSkillFrontmatter(raw: string, fallbackName: string): SkillFrontmatter;"
+      },
+      "resolveSkillRoots": {
+        "tier": "stable",
+        "declaration": "export declare function resolveSkillRoots(input: ExplainSkillsInput): Promise<SkillRoot[]>;"
       }
     },
     "./subagents-loader#import": {
@@ -5307,7 +5355,7 @@
       },
       "ReadSessionMessagesOptions": {
         "tier": "stable",
-        "declaration": "interface ReadSessionMessagesOptions {\n    sessionId: string;\n    cwd?: string;\n    sessionDir?: string;\n}"
+        "declaration": "interface ReadSessionMessagesOptions {\n    sessionId: string;\n    cwd?: string;\n    sessionDir?: string;\n    scope?: \"active-chain\" | \"all\";\n}"
       },
       "ReapPlan": {
         "tier": "stable",
@@ -5635,7 +5683,7 @@
       },
       "SkillsSettings": {
         "tier": "stable",
-        "declaration": "interface SkillsSettings {\n    enabled?: string[];\n    autoInject?: boolean;\n    skillsDir?: string;\n    bundledDirs?: string[];\n    inline?: InlineSkill[];\n}"
+        "declaration": "interface SkillsSettings {\n    enabled?: string[];\n    autoInject?: boolean;\n    skillsDir?: string;\n    bundledDirs?: string[];\n    userDir?: string;\n    inline?: InlineSkill[];\n}"
       },
       "SovereignEnvKey": {
         "tier": "stable",
@@ -7322,7 +7370,7 @@
       },
       "ReadSessionMessagesOptions": {
         "tier": "stable",
-        "declaration": "interface ReadSessionMessagesOptions {\n    sessionId: string;\n    cwd?: string;\n    sessionDir?: string;\n}"
+        "declaration": "interface ReadSessionMessagesOptions {\n    sessionId: string;\n    cwd?: string;\n    sessionDir?: string;\n    scope?: \"active-chain\" | \"all\";\n}"
       },
       "ReapPlan": {
         "tier": "stable",
@@ -7650,7 +7698,7 @@
       },
       "SkillsSettings": {
         "tier": "stable",
-        "declaration": "interface SkillsSettings {\n    enabled?: string[];\n    autoInject?: boolean;\n    skillsDir?: string;\n    bundledDirs?: string[];\n    inline?: InlineSkill[];\n}"
+        "declaration": "interface SkillsSettings {\n    enabled?: string[];\n    autoInject?: boolean;\n    skillsDir?: string;\n    bundledDirs?: string[];\n    userDir?: string;\n    inline?: InlineSkill[];\n}"
       },
       "SovereignEnvKey": {
         "tier": "stable",

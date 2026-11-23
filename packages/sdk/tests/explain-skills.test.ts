@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { expect, it, onTestFinished } from "vitest";
 
 import { Agent, Skill } from "../src/index.js";
-import { explainSkills } from "../src/skills.js";
+import { explainSkills, resolveSkillRoots } from "../src/skills.js";
 import { removeTempDirRobustSync } from "./helpers/temp-workspace.js";
 
 function tmp(): string {
@@ -135,4 +135,33 @@ it("does not report an enabled-excluded inline-only skill as disabled", async ()
   });
   expect(r.disabled).toEqual(["b"]);
   expect(r.loaded.map((s) => s.name)).toEqual(["a"]);
+});
+
+it("orders project, user and bundled roots, and resolveSkillRoots equals explainSkills roots", async () => {
+  const cwd = tmp();
+  const user = join(tmp(), "user");
+  const bundled = join(tmp(), "bundled");
+  writeSkill(join(cwd, ".theokit/skills"), "dup");
+  writeSkill(user, "dup");
+  writeSkill(user, "mine");
+  writeSkill(bundled, "mine");
+  const input = {
+    cwd,
+    settingSources: ["project" as const],
+    skills: { userDir: user, bundledDirs: [bundled] },
+  };
+  const r = await explainSkills(input);
+  expect(await resolveSkillRoots(input)).toEqual(r.roots);
+  expect(r.roots.map((x) => x.kind)).toEqual(["project", "user", "bundled"]);
+  expect(r.loaded.find((s) => s.name === "dup")?.root).toBe(join(cwd, ".theokit/skills"));
+  expect(r.loaded.find((s) => s.name === "mine")?.root).toBe(user);
+});
+
+it("reads userDir even when project sources are off", async () => {
+  const user = join(tmp(), "user");
+  writeSkill(user, "mine");
+  const input = { cwd: tmp(), skills: { userDir: user } };
+  const r = await explainSkills(input);
+  expect(r.loaded.map((s) => s.name)).toEqual(["mine"]);
+  expect(await resolveSkillRoots(input)).toEqual(r.roots);
 });
