@@ -44,9 +44,9 @@
     "prepublishOnly": "node ../../tools/check-publish-no-workspace.mjs ."
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
-    "tsup": "^8.3.5",
-    "typescript": "^5.7.2",
+    "@types/node": "^26.6.6",
+    "tsup": "^9.0.0",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.8"
   },
   "publishConfig": {

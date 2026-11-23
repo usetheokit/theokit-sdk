@@ -11,7 +11,7 @@
   "devDependencies": {
     "@theokit/sdk": "workspace:*",
     "@theokit/sdk-memory": "workspace:*",
-    "typescript": "^5.7.2",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.8",
     "better-sqlite3": "^12.10.0",
     "@types/better-sqlite3": "^7.6.13"
