@@ -206,7 +206,7 @@ Extended-thinking `--continue` is out of scope for now (thinking signatures are 
 
 ### Reading a stored session
 
-`readSessionMessages` returns a session's messages. `readSessionHistory` also tells you why there are none:
+`readSessionMessages` returns a session's active chain (the latest branch, after the last compaction boundary). Pass `scope: "all"` to get every message in file order, including earlier branches and pre-compaction turns. `readSessionHistory` also tells you why there are none:
 
 ```ts
 import { readSessionHistory } from "@theokit/sdk";

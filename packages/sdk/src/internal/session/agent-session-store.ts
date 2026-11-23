@@ -19,6 +19,7 @@ import type { DeferredToolCall } from "../../types/run.js";
 import type { SessionStore } from "../../types/session-store.js";
 import {
   type AssistantTurn,
+  reconstructAllMessages,
   reconstructMessages,
   type SessionRecord,
   SessionTranscript,
@@ -149,6 +150,11 @@ export async function readSessionMessages(
   options: { keepDeferred?: boolean } = {},
 ): Promise<SessionMessage[]> {
   return messagesFromRecords(await store.readRecords(agentId), options);
+}
+
+/** Every message record in file order, with no chain walk or compaction cut-off. */
+export function allMessagesFromRecords(records: readonly SessionRecord[]): SessionMessage[] {
+  return reconstructAllMessages(records).map(narrowToSessionMessage);
 }
 
 /** The reconstruction half of {@link readSessionMessages}, for a caller that already holds records. */
