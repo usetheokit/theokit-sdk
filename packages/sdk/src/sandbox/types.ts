@@ -291,7 +291,21 @@ export async function resolveSandbox<Ctx>(
 }
 
 /** Codex's three canonical sandbox modes; lives in this leaf module so bwrap.ts and deny-read.ts need not import each other. */
-export type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
+export type SandboxMode = (typeof SANDBOX_MODES)[number];
+
+/** The sandbox modes, as a runtime list; {@link SandboxMode} is derived from it. */
+export const SANDBOX_MODES = ["read-only", "workspace-write", "danger-full-access"] as const;
+
+/** Validate an untrusted value (config file, env var) as a {@link SandboxMode}; throws {@link ConfigurationError} listing the valid modes. */
+export function parseSandboxMode(value: unknown): SandboxMode {
+  if (typeof value === "string" && (SANDBOX_MODES as readonly string[]).includes(value)) {
+    return value as SandboxMode;
+  }
+  throw new ConfigurationError(
+    `Invalid sandbox mode ${JSON.stringify(value)}; expected one of: ${SANDBOX_MODES.join(", ")}`,
+    { code: "invalid_sandbox_mode" },
+  );
+}
 
 /** Result of probing for bubblewrap. Detection never throws. */
 export type BwrapDetection = { ok: true; bin: string } | { ok: false; reason: string };

@@ -4,6 +4,7 @@
 // M75 T2.1 — kernel confinement promoted from agent-builder. Additive: no existing consumer
 // changes, and the subsystem protects itself by runtime detection (an honest fallback) rather than by
 // platform gating at build time.
+export { parseSandboxMode, SANDBOX_MODES } from "./types.js";
 export {
   type BwrapArgvOptions,
   type BwrapDetection,
