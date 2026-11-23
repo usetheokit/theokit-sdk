@@ -442,7 +442,12 @@ function readMemoryForSend(
   );
 }
 
-const SEND_DEFAULT_KEYS = ["toolResultGuard", "pruneToolResults", "perToolTimeoutMs"] as const;
+const SEND_DEFAULT_KEYS = [
+  "toolResultGuard",
+  "pruneToolResults",
+  "perToolTimeoutMs",
+  "doomLoop",
+] as const;
 
 /**
  * #1020 — the effective options of one send: `AgentOptions.sendDefaults` merged under the call's
