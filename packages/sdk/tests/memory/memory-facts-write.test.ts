@@ -15,7 +15,7 @@ function cwdDir(): string {
 describe("addMemoryFact", () => {
   it("is listed for the same settings and absent from another user", async () => {
     const cwd = cwdDir();
-    const a = { userId: memoryPartitionId("tenant a/ö") };
+    const a = { userId: memoryPartitionId("tenant a/../b") };
     const b = { userId: memoryPartitionId("tenant b") };
     await addMemoryFact(cwd, "the deploy key rotates monthly", a);
     expect((await listMemoryFacts(cwd, a)).map((f) => f.text)).toEqual([
