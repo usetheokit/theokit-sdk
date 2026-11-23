@@ -25,7 +25,10 @@ export type { RunOperation } from "./agent-prims.js";
  * @public
  */
 export interface ToolResultGuardOptions {
-  /** Wrap tool-result content in explicit data boundaries (spotlighting). */
+  /**
+   * Wrap tool-result content in explicit data boundaries (spotlighting). When on, the SDK also adds
+   * one line to the system prompt (`UNTRUSTED_TOOL_OUTPUT_NOTICE`) explaining the tag.
+   */
   delimit?: boolean;
   /** Redact common PII patterns (email, phone) in tool-result content. */
   redactPii?: boolean;
