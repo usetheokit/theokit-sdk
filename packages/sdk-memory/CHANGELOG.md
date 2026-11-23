@@ -1,5 +1,12 @@
 # Changelog — @theokit/sdk-memory
 
+## 0.7.6
+
+### Patch Changes
+
+- Updated dependencies [[`5c4c15a`](https://github.com/usetheokit/theokit-sdk/commit/5c4c15a0f634c069d61b5e0280b6fc8e31fad349), [`5ab5533`](https://github.com/usetheokit/theokit-sdk/commit/5ab5533bc0819b9f607738e715c619b35df1fd85), [`a1919db`](https://github.com/usetheokit/theokit-sdk/commit/a1919dbf279c21777190757d8676ea72cb1d77a7), [`7e4756b`](https://github.com/usetheokit/theokit-sdk/commit/7e4756b003fcbbff6de823e9951e4206dbaeb46e), [`3a7bd5a`](https://github.com/usetheokit/theokit-sdk/commit/3a7bd5ae9895c07a9c24af6004f333be2c3f6998), [`9f1356b`](https://github.com/usetheokit/theokit-sdk/commit/9f1356b263e5185c898a139e0994bd620c78e700)]:
+  - @theokit/sdk@11.0.0
+
 ## 0.7.5
 
 ### Patch Changes

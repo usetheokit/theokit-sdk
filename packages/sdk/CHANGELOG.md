@@ -1,5 +1,29 @@
 # Changelog
 
+## 11.0.0
+
+### Major Changes
+
+- [#1510](https://github.com/usetheokit/theokit-sdk/pull/1510) [`7e4756b`](https://github.com/usetheokit/theokit-sdk/commit/7e4756b003fcbbff6de823e9951e4206dbaeb46e) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `AgentOptions.sendDefaults` now accepts `doomLoop`, merged key by key like the other defaults; a `doomLoop` passed to `send` wins.
+  
+  Breaking for type consumers: the `sendDefaults` property type widens, which the API surface check reports as a change to the optional property.
+
+- [#1503](https://github.com/usetheokit/theokit-sdk/pull/1503) [`9f1356b`](https://github.com/usetheokit/theokit-sdk/commit/9f1356b263e5185c898a139e0994bd620c78e700) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/workflow`: add `Workflow.fromDefinition(definition, { generate, persistence })` to compile a linear workflow described as data (prompt steps and approval steps), and `loadWorkflowDir(dir, options)` to load every `*.json` definition in a directory. An invalid file throws `WorkflowDefinitionError` naming the file and the offending field. Also exports `parseWorkflowDefinition` and the definition types.
+  
+  Flagged breaking by the API-surface baseline only because the `Workflow` class declaration gains a static method; no existing call changes.
+
+### Minor Changes
+
+- [#1506](https://github.com/usetheokit/theokit-sdk/pull/1506) [`5c4c15a`](https://github.com/usetheokit/theokit-sdk/commit/5c4c15a0f634c069d61b5e0280b6fc8e31fad349) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/sandbox` exports `SANDBOX_MODES` (the tuple `SandboxMode` is derived from) and `parseSandboxMode(value)`, which returns the mode or throws a `ConfigurationError` listing the valid modes.
+
+- [#1501](https://github.com/usetheokit/theokit-sdk/pull/1501) [`3a7bd5a`](https://github.com/usetheokit/theokit-sdk/commit/3a7bd5ae9895c07a9c24af6004f333be2c3f6998) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `addMemoryFact` and `memoryPartitionId`: write a fact into a memory partition without a live agent, and turn any scope string into a valid `userId`.
+
+### Patch Changes
+
+- [#1516](https://github.com/usetheokit/theokit-sdk/pull/1516) [`5ab5533`](https://github.com/usetheokit/theokit-sdk/commit/5ab5533bc0819b9f607738e715c619b35df1fd85) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The sandbox mode list and `parseSandboxMode` now live in their own module, so they are covered by the test run; the public exports are unchanged.
+
+- [#1517](https://github.com/usetheokit/theokit-sdk/pull/1517) [`a1919db`](https://github.com/usetheokit/theokit-sdk/commit/a1919dbf279c21777190757d8676ea72cb1d77a7) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Workflow definition files in a directory now load in alphabetical filename order (`localeCompare`, `en`), so `B.json` follows `a.json` instead of preceding it.
+
 ## 10.0.0
 
 ### Major Changes
