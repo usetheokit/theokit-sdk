@@ -134,7 +134,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_redaction_pattern` | domain | ConfigurationError | `packages/sdk/src/security.ts:109` |
 | `invalid_request` | domain | — | `packages/sdk/src/internal/error-mappers/vertex.ts:53` +1 |
 | `invalid_retry_config` | domain | ConfigurationError | `packages/sdk/src/internal/retry/with-retry.ts:67` |
-| `invalid_sandbox_mode` | domain | ConfigurationError | `packages/sdk/src/sandbox/types.ts:308` |
+| `invalid_sandbox_mode` | domain | ConfigurationError | `packages/sdk/src/sandbox/modes.ts:16` |
 | `invalid_skill_spec` | domain | ConfigurationError | `packages/sdk/src/create-skill.ts:44` +1 |
 | `invalid_squad` | domain | ConfigurationError | `packages/sdk/src/squad.ts:138` |
 | `invalid_task_id` | domain | — | `packages/sdk/src/task-errors.ts:33` +1 |

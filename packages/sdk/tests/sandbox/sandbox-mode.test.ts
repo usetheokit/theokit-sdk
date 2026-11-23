@@ -16,5 +16,10 @@ describe("SANDBOX_MODES / parseSandboxMode", () => {
       /read-only, workspace-write, danger-full-access/,
     );
     expect(() => parseSandboxMode(undefined)).toThrow(ConfigurationError);
+    try {
+      parseSandboxMode(42);
+    } catch (e) {
+      expect((e as ConfigurationError).code).toBe("invalid_sandbox_mode");
+    }
   });
 });

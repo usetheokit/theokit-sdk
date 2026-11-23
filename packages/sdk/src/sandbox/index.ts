@@ -72,6 +72,7 @@ export {
   wrapCommandForSandbox,
 } from "./linux-sandbox.js";
 export { LocalSandbox } from "./local-sandbox.js";
+export { parseSandboxMode, SANDBOX_MODES } from "./modes.js";
 export {
   type ProvisionRepoOptions,
   provisionRepo,
@@ -81,9 +82,7 @@ export { buildSeccompFilter, type SeccompOptions } from "./seccomp.js";
 export { shellEscapePosix } from "./shell-escape.js";
 export {
   type ExecuteResult,
-  parseSandboxMode,
   resolveSandbox,
-  SANDBOX_MODES,
   SandboxBackend,
   type SandboxConfig,
   type SandboxNetworkPolicy,
