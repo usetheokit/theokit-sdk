@@ -31,12 +31,14 @@ describe("addMemoryFact", () => {
     );
   });
 
-  it("honours maxFacts", async () => {
+  it("refuses a write past maxFacts with memory_ceiling_reached and leaves the list unchanged", async () => {
     const cwd = cwdDir();
     const s = { userId: "u1", maxFacts: 1 };
     await addMemoryFact(cwd, "one", s);
-    await addMemoryFact(cwd, "two", s).catch(() => undefined);
-    expect((await listMemoryFacts(cwd, s)).length).toBeLessThanOrEqual(1);
+    await expect(addMemoryFact(cwd, "two", s)).rejects.toMatchObject({
+      code: "memory_ceiling_reached",
+    });
+    expect((await listMemoryFacts(cwd, s)).map((f) => f.text)).toEqual(["one"]);
   });
 });
 
