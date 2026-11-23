@@ -57,6 +57,14 @@ describe("loadWorkflowDir", () => {
     expect(list.map((w) => w.__options.name)).toEqual(["a", "b"]);
   });
 
+  it("orders filenames alphabetically, not by UTF-16 code unit", async () => {
+    const dir = await tempDir();
+    await writeFile(join(dir, "B.json"), JSON.stringify({ ...def, name: "upper" }));
+    await writeFile(join(dir, "a.json"), JSON.stringify({ ...def, name: "lower" }));
+    const list = await loadWorkflowDir(dir, { generate: () => "" });
+    expect(list.map((w) => w.__options.name)).toEqual(["lower", "upper"]);
+  });
+
   it("names the file and field of an invalid definition", async () => {
     const dir = await tempDir();
     await writeFile(
