@@ -1,9 +1,10 @@
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { __resetSnapshotStoresForTests } from "../../src/internal/workflow/snapshot-store.js";
 import { loadWorkflowDir, Workflow, WorkflowDefinitionError } from "../../src/workflow.js";
+import { removeTempDirRobust } from "../helpers/temp-workspace.js";
 
 const def = {
   name: "release",
@@ -40,9 +41,15 @@ describe("Workflow.fromDefinition", () => {
   });
 });
 
+async function tempDir(): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "wfdef-"));
+  onTestFinished(() => removeTempDirRobust(dir));
+  return dir;
+}
+
 describe("loadWorkflowDir", () => {
   it("loads json files in filename order", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "wfdef-"));
+    const dir = await tempDir();
     await writeFile(join(dir, "b.json"), JSON.stringify({ ...def, name: "b" }));
     await writeFile(join(dir, "a.json"), JSON.stringify({ ...def, name: "a" }));
     await writeFile(join(dir, "note.txt"), "ignored");
@@ -51,7 +58,7 @@ describe("loadWorkflowDir", () => {
   });
 
   it("names the file and field of an invalid definition", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "wfdef-"));
+    const dir = await tempDir();
     await writeFile(
       join(dir, "bad.json"),
       JSON.stringify({ name: "bad", steps: [{ id: "Bad Id", prompt: "p" }] }),
@@ -65,7 +72,7 @@ describe("loadWorkflowDir", () => {
   });
 
   it("names the file for malformed JSON", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "wfdef-"));
+    const dir = await tempDir();
     await writeFile(join(dir, "broken.json"), "{");
     await expect(loadWorkflowDir(dir, { generate: () => "" })).rejects.toThrow(/broken\.json/);
   });

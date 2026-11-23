@@ -18,7 +18,6 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { ConfigurationError } from "./errors.js";
-import type { Workflow } from "./workflow.js";
 
 const StepIdSchema = z
   .string()
@@ -93,10 +92,8 @@ export function parseWorkflowDefinition(input: unknown, file?: string): Workflow
   throw new WorkflowDefinitionError(file, field, issue?.message ?? "invalid");
 }
 
-/** Options for {@link loadWorkflowDir}; `generate` and `persistence` as for `Workflow.fromDefinition`. @public */
-export type WorkflowDefinitionOptions = Parameters<typeof Workflow.fromDefinition>[1];
-
-async function readDefinitionFile(dir: string, file: string): Promise<WorkflowDefinition> {
+/** Read and validate one `.json` definition file in `dir`; errors name `file`. @internal */
+export async function readDefinitionFile(dir: string, file: string): Promise<WorkflowDefinition> {
   let json: unknown;
   try {
     json = JSON.parse(await readFile(join(dir, file), "utf8"));
@@ -106,22 +103,7 @@ async function readDefinitionFile(dir: string, file: string): Promise<WorkflowDe
   return parseWorkflowDefinition(json, file);
 }
 
-/**
- * Load every `*.json` file directly in `dir` (not recursive, filename order) and compile each with
- * `Workflow.fromDefinition`. A file that is not valid JSON or not a valid definition throws
- * {@link WorkflowDefinitionError} naming the file and field.
- *
- * @public
- */
-export async function loadWorkflowDir(
-  dir: string,
-  options: WorkflowDefinitionOptions,
-): Promise<Workflow[]> {
-  const { Workflow: W } = await import("./workflow.js");
-  const files = (await readdir(dir)).filter((f) => f.endsWith(".json")).sort();
-  const workflows: Workflow[] = [];
-  for (const file of files) {
-    workflows.push(W.fromDefinition(await readDefinitionFile(dir, file), options));
-  }
-  return workflows;
+/** The `*.json` file names directly in `dir`, in filename order. @internal */
+export async function listDefinitionFiles(dir: string): Promise<string[]> {
+  return (await readdir(dir)).filter((f) => f.endsWith(".json")).sort();
 }

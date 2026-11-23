@@ -1870,7 +1870,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `WorkflowCompensateNotImplementedError` | class | D238 — a `compensate` on a step nested in parallel/branch/foreach/dowhile (top-level steps are supported). |
 | `WorkflowDefinition` | interface | A linear workflow as data. |
 | `WorkflowDefinitionError` | class | Thrown for a definition that is not valid.  |
-| `WorkflowDefinitionOptions` | type | Options for {@link loadWorkflowDir } ; `generate` and `persistence` as for `Workflow.fromDefinition`. |
+| `WorkflowDefinitionOptions` | interface | Options for `Workflow.fromDefinition`: the prompt callback and optional persistence. |
 | `WorkflowDescription` | interface | theokit#161 — the read-only shape of a committed workflow.  |
 | `WorkflowDuplicateStepIdError` | class | Thrown by `.commit()` when one step id appears twice anywhere in the workflow — including inside a parallel branch, a branch predicate, the fallback, and the inner step of a `foreach` or `dowhile`.  |
 | `WorkflowEvent` | type | SE28 — a step-level workflow event emitted by `Workflow.stream()` as top-level steps run.  |
