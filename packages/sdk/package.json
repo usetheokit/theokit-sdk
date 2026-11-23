@@ -1,6 +1,6 @@
 {
   "name": "@theokit/sdk",
-  "version": "10.0.0",
+  "version": "11.0.0",
   "description": "TypeScript SDK for the Theo agent harness — same surface, local or cloud.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/usetheokit/theokit-sdk#readme",
@@ -440,6 +440,7 @@
     "@opentelemetry/exporter-prometheus": "^0.223.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.223.0",
     "@opentelemetry/resources": "^2.0.0",
+    "@opentelemetry/sdk-logs": "^0.223.0",
     "@opentelemetry/sdk-metrics": "^2.0.0",
     "@opentelemetry/sdk-trace-base": "^2.0.0",
     "@types/ws": ">=8.0.0",
@@ -466,6 +467,9 @@
       "optional": true
     },
     "@opentelemetry/resources": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-logs": {
       "optional": true
     },
     "@opentelemetry/sdk-metrics": {
@@ -523,6 +527,7 @@
     "@opentelemetry/exporter-prometheus": "^0.223.2",
     "@opentelemetry/exporter-trace-otlp-http": "^0.223.2",
     "@opentelemetry/resources": "^2.12.1",
+    "@opentelemetry/sdk-logs": "^0.223.2",
     "@opentelemetry/sdk-metrics": "^2.12.1",
     "@opentelemetry/sdk-trace-base": "^2.12.1",
     "@theokit/sdk-budget": "workspace:*",
