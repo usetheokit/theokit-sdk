@@ -541,7 +541,9 @@ export async function readTranscriptDetailed(
   }
   const lines = raw.split("\n");
   if (lines[lines.length - 1] === "") lines.pop();
-  const records = lines.map((l) => parseRecordLine(l, options.lenient === true)).filter((r): r is SessionRecord => r !== undefined);
+  const records = lines
+    .map((l) => parseRecordLine(l, options.lenient === true))
+    .filter((r): r is SessionRecord => r !== undefined);
   return { absent: false, records, skippedLines: lines.length - records.length };
 }
 

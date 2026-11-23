@@ -144,10 +144,7 @@ export class FsSessionStore implements SessionStore {
   }
 
   /** Like {@link readRecords}, plus absence and skipped-line count, from the same resolved path. */
-  async readHistory(
-    agentId: string,
-    options: { lenient?: boolean } = {},
-  ): Promise<TranscriptRead> {
+  async readHistory(agentId: string, options: { lenient?: boolean } = {}): Promise<TranscriptRead> {
     return readTranscriptDetailed(this.#pathFor(agentId), options);
   }
 
