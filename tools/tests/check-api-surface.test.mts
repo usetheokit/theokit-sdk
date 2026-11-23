@@ -179,6 +179,31 @@ describe("main, end to end in a git repository", () => {
     expect(main([], r.opts("2026-11-20"))).toBe(1);
   });
 
+  it("test_a_named_base_is_used_even_when_workspace_differs_and_is_logged", () => {
+    const r = repo(BASE);
+    r.commit("base");
+    sh(r.root, "update-ref", "refs/remotes/origin/main", "HEAD");
+    r.write("export interface Opts { a: string }\n", "2026-11-20");
+    r.commit("remove");
+    sh(r.root, "update-ref", "refs/remotes/origin/workspace", "HEAD");
+    const logs: string[] = [];
+    const named = { ...r.opts("2026-11-20", { GITHUB_BASE_REF: "main" }), log: (m: string) => logs.push(m) };
+    expect(main([], named)).toBe(1);
+    expect(logs.join("\n")).toMatch(/origin\/main at [0-9a-f]{40}/);
+    expect(main([], r.opts("2026-11-20", { API_SURFACE_BASE: "workspace" }))).toBe(0);
+  });
+
+  it("test_a_named_base_that_cannot_be_resolved_fails_without_falling_back", () => {
+    const r = repo(BASE);
+    r.commit("base");
+    sh(r.root, "update-ref", "refs/remotes/origin/workspace", "HEAD");
+    const logs: string[] = [];
+    const o = { ...r.opts("2026-11-20", { GITHUB_BASE_REF: "main" }), log: (m: string) => logs.push(m) };
+    expect(main([], o)).toBe(1);
+    expect(logs.join("\n")).toContain('"main"');
+    expect(logs.join("\n")).not.toContain("comparing against");
+  });
+
   it("test_a_base_without_a_baseline_is_the_bootstrap_and_passes", () => {
     const r = repo(BASE);
     sh(r.root, "commit", "-q", "--allow-empty", "-m", "empty");
