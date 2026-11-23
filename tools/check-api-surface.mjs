@@ -267,17 +267,16 @@ function ensureRef(root, branch, ref) {
 function resolveBase(root, env) {
   const named = namedBase(env);
   const candidates = named ? [named] : ["workspace", "main"];
-  let fetchError;
   for (const branch of candidates) {
     const ref = `refs/remotes/origin/${branch}`;
-    const failure = ensureRef(root, branch, ref);
+    ensureRef(root, branch, ref);
     const tip = tryGit(root, ["rev-parse", "--verify", "-q", ref]);
     if (tip) return { branch, commit: tryGit(root, ["merge-base", "HEAD", ref]) ?? tip };
-    fetchError ??= failure;
   }
   if (named) {
     return {
-      error: `cannot resolve the PR base branch "${named}": ${fetchError || "origin/" + named + " not found"}`,
+      error:
+        "cannot resolve the PR base branch named by API_SURFACE_BASE or GITHUB_BASE_REF (is it fetched from origin?)",
     };
   }
   return {
@@ -326,7 +325,7 @@ function compareToBase(current, today, log, ctx) {
   const resolved = resolveBase(ctx.root, ctx.env);
   if (resolved.error) return [resolved.error];
   const base = resolved.commit;
-  log(`api-surface: comparing against origin/${resolved.branch} at ${base}`);
+  log(`api-surface: comparing against the resolved PR base commit ${base}`);
   const before = baseBaseline(ctx.root, base, ctx.rel);
   if (!before) {
     log(`base ${base.slice(0, 8)} has no ${ctx.rel}: first baseline, nothing to compare`);

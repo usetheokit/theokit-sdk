@@ -189,7 +189,8 @@ describe("main, end to end in a git repository", () => {
     const logs: string[] = [];
     const named = { ...r.opts("2026-11-20", { GITHUB_BASE_REF: "main" }), log: (m: string) => logs.push(m) };
     expect(main([], named)).toBe(1);
-    expect(logs.join("\n")).toMatch(/origin\/main at [0-9a-f]{40}/);
+    expect(logs.join("\n")).toMatch(/commit [0-9a-f]{40}/);
+    expect(logs.join("\n")).not.toContain("origin/main");
     expect(main([], r.opts("2026-11-20", { API_SURFACE_BASE: "workspace" }))).toBe(0);
   });
 
@@ -200,7 +201,8 @@ describe("main, end to end in a git repository", () => {
     const logs: string[] = [];
     const o = { ...r.opts("2026-11-20", { GITHUB_BASE_REF: "main" }), log: (m: string) => logs.push(m) };
     expect(main([], o)).toBe(1);
-    expect(logs.join("\n")).toContain('"main"');
+    expect(logs.join("\n")).toContain("cannot resolve the PR base branch");
+    expect(logs.join("\n")).not.toContain("main");
     expect(logs.join("\n")).not.toContain("comparing against");
   });
 
