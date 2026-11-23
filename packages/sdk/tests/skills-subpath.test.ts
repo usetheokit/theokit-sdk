@@ -138,3 +138,12 @@ describe("discoverSkills (M4-1)", () => {
     }
   });
 });
+
+describe("skills entry point exports (user root, parser, PATH check)", () => {
+  it("exposes resolveSkillRoots, parseSkillFrontmatter and binaryOnPath", async () => {
+    const mod = await import("../src/skills.js");
+    expect(typeof mod.resolveSkillRoots).toBe("function");
+    expect(typeof mod.parseSkillFrontmatter).toBe("function");
+    expect(typeof mod.binaryOnPath).toBe("function");
+  });
+});

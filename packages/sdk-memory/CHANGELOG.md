@@ -1,5 +1,11 @@
 # Changelog — @theokit/sdk-memory
 
+## 0.7.4
+
+### Patch Changes
+
+- [#1474](https://github.com/usetheokit/theokit-sdk/pull/1474) [`69282a9`](https://github.com/usetheokit/theokit-sdk/commit/69282a9e4cb1e8e5869bbc1ce16ecb014dc80bde) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk-memory` now re-exports `runActiveMemory` and the `memory_search` / `memory_get` tool factories from `@theokit/sdk` instead of carrying copies, so a fix to one reaches users of the other. The SDK's recall and tool options now accept any index that has `search`.
+
 ## 0.7.3
 
 ### Patch Changes

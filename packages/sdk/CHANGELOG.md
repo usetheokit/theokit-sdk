@@ -1,5 +1,15 @@
 # Changelog
 
+## 9.1.0
+
+### Minor Changes
+
+- [#1477](https://github.com/usetheokit/theokit-sdk/pull/1477) [`6b136a4`](https://github.com/usetheokit/theokit-sdk/commit/6b136a434ce06a68c9e24b4910b4d11a4fde379f) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Export `splitFrontmatter`, `parseFrontmatterYaml`, `FrontmatterSplit` and `FrontmatterScalar` from `@theokit/sdk/context`, and route the SDK's own frontmatter loaders through them. A closing fence on the last line and CRLF files are now accepted everywhere.
+
+### Patch Changes
+
+- [#1474](https://github.com/usetheokit/theokit-sdk/pull/1474) [`69282a9`](https://github.com/usetheokit/theokit-sdk/commit/69282a9e4cb1e8e5869bbc1ce16ecb014dc80bde) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk-memory` now re-exports `runActiveMemory` and the `memory_search` / `memory_get` tool factories from `@theokit/sdk` instead of carrying copies, so a fix to one reaches users of the other. The SDK's recall and tool options now accept any index that has `search`.
+
 ## 9.0.0
 
 ### Major Changes
