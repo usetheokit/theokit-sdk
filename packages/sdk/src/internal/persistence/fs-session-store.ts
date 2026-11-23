@@ -138,9 +138,14 @@ export class FsSessionStore implements SessionStore {
     return readTranscript(this.#pathFor(agentId));
   }
 
+  /** Every message record, including ones without a uuid, for a whole-session read. */
+  async readAllRecords(agentId: string): Promise<SessionRecord[]> {
+    return (await this.readHistory(agentId, { lenient: true })).records;
+  }
+
   /** Like {@link readRecords}, plus absence and skipped-line count, from the same resolved path. */
-  async readHistory(agentId: string): Promise<TranscriptRead> {
-    return readTranscriptDetailed(this.#pathFor(agentId));
+  async readHistory(agentId: string, options: { lenient?: boolean } = {}): Promise<TranscriptRead> {
+    return readTranscriptDetailed(this.#pathFor(agentId), options);
   }
 
   async appendRecords(agentId: string, records: readonly SessionRecord[]): Promise<void> {
