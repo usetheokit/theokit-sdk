@@ -105,5 +105,5 @@ export async function readDefinitionFile(dir: string, file: string): Promise<Wor
 
 /** The `*.json` file names directly in `dir`, in filename order. @internal */
 export async function listDefinitionFiles(dir: string): Promise<string[]> {
-  return (await readdir(dir)).filter((f) => f.endsWith(".json")).sort();
+  return (await readdir(dir)).filter((f) => f.endsWith(".json")).sort((a, b) => a.localeCompare(b, "en"));
 }
