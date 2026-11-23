@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1622 export(s) across 61 entry point(s).
+1621 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -421,7 +421,6 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `RunTripwireEvent` | interface | SE24 — a guardrail processor called `abort()`; the run stops with a tripwire.  |
 | `RunUntilIterator` | type | Return type of {@link import ("../internal/local-agent/local-agent.js").LocalAgent.runUntil } .  |
 | `scopedConversationId` | function | M3 #62 — build a scope-namespaced conversation id (`"<scope>__<id>"`). |
-| `ScopedEntityName` | interface | An entity name with its scope, as the caller knows it. |
 | `SDKAgent` | interface | Handle returned by `Agent.create()` and `Agent.resume()`. |
 | `SDKAgentInfo` | type | Metadata returned by `Agent.list()` and `Agent.get()`. |
 | `SDKAgentPlugins` | interface | Public plugin listing handle exposed as `agent.plugins`.  |

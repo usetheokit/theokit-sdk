@@ -71,12 +71,6 @@ export interface WiredEntityScope {
   readonly scope: string | undefined;
 }
 
-/** An entity name with its scope, as the caller knows it. @public */
-export interface ScopedEntityName {
-  readonly name: string;
-  readonly scope: string;
-}
-
 /**
  * Why a capability is off. `suppressed-by-trust` and `disabled-by-config` are the SDK's own
  * reasons; any other string is a caller-defined reason.
@@ -121,19 +115,30 @@ export interface WiringRecordInput<K extends string> {
   /** Per capability, the entity names the build was given. Drives which keys the record has. */
   readonly requested: Readonly<Record<K, readonly string[]>>;
   /**
-   * Optional, per capability: the scope of each requested entity, matched by name. Supplied by the
-   * caller at wiring time; names with no entry get an undefined scope.
+   * Optional, per capability: the scope of each requested entity, matched BY POSITION with
+   * `requested[capability]` so the same name in two scopes (a personal and a project server) keeps
+   * its own scope. Supplied by the caller at wiring time; a missing position gets an undefined scope.
    */
-  readonly scopes?: Readonly<Partial<Record<K, readonly ScopedEntityName[]>>>;
+  readonly scopes?: Readonly<Partial<Record<K, readonly string[]>>>;
   /**
    * Optional, per capability: a non-trust reason the capability is off (for example
    * `disabled-by-config`). The caller must also have withheld it from the builder: this only labels
-   * `off` and empties `active`. Trust suppression takes precedence when both apply.
+   * `off` and empties `active`. Trust suppression takes precedence when both apply. Like
+   * `suppressedByTrust`, `off` is only set when something was requested.
    */
   readonly disabled?: Readonly<Partial<Record<K, WiringOffReason>>>;
 }
 
 const TRUST_OFF: WiringOffReason = { reason: "suppressed-by-trust" };
+
+function offReason(
+  allowed: boolean,
+  requested: number,
+  disabled: WiringOffReason | undefined,
+): WiringOffReason | undefined {
+  if (requested === 0) return undefined;
+  return allowed ? disabled : TRUST_OFF;
+}
 
 /**
  * Record what a build actually wired, per capability.
@@ -173,16 +178,13 @@ export function recordWiring<K extends string>(
           `gated capabilities are: ${Object.keys(input.posture.allows).join(", ") || "(none)"}`,
       );
     }
-    const off = allowed ? input.disabled?.[capability] : TRUST_OFF;
+    const off = offReason(allowed, requested.length, input.disabled?.[capability]);
     record[capability] = {
       // Copied, not aliased. See the @returns note.
       active: off ? [] : [...requested],
       requested: [...requested],
       suppressedByTrust: !allowed && requested.length > 0,
-      entities: requested.map((name) => ({
-        name,
-        scope: input.scopes?.[capability]?.find((e) => e.name === name)?.scope,
-      })),
+      entities: requested.map((name, i) => ({ name, scope: input.scopes?.[capability]?.[i] })),
       off,
     };
   }

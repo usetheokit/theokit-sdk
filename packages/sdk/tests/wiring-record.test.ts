@@ -162,13 +162,7 @@ describe("recordWiring — scopes and off reasons", () => {
     const r = recordWiring({
       posture: TRUSTED,
       requested: { mcp: ["a", "b"], skills: ["s"] },
-      scopes: {
-        mcp: [
-          { name: "a", scope: "personal" },
-          { name: "b", scope: "project" },
-        ],
-        skills: [{ name: "s", scope: "operator" }],
-      },
+      scopes: { mcp: ["personal", "project"], skills: ["operator"] },
     });
     expect(r.mcp.entities).toEqual([
       { name: "a", scope: "personal" },
@@ -199,5 +193,31 @@ describe("recordWiring — scopes and off reasons", () => {
       { capability: "skills", reason: "disabled-by-config" },
       { capability: "hooks", reason: "no-runtime", detail: "headless" },
     ]);
+  });
+
+  it("keeps each scope when the same name comes from two scopes", () => {
+    const r = recordWiring({
+      posture: TRUSTED,
+      requested: { mcp: ["fs", "fs"] },
+      scopes: { mcp: ["personal", "project"] },
+    });
+    expect(r.mcp.entities).toEqual([
+      { name: "fs", scope: "personal" },
+      { name: "fs", scope: "project" },
+    ]);
+  });
+
+  it("reports no off reason for a capability that requested nothing", async () => {
+    const { offCapabilities } = await import("../src/wiring-record.js");
+    const r = recordWiring({
+      posture: { allows: { mcp: false, skills: true } },
+      requested: { mcp: [], skills: [] },
+      disabled: { skills: { reason: "disabled-by-config" } },
+    });
+    expect(r.mcp.off).toBeUndefined();
+    expect(r.skills.off).toBeUndefined();
+    expect(offCapabilities(r)).toEqual([]);
+    for (const e of Object.values(r))
+      expect(e.off?.reason === "suppressed-by-trust").toBe(e.suppressedByTrust);
   });
 });

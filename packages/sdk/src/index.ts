@@ -539,7 +539,6 @@ export {
   type OffCapability,
   offCapabilities,
   recordWiring,
-  type ScopedEntityName,
   UngatedCapabilityError,
   type WiredEntity,
   type WiredEntityScope,

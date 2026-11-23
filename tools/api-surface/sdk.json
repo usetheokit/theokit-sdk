@@ -5669,10 +5669,6 @@
         "tier": "stable",
         "declaration": "SOVEREIGN_ENV_KEYS: readonly [\n    \"THEOKIT_HOME\",\n    \"THEOKIT_AUTH_HOME\",\n    \"THEOKIT_TRUSTED_PROVIDERS\",\n    \"THEOKIT_REDACT_SECRETS\",\n    \"THEOKIT_OAUTH_TX_SALT\"\n]"
       },
-      "ScopedEntityName": {
-        "tier": "stable",
-        "declaration": "interface ScopedEntityName {\n    readonly name: string;\n    readonly scope: string;\n}"
-      },
       "Security": {
         "tier": "stable",
         "declaration": "declare class Security {\n    private constructor();\n    static redact(text: unknown, opts?: {\n        codeFile?: boolean;\n    }): string;\n    static addPattern(re: RegExp): void;\n    static createMask(values: readonly string[], options?: {\n        placeholder?: string;\n        minLength?: number;\n    }): ExactValueMask;\n}"
@@ -6135,7 +6131,7 @@
       },
       "WiringRecordInput": {
         "tier": "stable",
-        "declaration": "interface WiringRecordInput<K extends string> {\n    readonly posture: {\n        readonly allows: Readonly<Record<string, boolean>>;\n    };\n    readonly requested: Readonly<Record<K, readonly string[]>>;\n    readonly scopes?: Readonly<Partial<Record<K, readonly ScopedEntityName[]>>>;\n    readonly disabled?: Readonly<Partial<Record<K, WiringOffReason>>>;\n}"
+        "declaration": "interface WiringRecordInput<K extends string> {\n    readonly posture: {\n        readonly allows: Readonly<Record<string, boolean>>;\n    };\n    readonly requested: Readonly<Record<K, readonly string[]>>;\n    readonly scopes?: Readonly<Partial<Record<K, readonly string[]>>>;\n    readonly disabled?: Readonly<Partial<Record<K, WiringOffReason>>>;\n}"
       },
       "WithBlastRadius": {
         "tier": "stable",
@@ -7712,10 +7708,6 @@
         "tier": "stable",
         "declaration": "SOVEREIGN_ENV_KEYS: readonly [\n    \"THEOKIT_HOME\",\n    \"THEOKIT_AUTH_HOME\",\n    \"THEOKIT_TRUSTED_PROVIDERS\",\n    \"THEOKIT_REDACT_SECRETS\",\n    \"THEOKIT_OAUTH_TX_SALT\"\n]"
       },
-      "ScopedEntityName": {
-        "tier": "stable",
-        "declaration": "interface ScopedEntityName {\n    readonly name: string;\n    readonly scope: string;\n}"
-      },
       "Security": {
         "tier": "stable",
         "declaration": "declare class Security {\n    private constructor();\n    static redact(text: unknown, opts?: {\n        codeFile?: boolean;\n    }): string;\n    static addPattern(re: RegExp): void;\n    static createMask(values: readonly string[], options?: {\n        placeholder?: string;\n        minLength?: number;\n    }): ExactValueMask;\n}"
@@ -8178,7 +8170,7 @@
       },
       "WiringRecordInput": {
         "tier": "stable",
-        "declaration": "interface WiringRecordInput<K extends string> {\n    readonly posture: {\n        readonly allows: Readonly<Record<string, boolean>>;\n    };\n    readonly requested: Readonly<Record<K, readonly string[]>>;\n    readonly scopes?: Readonly<Partial<Record<K, readonly ScopedEntityName[]>>>;\n    readonly disabled?: Readonly<Partial<Record<K, WiringOffReason>>>;\n}"
+        "declaration": "interface WiringRecordInput<K extends string> {\n    readonly posture: {\n        readonly allows: Readonly<Record<string, boolean>>;\n    };\n    readonly requested: Readonly<Record<K, readonly string[]>>;\n    readonly scopes?: Readonly<Partial<Record<K, readonly string[]>>>;\n    readonly disabled?: Readonly<Partial<Record<K, WiringOffReason>>>;\n}"
       },
       "WithBlastRadius": {
         "tier": "stable",
