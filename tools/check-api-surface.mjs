@@ -242,11 +242,15 @@ function gitError(err) {
 function ensureRef(root, branch, ref) {
   if (tryGit(root, ["rev-parse", "--verify", "-q", ref])) return undefined;
   try {
-    execFileSync("git", ["fetch", "--no-tags", "--depth=1", "origin", `+refs/heads/${branch}:${ref}`], {
-      cwd: root,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    execFileSync(
+      "git",
+      ["fetch", "--no-tags", "--depth=1", "origin", `+refs/heads/${branch}:${ref}`],
+      {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
   } catch (err) {
     return gitError(err);
   }
@@ -272,9 +276,13 @@ function resolveBase(root, env) {
     fetchError ??= failure;
   }
   if (named) {
-    return { error: `cannot resolve the PR base branch "${named}": ${fetchError || "origin/" + named + " not found"}` };
+    return {
+      error: `cannot resolve the PR base branch "${named}": ${fetchError || "origin/" + named + " not found"}`,
+    };
   }
-  return { error: "cannot resolve the PR base branch (set API_SURFACE_BASE, or fetch origin/workspace)" };
+  return {
+    error: "cannot resolve the PR base branch (set API_SURFACE_BASE, or fetch origin/workspace)",
+  };
 }
 
 function addedChangesets(root, base) {
