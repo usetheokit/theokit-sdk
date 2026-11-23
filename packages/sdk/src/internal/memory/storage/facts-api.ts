@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { syncCorpus } from "../corpus-sync.js";
 import { defaultIndexPath, openMemoryDb } from "../index-db.js";
 import { MemoryIndexRepository } from "../index-repository.js";
+import { appendFactToMarkdown } from "./markdown-store.js";
 import { type FactEntryInfo, listFactEntries, removeFactEntry } from "./memory-fact-entries.js";
 import { type MemoryLocationConfig, memoryIndexRoot, resolveMemoryRoot } from "./memory-root.js";
 
@@ -56,4 +57,19 @@ async function reindexMemoryDir(cwd: string, config?: MemoryLocationConfig): Pro
   } finally {
     db.close();
   }
+}
+
+/** Append a fact to the write root for `config` (honours `directory`, `userId`, `maxFacts`). */
+export async function addFact(
+  cwd: string,
+  text: string,
+  config?: MemoryLocationConfig & { maxFacts?: number },
+): Promise<void> {
+  await appendFactToMarkdown(
+    cwd,
+    { text },
+    resolveMemoryRoot(cwd, config),
+    config?.maxFacts === undefined ? {} : { maxFacts: config.maxFacts },
+  );
+  await reindexMemoryDir(cwd, config);
 }

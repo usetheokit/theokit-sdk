@@ -6101,6 +6101,10 @@
         "tier": "stable",
         "declaration": "interface WorkspacePluginListing {\n    readonly name: string;\n    readonly root: string;\n    readonly manifestPath: string;\n    readonly format: \"claude-plugin-json\" | \"plugin-md\" | \"plugin-json\";\n}"
       },
+      "addMemoryFact": {
+        "tier": "stable",
+        "declaration": "declare function addMemoryFact(cwd: string, text: string, settings?: Partial<MemorySettings>): Promise<void>;"
+      },
       "agentStep": {
         "tier": "stable",
         "declaration": "declare function agentStep(id: string, agent: SDKAgent, promptTemplate: string | ((input: unknown) => string), opts?: {\n    retry?: RetryPolicy;\n    origin?: MessageOrigin;\n}): AgentStep;"
@@ -6268,6 +6272,10 @@
       "memoryGenerations": {
         "tier": "stable",
         "declaration": "declare function memoryGenerations(): GenerationStore;"
+      },
+      "memoryPartitionId": {
+        "tier": "stable",
+        "declaration": "declare function memoryPartitionId(scope: string): string;"
       },
       "migrateSqliteToLance": {
         "tier": "stable",
@@ -8108,6 +8116,10 @@
         "tier": "stable",
         "declaration": "interface WorkspacePluginListing {\n    readonly name: string;\n    readonly root: string;\n    readonly manifestPath: string;\n    readonly format: \"claude-plugin-json\" | \"plugin-md\" | \"plugin-json\";\n}"
       },
+      "addMemoryFact": {
+        "tier": "stable",
+        "declaration": "declare function addMemoryFact(cwd: string, text: string, settings?: Partial<MemorySettings>): Promise<void>;"
+      },
       "agentStep": {
         "tier": "stable",
         "declaration": "declare function agentStep(id: string, agent: SDKAgent, promptTemplate: string | ((input: unknown) => string), opts?: {\n    retry?: RetryPolicy;\n    origin?: MessageOrigin;\n}): AgentStep;"
@@ -8275,6 +8287,10 @@
       "memoryGenerations": {
         "tier": "stable",
         "declaration": "declare function memoryGenerations(): GenerationStore;"
+      },
+      "memoryPartitionId": {
+        "tier": "stable",
+        "declaration": "declare function memoryPartitionId(scope: string): string;"
       },
       "migrateSqliteToLance": {
         "tier": "stable",

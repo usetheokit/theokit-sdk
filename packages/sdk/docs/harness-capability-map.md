@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1610 export(s) across 61 entry point(s).
+1612 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -68,6 +68,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 |---|---|---|
 | `ActiveMemoryPassArgs` | interface | Arguments for `MemoryProvider.runActivePass(...)`. |
 | `ActiveMemoryPassResult` | interface | Result of `MemoryProvider.runActivePass(...)` — what the kernel injects into the LLM call. |
+| `addMemoryFact` | function | Append a fact to the built-in store for `settings`, without a live agent.  |
 | `Agent` | class | Static façade for creating and managing Theo agents. |
 | `AgentBuilder` | class | Fluent builder for {@link AgentOptions } .  |
 | `AgentBuilderDeps` | interface | Terminal-method callbacks injected by `Agent.builder()` so that `agent-builder.ts` does NOT need a static import of `Agent` — keeps the dependency graph acyclic (G6).  |
@@ -298,6 +299,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `memoryGenerations` | function | Generations kept in memory only. |
 | `MemoryId` | type | Branded provider memory ID.  |
 | `MemoryMirrorOptions` | interface | How the built-in fact store is mirrored to memory adapters.  |
+| `memoryPartitionId` | function | Turn any scope string into a valid `MemorySettings.userId`: `s-` followed by 32 hex characters of its SHA-256.  |
 | `MemoryProvider` | interface | The kernel-facing contract.  |
 | `MemoryProviderAgentRef` | interface | The agent identity a `MemoryProvider` is given — the whole of it.  |
 | `MemoryProviderFactory` | type | Memory provider factory shape (ADR D141).  |
