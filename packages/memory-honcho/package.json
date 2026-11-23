@@ -1,6 +1,6 @@
 {
   "name": "@theokit/memory-honcho",
-  "version": "3.0.8",
+  "version": "3.0.9",
   "description": "Honcho memory adapter for @theokit/sdk — wraps @honcho-ai/sdk with the MemoryAdapter contract (ADR D141).",
   "license": "Apache-2.0",
   "homepage": "https://github.com/usetheokit/theokit-sdk#readme",
