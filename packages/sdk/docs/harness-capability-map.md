@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1615 export(s) across 61 entry point(s).
+1622 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -328,6 +328,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `NormalizedJsonSchema` | type | The internal JSON-Schema shape the synthetic `output` tool consumes. |
 | `normalizeSchema` | function | Normalize any supported schema to the internal JSON Schema.  |
 | `normalizeUsage` | function | Convert a provider's raw `usage` object into the SDK's canonical `TokenUsage`.  |
+| `offCapabilities` | function | The capabilities of a wiring record that are off, each with its reason.  |
+| `OffCapability` | interface | One entry of the list `offCapabilities` returns. |
 | `OTelSpan` | interface | The subset of the OpenTelemetry `Span` API this SDK calls.  |
 | `OutputProcessorContext` | interface | Context passed to {@link Processor.processOutput } . |
 | `parsePermissionRules` | function | Parse a rule set into engine rules, DENY first.  |
@@ -419,6 +421,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `RunTripwireEvent` | interface | SE24 — a guardrail processor called `abort()`; the run stops with a tripwire.  |
 | `RunUntilIterator` | type | Return type of {@link import ("../internal/local-agent/local-agent.js").LocalAgent.runUntil } .  |
 | `scopedConversationId` | function | M3 #62 — build a scope-namespaced conversation id (`"<scope>__<id>"`). |
+| `ScopedEntityName` | interface | An entity name with its scope, as the caller knows it. |
 | `SDKAgent` | interface | Handle returned by `Agent.create()` and `Agent.resume()`. |
 | `SDKAgentInfo` | type | Metadata returned by `Agent.list()` and `Agent.get()`. |
 | `SDKAgentPlugins` | interface | Public plugin listing handle exposed as `agent.plugins`.  |
@@ -564,6 +567,9 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `Verdict` | type | Owner: `internal/judge/` (3 of 8 importers).  |
 | `verifyLayerOrdering` | function | Assert that each layer strictly outranks the one before it.  |
 | `WiredEntity` | interface | What one capability asked for, and what it got. |
+| `WiredEntityScope` | interface | One requested entity and where it came from. |
+| `WiringOffReason` | interface | A capability's off reason, with optional human-readable detail. |
+| `WiringOffReasonCode` | type | Why a capability is off.  |
 | `WiringRecordInput` | interface | The two halves of the observation: the gate that was applied, and what was handed to the builder.  |
 | `withBlastRadius` | function | Declare what a tool reaches, for the approval layer rather than for the model.  |
 | `WithBlastRadius` | type | A tool that may carry a blast-radius declaration under {@link DECLARED } .  |

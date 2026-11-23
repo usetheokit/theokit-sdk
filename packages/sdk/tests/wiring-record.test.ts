@@ -156,3 +156,42 @@ describe("recordWiring — a capability nobody gates is an error, not a default"
     }
   });
 });
+
+describe("recordWiring — scopes and off reasons", () => {
+  it("test_scope_is_recorded_per_entity_and_missing_scope_is_undefined", () => {
+    const r = recordWiring({
+      posture: TRUSTED,
+      requested: { mcp: ["a", "b"], skills: ["s"] },
+      scopes: { mcp: [{ name: "a", scope: "personal" }, { name: "b", scope: "project" }], skills: [{ name: "s", scope: "operator" }] },
+    });
+    expect(r.mcp.entities).toEqual([
+      { name: "a", scope: "personal" },
+      { name: "b", scope: "project" },
+    ]);
+    expect(r.skills.entities).toEqual([{ name: "s", scope: "operator" }]);
+    const bare = recordWiring({ posture: TRUSTED, requested: { mcp: ["x"] } });
+    expect(bare.mcp.entities).toEqual([{ name: "x", scope: undefined }]);
+    expect(bare.mcp.off).toBeUndefined();
+  });
+
+  it("test_off_reasons_trust_config_and_custom", async () => {
+    const { offCapabilities } = await import("../src/wiring-record.js");
+    const r = recordWiring({
+      posture: { allows: { mcp: false, skills: true, hooks: true, cmds: true } },
+      requested: { mcp: ["a"], skills: ["s"], hooks: ["h"], cmds: ["c"] },
+      disabled: {
+        skills: { reason: "disabled-by-config" },
+        hooks: { reason: "no-runtime", detail: "headless" },
+        mcp: { reason: "disabled-by-config" },
+      },
+    });
+    expect(r.mcp.off).toEqual({ reason: "suppressed-by-trust" });
+    expect(r.skills.active).toEqual([]);
+    expect(r.cmds.off).toBeUndefined();
+    expect(offCapabilities(r)).toEqual([
+      { capability: "mcp", reason: "suppressed-by-trust" },
+      { capability: "skills", reason: "disabled-by-config" },
+      { capability: "hooks", reason: "no-runtime", detail: "headless" },
+    ]);
+  });
+});

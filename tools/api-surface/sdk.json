@@ -5257,6 +5257,10 @@
         "tier": "stable",
         "declaration": "interface OTelSpan {\n    setAttribute(key: string, value: string | number | boolean): void;\n    setAttributes(attrs: Record<string, string | number | boolean | undefined>): void;\n    addEvent(name: string, attrs?: Record<string, string | number | boolean>): void;\n    setStatus(status: {\n        code: number;\n        message?: string;\n    }): void;\n    recordException(err: unknown): void;\n    end(endTime?: number): void;\n    spanContext(): {\n        traceId: string;\n        spanId: string;\n    };\n    isRecording(): boolean;\n}"
       },
+      "OffCapability": {
+        "tier": "stable",
+        "declaration": "interface OffCapability extends WiringOffReason {\n    readonly capability: string;\n}"
+      },
       "OutputProcessorContext": {
         "tier": "stable",
         "declaration": "interface OutputProcessorContext extends ProcessorControls {\n    text: string;\n    agentId: string;\n}"
@@ -5664,6 +5668,10 @@
       "SOVEREIGN_ENV_KEYS": {
         "tier": "stable",
         "declaration": "SOVEREIGN_ENV_KEYS: readonly [\n    \"THEOKIT_HOME\",\n    \"THEOKIT_AUTH_HOME\",\n    \"THEOKIT_TRUSTED_PROVIDERS\",\n    \"THEOKIT_REDACT_SECRETS\",\n    \"THEOKIT_OAUTH_TX_SALT\"\n]"
+      },
+      "ScopedEntityName": {
+        "tier": "stable",
+        "declaration": "interface ScopedEntityName {\n    readonly name: string;\n    readonly scope: string;\n}"
       },
       "Security": {
         "tier": "stable",
@@ -6111,11 +6119,23 @@
       },
       "WiredEntity": {
         "tier": "stable",
-        "declaration": "interface WiredEntity {\n    readonly active: readonly string[];\n    readonly requested: readonly string[];\n    readonly suppressedByTrust: boolean;\n}"
+        "declaration": "interface WiredEntity {\n    readonly active: readonly string[];\n    readonly requested: readonly string[];\n    readonly suppressedByTrust: boolean;\n    readonly entities: readonly WiredEntityScope[];\n    readonly off: WiringOffReason | undefined;\n}"
+      },
+      "WiredEntityScope": {
+        "tier": "stable",
+        "declaration": "interface WiredEntityScope {\n    readonly name: string;\n    readonly scope: string | undefined;\n}"
+      },
+      "WiringOffReason": {
+        "tier": "stable",
+        "declaration": "interface WiringOffReason {\n    readonly reason: WiringOffReasonCode;\n    readonly detail?: string;\n}"
+      },
+      "WiringOffReasonCode": {
+        "tier": "stable",
+        "declaration": "type WiringOffReasonCode = \"suppressed-by-trust\" | \"disabled-by-config\" | (string & {});"
       },
       "WiringRecordInput": {
         "tier": "stable",
-        "declaration": "interface WiringRecordInput<K extends string> {\n    readonly posture: {\n        readonly allows: Readonly<Record<string, boolean>>;\n    };\n    readonly requested: Readonly<Record<K, readonly string[]>>;\n}"
+        "declaration": "interface WiringRecordInput<K extends string> {\n    readonly posture: {\n        readonly allows: Readonly<Record<string, boolean>>;\n    };\n    readonly requested: Readonly<Record<K, readonly string[]>>;\n    readonly scopes?: Readonly<Partial<Record<K, readonly ScopedEntityName[]>>>;\n    readonly disabled?: Readonly<Partial<Record<K, WiringOffReason>>>;\n}"
       },
       "WithBlastRadius": {
         "tier": "stable",
@@ -6320,6 +6340,10 @@
       "normalizeUsage": {
         "tier": "stable",
         "declaration": "declare function normalizeUsage(rawUsage: unknown, opts: {\n    provider: string;\n    apiMode?: ApiMode;\n}): TokenUsage;"
+      },
+      "offCapabilities": {
+        "tier": "stable",
+        "declaration": "declare function offCapabilities(record: Readonly<Record<string, WiredEntity>>): OffCapability[];"
       },
       "parsePermissionRules": {
         "tier": "stable",
@@ -7276,6 +7300,10 @@
         "tier": "stable",
         "declaration": "interface OTelSpan {\n    setAttribute(key: string, value: string | number | boolean): void;\n    setAttributes(attrs: Record<string, string | number | boolean | undefined>): void;\n    addEvent(name: string, attrs?: Record<string, string | number | boolean>): void;\n    setStatus(status: {\n        code: number;\n        message?: string;\n    }): void;\n    recordException(err: unknown): void;\n    end(endTime?: number): void;\n    spanContext(): {\n        traceId: string;\n        spanId: string;\n    };\n    isRecording(): boolean;\n}"
       },
+      "OffCapability": {
+        "tier": "stable",
+        "declaration": "interface OffCapability extends WiringOffReason {\n    readonly capability: string;\n}"
+      },
       "OutputProcessorContext": {
         "tier": "stable",
         "declaration": "interface OutputProcessorContext extends ProcessorControls {\n    text: string;\n    agentId: string;\n}"
@@ -7683,6 +7711,10 @@
       "SOVEREIGN_ENV_KEYS": {
         "tier": "stable",
         "declaration": "SOVEREIGN_ENV_KEYS: readonly [\n    \"THEOKIT_HOME\",\n    \"THEOKIT_AUTH_HOME\",\n    \"THEOKIT_TRUSTED_PROVIDERS\",\n    \"THEOKIT_REDACT_SECRETS\",\n    \"THEOKIT_OAUTH_TX_SALT\"\n]"
+      },
+      "ScopedEntityName": {
+        "tier": "stable",
+        "declaration": "interface ScopedEntityName {\n    readonly name: string;\n    readonly scope: string;\n}"
       },
       "Security": {
         "tier": "stable",
@@ -8130,11 +8162,23 @@
       },
       "WiredEntity": {
         "tier": "stable",
-        "declaration": "interface WiredEntity {\n    readonly active: readonly string[];\n    readonly requested: readonly string[];\n    readonly suppressedByTrust: boolean;\n}"
+        "declaration": "interface WiredEntity {\n    readonly active: readonly string[];\n    readonly requested: readonly string[];\n    readonly suppressedByTrust: boolean;\n    readonly entities: readonly WiredEntityScope[];\n    readonly off: WiringOffReason | undefined;\n}"
+      },
+      "WiredEntityScope": {
+        "tier": "stable",
+        "declaration": "interface WiredEntityScope {\n    readonly name: string;\n    readonly scope: string | undefined;\n}"
+      },
+      "WiringOffReason": {
+        "tier": "stable",
+        "declaration": "interface WiringOffReason {\n    readonly reason: WiringOffReasonCode;\n    readonly detail?: string;\n}"
+      },
+      "WiringOffReasonCode": {
+        "tier": "stable",
+        "declaration": "type WiringOffReasonCode = \"suppressed-by-trust\" | \"disabled-by-config\" | (string & {});"
       },
       "WiringRecordInput": {
         "tier": "stable",
-        "declaration": "interface WiringRecordInput<K extends string> {\n    readonly posture: {\n        readonly allows: Readonly<Record<string, boolean>>;\n    };\n    readonly requested: Readonly<Record<K, readonly string[]>>;\n}"
+        "declaration": "interface WiringRecordInput<K extends string> {\n    readonly posture: {\n        readonly allows: Readonly<Record<string, boolean>>;\n    };\n    readonly requested: Readonly<Record<K, readonly string[]>>;\n    readonly scopes?: Readonly<Partial<Record<K, readonly ScopedEntityName[]>>>;\n    readonly disabled?: Readonly<Partial<Record<K, WiringOffReason>>>;\n}"
       },
       "WithBlastRadius": {
         "tier": "stable",
@@ -8339,6 +8383,10 @@
       "normalizeUsage": {
         "tier": "stable",
         "declaration": "declare function normalizeUsage(rawUsage: unknown, opts: {\n    provider: string;\n    apiMode?: ApiMode;\n}): TokenUsage;"
+      },
+      "offCapabilities": {
+        "tier": "stable",
+        "declaration": "declare function offCapabilities(record: Readonly<Record<string, WiredEntity>>): OffCapability[];"
       },
       "parsePermissionRules": {
         "tier": "stable",
