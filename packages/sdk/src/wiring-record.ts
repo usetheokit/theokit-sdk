@@ -52,6 +52,41 @@ export interface WiredEntity {
    * nothing happened teaches the reader to ignore it.
    */
   readonly suppressedByTrust: boolean;
+  /**
+   * Each requested entity with the scope it came from (`personal`, `project`, `operator`, …), as
+   * supplied by the caller. `scope` is undefined when the caller supplied none: the recorder never
+   * invents one.
+   */
+  readonly entities: readonly WiredEntityScope[];
+  /**
+   * Why the capability is off, or undefined when it is on. `trust` wins over a caller-supplied
+   * reason, since the gate is what actually emptied `active`.
+   */
+  readonly off: WiringOffReason | undefined;
+}
+
+/** One requested entity and where it came from. @public */
+export interface WiredEntityScope {
+  readonly name: string;
+  readonly scope: string | undefined;
+}
+
+/**
+ * Why a capability is off. `suppressed-by-trust` and `disabled-by-config` are the SDK's own
+ * reasons; any other string is a caller-defined reason.
+ * @public
+ */
+export type WiringOffReasonCode = "suppressed-by-trust" | "disabled-by-config" | (string & {});
+
+/** A capability's off reason, with optional human-readable detail. @public */
+export interface WiringOffReason {
+  readonly reason: WiringOffReasonCode;
+  readonly detail?: string;
+}
+
+/** One entry of the list `offCapabilities` returns. @public */
+export interface OffCapability extends WiringOffReason {
+  readonly capability: string;
 }
 
 /**
@@ -79,6 +114,30 @@ export interface WiringRecordInput<K extends string> {
   readonly posture: { readonly allows: Readonly<Record<string, boolean>> };
   /** Per capability, the entity names the build was given. Drives which keys the record has. */
   readonly requested: Readonly<Record<K, readonly string[]>>;
+  /**
+   * Optional, per capability: the scope of each requested entity, matched BY POSITION with
+   * `requested[capability]` so the same name in two scopes (a personal and a project server) keeps
+   * its own scope. Supplied by the caller at wiring time; a missing position gets an undefined scope.
+   */
+  readonly scopes?: Readonly<Partial<Record<K, readonly string[]>>>;
+  /**
+   * Optional, per capability: a non-trust reason the capability is off (for example
+   * `disabled-by-config`). The caller must also have withheld it from the builder: this only labels
+   * `off` and empties `active`. Trust suppression takes precedence when both apply. Like
+   * `suppressedByTrust`, `off` is only set when something was requested.
+   */
+  readonly disabled?: Readonly<Partial<Record<K, WiringOffReason>>>;
+}
+
+const TRUST_OFF: WiringOffReason = { reason: "suppressed-by-trust" };
+
+function offReason(
+  allowed: boolean,
+  requested: number,
+  disabled: WiringOffReason | undefined,
+): WiringOffReason | undefined {
+  if (requested === 0) return undefined;
+  return allowed ? disabled : TRUST_OFF;
 }
 
 /**
@@ -119,12 +178,28 @@ export function recordWiring<K extends string>(
           `gated capabilities are: ${Object.keys(input.posture.allows).join(", ") || "(none)"}`,
       );
     }
+    const off = offReason(allowed, requested.length, input.disabled?.[capability]);
     record[capability] = {
       // Copied, not aliased. See the @returns note.
-      active: allowed ? [...requested] : [],
+      active: off ? [] : [...requested],
       requested: [...requested],
       suppressedByTrust: !allowed && requested.length > 0,
+      entities: requested.map((name, i) => ({ name, scope: input.scopes?.[capability]?.[i] })),
+      off,
     };
   }
   return record;
+}
+
+/**
+ * The capabilities of a wiring record that are off, each with its reason. Pure; reads only the
+ * record.
+ * @public
+ */
+export function offCapabilities(record: Readonly<Record<string, WiredEntity>>): OffCapability[] {
+  const out: OffCapability[] = [];
+  for (const [capability, entity] of Object.entries(record)) {
+    if (entity.off !== undefined) out.push({ capability, ...entity.off });
+  }
+  return out;
 }
