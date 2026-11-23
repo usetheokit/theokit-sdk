@@ -47,6 +47,7 @@ import type {
   WorkflowDescription,
   WorkflowEvent,
   WorkflowOptions,
+  WorkflowPersistenceOptions,
   WorkflowRerunOptions,
   WorkflowResumeOptions,
   WorkflowRun,
@@ -54,6 +55,12 @@ import type {
   WorkflowStepDescription,
   WorkflowStream,
 } from "./types/workflow.js";
+import {
+  listDefinitionFiles,
+  parseWorkflowDefinition,
+  readDefinitionFile,
+  type WorkflowDefinition,
+} from "./workflow-definition.js";
 import { WorkflowDuplicateStepIdError, WorkflowNestedError } from "./workflow-errors.js";
 
 /* ─── Zod validation schemas ─── */
@@ -90,6 +97,16 @@ function assertKeepHistoryNeedsStepDurability(options: WorkflowOptions): void {
   if (p?.keepHistory === true && p.durability !== "step") {
     throw new ConfigurationError('persistence.keepHistory requires persistence.durability: "step"');
   }
+}
+
+/** Options for `Workflow.fromDefinition`: the prompt callback and optional persistence. */
+interface WorkflowDefinitionOptions {
+  readonly generate: (
+    prompt: string,
+    input: unknown,
+    ctx: StepContext,
+  ) => Promise<unknown> | unknown;
+  readonly persistence?: WorkflowPersistenceOptions;
 }
 
 /* ─── Builder ─── */
@@ -384,6 +401,33 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
     DurabilitySchema.parse(options.persistence?.durability);
     assertKeepHistoryNeedsStepDurability(options);
     return new WorkflowBuilder<TI, TO>(options);
+  }
+
+  /**
+   * Compile a linear {@link WorkflowDefinition} (prompt and approval steps) into a `Workflow`.
+   *
+   * A prompt step calls `generate(prompt, input, ctx)`, where `input` is the previous step's value
+   * (the run input for the first step), and its result is the step's value. An approval step suspends
+   * the run; `Workflow.resume({ workflow, runId, payload })` continues it with `payload` as the value,
+   * or with the value held before the approval when `payload` is omitted. The definition is
+   * validated first and throws {@link WorkflowDefinitionError}.
+   */
+  static fromDefinition(
+    definition: WorkflowDefinition,
+    options: WorkflowDefinitionOptions,
+  ): Workflow {
+    const def = parseWorkflowDefinition(definition);
+    let builder = Workflow.create({
+      name: def.name,
+      ...(options.persistence !== undefined ? { persistence: options.persistence } : {}),
+    });
+    for (const step of def.steps) {
+      builder =
+        "prompt" in step
+          ? builder.then(fn(step.id, (input, ctx) => options.generate(step.prompt, input, ctx)))
+          : builder.suspend({ id: step.id });
+    }
+    return builder.commit();
   }
 
   /**
@@ -708,6 +752,32 @@ function walkStepsValidating(steps: ReadonlyArray<Step>, seen: Set<string>): voi
       walkStepsValidating(nested, seen);
     }
   }
+}
+
+export {
+  parseWorkflowDefinition,
+  type WorkflowApprovalStepDefinition,
+  type WorkflowDefinition,
+  WorkflowDefinitionError,
+  type WorkflowPromptStepDefinition,
+} from "./workflow-definition.js";
+/** Options for `Workflow.fromDefinition` and {@link loadWorkflowDir}. */
+export type { WorkflowDefinitionOptions };
+
+/**
+ * Load every `*.json` file directly in `dir` (not recursive, filename order) and compile each with
+ * `Workflow.fromDefinition`. A file that is not valid JSON or not a valid definition throws
+ * `WorkflowDefinitionError` naming the file and field.
+ */
+export async function loadWorkflowDir(
+  dir: string,
+  options: WorkflowDefinitionOptions,
+): Promise<Workflow[]> {
+  const workflows: Workflow[] = [];
+  for (const file of await listDefinitionFiles(dir)) {
+    workflows.push(Workflow.fromDefinition(await readDefinitionFile(dir, file), options));
+  }
+  return workflows;
 }
 
 export { WorkflowSet } from "./workflow-set.js";
