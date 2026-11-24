@@ -208,8 +208,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `parse_failed` | domain | — | `packages/sdk/src/errors.ts:770` |
 | `path_traversal` | domain | — | `packages/sdk/src/internal/security/path-guard.ts:37` |
 | `permission_enforcement_unavailable` | domain | ConfigurationError | `packages/acp/src/permission-plugin.ts:107` +1 |
-| `permission_rule_invalid` | domain | ConfigurationError | `packages/sdk/src/permission-engine.ts:176` +3 |
-| `permission_rules_not_array` | domain | ConfigurationError | `packages/sdk/src/permission-engine.ts:164` |
+| `permission_rule_invalid` | domain | ConfigurationError | `packages/sdk/src/permission-engine.ts:171` +3 |
+| `permission_rules_not_array` | domain | ConfigurationError | `packages/sdk/src/permission-engine.ts:160` |
 | `personality_empty_body` | domain | ConfigurationError | `packages/sdk/src/internal/personality/registry.ts:117` |
 | `personality_not_found` | domain | ConfigurationError | `packages/sdk/src/internal/personality/switch.ts:60` |
 | `personality_reserved_name` | domain | ConfigurationError | `packages/sdk/src/internal/personality/registry.ts:110` |
