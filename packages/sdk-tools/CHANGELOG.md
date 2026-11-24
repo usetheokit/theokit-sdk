@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.35.0
+
+### Minor Changes
+
+- [#1585](https://github.com/usetheokit/theokit-sdk/pull/1585) [`030d622`](https://github.com/usetheokit/theokit-sdk/commit/030d6224b0c447958d4eec066910f746628020fc) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Export `readImageFile` and `ReadImageResult`: the size-capped, single-descriptor image reader behind `view_image`, so a host that attaches images outside the tool no longer writes its own. It does no path confinement; apply your own policy to untrusted paths.
+
 ## 0.34.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # Changelog — @theokit/sdk-memory
 
+## 0.8.0
+
+### Minor Changes
+
+- [#1584](https://github.com/usetheokit/theokit-sdk/pull/1584) [`975b0bb`](https://github.com/usetheokit/theokit-sdk/commit/975b0bbb3f23e69948b3b4e6e431c0a6c19605b6) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add `memoryBackendFromEnv(env, { variable?, importer? })`: picks `mem0`, `honcho`, `supermemory` or `sdk-memory` from `THEOKIT_MEMORY_BACKEND` (or another variable), checks the API key, and lazily imports the adapter in `agentOptions()`. Errors are `ConfigurationError`s naming the missing key, package or peer.
+
 ## 0.7.10
 
 ### Patch Changes
