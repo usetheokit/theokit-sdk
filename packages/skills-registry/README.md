@@ -69,4 +69,12 @@ const handler = createSkillsRegistryHandler({ dir: "/var/lib/skills", token: pro
 - Publish needs `Authorization: Bearer <token>` (wrong token: 401 with `www-authenticate: Bearer`). A body over `maxPackageBytes` answers 413; an invalid package answers 400. `maxPackageBytes` can only lower the 1 MiB ceiling.
 - A handler failure answers 500 and calls `onError(error, { method, path })`; the default writes one stderr line with the token redacted.
 
+### The `theokit-skills-registry` command
+
+```sh
+SKILLS_REGISTRY_TOKEN=... npx theokit-skills-registry --dir ./skills-registry --port 8787
+```
+
+Options: `--dir` (default `./skills-registry`), `--port` (default `8787`; `0` picks a free port), `--host` (default `127.0.0.1`). The publish token comes from `SKILLS_REGISTRY_TOKEN`; the command exits 1 if it is empty. It prints the address it listens on. It uses `node:http` only. Binding a non-loopback `--host` exposes reads to the network.
+
 **Warning:** the handler binds nowhere; it listens where you mount it, so bind to loopback or put your own access control in front. The token protects publish only: search, listings and package downloads are open to anyone who can reach the handler.

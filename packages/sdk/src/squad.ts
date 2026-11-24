@@ -13,6 +13,7 @@
  * @public
  */
 
+import type { SubagentParent } from "./a2a/subagent.js";
 import { ConfigurationError } from "./errors.js";
 import { diagFailure } from "./internal/diagnostics.js";
 import { redactSecrets } from "./internal/security/redact.js";
@@ -53,6 +54,12 @@ export interface SquadOptions {
   ownsMembers?: boolean;
   /** Receives a member disposal failure. Default: diagFailure. Disposal failures never fail the run. */
   onDisposeError?: (error: unknown, memberIndex: number) => void;
+  /**
+   * What `AgentDefinition` members inherit (credential, model, tools, withheld builtins, plugins,
+   * setting sources). A definition that sets `tools`, `withheldBuiltinTools` or `sandbox` needs it: without a parent there is nothing to
+   * scope, and the whitelist would be silently ignored, so `createSquad` refuses it.
+   */
+  parent?: SubagentParent;
 }
 
 /**
@@ -112,10 +119,20 @@ async function materialize(
   def: AgentDefinition,
   index: number,
   signal?: AbortSignal,
+  parent?: SubagentParent,
 ): Promise<SDKAgent> {
   const { Agent } = await import("./agent.js");
   // The import is asynchronous: re-check immediately before creating, so an abort during it creates nothing.
   if (signal?.aborted) throw new SquadAborted("aborted before member was created");
+  if (parent !== undefined) {
+    const { agentOptionsFromDefinition } = await import("./a2a/subagent.js");
+    const inherited = agentOptionsFromDefinition(def, parent);
+    return Agent.create({
+      ...inherited,
+      agentId: `squad-member-${String(index)}`,
+      local: { ...inherited.local },
+    });
+  }
   return Agent.create({
     // `AgentDefinition.model` admits the sentinel `'inherit'`, which is not a model id. Inheriting
     // here means "declare nothing and let the default apply" — forwarding the literal would create
@@ -124,6 +141,25 @@ async function materialize(
     ...(def.prompt !== undefined ? { systemPrompt: def.prompt } : {}),
     agentId: `squad-member-${String(index)}`,
     local: {},
+  });
+}
+
+/** A definition's scoping fields (`tools`, `withheldBuiltinTools`, `sandbox`) have nothing to apply to without a parent. */
+function assertScopeHasParent(
+  agents: ReadonlyArray<SDKAgent | AgentDefinition>,
+  parent: SubagentParent | undefined,
+): void {
+  if (parent !== undefined) return;
+  agents.forEach((m, index) => {
+    if (isBuiltAgent(m)) return;
+    const field = (["tools", "withheldBuiltinTools", "sandbox"] as const).find(
+      (f) => m[f] !== undefined,
+    );
+    if (field === undefined) return;
+    throw new ConfigurationError(
+      `createSquad member ${String(index)} sets \`${field}\` but no \`parent\` was given to scope it over`,
+      { code: "squad_definition_scope_needs_parent" },
+    );
   });
 }
 
@@ -145,6 +181,8 @@ function createSquad(options: SquadOptions): Squad {
       { code: "squad_process_unsupported" },
     );
   }
+
+  assertScopeHasParent(agents, options.parent);
 
   return {
     run: (input: unknown, runOptions?: SquadRunOptions): Promise<SquadRun> =>
@@ -226,6 +264,7 @@ async function runSquad(
       {
         owned,
         signal: timer.signal,
+        parent: options.parent,
         onLate: (agent, index) => {
           void disposeMembers([{ agent, index }], options.onDisposeError);
         },
@@ -260,6 +299,7 @@ class SquadAborted extends Error {}
 interface BuildContext {
   owned: Array<{ agent: SDKAgent; index: number }>;
   signal: AbortSignal | undefined;
+  parent: SubagentParent | undefined;
   onLate: (agent: SDKAgent, index: number) => void;
 }
 
@@ -270,7 +310,7 @@ async function resolveMember(
 ): Promise<SDKAgent> {
   const { owned, signal, onLate } = ctx;
   if (isBuiltAgent(member)) return member;
-  const creation = materialize(member, index, signal);
+  const creation = materialize(member, index, signal, ctx.parent);
   if (signal === undefined) {
     const agent = await creation;
     owned.push({ agent, index });

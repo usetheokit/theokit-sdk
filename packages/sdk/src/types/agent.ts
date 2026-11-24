@@ -360,6 +360,11 @@ export interface AgentDefinition {
    * field here — it rides inside `model.params` (e.g. `[{ id: "thinking", value: "low" }]`).
    */
   sandbox?: boolean;
+  /**
+   * Builtin tools this subagent removes from its catalog, UNIONED with what its parent withheld:
+   * a subagent may tighten a restriction, never loosen it, so `[]` removes nothing.
+   */
+  withheldBuiltinTools?: readonly BuiltinToolName[];
 }
 
 /**
@@ -787,7 +792,9 @@ export interface AgentOptions {
    *   `plugins: [Handoff.asPlugin({ ... })]`. These are registered directly by
    *   the runtime (`extractCodePlugins`); no `settingSources` entry is needed.
    *
-   * The two forms are mutually exclusive — pass one or the other.
+   * Pass one form or the other. A settings object may also carry code plugins in
+   * `code`; `mergeAgentOptions` produces that combined form when it merges an
+   * array layer with a settings layer.
    */
   plugins?: PluginsSettings | readonly Plugin[];
   /**

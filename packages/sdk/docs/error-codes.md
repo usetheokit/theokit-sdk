@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-318 distinct code(s).
+322 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -66,7 +66,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `cron_missing_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:269` +1 |
 | `cron_no_target` | domain | ConfigurationError | `packages/sdk/src/cron.ts:257` +1 |
 | `cron_workflow_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:263` |
-| `custom` | domain | — | `packages/sdk/src/workflow-definition.ts:40` |
+| `custom` | domain | — | `packages/sdk/src/workflow-definition.ts:48` |
 | `decision_checksum_mismatch` | domain | — | `packages/sdk/src/decide.ts:59` |
 | `deferred_schema_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:365` |
 | `discovery_list_pattern_globbed` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-discovery-runner.ts:144` |
@@ -136,10 +136,10 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_retry_config` | domain | ConfigurationError | `packages/sdk/src/internal/retry/with-retry.ts:67` |
 | `invalid_sandbox_mode` | domain | ConfigurationError | `packages/sdk/src/sandbox/modes.ts:16` |
 | `invalid_skill_spec` | domain | ConfigurationError | `packages/sdk/src/create-skill.ts:44` +1 |
-| `invalid_squad` | domain | ConfigurationError | `packages/sdk/src/squad.ts:138` |
+| `invalid_squad` | domain | ConfigurationError | `packages/sdk/src/squad.ts:174` |
 | `invalid_task_id` | domain | — | `packages/sdk/src/task-errors.ts:33` +1 |
 | `invalid_timezone` | domain | ConfigurationError | `packages/sdk/src/internal/cron/validate.ts:135` |
-| `invalid_workflow_step` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:261` |
+| `invalid_workflow_step` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:268` |
 | `iteration_limit_reached` | domain | — | `packages/sdk/src/internal/agent-loop/loop-finalize.ts:51` |
 | `jsonl_parse_failed` | domain | — | `packages/sdk/src/internal/persistence/jsonl.ts:37` |
 | `judge_credential` | domain | — | `packages/sdk/src/internal/judge/judge-call.ts:72` +1 |
@@ -150,7 +150,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `local_provider_http_error` | domain | ConfigurationError | `packages/sdk/src/internal/catalog/local-models.ts:61` |
 | `local_provider_unreachable` | domain | ConfigurationError | `packages/sdk/src/internal/catalog/local-models.ts:46` |
 | `malformed_api_key` | domain | AuthenticationError | `packages/sdk/src/internal/agent/helpers.ts:236` +1 |
-| `max_delegation_depth` | domain | MaxDelegationDepthError | `packages/sdk/src/a2a/subagent.ts:239` +1 |
+| `max_delegation_depth` | domain | MaxDelegationDepthError | `packages/sdk/src/a2a/subagent.ts:241` +1 |
 | `mcp_auth_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:156` +1 |
 | `mcp_buffer_overflow` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:354` |
 | `mcp_capability_missing` | domain | ConfigurationError | `packages/sdk/src/mcp.ts:97` |
@@ -165,6 +165,9 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `mcp_protocol_unsupported` | domain | NetworkError | `packages/sdk/src/internal/mcp/protocol-version.ts:36` |
 | `mcp_rpc_error` | domain | NetworkError | `packages/sdk/src/mcp.ts:73` |
 | `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/rpc-helpers.ts:15` |
+| `memory_backend_missing_key` | domain | ConfigurationError | `packages/sdk-memory/src/memory-backend-from-env.ts:157` |
+| `memory_backend_unavailable` | domain | ConfigurationError | `packages/sdk-memory/src/memory-backend-from-env.ts:99` +2 |
+| `memory_backend_unknown` | domain | ConfigurationError | `packages/sdk-memory/src/memory-backend-from-env.ts:149` |
 | `memory_ceiling_reached` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:43` +1 |
 | `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:168` |
 | `memory_fact_ambiguous` | domain | — | `packages/sdk/src/errors.ts:528` +1 |
@@ -252,7 +255,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `sql_injection_blocked` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:367` +1 |
 | `sqlite_driver_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/sqlite-open.ts:195` |
 | `sqlite_vec_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/memory/sqlite-vec-loader.ts:22` |
-| `squad_process_unsupported` | domain | ConfigurationError | `packages/sdk/src/squad.ts:143` |
+| `squad_definition_scope_needs_parent` | domain | ConfigurationError | `packages/sdk/src/squad.ts:159` |
+| `squad_process_unsupported` | domain | ConfigurationError | `packages/sdk/src/squad.ts:179` |
 | `sse_http_error` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:147` |
 | `sse_server_error` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:155` |
 | `ssrf_blocked` | domain | — | `packages/sdk-tools/src/internal/network-guard.ts:23` |
@@ -309,10 +313,10 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `upstream_run_failed` | domain | — | `packages/sdk/src/errors.ts:770` |
 | `valibot_converter_missing` | domain | ConfigurationError | `packages/sdk/src/schema-normalizer.ts:81` +1 |
 | `work_threw` | domain | — | `packages/sdk/src/internal/task/registry.ts:295` |
-| `workflow_already_committed` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:299` |
+| `workflow_already_committed` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:311` |
 | `workflow_already_running` | domain | — | `packages/sdk/src/workflow-errors.ts:141` |
 | `workflow_compensate_not_implemented` | domain | — | `packages/sdk/src/workflow-errors.ts:270` +1 |
-| `workflow_definition_invalid` | domain | — | `packages/sdk/src/workflow-definition.ts:79` |
+| `workflow_definition_invalid` | domain | — | `packages/sdk/src/workflow-definition.ts:95` |
 | `workflow_duplicate_step_id` | domain | — | `packages/sdk/src/workflow-errors.ts:31` |
 | `workflow_input_invalid` | domain | — | `packages/sdk/src/workflow-errors.ts:48` |
 | `workflow_max_iterations_exceeded` | domain | — | `packages/sdk/src/workflow-errors.ts:181` |

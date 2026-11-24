@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1621 export(s) across 61 entry point(s).
+1635 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -252,6 +252,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `InvalidTaskIdError` | class | Thrown when a user-supplied task ID violates the grammar `^[a-z0-9][a-z0-9_-]*$` (D368) OR starts with a reserved adapter prefix (`wf-` / `b-` / `cron-`, EC-5). |
 | `isBuiltinToolName` | function | True when `name` is the name of an SDK builtin tool. |
 | `isInside` | function | Whether `child` is inside `parent`.  |
+| `isSecretEnvName` | function | True when an environment variable of this name should be treated as holding a secret. |
 | `isTransientError` | function | Is this error transient (worth retrying)?  |
 | `isValidTaskId` | function | Validates a task ID against the public grammar + reserved prefixes.  |
 | `JobQueue` | class | An in-process queue of background jobs with status tracking, cancellation, and an optional concurrency bound.  |
@@ -310,6 +311,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemorySettings` | interface | Memory configuration accepted by `Agent.create()` via {@link AgentOptions.memory } .  |
 | `MemoryToolSchema` | interface | OpenAI-format function-calling schema exposed to the LLM. |
 | `MemoryTurnMessage` | interface | One assistant-turn message in the canonical `{role, content}` shape an adapter may receive instead of a flat string when writing a turn. |
+| `mergeAgentOptions` | function | Merge `AgentOptions` layers into one; later layers win.  |
 | `MessageOrigin` | type | SE3 — provenance of the turn that produced a run: WHO triggered it.  |
 | `MigrateOptions` | interface | Options for {@link migrateSqliteToLance } . |
 | `MigrateResult` | interface | Outcome of {@link migrateSqliteToLance } . |
@@ -447,6 +449,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SDKUser` | interface | Owner: `internal/catalog/` (2 of 3 importers).  |
 | `SDKUserMessage` | interface | Structured form of `agent.send()`'s message argument.  |
 | `SDKUserMessageEvent` | interface | Echo of the user prompt for this run. |
+| `secretEnvValues` | function | The trimmed values of every such variable in `env` that are at least `minLength` long. |
 | `Security` | class | Secret masking at consumer output boundaries: pattern-based `redact` / `addPattern` and exact-value `createMask`. |
 | `SecurityFloorInput` | interface | The vocabulary, the layer names, and the values to resolve.  |
 | `SendOptions` | interface | Per-send overrides and callbacks.  |
@@ -737,6 +740,10 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MEMORY_INDEX_MAX_BYTES` | const | The byte limit the Claude Code CLI applies when it loads a `MEMORY.md`, whichever it reaches first.  |
 | `MEMORY_INDEX_MAX_LINES` | const | The line limit the Claude Code CLI applies when it loads a `MEMORY.md`.  |
 | `MemoryBackend` | type | Vector backend selector.  |
+| `MemoryBackendChoice` | interface | A selected memory backend. |
+| `memoryBackendFromEnv` | function | Choose a memory backend from `env`.  |
+| `MemoryBackendFromEnvOptions` | interface | Options for {@link memoryBackendFromEnv } . |
+| `MemoryBackendName` | type | Backend names {@link memoryBackendFromEnv } accepts. |
 | `MemoryChunk` | interface | A semantically meaningful slice of a markdown memory file, produced by `chunkMarkdown`.  |
 | `MemoryConfig` | interface | Per-agent memory configuration.  |
 | `MemoryDb` | interface | Memory index DB handle + opener.  |
@@ -919,6 +926,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `PlanNode` | interface | A flat plan-render node — the stable shape a UI/plan layer consumes.  |
 | `QuestionTool` | interface | M76 — aligned with the SDK's `CustomTool`.  |
 | `QuestionToolOptions` | interface | `question` — interactive tool that asks the user a question and waits for a response.  |
+| `readImageFile` | function | Reads one image file as base64: media type from the extension (closed table), size checked on the open descriptor BEFORE any read, so an oversized file is refused without being loaded.  |
+| `ReadImageResult` | type | Result of {@link readImageFile } . |
 | `ReadTracker` | class | `ReadTracker` — SE32 read-before-write safety.  |
 | `readXwdHeader` | function | Validate and parse the XWD header in `bytes` without allocating pixel buffers. |
 | `ReasoningTools` | class | Reasoning scratchpad tools.  |
@@ -1043,6 +1052,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `A2ATransport` | interface | A2ATransport — the seam that lets a {@link MessageBus } reach agents in other processes.  |
 | `A2AUntrustedPeerError` | class | Sealing to a peer name that is not in `trustedPeers`. |
 | `AgentMailbox` | class | One agent's endpoint on a {@link MessageBus } : registers `agentId` on construction and forwards inbound messages to the handler installed by `onMessage`.  |
+| `agentOptionsFromDefinition` | function | Build the `Agent.create` options for a child running `def` under `parent`: the parent's credential, model (unless the definition sets its own), sandbox posture, plugins and setting sources; `tools`... |
 | `createHttpMailboxHandler` | function | Build a fetch-style handler serving `POST <prefix>/put` and `POST <prefix>/take`.  |
 | `DelegationCompleteContext` | interface | Context passed to {@link SubAgentSpec.onDelegationComplete } after the child settles. |
 | `DelegationCompleteDecision` | interface | Decision returned from {@link SubAgentSpec.onDelegationComplete } . |
@@ -1052,6 +1062,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `HttpMailboxOptions` | interface | Options for {@link createHttpMailboxHandler } . |
 | `httpMailboxTransport` | function | An {@link A2ATransport } over an HTTP mailbox served by {@link createHttpMailboxHandler } .  |
 | `inMemoryTransport` | function | A transport backed by one shared in-memory queue per recipient.  |
+| `jsonIdentityStore` | function | Identity persisted to a JSON file: created on first `load()` (file mode 0600, a new parent directory 0700), read back afterwards.  |
 | `jsonSequenceStore` | function | Sequence counters persisted to a JSON file (atomic write, mode 0600).  |
 | `MaxDelegationDepthError` | class | Raised by `SubAgent.create(spec, parentDepth)` when `parentDepth + 1` exceeds `spec.maxDelegationDepth` (default 3).  |
 | `memorySequenceStore` | function | Sequence counters held in memory only. |
@@ -1060,9 +1071,12 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MessageHandler` | type | What an agent does with an inbound {@link A2AMessage } .  |
 | `RequestOptions` | interface | Per-call knobs for {@link MessageBus.request } / `AgentMailbox.request`. |
 | `SealedDropReason` | type | Why an inbound sealed message was dropped. |
+| `sealedMailboxTools` | function | Tools to send to and read from trusted peers, plus `wrapAgent`, which resets the reply guard at every `send` of the wrapped agent.  |
+| `SealedMailboxToolsOptions` | interface | Options for {@link sealedMailboxTools } . |
 | `sealedTransport` | function | Wraps `inner` so messages are end-to-end encrypted to, and authenticated as from, trusted peers.  |
 | `SequenceStore` | interface | Per-peer sequence counters.  |
 | `SubAgent` | class | SE36 — `SubAgent.create` replaces `defineSubAgent` (ADR 0015). |
+| `SubagentParent` | interface | What a subagent definition inherits from the agent that runs it. |
 | `SubAgentSpec` | interface | The declaration of a delegating child agent, handed to `SubAgent.create(spec)`.  |
 | `ToolContextMessage` | interface | SE12 — a read-only, text-only projection of one turn of the run's conversation, exposed to a tool handler via `ctx.messages`.  |
 | `TrustedPeers` | type | Trusted peers: name to base64url raw X25519 public key. |

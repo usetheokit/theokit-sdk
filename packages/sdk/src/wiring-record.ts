@@ -127,17 +127,42 @@ export interface WiringRecordInput<K extends string> {
    * `suppressedByTrust`, `off` is only set when something was requested.
    */
   readonly disabled?: Readonly<Partial<Record<K, WiringOffReason>>>;
+  /**
+   * Optional, per capability: scopes the posture does not govern (for example the operator's own).
+   * An entity whose scope (from `scopes`, by position) is listed is `active` whatever
+   * `posture.allows[capability]` says; an entity with no scope stays gated. `suppressedByTrust` is
+   * true only when a gated entity was dropped, and `off` is set only when nothing is active. A
+   * capability whose requested entities are all ungated needs no posture key.
+   */
+  readonly ungatedScopes?: Readonly<Partial<Record<K, readonly string[]>>>;
 }
 
 const TRUST_OFF: WiringOffReason = { reason: "suppressed-by-trust" };
 
 function offReason(
-  allowed: boolean,
   requested: number,
+  active: number,
+  suppressed: boolean,
   disabled: WiringOffReason | undefined,
 ): WiringOffReason | undefined {
-  if (requested === 0) return undefined;
-  return allowed ? disabled : TRUST_OFF;
+  if (requested === 0 || active > 0) return undefined;
+  return suppressed ? TRUST_OFF : disabled;
+}
+
+function assertGated(
+  capability: string,
+  allowed: boolean | undefined,
+  needsGate: boolean,
+  gates: Readonly<Record<string, boolean>>,
+): void {
+  if (allowed !== undefined || !needsGate) return;
+  // Fail loudly rather than defaulting. Reading an absent gate as "not allowed" would report a
+  // capability nobody gates as SUPPRESSED — a plausible answer, and wrong in the direction the
+  // reader cannot check: they would go looking for a trust setting that does not exist.
+  throw new UngatedCapabilityError(
+    `capability \`${capability}\` was recorded as wired but the posture does not gate it; ` +
+      `gated capabilities are: ${Object.keys(gates).join(", ") || "(none)"}`,
+  );
 }
 
 /**
@@ -169,23 +194,25 @@ export function recordWiring<K extends string>(
     readonly string[],
   ][]) {
     const allowed = input.posture.allows[capability];
-    if (allowed === undefined) {
-      // Fail loudly rather than defaulting. Reading an absent gate as "not allowed" would report a
-      // capability nobody gates as SUPPRESSED — a plausible answer, and wrong in the direction the
-      // reader cannot check: they would go looking for a trust setting that does not exist.
-      throw new UngatedCapabilityError(
-        `capability \`${capability}\` was recorded as wired but the posture does not gate it; ` +
-          `gated capabilities are: ${Object.keys(input.posture.allows).join(", ") || "(none)"}`,
-      );
-    }
-    const off = offReason(allowed, requested.length, input.disabled?.[capability]);
+    const scopes = input.scopes?.[capability];
+    const ungatedScopes = input.ungatedScopes?.[capability] ?? [];
+    const ungated = requested.map((_, i) => {
+      const scope = scopes?.[i];
+      return scope !== undefined && ungatedScopes.includes(scope);
+    });
+    const hasGated = requested.length === 0 || ungated.some((u) => !u);
+    assertGated(capability, allowed, hasGated, input.posture.allows);
+    const disabled = input.disabled?.[capability];
+    const kept = requested.filter((_, i) => ungated[i] || allowed === true);
+    const suppressed = requested.length > kept.length;
+    const active = disabled ? [] : kept;
     record[capability] = {
       // Copied, not aliased. See the @returns note.
-      active: off ? [] : [...requested],
+      active,
       requested: [...requested],
-      suppressedByTrust: !allowed && requested.length > 0,
-      entities: requested.map((name, i) => ({ name, scope: input.scopes?.[capability]?.[i] })),
-      off,
+      suppressedByTrust: suppressed,
+      entities: requested.map((name, i) => ({ name, scope: scopes?.[i] })),
+      off: offReason(requested.length, active.length, suppressed, disabled),
     };
   }
   return record;
