@@ -5343,7 +5343,7 @@
       },
       "PluginsSettings": {
         "tier": "stable",
-        "declaration": "interface PluginsSettings {\n    enabled?: string[];\n}"
+        "declaration": "interface PluginsSettings {\n    enabled?: string[];\n    code?: readonly Plugin[];\n}"
       },
       "PostAssistantReplyContext": {
         "tier": "stable",
@@ -6281,6 +6281,10 @@
         "tier": "stable",
         "declaration": "declare function isInside(parent: string, child: string): boolean;"
       },
+      "isSecretEnvName": {
+        "tier": "stable",
+        "declaration": "declare function isSecretEnvName(name: string): boolean;"
+      },
       "isTransientError": {
         "tier": "stable",
         "declaration": "declare function isTransientError(err: unknown): boolean;"
@@ -6320,6 +6324,10 @@
       "memoryPartitionId": {
         "tier": "stable",
         "declaration": "declare function memoryPartitionId(scope: string): string;"
+      },
+      "mergeAgentOptions": {
+        "tier": "stable",
+        "declaration": "declare function mergeAgentOptions(...layers: ReadonlyArray<Partial<AgentOptions> | undefined>): Partial<AgentOptions>;"
       },
       "migrateSqliteToLance": {
         "tier": "stable",
@@ -6400,6 +6408,10 @@
       "scopedConversationId": {
         "tier": "stable",
         "declaration": "declare function scopedConversationId(scope: SessionScope, id: string): string;"
+      },
+      "secretEnvValues": {
+        "tier": "stable",
+        "declaration": "declare function secretEnvValues(env: Readonly<Record<string, string | undefined>>, options?: {\n    minLength?: number;\n}): string[];"
       },
       "sessionScopePrefix": {
         "tier": "stable",
@@ -7382,7 +7394,7 @@
       },
       "PluginsSettings": {
         "tier": "stable",
-        "declaration": "interface PluginsSettings {\n    enabled?: string[];\n}"
+        "declaration": "interface PluginsSettings {\n    enabled?: string[];\n    code?: readonly Plugin[];\n}"
       },
       "PostAssistantReplyContext": {
         "tier": "stable",
@@ -8320,6 +8332,10 @@
         "tier": "stable",
         "declaration": "declare function isInside(parent: string, child: string): boolean;"
       },
+      "isSecretEnvName": {
+        "tier": "stable",
+        "declaration": "declare function isSecretEnvName(name: string): boolean;"
+      },
       "isTransientError": {
         "tier": "stable",
         "declaration": "declare function isTransientError(err: unknown): boolean;"
@@ -8359,6 +8375,10 @@
       "memoryPartitionId": {
         "tier": "stable",
         "declaration": "declare function memoryPartitionId(scope: string): string;"
+      },
+      "mergeAgentOptions": {
+        "tier": "stable",
+        "declaration": "declare function mergeAgentOptions(...layers: ReadonlyArray<Partial<AgentOptions> | undefined>): Partial<AgentOptions>;"
       },
       "migrateSqliteToLance": {
         "tier": "stable",
@@ -8439,6 +8459,10 @@
       "scopedConversationId": {
         "tier": "stable",
         "declaration": "declare function scopedConversationId(scope: SessionScope, id: string): string;"
+      },
+      "secretEnvValues": {
+        "tier": "stable",
+        "declaration": "declare function secretEnvValues(env: Readonly<Record<string, string | undefined>>, options?: {\n    minLength?: number;\n}): string[];"
       },
       "sessionScopePrefix": {
         "tier": "stable",
