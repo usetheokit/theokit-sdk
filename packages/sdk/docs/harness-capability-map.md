@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1621 export(s) across 61 entry point(s).
+1625 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -737,6 +737,10 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MEMORY_INDEX_MAX_BYTES` | const | The byte limit the Claude Code CLI applies when it loads a `MEMORY.md`, whichever it reaches first.  |
 | `MEMORY_INDEX_MAX_LINES` | const | The line limit the Claude Code CLI applies when it loads a `MEMORY.md`.  |
 | `MemoryBackend` | type | Vector backend selector.  |
+| `MemoryBackendChoice` | interface | A selected memory backend. |
+| `memoryBackendFromEnv` | function | Choose a memory backend from `env`.  |
+| `MemoryBackendFromEnvOptions` | interface | Options for {@link memoryBackendFromEnv } . |
+| `MemoryBackendName` | type | Backend names {@link memoryBackendFromEnv } accepts. |
 | `MemoryChunk` | interface | A semantically meaningful slice of a markdown memory file, produced by `chunkMarkdown`.  |
 | `MemoryConfig` | interface | Per-agent memory configuration.  |
 | `MemoryDb` | interface | Memory index DB handle + opener.  |

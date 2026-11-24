@@ -7,6 +7,12 @@
 // CircuitBreaker lives in @theokit/sdk/retry; re-exported so both packages share one class.
 export { CircuitBreaker, type CircuitBreakerOptions } from "@theokit/sdk/retry";
 export {
+  type MemoryBackendChoice,
+  type MemoryBackendFromEnvOptions,
+  type MemoryBackendName,
+  memoryBackendFromEnv,
+} from "./memory-backend-from-env.js";
+export {
   createInMemoryMarkdownProvider,
   type InMemoryMarkdownProviderOptions,
 } from "./in-memory-provider.js";
