@@ -134,25 +134,13 @@ export function createViewImageTool(options: CreateViewImageToolOptions): Custom
         return json({ ok: false, error: "path_traversal", path: input.path });
       }
 
-      const mediaType = MEDIA_TYPES.get(extname(input.path).toLowerCase());
-      if (mediaType === undefined) {
-        return json({
-          ok: false,
-          error: "unsupported_image_type",
-          path: input.path,
-          supported: [...MEDIA_TYPES.keys()],
-        });
-      }
-
-      const absolute = safePathJoin(projectRoot, input.path);
-
-      const outcome = readWithinBudget(absolute, maxBytes);
-      if (!outcome.ok) return json(failureFor(outcome, input.path, maxBytes));
+      const outcome = readImageFile(safePathJoin(projectRoot, input.path), { maxBytes });
+      if (!outcome.ok) return json(failureFor(outcome, input.path));
 
       return json({
         ok: true,
         path: input.path,
-        media_type: mediaType,
+        media_type: outcome.mediaType,
         bytes: outcome.bytes,
         data: outcome.data,
       } satisfies ViewImageOk);
@@ -184,66 +172,80 @@ export function createViewImageTool(options: CreateViewImageToolOptions): Custom
   }) as unknown as CustomTool;
 }
 
-/** Outcome of {@link readWithinBudget} — a read that succeeded, or the reason it did not. */
-type ReadOutcome =
-  | { readonly ok: true; readonly bytes: number; readonly data: string }
-  | { readonly ok: false; readonly error: "not_found" }
-  | { readonly ok: false; readonly error: "too_large"; readonly bytes: number };
+/** Result of {@link readImageFile}. */
+export type ReadImageResult =
+  | { ok: true; data: string; mediaType: string; bytes: number }
+  | { ok: false; error: "unsupported_type"; path: string; supported: string[] }
+  | { ok: false; error: "not_found" | "unreadable"; path: string; cause?: string }
+  | { ok: false; error: "image_too_large"; path: string; bytes: number; limit_bytes: number };
 
 /**
- * Sizes and reads one file through a single descriptor, refusing anything over `maxBytes`.
+ * Reads one image file as base64: media type from the extension (closed table), size checked on the
+ * open descriptor BEFORE any read, so an oversized file is refused without being loaded.
  *
- * Its own function for two reasons. It has one responsibility — get the bytes, or say why not —
- * which the tool handler above does not share; and inlining it pushed the handler past the
- * repository's cognitive-complexity budget, which is the gate asking for exactly this split
- * rather than for a suppression.
+ * One descriptor for stat and read (CodeQL js/file-system-race #22): an fd cannot be swapped.
  *
- * The single descriptor is the point (CodeQL js/file-system-race #22). `statSync(path)` followed
- * by `readFileSync(path)` is two lookups of one name, and the size cap — the only thing keeping an
- * unbudgeted image out of an LLM's context — described a file that need not be the one returned.
- * An fd cannot be swapped.
+ * Does no path confinement: callers with untrusted paths must apply their own policy first.
  */
-function readWithinBudget(absolute: string, maxBytes: number): ReadOutcome {
-  let fd: number;
-  try {
-    fd = openSync(absolute, "r");
-  } catch {
-    return { ok: false, error: "not_found" };
+export function readImageFile(path: string, options?: { maxBytes?: number }): ReadImageResult {
+  const maxBytes = options?.maxBytes ?? DEFAULT_MAX_IMAGE_BYTES;
+  const mediaType = MEDIA_TYPES.get(extname(path).toLowerCase());
+  if (mediaType === undefined) {
+    return { ok: false, error: "unsupported_type", path, supported: [...MEDIA_TYPES.keys()] };
   }
 
+  const opened = openForRead(path);
+  if (!opened.ok) return opened;
+  const fd = opened.fd;
+
   try {
-    const bytes = fstatSync(fd).size;
-    // `>` and not `>=`: a file of exactly the limit fits. Off by one here refuses an image the
-    // operator deliberately sized to the cap.
-    if (bytes > maxBytes) return { ok: false, error: "too_large", bytes };
-    return { ok: true, bytes, data: readFileSync(fd).toString("base64") };
+    const stat = fstatSync(fd);
+    if (!stat.isFile())
+      return { ok: false, error: "unreadable", path, cause: "not a regular file" };
+    const bytes = stat.size;
+    // `>` and not `>=`: a file of exactly the limit fits.
+    if (bytes > maxBytes) {
+      return { ok: false, error: "image_too_large", path, bytes, limit_bytes: maxBytes };
+    }
+    return { ok: true, bytes, mediaType, data: readFileSync(fd).toString("base64") };
+  } catch (err) {
+    return { ok: false, error: "unreadable", path, cause: errnoOf(err) };
   } finally {
-    // Always — the early return on the size cap must not leak the descriptor.
     closeSync(fd);
   }
 }
 
-/**
- * Turns a refused read into the tool's failure envelope.
- *
- * Separate from the handler because it is a mapping, not a decision the handler makes — and
- * because keeping it inline held the handler one point above the cognitive-complexity budget.
- */
-function failureFor(
-  outcome: {
-    readonly ok: false;
-    readonly error: "not_found" | "too_large";
-    readonly bytes?: number;
-  },
+const errnoOf = (err: unknown): string => (err as NodeJS.ErrnoException).code ?? String(err);
+
+function openForRead(
   path: string,
-  maxBytes: number,
+): { ok: true; fd: number } | Extract<ReadImageResult, { error: "not_found" | "unreadable" }> {
+  try {
+    return { ok: true, fd: openSync(path, "r") };
+  } catch (err) {
+    const cause = errnoOf(err);
+    const missing = cause === "ENOENT" || cause === "ENOTDIR";
+    return { ok: false, error: missing ? "not_found" : "unreadable", path, cause };
+  }
+}
+
+/** Maps a refused read to the tool's envelope. `unreadable` stays `not_found` for compatibility. */
+function failureFor(
+  outcome: Extract<ReadImageResult, { ok: false }>,
+  path: string,
 ): ViewImageFailure {
-  if (outcome.error === "not_found") return { ok: false, error: "not_found", path };
-  return {
-    ok: false,
-    error: "image_too_large",
-    path,
-    bytes: outcome.bytes,
-    limit_bytes: maxBytes,
-  };
+  switch (outcome.error) {
+    case "unsupported_type":
+      return { ok: false, error: "unsupported_image_type", path, supported: outcome.supported };
+    case "image_too_large":
+      return {
+        ok: false,
+        error: "image_too_large",
+        path,
+        bytes: outcome.bytes,
+        limit_bytes: outcome.limit_bytes,
+      };
+    default:
+      return { ok: false, error: "not_found", path };
+  }
 }
