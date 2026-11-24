@@ -1,6 +1,6 @@
 {
   "name": "@theokit/memory-mem0",
-  "version": "3.0.12",
+  "version": "3.0.13",
   "description": "Mem0 cloud memory adapter for @theokit/sdk — wraps mem0ai MemoryClient with the MemoryAdapter contract (ADR D141).",
   "license": "Apache-2.0",
   "homepage": "https://github.com/usetheokit/theokit-sdk#readme",
