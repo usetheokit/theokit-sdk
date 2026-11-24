@@ -137,6 +137,8 @@ export {
   type CreateViewImageToolOptions,
   createViewImageTool,
   DEFAULT_MAX_IMAGE_BYTES,
+  type ReadImageResult,
+  readImageFile,
 } from "./view-image.js";
 export { type CreateWebFetchToolOptions, createWebFetchTool } from "./web-fetch.js";
 export {

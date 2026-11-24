@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1627 export(s) across 61 entry point(s).
+1633 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -740,6 +740,10 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MEMORY_INDEX_MAX_BYTES` | const | The byte limit the Claude Code CLI applies when it loads a `MEMORY.md`, whichever it reaches first.  |
 | `MEMORY_INDEX_MAX_LINES` | const | The line limit the Claude Code CLI applies when it loads a `MEMORY.md`.  |
 | `MemoryBackend` | type | Vector backend selector.  |
+| `MemoryBackendChoice` | interface | A selected memory backend. |
+| `memoryBackendFromEnv` | function | Choose a memory backend from `env`.  |
+| `MemoryBackendFromEnvOptions` | interface | Options for {@link memoryBackendFromEnv } . |
+| `MemoryBackendName` | type | Backend names {@link memoryBackendFromEnv } accepts. |
 | `MemoryChunk` | interface | A semantically meaningful slice of a markdown memory file, produced by `chunkMarkdown`.  |
 | `MemoryConfig` | interface | Per-agent memory configuration.  |
 | `MemoryDb` | interface | Memory index DB handle + opener.  |
@@ -922,6 +926,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `PlanNode` | interface | A flat plan-render node — the stable shape a UI/plan layer consumes.  |
 | `QuestionTool` | interface | M76 — aligned with the SDK's `CustomTool`.  |
 | `QuestionToolOptions` | interface | `question` — interactive tool that asks the user a question and waits for a response.  |
+| `readImageFile` | function | Reads one image file as base64: media type from the extension (closed table), size checked on the open descriptor BEFORE any read, so an oversized file is refused without being loaded.  |
+| `ReadImageResult` | type | Result of {@link readImageFile } . |
 | `ReadTracker` | class | `ReadTracker` — SE32 read-before-write safety.  |
 | `readXwdHeader` | function | Validate and parse the XWD header in `bytes` without allocating pixel buffers. |
 | `ReasoningTools` | class | Reasoning scratchpad tools.  |
