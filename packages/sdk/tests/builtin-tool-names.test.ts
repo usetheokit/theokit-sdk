@@ -95,6 +95,7 @@ describe("BUILTIN_TOOL_NAMES", () => {
       model: { id: "claude-sonnet-4-6" },
       local: { cwd, settingSources: ["project"] },
       memory: { enabled: true },
+      builtinTools: ["shell"],
     });
     await (await agent.send("anything")).wait();
 
