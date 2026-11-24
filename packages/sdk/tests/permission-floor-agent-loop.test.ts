@@ -1,7 +1,7 @@
 import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { runAgentLoop } from "../src/internal/agent-loop/loop.js";
 import type { AgentLoopInputs } from "../src/internal/agent-loop/types.js";
 import type { LlmClient, LlmEvent, LlmFinish } from "../src/internal/llm/types.js";
@@ -10,6 +10,7 @@ import { HooksExecutor } from "../src/internal/runtime/hooks/hooks-executor.js";
 import { PermissionEngine } from "../src/permission-engine.js";
 import { PermissionPlugin } from "../src/permission-plugin.js";
 import type { RunEvent } from "../src/types/run-events.js";
+import { removeTempDirRobust } from "./helpers/temp-workspace.js";
 
 /** The loop's own floor: no plugin needed. One tool call on turn 1, then done. */
 function llm(name: string, input: Record<string, unknown>): LlmClient {
@@ -87,6 +88,7 @@ async function drive(
 describe("the permission floor in the agent loop", () => {
   it("refuses a protected-path write with no permission plugin", async () => {
     const cwd = await realpath(await mkdtemp(join(tmpdir(), "floor-")));
+    onTestFinished(() => removeTempDirRobust(cwd));
     const hookCalls: string[] = [];
     const { ran, denied } = await drive(
       cwd,
@@ -102,6 +104,7 @@ describe("the permission floor in the agent loop", () => {
 
   it("still refuses in bypassPermissions with PermissionPlugin, once", async () => {
     const cwd = await realpath(await mkdtemp(join(tmpdir(), "floor-")));
+    onTestFinished(() => removeTempDirRobust(cwd));
     const { ran, denied } = await drive(
       cwd,
       "write_file",
@@ -115,6 +118,7 @@ describe("the permission floor in the agent loop", () => {
 
   it("protects the agent workspace cwd, not process.cwd()", async () => {
     const cwd = await realpath(await mkdtemp(join(tmpdir(), "floor-")));
+    onTestFinished(() => removeTempDirRobust(cwd));
     expect(cwd).not.toBe(process.cwd());
     const { ran, denied } = await drive(cwd, "run_command", { command: `rm -rf ${cwd}` });
     expect(ran).toEqual([]);
@@ -124,6 +128,7 @@ describe("the permission floor in the agent loop", () => {
 
   it("does not gate reads", async () => {
     const cwd = await realpath(await mkdtemp(join(tmpdir(), "floor-")));
+    onTestFinished(() => removeTempDirRobust(cwd));
     const { ran, denied } = await drive(cwd, "read_file", { path: ".claude/settings.json" });
     expect(denied).toEqual([]);
     expect(ran).toEqual(["read_file"]);
