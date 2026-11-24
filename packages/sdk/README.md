@@ -1012,11 +1012,14 @@ Every export is stable unless its declaration carries `@experimental`; experimen
 - `A2AIdentity`
 - `A2AUntrustedPeerError`
 - `SealedDropReason`
+- `SealedMailboxToolsOptions`
 - `SequenceStore`
 - `TrustedPeers`
 - `generateA2AIdentity`
+- `jsonIdentityStore`
 - `jsonSequenceStore`
 - `memorySequenceStore`
+- `sealedMailboxTools`
 - `sealedTransport`
 
 ## Status
