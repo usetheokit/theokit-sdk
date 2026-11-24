@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-317 distinct code(s).
+318 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -208,7 +208,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `parse_failed` | domain | — | `packages/sdk/src/errors.ts:770` |
 | `path_traversal` | domain | — | `packages/sdk/src/internal/security/path-guard.ts:37` |
 | `permission_enforcement_unavailable` | domain | ConfigurationError | `packages/acp/src/permission-plugin.ts:107` +1 |
-| `permission_rule_invalid` | domain | ConfigurationError | `packages/sdk/src/permission-rules.ts:124` +2 |
+| `permission_rule_invalid` | domain | ConfigurationError | `packages/sdk/src/permission-engine.ts:171` +3 |
+| `permission_rules_not_array` | domain | ConfigurationError | `packages/sdk/src/permission-engine.ts:160` |
 | `personality_empty_body` | domain | ConfigurationError | `packages/sdk/src/internal/personality/registry.ts:117` |
 | `personality_not_found` | domain | ConfigurationError | `packages/sdk/src/internal/personality/switch.ts:60` |
 | `personality_reserved_name` | domain | ConfigurationError | `packages/sdk/src/internal/personality/registry.ts:110` |
