@@ -88,6 +88,7 @@ describe("real agent loop", () => {
       hooks,
       shellCwd: cwd,
       shellSandbox: false,
+      builtinTools: ["shell"],
     });
 
     expect(result.finalStatus).toBe("finished");
@@ -140,6 +141,7 @@ describe("real agent loop", () => {
       hooks: denyingHooks,
       shellCwd: cwd,
       shellSandbox: false,
+      builtinTools: ["shell"],
       maxIterations: 1,
     });
 

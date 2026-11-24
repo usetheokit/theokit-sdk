@@ -102,6 +102,7 @@ describe("pruneToolResults through the real loop (B-564)", () => {
     const { result } = await driveLoop(cwd, {
       llm: twoShellRoundsThenText(recorded, seen, live),
       userMessage: "go",
+      builtinTools: ["shell"],
       ...(pruneToolResults !== undefined ? { pruneToolResults } : {}),
     });
     return { recorded, seen, live, result };
