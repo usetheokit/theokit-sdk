@@ -34,6 +34,8 @@ export interface SessionTranscriptOptions {
   sessionId: string;
   model: string;
   version?: string;
+  /** Memory partition stamped on each new conversation record. */
+  memoryPartition?: string;
 }
 
 export interface AssistantTurn {
@@ -116,6 +118,9 @@ export class SessionTranscript {
       userType: "external",
       cwd: this.#opts.cwd,
       version: this.#opts.version ?? "1.0.0-theokit",
+      ...(this.#opts.memoryPartition !== undefined && rec.type !== "system"
+        ? { memoryPartition: this.#opts.memoryPartition }
+        : {}),
     };
     this.#records.push(full);
     this.#last = full.uuid;

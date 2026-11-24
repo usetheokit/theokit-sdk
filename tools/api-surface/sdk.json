@@ -5751,7 +5751,7 @@
       },
       "SessionRecord": {
         "tier": "stable",
-        "declaration": "interface SessionRecord {\n    type: \"user\" | \"assistant\" | \"system\";\n    uuid: string;\n    parentUuid: string | null;\n    sessionId: string;\n    timestamp: string;\n    isSidechain?: boolean;\n    userType?: string;\n    cwd?: string;\n    version?: string;\n    subtype?: string;\n    compactMetadata?: {\n        preTokens: number;\n        trigger: string;\n    };\n    deferredToolCalls?: Array<{\n        toolUseId: string;\n        schemaVersion: number;\n    }>;\n    message?: TranscriptMessage;\n}"
+        "declaration": "interface SessionRecord {\n    type: \"user\" | \"assistant\" | \"system\";\n    uuid: string;\n    parentUuid: string | null;\n    sessionId: string;\n    timestamp: string;\n    isSidechain?: boolean;\n    userType?: string;\n    cwd?: string;\n    version?: string;\n    subtype?: string;\n    memoryPartition?: string;\n    compactMetadata?: {\n        preTokens: number;\n        trigger: string;\n    };\n    deferredToolCalls?: Array<{\n        toolUseId: string;\n        schemaVersion: number;\n    }>;\n    message?: TranscriptMessage;\n}"
       },
       "SessionScope": {
         "tier": "stable",
@@ -7802,7 +7802,7 @@
       },
       "SessionRecord": {
         "tier": "stable",
-        "declaration": "interface SessionRecord {\n    type: \"user\" | \"assistant\" | \"system\";\n    uuid: string;\n    parentUuid: string | null;\n    sessionId: string;\n    timestamp: string;\n    isSidechain?: boolean;\n    userType?: string;\n    cwd?: string;\n    version?: string;\n    subtype?: string;\n    compactMetadata?: {\n        preTokens: number;\n        trigger: string;\n    };\n    deferredToolCalls?: Array<{\n        toolUseId: string;\n        schemaVersion: number;\n    }>;\n    message?: TranscriptMessage;\n}"
+        "declaration": "interface SessionRecord {\n    type: \"user\" | \"assistant\" | \"system\";\n    uuid: string;\n    parentUuid: string | null;\n    sessionId: string;\n    timestamp: string;\n    isSidechain?: boolean;\n    userType?: string;\n    cwd?: string;\n    version?: string;\n    subtype?: string;\n    memoryPartition?: string;\n    compactMetadata?: {\n        preTokens: number;\n        trigger: string;\n    };\n    deferredToolCalls?: Array<{\n        toolUseId: string;\n        schemaVersion: number;\n    }>;\n    message?: TranscriptMessage;\n}"
       },
       "SessionScope": {
         "tier": "stable",
