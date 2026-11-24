@@ -26,22 +26,18 @@ describe("PermissionEngine constructor validation", () => {
   });
 
   it("rejects an invalid action, naming the index", () => {
-    const e = catchErr(
-      () => new PermissionEngine([{ tool: "shell", action: "block" }] as never),
-    );
+    const e = catchErr(() => new PermissionEngine([{ tool: "shell", action: "block" }] as never));
     expect(e.code).toBe("permission_rule_invalid");
     expect(e.message).toContain("index 0");
   });
 
   it("rejects null elements and bad tools by index", () => {
-    const e = catchErr(
-      () => new PermissionEngine([{ tool: "a", action: "allow" }, null] as never),
-    );
+    const e = catchErr(() => new PermissionEngine([{ tool: "a", action: "allow" }, null] as never));
     expect(e.code).toBe("permission_rule_invalid");
     expect(e.message).toContain("index 1");
-    expect(
-      catchErr(() => new PermissionEngine([{ tool: 3, action: "allow" }] as never)).code,
-    ).toBe("permission_rule_invalid");
+    expect(catchErr(() => new PermissionEngine([{ tool: 3, action: "allow" }] as never)).code).toBe(
+      "permission_rule_invalid",
+    );
   });
 
   it("accepts string and RegExp tools and an empty array", () => {

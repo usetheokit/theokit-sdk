@@ -168,8 +168,7 @@ function validateRules(rules: unknown): void {
   }
   for (let i = 0; i < rules.length; i++) {
     const rule = rules[i] as Partial<PermissionRule> | null | undefined;
-    const toolOk =
-      rule != null && (typeof rule.tool === "string" || rule.tool instanceof RegExp);
+    const toolOk = rule != null && (typeof rule.tool === "string" || rule.tool instanceof RegExp);
     const actionOk =
       rule != null && (rule.action === "allow" || rule.action === "deny" || rule.action === "ask");
     if (!toolOk || !actionOk) {
