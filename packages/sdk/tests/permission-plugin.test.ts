@@ -75,7 +75,11 @@ describe("PermissionPlugin floor cwd", () => {
     let handler: ((x: unknown) => unknown) | undefined;
     plugin.register({ on: (_e, f) => void (handler = f) });
     const dir = "/tmp/some-workspace-for-floor";
-    const decision = await handler?.({ name: "shell", args: { command: `rm -rf ${dir}` }, cwd: dir });
+    const decision = await handler?.({
+      name: "shell",
+      args: { command: `rm -rf ${dir}` },
+      cwd: dir,
+    });
     expect(decision).toMatchObject({ block: true });
   });
 });

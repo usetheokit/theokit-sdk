@@ -1,3 +1,4 @@
+import { permissionFloorReason } from "../../permission-floors.js";
 import type { SDKMessage, SDKToolUseMessage } from "../../types/messages.js";
 import type { DeferredToolCall } from "../../types/run.js";
 import type { InteractionUpdate } from "../../types/updates.js";
@@ -9,7 +10,6 @@ import { generateCallId } from "../ids.js";
 import type { LlmContentPart, LlmToolCallPart } from "../llm/types.js";
 import { HISTOGRAM_NAMES } from "../telemetry/span-names.js";
 import { type RepairableTool, repairToolCall } from "../tool-dispatch/repair-middleware.js";
-import { permissionFloorReason } from "../../permission-floors.js";
 import { executeTool, renderToolResult, type ToolResult } from "./tool-executors.js";
 import { raceToolExecution } from "./tool-timeout.js";
 import type { AgentLoopInputs, ResolvedTool } from "./types.js";
