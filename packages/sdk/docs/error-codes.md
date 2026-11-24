@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-318 distinct code(s).
+321 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -165,6 +165,9 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `mcp_protocol_unsupported` | domain | NetworkError | `packages/sdk/src/internal/mcp/protocol-version.ts:36` |
 | `mcp_rpc_error` | domain | NetworkError | `packages/sdk/src/mcp.ts:73` |
 | `mcp_timeout` | domain | NetworkError | `packages/sdk/src/internal/mcp/rpc-helpers.ts:15` |
+| `memory_backend_missing_key` | domain | ConfigurationError | `packages/sdk-memory/src/memory-backend-from-env.ts:157` |
+| `memory_backend_unavailable` | domain | ConfigurationError | `packages/sdk-memory/src/memory-backend-from-env.ts:99` +2 |
+| `memory_backend_unknown` | domain | ConfigurationError | `packages/sdk-memory/src/memory-backend-from-env.ts:149` |
 | `memory_ceiling_reached` | domain | ConfigurationError | `packages/sdk/src/internal/memory/storage/fact-ceiling.ts:43` +1 |
 | `memory_context_missing_user_id` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:168` |
 | `memory_fact_ambiguous` | domain | — | `packages/sdk/src/errors.ts:528` +1 |

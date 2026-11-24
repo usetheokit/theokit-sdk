@@ -221,3 +221,61 @@ describe("recordWiring — scopes and off reasons", () => {
       expect(e.off?.reason === "suppressed-by-trust").toBe(e.suppressedByTrust);
   });
 });
+
+describe("recordWiring ungatedScopes", () => {
+  const base = {
+    requested: { mcp: ["a", "b"] },
+    scopes: { mcp: ["project", "personal"] },
+    ungatedScopes: { mcp: ["personal"] },
+  };
+
+  it("keeps the ungated share active when the posture denies", () => {
+    const r = recordWiring({ ...base, posture: { allows: { mcp: false } } });
+    expect(r.mcp.active).toEqual(["b"]);
+    expect(r.mcp.requested).toEqual(["a", "b"]);
+    expect(r.mcp.suppressedByTrust).toBe(true);
+    expect(r.mcp.off).toBeUndefined();
+  });
+
+  it("keeps everything active when the posture allows", () => {
+    const r = recordWiring({ ...base, posture: { allows: { mcp: true } } });
+    expect(r.mcp.active).toEqual(["a", "b"]);
+    expect(r.mcp.suppressedByTrust).toBe(false);
+  });
+
+  it("needs no posture key when every entity is ungated", () => {
+    const r = recordWiring({
+      posture: { allows: {} },
+      requested: { mcp: ["b"] },
+      scopes: { mcp: ["personal"] },
+      ungatedScopes: { mcp: ["personal"] },
+    });
+    expect(r.mcp.active).toEqual(["b"]);
+    expect(r.mcp.suppressedByTrust).toBe(false);
+  });
+
+  it("still throws when a gated entity has no posture key", () => {
+    expect(() => recordWiring({ ...base, posture: { allows: {} } })).toThrow(
+      UngatedCapabilityError,
+    );
+  });
+
+  it("treats an entity with no scope as gated", () => {
+    const r = recordWiring({
+      posture: { allows: { mcp: false } },
+      requested: { mcp: ["a", "b"] },
+      scopes: { mcp: ["personal"] },
+      ungatedScopes: { mcp: ["personal"] },
+    });
+    expect(r.mcp.active).toEqual(["a"]);
+  });
+
+  it("lets disabled empty the capability and trust stay the reason", () => {
+    const disabled = { mcp: { reason: "disabled-by-config" } };
+    const denied = recordWiring({ ...base, disabled, posture: { allows: { mcp: false } } });
+    expect(denied.mcp.active).toEqual([]);
+    expect(denied.mcp.off?.reason).toBe("suppressed-by-trust");
+    const allowed = recordWiring({ ...base, disabled, posture: { allows: { mcp: true } } });
+    expect(allowed.mcp.off?.reason).toBe("disabled-by-config");
+  });
+});

@@ -19,7 +19,7 @@ import type { AgentOptions, SDKAgent } from "../../../types/agent.js";
 // module (which would form a type-only cycle). Re-exported here for back-compat.
 import type { ForkOptions, ForkResult } from "../../../types/fork.js";
 import { withToolWhitelist } from "../../concurrency/async-local-storage.js";
-import { isCodePlugin } from "../../plugins/plugin-guards.js";
+import { extractCodePlugins, isCodePlugin } from "../../plugins/plugin-guards.js";
 import type { Plugin } from "../../plugins/types.js";
 
 export type { ForkOptions, ForkResult } from "../../../types/fork.js";
@@ -59,8 +59,7 @@ export interface ForkParent {
 export function filterMemoryPlugins(
   plugins: unknown,
 ): Array<Extract<Plugin, { kind: "memory" }>> | undefined {
-  if (!Array.isArray(plugins)) return undefined;
-  const memoryOnly = plugins.filter(
+  const memoryOnly = extractCodePlugins(plugins).filter(
     (p): p is Extract<Plugin, { kind: "memory" }> => isCodePlugin(p) && p.kind === "memory",
   );
   return memoryOnly.length > 0 ? memoryOnly : undefined;
