@@ -91,6 +91,8 @@ describe("withheldBuiltinTools — what the model is shown", () => {
     memoryTools?: ReadonlyArray<MemoryToolSpec>;
     client?: LlmClient;
     seen?: string[][];
+    /** #1117 — the shell is opt-in; the helper opts in unless a case says otherwise. */
+    optIn?: boolean;
   }): Promise<string[]> {
     const seen = options.seen ?? [];
     const hooks = new HooksExecutor(cwd);
@@ -105,6 +107,7 @@ describe("withheldBuiltinTools — what the model is shown", () => {
       hooks,
       shellCwd: cwd,
       shellSandbox: false,
+      ...(options.optIn === false ? {} : { builtinTools: ["shell" as const] }),
       ...(options.withheld !== undefined ? { withheldBuiltinTools: options.withheld } : {}),
       ...(options.memoryTools !== undefined ? { memoryTools: options.memoryTools } : {}),
     });
@@ -112,6 +115,18 @@ describe("withheldBuiltinTools — what the model is shown", () => {
     expect(first, "the stub client was never asked for a turn").toBeDefined();
     return first ?? [];
   }
+
+  it("test_shell_is_not_declared_without_the_opt_in", async () => {
+    const tools = await declaredTools({ optIn: false });
+
+    expect(tools, "#1117: the shell must be opt-in").not.toContain("shell");
+  });
+
+  it("test_withholding_wins_over_the_opt_in", async () => {
+    const tools = await declaredTools({ withheld: ["shell"] });
+
+    expect(tools).not.toContain("shell");
+  });
 
   it("test_shell_is_declared_when_nothing_is_withheld", async () => {
     const tools = await declaredTools({});
@@ -194,6 +209,7 @@ describe("withheldBuiltinTools — what the model is shown", () => {
       hooks,
       shellCwd: cwd,
       shellSandbox: false,
+      builtinTools: ["shell"],
       withheldBuiltinTools: ["shell"],
     });
 
@@ -222,6 +238,7 @@ describe("withheldBuiltinTools — what the model is shown", () => {
       hooks,
       shellCwd: cwd,
       shellSandbox: false,
+      builtinTools: ["shell"],
     });
 
     expect(JSON.stringify(result.events)).not.toContain("Unknown tool shell");

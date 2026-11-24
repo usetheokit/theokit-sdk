@@ -23,6 +23,21 @@ describe("withheld builtins survive delegation", () => {
     expect(child.withheldBuiltinTools).toEqual(["shell"]);
   });
 
+  it("a child inherits the parent's shell opt-in, and the parent's withholding still wins", () => {
+    const opted = { builtinTools: ["shell"] } as AgentOptions;
+    expect(buildChildCreateOptions(SPEC, resolveInheritedCredentials(opted)).builtinTools).toEqual([
+      "shell",
+    ]);
+    expect(
+      buildChildCreateOptions(SPEC, resolveInheritedCredentials({} as AgentOptions)),
+    ).not.toHaveProperty("builtinTools");
+
+    const both = { builtinTools: ["shell"], withheldBuiltinTools: ["shell"] } as AgentOptions;
+    expect(
+      buildChildCreateOptions(SPEC, resolveInheritedCredentials(both)).withheldBuiltinTools,
+    ).toEqual(["shell"]);
+  });
+
   it("a role may tighten: its own withholding is UNIONED with the parent's", () => {
     const child = buildChildCreateOptions(
       { ...SPEC, withheldBuiltinTools: ["memory_search"] } as SubAgentSpec,
