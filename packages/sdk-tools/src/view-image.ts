@@ -206,7 +206,8 @@ export function readImageFile(path: string, options?: { maxBytes?: number }): Re
 
   try {
     const stat = fstatSync(fd);
-    if (!stat.isFile()) return { ok: false, error: "unreadable", path, cause: "not a regular file" };
+    if (!stat.isFile())
+      return { ok: false, error: "unreadable", path, cause: "not a regular file" };
     const bytes = stat.size;
     // `>` and not `>=`: a file of exactly the limit fits.
     if (bytes > maxBytes) {
