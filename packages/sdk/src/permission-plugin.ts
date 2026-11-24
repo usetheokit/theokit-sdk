@@ -113,6 +113,10 @@ async function resolveAsk(
   return opts.onAsk ? opts.onAsk(name) : { block: true, message: `requires approval: ${name}` };
 }
 
+function floorContext(cwd: string | undefined): { cwd?: string } {
+  return cwd === undefined ? {} : { cwd };
+}
+
 /**
  * Build a `general` plugin that vetoes tool calls per the engine's verdict, under
  * the configured {@link PermissionMode}, resolving `ask` via the {@link canUseTool}
@@ -128,17 +132,21 @@ function createPermissionPlugin(
     kind: "general",
     register(ctx) {
       ctx.on("pre_tool_call", async (rawCtx) => {
-        const { name, args, permissionMode, approvedOnResume } = rawCtx as {
+        const { name, args, permissionMode, approvedOnResume, cwd } = rawCtx as {
           name: string;
           args: Record<string, unknown>;
           permissionMode?: PermissionMode;
           approvedOnResume?: boolean;
+          cwd?: string;
         };
         // SE1 — precedence: the RUN's mode (threaded from `SendOptions`/`AgentOptions`
         // via the pre_tool_call context) wins over the plugin's construction-time
         // default. `default` when neither is set.
         const mode: PermissionMode = permissionMode ?? opts.mode ?? "default";
         // The FLOOR, first — before the engine, before the gate, before the mode is even consulted.
+        //
+        // The agent loop checks the floor for every call already; this copy keeps a plugin used
+        // outside the loop covered.
         //
         // Its docblock claims it sits above every rule and every mode. Until this call existed that
         // was a sentence rather than a tier: `permission-floors.ts` was imported by `index.ts` and
@@ -148,7 +156,7 @@ function createPermissionPlugin(
         //
         // `bypassPermissions` does not reach it either, deliberately: a mode that skips the floor is
         // a mode that can write into `.claude/` and change the policy that was supposed to bound it.
-        const floor = permissionFloorReason(name, args, {});
+        const floor = permissionFloorReason(name, args, floorContext(cwd));
         if (floor !== undefined) return { block: true, message: floor };
         // #55 — args gate rules on the command/args, not just the tool name.
         // SE1 — the mode adjusts the verdict (bypass/plan/acceptEdits); an explicit
