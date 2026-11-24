@@ -5,7 +5,11 @@
  * apiKey, model, plugins and origin stamping.
  */
 import { describe, expect, it, vi } from "vitest";
-import { SubAgent, subAgentToolsFromDefinitions } from "../../src/a2a/subagent.js";
+import {
+  agentOptionsFromDefinition,
+  SubAgent,
+  subAgentToolsFromDefinitions,
+} from "../../src/a2a/subagent.js";
 import type { AgentFacadePort } from "../../src/internal/runtime/registry/agent-factory-registry.js";
 import { setAgentFacade } from "../../src/internal/runtime/registry/agent-factory-registry.js";
 import { useTempCwd } from "../helpers/temp-workspace.js";
@@ -196,6 +200,49 @@ describe("SubAgent inheritance", () => {
 
       const passedTools = mockCreate.mock.calls[0]![0].tools as Array<{ name: string }>;
       expect(passedTools.map((t) => t.name)).toEqual(["read_file"]);
+    });
+
+    it("a whitelist also withholds the builtins it leaves out on the delegation path", async () => {
+      const mockCreate = vi.fn().mockResolvedValue({
+        send: vi.fn().mockResolvedValue({ wait: () => Promise.resolve({ result: "ok" }) }),
+        dispose: vi.fn(),
+      });
+      setAgentFacade({ create: mockCreate } as unknown as AgentFacadePort);
+      const reader = subAgentToolsFromDefinitions(
+        { reader: { description: "d", prompt: "p", tools: ["read_file"] } },
+        [{ name: "read_file", description: "", inputSchema: {}, handler: () => "" }],
+      )[0]!;
+      await delegateWithParent(reader, { apiKey: "k" }, "x");
+      expect(mockCreate.mock.calls[0]![0].withheldBuiltinTools).toContain("shell");
+    });
+  });
+
+  describe("agentOptionsFromDefinition", () => {
+    const def = { description: "d", prompt: "p" };
+
+    it("inherit takes the parent's ModelSelection with its reasoning params", () => {
+      const model = { id: "m", params: [{ id: "thinking", value: "low" }] };
+      expect(agentOptionsFromDefinition({ ...def, model: "inherit" }, { model }).model).toEqual(
+        model,
+      );
+    });
+
+    it("forwards credential, cwd and setting sources from the parent", () => {
+      const o = agentOptionsFromDefinition(def, {
+        apiKey: "k",
+        local: { cwd: "/w", settingSources: ["project"] },
+      });
+      expect(o.apiKey).toBe("k");
+      expect(o.local?.cwd).toBe("/w");
+      expect(o.local?.settingSources).toEqual(["project"]);
+    });
+
+    it("an empty withheldBuiltinTools on the definition keeps the parent's shell withheld", () => {
+      const o = agentOptionsFromDefinition(
+        { ...def, withheldBuiltinTools: [] },
+        { withheldBuiltinTools: ["shell"] },
+      );
+      expect(o.withheldBuiltinTools).toEqual(["shell"]);
     });
   });
 });

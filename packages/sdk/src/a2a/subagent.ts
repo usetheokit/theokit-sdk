@@ -654,11 +654,18 @@ function specFromDefinition(
     // per-subagent reasoning effort survives to buildChildCreateOptions.
     ...(def.model !== undefined && def.model !== "inherit" ? { model: def.model } : {}),
     ...(def.sandbox !== undefined ? { sandbox: def.sandbox } : {}),
-    ...(def.withheldBuiltinTools !== undefined
-      ? { withheldBuiltinTools: def.withheldBuiltinTools }
-      : {}),
+    ...withheldFromDefinition(def),
     tools: [...childTools],
   };
+}
+
+/** The definition's own withholding plus the builtins a `tools` whitelist leaves out; `{}` when neither. */
+function withheldFromDefinition(def: AgentDefinition): {
+  withheldBuiltinTools?: readonly BuiltinToolName[];
+} {
+  const unlisted = unlistedBuiltins(def);
+  if (def.withheldBuiltinTools === undefined && unlisted.length === 0) return {};
+  return { withheldBuiltinTools: [...new Set([...(def.withheldBuiltinTools ?? []), ...unlisted])] };
 }
 
 /**
@@ -715,6 +722,9 @@ function inheritedFromParent(parent: SubagentParent): InheritedCredentials {
  * definition's and those a whitelist leaves out (a child may tighten, never loosen — #580).
  * Without `parent.local.cwd` the agent's own cwd default applies.
  *
+ * Limit: the whitelist narrows custom tools and builtins only. Tools a plugin supplies are not
+ * filtered, and the parent's plugins are inherited whole.
+ *
  * @public
  */
 export function agentOptionsFromDefinition(
@@ -722,10 +732,6 @@ export function agentOptionsFromDefinition(
   parent: SubagentParent,
 ): AgentOptions {
   const spec = specFromDefinition("subagent", def, parent.tools ?? []);
-  const unlisted = unlistedBuiltins(def);
-  if (unlisted.length > 0) {
-    spec.withheldBuiltinTools = [...new Set([...(spec.withheldBuiltinTools ?? []), ...unlisted])];
-  }
   const options = buildChildCreateOptions(spec, inheritedFromParent(parent));
   if (parent.local?.cwd === undefined) return options;
   return { ...options, local: { ...options.local, cwd: parent.local.cwd } };

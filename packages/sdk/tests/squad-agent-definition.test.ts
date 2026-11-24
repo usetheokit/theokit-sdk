@@ -18,11 +18,11 @@
  * usually has agents from different origins. A test proving only the new path would pass
  * even if the old one had broken.
  */
-import { describe, expect, it } from "vitest";
-
+import { describe, expect, it, vi } from "vitest";
 import { ConfigurationError } from "../src/errors.js";
+import { effectiveToolNames } from "../src/index.js";
 import { Squad } from "../src/squad.js";
-import type { AgentDefinition, SDKAgent } from "../src/types/agent.js";
+import type { AgentDefinition, AgentOptions, CustomTool, SDKAgent } from "../src/types/agent.js";
 
 const definition: AgentDefinition = {
   description: "explores the repository",
@@ -218,5 +218,54 @@ describe("Squad interrupts a stalled Agent.create", () => {
     } finally {
       s.spy.mockRestore();
     }
+  });
+});
+
+describe("#1552 — Squad members inherit from `parent`", () => {
+  const tool = (name: string) =>
+    ({
+      name,
+      description: name,
+      inputSchema: {},
+      handler: async () => "",
+    }) as unknown as CustomTool;
+  const scoped: AgentDefinition = { description: "d", prompt: "p", tools: ["read"] };
+
+  it("refuses a definition with tools and no parent", () => {
+    expect(() => Squad.create({ agents: [scoped] })).toThrow(ConfigurationError);
+  });
+
+  /** Runs a one-member squad with Agent.create stubbed, and returns the real options it was given. */
+  async function memberOptions(parent: NonNullable<Parameters<typeof Squad.create>[0]["parent"]>) {
+    const { Agent } = await import("../src/agent.js");
+    const create = vi.spyOn(Agent, "create").mockRejectedValue(new Error("stop"));
+    try {
+      await Squad.create({ agents: [scoped], parent })
+        .run("hi")
+        .catch(() => undefined);
+      return create.mock.calls[0]?.[0] as AgentOptions;
+    } finally {
+      create.mockRestore();
+    }
+  }
+
+  it("the member's catalog holds read, not write, and not a shell the parent opted into", async () => {
+    // The parent does NOT withhold shell: only the definition's whitelist can remove it.
+    const opts = await memberOptions({
+      apiKey: "k",
+      tools: [tool("read"), tool("write")],
+      builtinTools: ["shell"],
+    });
+    expect(effectiveToolNames(opts).names).toEqual(["read"]);
+  });
+
+  it("a parent's withheld shell stays withheld", async () => {
+    const opts = await memberOptions({
+      tools: [tool("read"), tool("write")],
+      builtinTools: ["shell"],
+      withheldBuiltinTools: ["shell"],
+    });
+    expect(effectiveToolNames(opts).names).toEqual(["read"]);
+    expect(opts.withheldBuiltinTools).toContain("shell");
   });
 });
