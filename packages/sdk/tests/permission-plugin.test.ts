@@ -72,8 +72,9 @@ describe("PermissionPlugin floor cwd", () => {
     const plugin = PermissionPlugin.create(new PermissionEngine([])) as unknown as {
       register: (c: { on: (e: string, f: (x: unknown) => unknown) => void }) => void;
     };
-    let handler: ((x: unknown) => unknown) | undefined;
-    plugin.register({ on: (_e, f) => void (handler = f) });
+    const handlers: Array<(x: unknown) => unknown> = [];
+    plugin.register({ on: (_e, f) => void handlers.push(f) });
+    const handler = handlers[0];
     const dir = "/tmp/some-workspace-for-floor";
     const decision = await handler?.({
       name: "shell",

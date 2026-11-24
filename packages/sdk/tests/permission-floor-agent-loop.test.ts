@@ -19,14 +19,14 @@ function llm(name: string, input: Record<string, unknown>): LlmClient {
     async *stream(): AsyncGenerator<LlmEvent, LlmFinish, void> {
       yield { type: "text_delta", text: "" };
       turn += 1;
-      const calls = turn === 1 ? [{ type: "tool_call" as const, id: "c1", name, input }] : [];
+      const calls = turn === 1 ? [{ type: "tool_use" as const, id: "c1", name, input }] : [];
       return {
         stopReason: turn === 1 ? "tool_use" : "end_turn",
         text: "",
         toolCalls: calls,
         inputTokens: 1,
         outputTokens: 1,
-      } as LlmFinish;
+      } as unknown as LlmFinish;
     },
   };
 }

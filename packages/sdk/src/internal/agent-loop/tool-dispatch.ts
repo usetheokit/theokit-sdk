@@ -148,13 +148,8 @@ async function dispatchSingleCall(
   const toolSpan = startToolCallSpan(dc, resolved, repairs);
   events.push(buildToolUseRunning(dc));
 
-  const floorVeto = vetoFromPermissionFloor(dc);
-  if (floorVeto !== undefined) {
-    toolSpan?.setAttribute("tool.vetoed", true);
-    toolSpan?.setAttribute("tool.veto_source", "floor");
-    toolSpan?.end();
-    return floorVeto;
-  }
+  const floorVeto = vetoFromPermissionFloor(dc, toolSpan);
+  if (floorVeto !== undefined) return floorVeto;
 
   const pluginVeto = await vetoFromPluginPreHook(dc);
   if (pluginVeto !== undefined) {
@@ -300,7 +295,10 @@ function startToolCallSpan(
  * Step 3b — the permission floor. Runs for every call, before plugins and file hooks, in every
  * permission mode, against the agent's workspace cwd. No plugin has to be installed.
  */
-function vetoFromPermissionFloor(dc: DispatchContext): LlmContentPart | undefined {
+function vetoFromPermissionFloor(
+  dc: DispatchContext,
+  toolSpan: ToolSpan,
+): LlmContentPart | undefined {
   const { inputs, call, callId, events } = dc;
   const reason = permissionFloorReason(call.name, call.input, { cwd: inputs.shellCwd });
   if (reason === undefined) return undefined;
@@ -312,6 +310,9 @@ function vetoFromPermissionFloor(dc: DispatchContext): LlmContentPart | undefine
     message: reason,
   });
   events.push(buildToolUseCompleted(dc, { stdout: "", stderr: reason, exitCode: 126 }));
+  toolSpan?.setAttribute("tool.vetoed", true);
+  toolSpan?.setAttribute("tool.veto_source", "floor");
+  toolSpan?.end();
   return { type: "tool_result", toolUseId: call.id, content: reason };
 }
 

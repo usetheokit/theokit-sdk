@@ -113,6 +113,10 @@ async function resolveAsk(
   return opts.onAsk ? opts.onAsk(name) : { block: true, message: `requires approval: ${name}` };
 }
 
+function floorContext(cwd: string | undefined): { cwd?: string } {
+  return cwd === undefined ? {} : { cwd };
+}
+
 /**
  * Build a `general` plugin that vetoes tool calls per the engine's verdict, under
  * the configured {@link PermissionMode}, resolving `ask` via the {@link canUseTool}
@@ -152,7 +156,7 @@ function createPermissionPlugin(
         //
         // `bypassPermissions` does not reach it either, deliberately: a mode that skips the floor is
         // a mode that can write into `.claude/` and change the policy that was supposed to bound it.
-        const floor = permissionFloorReason(name, args, cwd !== undefined ? { cwd } : {});
+        const floor = permissionFloorReason(name, args, floorContext(cwd));
         if (floor !== undefined) return { block: true, message: floor };
         // #55 — args gate rules on the command/args, not just the tool name.
         // SE1 — the mode adjusts the verdict (bypass/plan/acceptEdits); an explicit
