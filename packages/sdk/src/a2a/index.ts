@@ -12,6 +12,7 @@ export {
   type HttpMailboxOptions,
   httpMailboxTransport,
 } from "./http-mailbox.js";
+export { jsonIdentityStore } from "./identity-store.js";
 export {
   A2APeerNotRegisteredError,
   A2ARemoteRequestUnsupportedError,
@@ -19,6 +20,7 @@ export {
   MessageBus,
   type RequestOptions,
 } from "./message-bus.js";
+export { type SealedMailboxToolsOptions, sealedMailboxTools } from "./sealed-mailbox-tools.js";
 export {
   type A2AIdentity,
   A2AUntrustedPeerError,

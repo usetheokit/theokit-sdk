@@ -82,6 +82,10 @@
         "tier": "experimental",
         "declaration": "export type SealedDropReason = \"malformed\" | \"wrong_recipient\" | \"untrusted_peer\" | \"authentication_failed\" | \"replay\";"
       },
+      "SealedMailboxToolsOptions": {
+        "tier": "experimental",
+        "declaration": "export interface SealedMailboxToolsOptions {\n    transport: A2ATransport;\n    trusted: TrustedPeers;\n    names?: {\n        send?: string;\n        receive?: string;\n    };\n    descriptions?: {\n        send?: string;\n        receive?: string;\n    };\n}"
+      },
       "SequenceStore": {
         "tier": "experimental",
         "declaration": "export interface SequenceStore {\n    nextSent(peerKey: string): Promise<number>;\n    acceptReceived(peerKey: string, seq: number): Promise<boolean>;\n}"
@@ -126,6 +130,10 @@
         "tier": "stable",
         "declaration": "export declare function inMemoryTransport(): A2ATransport;"
       },
+      "jsonIdentityStore": {
+        "tier": "experimental",
+        "declaration": "export declare function jsonIdentityStore(file: string): {\n    load(): Promise<A2AIdentity>;\n};"
+      },
       "jsonSequenceStore": {
         "tier": "experimental",
         "declaration": "export declare function jsonSequenceStore(file: string): SequenceStore;"
@@ -133,6 +141,10 @@
       "memorySequenceStore": {
         "tier": "experimental",
         "declaration": "export declare function memorySequenceStore(): SequenceStore;"
+      },
+      "sealedMailboxTools": {
+        "tier": "experimental",
+        "declaration": "export declare function sealedMailboxTools(options: SealedMailboxToolsOptions): {\n    tools: CustomTool[];\n    wrapAgent<A extends {\n        send(...a: never[]): unknown;\n    }>(agent: A): A;\n};"
       },
       "sealedTransport": {
         "tier": "experimental",
@@ -220,6 +232,10 @@
         "tier": "experimental",
         "declaration": "export type SealedDropReason = \"malformed\" | \"wrong_recipient\" | \"untrusted_peer\" | \"authentication_failed\" | \"replay\";"
       },
+      "SealedMailboxToolsOptions": {
+        "tier": "experimental",
+        "declaration": "export interface SealedMailboxToolsOptions {\n    transport: A2ATransport;\n    trusted: TrustedPeers;\n    names?: {\n        send?: string;\n        receive?: string;\n    };\n    descriptions?: {\n        send?: string;\n        receive?: string;\n    };\n}"
+      },
       "SequenceStore": {
         "tier": "experimental",
         "declaration": "export interface SequenceStore {\n    nextSent(peerKey: string): Promise<number>;\n    acceptReceived(peerKey: string, seq: number): Promise<boolean>;\n}"
@@ -264,6 +280,10 @@
         "tier": "stable",
         "declaration": "export declare function inMemoryTransport(): A2ATransport;"
       },
+      "jsonIdentityStore": {
+        "tier": "experimental",
+        "declaration": "export declare function jsonIdentityStore(file: string): {\n    load(): Promise<A2AIdentity>;\n};"
+      },
       "jsonSequenceStore": {
         "tier": "experimental",
         "declaration": "export declare function jsonSequenceStore(file: string): SequenceStore;"
@@ -271,6 +291,10 @@
       "memorySequenceStore": {
         "tier": "experimental",
         "declaration": "export declare function memorySequenceStore(): SequenceStore;"
+      },
+      "sealedMailboxTools": {
+        "tier": "experimental",
+        "declaration": "export declare function sealedMailboxTools(options: SealedMailboxToolsOptions): {\n    tools: CustomTool[];\n    wrapAgent<A extends {\n        send(...a: never[]): unknown;\n    }>(agent: A): A;\n};"
       },
       "sealedTransport": {
         "tier": "experimental",

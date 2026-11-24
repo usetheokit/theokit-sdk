@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1630 export(s) across 61 entry point(s).
+1633 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1062,6 +1062,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `HttpMailboxOptions` | interface | Options for {@link createHttpMailboxHandler } . |
 | `httpMailboxTransport` | function | An {@link A2ATransport } over an HTTP mailbox served by {@link createHttpMailboxHandler } .  |
 | `inMemoryTransport` | function | A transport backed by one shared in-memory queue per recipient.  |
+| `jsonIdentityStore` | function | Identity persisted to a JSON file: created on first `load()` (file mode 0600, a new parent directory 0700), read back afterwards.  |
 | `jsonSequenceStore` | function | Sequence counters persisted to a JSON file (atomic write, mode 0600).  |
 | `MaxDelegationDepthError` | class | Raised by `SubAgent.create(spec, parentDepth)` when `parentDepth + 1` exceeds `spec.maxDelegationDepth` (default 3).  |
 | `memorySequenceStore` | function | Sequence counters held in memory only. |
@@ -1070,6 +1071,8 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MessageHandler` | type | What an agent does with an inbound {@link A2AMessage } .  |
 | `RequestOptions` | interface | Per-call knobs for {@link MessageBus.request } / `AgentMailbox.request`. |
 | `SealedDropReason` | type | Why an inbound sealed message was dropped. |
+| `sealedMailboxTools` | function | Tools to send to and read from trusted peers, plus `wrapAgent`, which resets the reply guard at every `send` of the wrapped agent.  |
+| `SealedMailboxToolsOptions` | interface | Options for {@link sealedMailboxTools } . |
 | `sealedTransport` | function | Wraps `inner` so messages are end-to-end encrypted to, and authenticated as from, trusted peers.  |
 | `SequenceStore` | interface | Per-peer sequence counters.  |
 | `SubAgent` | class | SE36 — `SubAgent.create` replaces `defineSubAgent` (ADR 0015). |
