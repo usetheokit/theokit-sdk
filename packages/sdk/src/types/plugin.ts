@@ -99,6 +99,8 @@ export interface PreToolCallContext {
    * default applies. Ignored by non-permission plugins.
    */
   permissionMode?: PermissionMode;
+  /** The agent's workspace cwd, used by the permission floor. Absent ⇒ `process.cwd()`. */
+  cwd?: string;
   /**
    * The conversation the run belongs to — `SendOptions.conversation` falling back to
    * `AgentOptions.conversation`. The key is absent (not `undefined`) when the caller declared none.

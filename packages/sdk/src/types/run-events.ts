@@ -118,8 +118,8 @@ export interface RunPermissionDeniedEvent {
   readonly type: "permission_denied";
   readonly toolName: string;
   readonly toolCallId: string;
-  /** Which layer blocked the call. */
-  readonly source: "plugin" | "file_hook" | "fork_whitelist";
+  /** Which layer blocked the call. `floor` is the protected-path / critical-path floor. */
+  readonly source: "plugin" | "file_hook" | "fork_whitelist" | "floor";
   /** The rejection message surfaced to the model. */
   readonly message: string;
 }

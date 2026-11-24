@@ -64,3 +64,23 @@ describe("PermissionPlugin (M7-5)", () => {
     expect(decision?.block).toBe(true);
   });
 });
+
+describe("PermissionPlugin floor cwd", () => {
+  it("checks a destructive command against the cwd it is given", async () => {
+    const { PermissionPlugin } = await import("../src/permission-plugin.js");
+    const { PermissionEngine } = await import("../src/permission-engine.js");
+    const plugin = PermissionPlugin.create(new PermissionEngine([])) as unknown as {
+      register: (c: { on: (e: string, f: (x: unknown) => unknown) => void }) => void;
+    };
+    const handlers: Array<(x: unknown) => unknown> = [];
+    plugin.register({ on: (_e, f) => void handlers.push(f) });
+    const handler = handlers[0];
+    const dir = "/tmp/some-workspace-for-floor";
+    const decision = await handler?.({
+      name: "shell",
+      args: { command: `rm -rf ${dir}` },
+      cwd: dir,
+    });
+    expect(decision).toMatchObject({ block: true });
+  });
+});
