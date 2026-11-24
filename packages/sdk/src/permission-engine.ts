@@ -8,6 +8,8 @@
  * the previous fail-open behavior with `{ defaultAction: "allow" }`.
  */
 
+import { ConfigurationError } from "./errors.js";
+
 export type PermissionAction = "allow" | "deny" | "ask";
 
 /**
@@ -151,6 +153,28 @@ function argMatches(matcher: ArgMatcher, value: unknown): boolean {
   return matcher === value;
 }
 
+const ACTIONS = ["allow", "deny", "ask"];
+
+function validateRules(rules: unknown): void {
+  if (!Array.isArray(rules)) {
+    throw new ConfigurationError(
+      `PermissionEngine needs a rules array, got ${rules === null ? "null" : typeof rules}. Use new PermissionEngine([...rules], options)`,
+      { code: "permission_rules_not_array" },
+    );
+  }
+  for (let i = 0; i < rules.length; i++) {
+    const r = rules[i] as Partial<PermissionRule> | null;
+    if (
+      !(typeof r?.tool === "string" || r?.tool instanceof RegExp) ||
+      !ACTIONS.includes(r.action as string)
+    ) {
+      throw new ConfigurationError(`PermissionEngine rule at index ${i} is invalid`, {
+        code: "permission_rule_invalid",
+      });
+    }
+  }
+}
+
 /**
  * Ordered first-match permission rules for tool invocations — the policy object you hand to
  * `PermissionPlugin.create()` to have it enforced.
@@ -179,6 +203,7 @@ export class PermissionEngine {
     private readonly rules: PermissionRule[],
     options: PermissionEngineOptions = {},
   ) {
+    validateRules(rules);
     // #55 — fail-closed by default.
     this.defaultAction = options.defaultAction ?? "ask";
   }
