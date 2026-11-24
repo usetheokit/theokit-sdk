@@ -6131,7 +6131,7 @@
       },
       "WiringRecordInput": {
         "tier": "stable",
-        "declaration": "interface WiringRecordInput<K extends string> {\n    readonly posture: {\n        readonly allows: Readonly<Record<string, boolean>>;\n    };\n    readonly requested: Readonly<Record<K, readonly string[]>>;\n    readonly scopes?: Readonly<Partial<Record<K, readonly string[]>>>;\n    readonly disabled?: Readonly<Partial<Record<K, WiringOffReason>>>;\n}"
+        "declaration": "interface WiringRecordInput<K extends string> {\n    readonly posture: {\n        readonly allows: Readonly<Record<string, boolean>>;\n    };\n    readonly requested: Readonly<Record<K, readonly string[]>>;\n    readonly scopes?: Readonly<Partial<Record<K, readonly string[]>>>;\n    readonly disabled?: Readonly<Partial<Record<K, WiringOffReason>>>;\n    readonly ungatedScopes?: Readonly<Partial<Record<K, readonly string[]>>>;\n}"
       },
       "WithBlastRadius": {
         "tier": "stable",
@@ -8170,7 +8170,7 @@
       },
       "WiringRecordInput": {
         "tier": "stable",
-        "declaration": "interface WiringRecordInput<K extends string> {\n    readonly posture: {\n        readonly allows: Readonly<Record<string, boolean>>;\n    };\n    readonly requested: Readonly<Record<K, readonly string[]>>;\n    readonly scopes?: Readonly<Partial<Record<K, readonly string[]>>>;\n    readonly disabled?: Readonly<Partial<Record<K, WiringOffReason>>>;\n}"
+        "declaration": "interface WiringRecordInput<K extends string> {\n    readonly posture: {\n        readonly allows: Readonly<Record<string, boolean>>;\n    };\n    readonly requested: Readonly<Record<K, readonly string[]>>;\n    readonly scopes?: Readonly<Partial<Record<K, readonly string[]>>>;\n    readonly disabled?: Readonly<Partial<Record<K, WiringOffReason>>>;\n    readonly ungatedScopes?: Readonly<Partial<Record<K, readonly string[]>>>;\n}"
       },
       "WithBlastRadius": {
         "tier": "stable",
