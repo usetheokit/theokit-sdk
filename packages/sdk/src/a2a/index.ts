@@ -12,6 +12,7 @@ export {
   type HttpMailboxOptions,
   httpMailboxTransport,
 } from "./http-mailbox.js";
+export { jsonIdentityStore } from "./identity-store.js";
 export {
   A2APeerNotRegisteredError,
   A2ARemoteRequestUnsupportedError,
@@ -19,6 +20,7 @@ export {
   MessageBus,
   type RequestOptions,
 } from "./message-bus.js";
+export { type SealedMailboxToolsOptions, sealedMailboxTools } from "./sealed-mailbox-tools.js";
 export {
   type A2AIdentity,
   A2AUntrustedPeerError,
@@ -31,6 +33,7 @@ export {
   type TrustedPeers,
 } from "./sealed-transport.js";
 export {
+  agentOptionsFromDefinition,
   type DelegationCompleteContext,
   type DelegationCompleteDecision,
   type DelegationStartContext,
@@ -39,6 +42,7 @@ export {
   type MessageFilterArgs,
   SubAgent,
   type SubAgentSpec,
+  type SubagentParent,
 } from "./subagent.js";
 export { type A2ATransport, inMemoryTransport } from "./transport.js";
 export type { A2AMessage, MessageHandler } from "./types.js";

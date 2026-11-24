@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1630 export(s) across 61 entry point(s).
+1635 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1052,6 +1052,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `A2ATransport` | interface | A2ATransport — the seam that lets a {@link MessageBus } reach agents in other processes.  |
 | `A2AUntrustedPeerError` | class | Sealing to a peer name that is not in `trustedPeers`. |
 | `AgentMailbox` | class | One agent's endpoint on a {@link MessageBus } : registers `agentId` on construction and forwards inbound messages to the handler installed by `onMessage`.  |
+| `agentOptionsFromDefinition` | function | Build the `Agent.create` options for a child running `def` under `parent`: the parent's credential, model (unless the definition sets its own), sandbox posture, plugins and setting sources; `tools`... |
 | `createHttpMailboxHandler` | function | Build a fetch-style handler serving `POST <prefix>/put` and `POST <prefix>/take`.  |
 | `DelegationCompleteContext` | interface | Context passed to {@link SubAgentSpec.onDelegationComplete } after the child settles. |
 | `DelegationCompleteDecision` | interface | Decision returned from {@link SubAgentSpec.onDelegationComplete } . |
@@ -1061,6 +1062,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `HttpMailboxOptions` | interface | Options for {@link createHttpMailboxHandler } . |
 | `httpMailboxTransport` | function | An {@link A2ATransport } over an HTTP mailbox served by {@link createHttpMailboxHandler } .  |
 | `inMemoryTransport` | function | A transport backed by one shared in-memory queue per recipient.  |
+| `jsonIdentityStore` | function | Identity persisted to a JSON file: created on first `load()` (file mode 0600, a new parent directory 0700), read back afterwards.  |
 | `jsonSequenceStore` | function | Sequence counters persisted to a JSON file (atomic write, mode 0600).  |
 | `MaxDelegationDepthError` | class | Raised by `SubAgent.create(spec, parentDepth)` when `parentDepth + 1` exceeds `spec.maxDelegationDepth` (default 3).  |
 | `memorySequenceStore` | function | Sequence counters held in memory only. |
@@ -1069,9 +1071,12 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MessageHandler` | type | What an agent does with an inbound {@link A2AMessage } .  |
 | `RequestOptions` | interface | Per-call knobs for {@link MessageBus.request } / `AgentMailbox.request`. |
 | `SealedDropReason` | type | Why an inbound sealed message was dropped. |
+| `sealedMailboxTools` | function | Tools to send to and read from trusted peers, plus `wrapAgent`, which resets the reply guard at every `send` of the wrapped agent.  |
+| `SealedMailboxToolsOptions` | interface | Options for {@link sealedMailboxTools } . |
 | `sealedTransport` | function | Wraps `inner` so messages are end-to-end encrypted to, and authenticated as from, trusted peers.  |
 | `SequenceStore` | interface | Per-peer sequence counters.  |
 | `SubAgent` | class | SE36 — `SubAgent.create` replaces `defineSubAgent` (ADR 0015). |
+| `SubagentParent` | interface | What a subagent definition inherits from the agent that runs it. |
 | `SubAgentSpec` | interface | The declaration of a delegating child agent, handed to `SubAgent.create(spec)`.  |
 | `ToolContextMessage` | interface | SE12 — a read-only, text-only projection of one turn of the run's conversation, exposed to a tool handler via `ctx.messages`.  |
 | `TrustedPeers` | type | Trusted peers: name to base64url raw X25519 public key. |

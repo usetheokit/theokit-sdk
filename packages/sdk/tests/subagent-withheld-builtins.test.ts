@@ -8,7 +8,11 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { buildChildCreateOptions, type SubAgentSpec } from "../src/a2a/subagent.js";
+import {
+  agentOptionsFromDefinition,
+  buildChildCreateOptions,
+  type SubAgentSpec,
+} from "../src/a2a/subagent.js";
 import { resolveInheritedCredentials } from "../src/internal/local-agent/real-local-run-tools.js";
 import type { AgentOptions } from "../src/types/agent.js";
 
@@ -90,5 +94,14 @@ describe("withheld builtins survive delegation", () => {
 
     expect(child.local?.sandboxOptions).toEqual({ enabled: true });
     expect(child.withheldBuiltinTools).toEqual(["shell"]);
+  });
+
+  it("a definition's own withheldBuiltinTools is unioned with the parent's (#1552)", () => {
+    const child = agentOptionsFromDefinition(
+      { description: "d", prompt: "p", withheldBuiltinTools: ["memory_search"] },
+      { withheldBuiltinTools: ["shell"] },
+    );
+
+    expect([...(child.withheldBuiltinTools ?? [])].sort()).toEqual(["memory_search", "shell"]);
   });
 });

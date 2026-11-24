@@ -82,6 +82,10 @@
         "tier": "experimental",
         "declaration": "export type SealedDropReason = \"malformed\" | \"wrong_recipient\" | \"untrusted_peer\" | \"authentication_failed\" | \"replay\";"
       },
+      "SealedMailboxToolsOptions": {
+        "tier": "experimental",
+        "declaration": "export interface SealedMailboxToolsOptions {\n    transport: A2ATransport;\n    trusted: TrustedPeers;\n    names?: {\n        send?: string;\n        receive?: string;\n    };\n    descriptions?: {\n        send?: string;\n        receive?: string;\n    };\n}"
+      },
       "SequenceStore": {
         "tier": "experimental",
         "declaration": "export interface SequenceStore {\n    nextSent(peerKey: string): Promise<number>;\n    acceptReceived(peerKey: string, seq: number): Promise<boolean>;\n}"
@@ -94,6 +98,10 @@
         "tier": "stable",
         "declaration": "export interface SubAgentSpec {\n    name: string;\n    description: string;\n    instructions: string;\n    model?: string | ModelSelection;\n    tools?: CustomTool[];\n    sandbox?: boolean;\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n    maxDelegationDepth?: number;\n    onDelegationStart?: (ctx: DelegationStartContext) => DelegationHookResult<DelegationStartDecision>;\n    onDelegationComplete?: (ctx: DelegationCompleteContext) => DelegationHookResult<DelegationCompleteDecision>;\n    messageFilter?: (args: MessageFilterArgs) => readonly ToolContextMessage[];\n    includeToolResults?: boolean;\n}"
       },
+      "SubagentParent": {
+        "tier": "stable",
+        "declaration": "export interface SubagentParent {\n    apiKey?: string;\n    model?: string | ModelSelection;\n    tools?: readonly CustomTool[];\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n    builtinTools?: readonly \"shell\"[];\n    plugins?: readonly Plugin[];\n    local?: Pick<LocalOptions, \"cwd\" | \"settingSources\" | \"compatSources\" | \"sandboxOptions\">;\n}"
+      },
       "ToolContextMessage": {
         "tier": "stable",
         "declaration": "export interface ToolContextMessage {\n    role: \"system\" | \"user\" | \"assistant\";\n    content: string;\n}"
@@ -101,6 +109,10 @@
       "TrustedPeers": {
         "tier": "experimental",
         "declaration": "export type TrustedPeers = ReadonlyMap<string, string>;"
+      },
+      "agentOptionsFromDefinition": {
+        "tier": "stable",
+        "declaration": "export declare function agentOptionsFromDefinition(def: AgentDefinition, parent: SubagentParent): AgentOptions;"
       },
       "createHttpMailboxHandler": {
         "tier": "stable",
@@ -118,6 +130,10 @@
         "tier": "stable",
         "declaration": "export declare function inMemoryTransport(): A2ATransport;"
       },
+      "jsonIdentityStore": {
+        "tier": "experimental",
+        "declaration": "export declare function jsonIdentityStore(file: string): {\n    load(): Promise<A2AIdentity>;\n};"
+      },
       "jsonSequenceStore": {
         "tier": "experimental",
         "declaration": "export declare function jsonSequenceStore(file: string): SequenceStore;"
@@ -125,6 +141,10 @@
       "memorySequenceStore": {
         "tier": "experimental",
         "declaration": "export declare function memorySequenceStore(): SequenceStore;"
+      },
+      "sealedMailboxTools": {
+        "tier": "experimental",
+        "declaration": "export declare function sealedMailboxTools(options: SealedMailboxToolsOptions): {\n    tools: CustomTool[];\n    wrapAgent<A extends {\n        send(...a: never[]): unknown;\n    }>(agent: A): A;\n};"
       },
       "sealedTransport": {
         "tier": "experimental",
@@ -212,6 +232,10 @@
         "tier": "experimental",
         "declaration": "export type SealedDropReason = \"malformed\" | \"wrong_recipient\" | \"untrusted_peer\" | \"authentication_failed\" | \"replay\";"
       },
+      "SealedMailboxToolsOptions": {
+        "tier": "experimental",
+        "declaration": "export interface SealedMailboxToolsOptions {\n    transport: A2ATransport;\n    trusted: TrustedPeers;\n    names?: {\n        send?: string;\n        receive?: string;\n    };\n    descriptions?: {\n        send?: string;\n        receive?: string;\n    };\n}"
+      },
       "SequenceStore": {
         "tier": "experimental",
         "declaration": "export interface SequenceStore {\n    nextSent(peerKey: string): Promise<number>;\n    acceptReceived(peerKey: string, seq: number): Promise<boolean>;\n}"
@@ -224,6 +248,10 @@
         "tier": "stable",
         "declaration": "export interface SubAgentSpec {\n    name: string;\n    description: string;\n    instructions: string;\n    model?: string | ModelSelection;\n    tools?: CustomTool[];\n    sandbox?: boolean;\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n    maxDelegationDepth?: number;\n    onDelegationStart?: (ctx: DelegationStartContext) => DelegationHookResult<DelegationStartDecision>;\n    onDelegationComplete?: (ctx: DelegationCompleteContext) => DelegationHookResult<DelegationCompleteDecision>;\n    messageFilter?: (args: MessageFilterArgs) => readonly ToolContextMessage[];\n    includeToolResults?: boolean;\n}"
       },
+      "SubagentParent": {
+        "tier": "stable",
+        "declaration": "export interface SubagentParent {\n    apiKey?: string;\n    model?: string | ModelSelection;\n    tools?: readonly CustomTool[];\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n    builtinTools?: readonly \"shell\"[];\n    plugins?: readonly Plugin[];\n    local?: Pick<LocalOptions, \"cwd\" | \"settingSources\" | \"compatSources\" | \"sandboxOptions\">;\n}"
+      },
       "ToolContextMessage": {
         "tier": "stable",
         "declaration": "export interface ToolContextMessage {\n    role: \"system\" | \"user\" | \"assistant\";\n    content: string;\n}"
@@ -231,6 +259,10 @@
       "TrustedPeers": {
         "tier": "experimental",
         "declaration": "export type TrustedPeers = ReadonlyMap<string, string>;"
+      },
+      "agentOptionsFromDefinition": {
+        "tier": "stable",
+        "declaration": "export declare function agentOptionsFromDefinition(def: AgentDefinition, parent: SubagentParent): AgentOptions;"
       },
       "createHttpMailboxHandler": {
         "tier": "stable",
@@ -248,6 +280,10 @@
         "tier": "stable",
         "declaration": "export declare function inMemoryTransport(): A2ATransport;"
       },
+      "jsonIdentityStore": {
+        "tier": "experimental",
+        "declaration": "export declare function jsonIdentityStore(file: string): {\n    load(): Promise<A2AIdentity>;\n};"
+      },
       "jsonSequenceStore": {
         "tier": "experimental",
         "declaration": "export declare function jsonSequenceStore(file: string): SequenceStore;"
@@ -255,6 +291,10 @@
       "memorySequenceStore": {
         "tier": "experimental",
         "declaration": "export declare function memorySequenceStore(): SequenceStore;"
+      },
+      "sealedMailboxTools": {
+        "tier": "experimental",
+        "declaration": "export declare function sealedMailboxTools(options: SealedMailboxToolsOptions): {\n    tools: CustomTool[];\n    wrapAgent<A extends {\n        send(...a: never[]): unknown;\n    }>(agent: A): A;\n};"
       },
       "sealedTransport": {
         "tier": "experimental",
@@ -3578,7 +3618,7 @@
     "./subagents-loader#import": {
       "AgentDefinition": {
         "tier": "stable",
-        "declaration": "interface AgentDefinition {\n    description: string;\n    prompt: string;\n    source?: string;\n    memory?: string;\n    model?: ModelSelection | \"inherit\";\n    mcpServers?: Array<string | Record<string, McpServerConfig>>;\n    tools?: string[];\n    sandbox?: boolean;\n}"
+        "declaration": "interface AgentDefinition {\n    description: string;\n    prompt: string;\n    source?: string;\n    memory?: string;\n    model?: ModelSelection | \"inherit\";\n    mcpServers?: Array<string | Record<string, McpServerConfig>>;\n    tools?: string[];\n    sandbox?: boolean;\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n}"
       },
       "CompatSourceDeclaration": {
         "tier": "stable",
@@ -3604,7 +3644,7 @@
     "./subagents-loader#require": {
       "AgentDefinition": {
         "tier": "stable",
-        "declaration": "interface AgentDefinition {\n    description: string;\n    prompt: string;\n    source?: string;\n    memory?: string;\n    model?: ModelSelection | \"inherit\";\n    mcpServers?: Array<string | Record<string, McpServerConfig>>;\n    tools?: string[];\n    sandbox?: boolean;\n}"
+        "declaration": "interface AgentDefinition {\n    description: string;\n    prompt: string;\n    source?: string;\n    memory?: string;\n    model?: ModelSelection | \"inherit\";\n    mcpServers?: Array<string | Record<string, McpServerConfig>>;\n    tools?: string[];\n    sandbox?: boolean;\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n}"
       },
       "CompatSourceDeclaration": {
         "tier": "stable",
@@ -4422,7 +4462,7 @@
       },
       "AgentDefinition": {
         "tier": "stable",
-        "declaration": "interface AgentDefinition {\n    description: string;\n    prompt: string;\n    source?: string;\n    memory?: string;\n    model?: ModelSelection | \"inherit\";\n    mcpServers?: Array<string | Record<string, McpServerConfig>>;\n    tools?: string[];\n    sandbox?: boolean;\n}"
+        "declaration": "interface AgentDefinition {\n    description: string;\n    prompt: string;\n    source?: string;\n    memory?: string;\n    model?: ModelSelection | \"inherit\";\n    mcpServers?: Array<string | Record<string, McpServerConfig>>;\n    tools?: string[];\n    sandbox?: boolean;\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n}"
       },
       "AgentDescription": {
         "tier": "stable",
@@ -5787,7 +5827,7 @@
       },
       "SquadOptions": {
         "tier": "stable",
-        "declaration": "interface SquadOptions {\n    agents: ReadonlyArray<SDKAgent | AgentDefinition>;\n    process?: \"sequential\" | \"hierarchical\";\n    name?: string;\n    ownsMembers?: boolean;\n    onDisposeError?: (error: unknown, memberIndex: number) => void;\n}"
+        "declaration": "interface SquadOptions {\n    agents: ReadonlyArray<SDKAgent | AgentDefinition>;\n    process?: \"sequential\" | \"hierarchical\";\n    name?: string;\n    ownsMembers?: boolean;\n    onDisposeError?: (error: unknown, memberIndex: number) => void;\n    parent?: SubagentParent;\n}"
       },
       "SquadRun": {
         "tier": "stable",
@@ -6473,7 +6513,7 @@
       },
       "AgentDefinition": {
         "tier": "stable",
-        "declaration": "interface AgentDefinition {\n    description: string;\n    prompt: string;\n    source?: string;\n    memory?: string;\n    model?: ModelSelection | \"inherit\";\n    mcpServers?: Array<string | Record<string, McpServerConfig>>;\n    tools?: string[];\n    sandbox?: boolean;\n}"
+        "declaration": "interface AgentDefinition {\n    description: string;\n    prompt: string;\n    source?: string;\n    memory?: string;\n    model?: ModelSelection | \"inherit\";\n    mcpServers?: Array<string | Record<string, McpServerConfig>>;\n    tools?: string[];\n    sandbox?: boolean;\n    withheldBuiltinTools?: readonly BuiltinToolName[];\n}"
       },
       "AgentDescription": {
         "tier": "stable",
@@ -7838,7 +7878,7 @@
       },
       "SquadOptions": {
         "tier": "stable",
-        "declaration": "interface SquadOptions {\n    agents: ReadonlyArray<SDKAgent | AgentDefinition>;\n    process?: \"sequential\" | \"hierarchical\";\n    name?: string;\n    ownsMembers?: boolean;\n    onDisposeError?: (error: unknown, memberIndex: number) => void;\n}"
+        "declaration": "interface SquadOptions {\n    agents: ReadonlyArray<SDKAgent | AgentDefinition>;\n    process?: \"sequential\" | \"hierarchical\";\n    name?: string;\n    ownsMembers?: boolean;\n    onDisposeError?: (error: unknown, memberIndex: number) => void;\n    parent?: SubagentParent;\n}"
       },
       "SquadRun": {
         "tier": "stable",
