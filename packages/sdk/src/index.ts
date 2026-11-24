@@ -396,6 +396,7 @@ export { type NormalizedJsonSchema, normalizeSchema } from "./schema-normalizer.
 // `Agent.usePersonality(...)` method, not direct construction.
 // Security namespace (secret redaction; ADR D68)
 export { type ExactValueMask, Security } from "./security.js";
+export { isSecretEnvName, secretEnvValues } from "./internal/security/secret-env.js";
 export { applySecurityFloor, type SecurityFloorInput } from "./security-floor.js";
 export {
   guardSessionDestruction,
