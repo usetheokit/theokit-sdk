@@ -253,8 +253,6 @@ export interface AgentLoopInputs {
    * Absent ⇒ nothing is withheld (the pre-#381 catalog, byte for byte).
    */
   withheldBuiltinTools?: ReadonlyArray<BuiltinToolName>;
-  /** usetheokit/theokit-sdk#1117 — builtins opted into; `shell` is declared only when listed here. */
-  builtinTools?: ReadonlyArray<"shell">;
   /** Telemetry handle (D34). No-op when disabled. */
   telemetry?: import("../telemetry/tracer.js").TelemetryHandle;
   /**

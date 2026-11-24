@@ -44,9 +44,7 @@ afterAll(() => {
 async function toolNamesSeenByModel(provider?: MemoryProvider): Promise<string[]> {
   const { requests } = await driveLoop(
     CWD,
-    provider === undefined
-      ? { builtinTools: ["shell"] }
-      : { builtinTools: ["shell"], memoryProvider: provider },
+    provider === undefined ? {} : { memoryProvider: provider },
   );
   return (requests[0]?.tools ?? []).map((t) => t.name);
 }
