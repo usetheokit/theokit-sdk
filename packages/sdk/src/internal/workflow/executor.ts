@@ -8,6 +8,7 @@
  * @internal
  */
 
+import { z } from "zod";
 import type {
   Step,
   StepContext,
@@ -508,6 +509,38 @@ function keepsCheckpoint(snapshot: WorkflowSnapshot, options: WorkflowOptions): 
   return snapshot.status === "running" && options.persistence?.durability === "step";
 }
 
+const ApprovalDecisionSchema = z.object({ approved: z.boolean() });
+
+/**
+ * Validate the resume payload against the suspend step and pick the resume input and steps. A
+ * `decision: "approved"` step treats the payload as a decision: the run continues with the value held
+ * before the approval, or ends with it when refused. Otherwise the payload (if any) is the next value.
+ */
+function planResume(
+  steps: ReadonlyArray<Step>,
+  stepIdx: number,
+  snapshot: WorkflowSnapshot,
+  payload: unknown,
+): { resumeInput: unknown; remainingSteps: ReadonlyArray<Step> } {
+  const suspendStep = steps[stepIdx];
+  const after = steps.slice(stepIdx + 1);
+  if (suspendStep?.kind !== "suspend") {
+    return {
+      resumeInput: payload !== undefined ? payload : snapshot.accumulatedInput,
+      remainingSteps: after,
+    };
+  }
+  if (suspendStep.decision === "approved") {
+    const { approved } = ApprovalDecisionSchema.parse(payload);
+    return { resumeInput: snapshot.accumulatedInput, remainingSteps: approved ? after : [] };
+  }
+  suspendStep.payloadSchema?.parse(payload);
+  return {
+    resumeInput: payload !== undefined ? payload : snapshot.accumulatedInput,
+    remainingSteps: after,
+  };
+}
+
 export async function resumeWorkflow<TO>(opts: WorkflowResumeOptions): Promise<WorkflowRun<TO>> {
   // We need access to the workflow's internal options/steps. The public
   // resume API hands us a `workflow` reference exposing `.run` only — for
@@ -541,23 +574,7 @@ export async function resumeWorkflow<TO>(opts: WorkflowResumeOptions): Promise<W
     throw new WorkflowResumeStepNotFoundError(snapshot.currentStepId, snapshot.workflowName);
   }
 
-  // Validate payload if the suspend step declared a schema.
-  const suspendStep = steps[stepIdx];
-  if (
-    suspendStep !== undefined &&
-    suspendStep.kind === "suspend" &&
-    suspendStep.payloadSchema !== undefined
-  ) {
-    suspendStep.payloadSchema.parse(opts.payload);
-  }
-
-  // For v1: continue from stepIdx + 1 with `payload` (if any) as the new
-  // accumulated input. This is intentionally simpler than full state
-  // restoration; the snapshot's `accumulatedInput` is preserved for
-  // observability but the resume input is determined by the caller's
-  // payload (or the snapshot's accumulator if payload is undefined).
-  const resumeInput = opts.payload !== undefined ? opts.payload : snapshot.accumulatedInput;
-  const remainingSteps = steps.slice(stepIdx + 1);
+  const { resumeInput, remainingSteps } = planResume(steps, stepIdx, snapshot, opts.payload);
 
   // Drop snapshot once we begin (single-shot semantics). A "running" checkpoint under step
   // durability stays: it is the crash record until the run completes, and a resume of a run that is
