@@ -35,6 +35,7 @@ export function isCodePlugin(p: unknown): p is Plugin {
 }
 
 export function extractCodePlugins(value: unknown): Plugin[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter(isCodePlugin);
+  if (Array.isArray(value)) return value.filter(isCodePlugin);
+  const code = (value as { code?: unknown } | null | undefined)?.code;
+  return Array.isArray(code) ? code.filter(isCodePlugin) : [];
 }

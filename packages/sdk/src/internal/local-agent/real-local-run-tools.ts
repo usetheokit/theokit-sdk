@@ -21,6 +21,8 @@ import type {
 } from "../../types/agent.js";
 import type { CustomToolSpec } from "../agent-loop/types.js";
 import type { InheritedCredentials } from "../concurrency/subagent-credentials.js";
+import { extractCodePlugins } from "../plugins/plugin-guards.js";
+import type { Plugin } from "../plugins/types.js";
 import { createThinkTool, reasoningActive } from "../runtime/system-prompt/native-reasoning.js";
 import { applyPersonalityFilter } from "../tool-registry/personality-filter.js";
 
@@ -40,6 +42,13 @@ function declarativeSubagentTools(
   return subAgentToolsFromDefinitions(agents, parentTools);
 }
 
+/** The array form passes through; the settings form hands down only its code plugins. */
+function inheritedPlugins(plugins: AgentOptions["plugins"]): readonly Plugin[] | undefined {
+  if (Array.isArray(plugins)) return plugins;
+  const code = extractCodePlugins(plugins);
+  return code.length > 0 ? code : undefined;
+}
+
 /**
  * The credentials a delegated child inherits from this parent: its apiKey (else `Agent.create`
  * throws "Missing API key"), its model, its plugins and its sandbox posture.
@@ -55,7 +64,7 @@ function declarativeSubagentTools(
 export function resolveInheritedCredentials(agentOptions: AgentOptions): InheritedCredentials {
   // #55 — hand the parent's code-registered plugins (array form carries the
   // PermissionPlugin) down so the child runs under the same permission gate.
-  const parentPlugins = Array.isArray(agentOptions.plugins) ? agentOptions.plugins : undefined;
+  const parentPlugins = inheritedPlugins(agentOptions.plugins);
   // M33 — hand down the parent's sandbox posture so a child of a sandboxed parent stays sandboxed unless
   // its role opts out. A role's own `sandbox` (spec.sandbox) overrides this in buildChildCreateOptions.
   const parentSandbox = agentOptions.local?.sandboxOptions?.enabled;
