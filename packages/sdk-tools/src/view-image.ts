@@ -194,15 +194,9 @@ export function readImageFile(path: string, options?: { maxBytes?: number }): Re
     return { ok: false, error: "unsupported_type", path, supported: [...MEDIA_TYPES.keys()] };
   }
 
-  let fd: number;
-  try {
-    fd = openSync(path, "r");
-  } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code;
-    return code === "ENOENT" || code === "ENOTDIR"
-      ? { ok: false, error: "not_found", path, cause: code }
-      : { ok: false, error: "unreadable", path, cause: code ?? String(err) };
-  }
+  const opened = openForRead(path);
+  if (!opened.ok) return opened;
+  const fd = opened.fd;
 
   try {
     const stat = fstatSync(fd);
@@ -215,10 +209,23 @@ export function readImageFile(path: string, options?: { maxBytes?: number }): Re
     }
     return { ok: true, bytes, mediaType, data: readFileSync(fd).toString("base64") };
   } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code;
-    return { ok: false, error: "unreadable", path, cause: code ?? String(err) };
+    return { ok: false, error: "unreadable", path, cause: errnoOf(err) };
   } finally {
     closeSync(fd);
+  }
+}
+
+const errnoOf = (err: unknown): string => (err as NodeJS.ErrnoException).code ?? String(err);
+
+function openForRead(
+  path: string,
+): { ok: true; fd: number } | Extract<ReadImageResult, { error: "not_found" | "unreadable" }> {
+  try {
+    return { ok: true, fd: openSync(path, "r") };
+  } catch (err) {
+    const cause = errnoOf(err);
+    const missing = cause === "ENOENT" || cause === "ENOTDIR";
+    return { ok: false, error: missing ? "not_found" : "unreadable", path, cause };
   }
 }
 
