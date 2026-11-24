@@ -15,7 +15,10 @@ describe("theokit-skills-registry", () => {
   it("exits 1 naming the token variable when no token is set", () => {
     const env = { ...process.env };
     delete env.SKILLS_REGISTRY_TOKEN;
-    const r = spawnSync(process.execPath, [BIN, "--dir", dir, "--port", "0"], { env, encoding: "utf8" });
+    const r = spawnSync(process.execPath, [BIN, "--dir", dir, "--port", "0"], {
+      env,
+      encoding: "utf8",
+    });
     expect(r.status).toBe(1);
     expect(r.stderr).toContain("SKILLS_REGISTRY_TOKEN");
   });
