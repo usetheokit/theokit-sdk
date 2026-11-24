@@ -56,7 +56,7 @@ export interface SquadOptions {
   onDisposeError?: (error: unknown, memberIndex: number) => void;
   /**
    * What `AgentDefinition` members inherit (credential, model, tools, withheld builtins, plugins,
-   * setting sources). A definition that sets `tools` needs it: without a parent there is nothing to
+   * setting sources). A definition that sets `tools`, `withheldBuiltinTools` or `sandbox` needs it: without a parent there is nothing to
    * scope, and the whitelist would be silently ignored, so `createSquad` refuses it.
    */
   parent?: SubagentParent;
@@ -144,6 +144,25 @@ async function materialize(
   });
 }
 
+/** A definition's scoping fields (`tools`, `withheldBuiltinTools`, `sandbox`) have nothing to apply to without a parent. */
+function assertScopeHasParent(
+  agents: ReadonlyArray<SDKAgent | AgentDefinition>,
+  parent: SubagentParent | undefined,
+): void {
+  if (parent !== undefined) return;
+  agents.forEach((m, index) => {
+    if (isBuiltAgent(m)) return;
+    const field = (["tools", "withheldBuiltinTools", "sandbox"] as const).find(
+      (f) => m[f] !== undefined,
+    );
+    if (field === undefined) return;
+    throw new ConfigurationError(
+      `createSquad member ${String(index)} sets \`${field}\` but no \`parent\` was given to scope it over`,
+      { code: "squad_definition_scope_needs_parent" },
+    );
+  });
+}
+
 /**
  * Build a sequential agent team. The returned {@link Squad} composes a
  * `Workflow` of `agentStep`s under the hood — all orchestration is delegated
@@ -163,13 +182,7 @@ function createSquad(options: SquadOptions): Squad {
     );
   }
 
-  const scoped = agents.findIndex((m) => !isBuiltAgent(m) && m.tools !== undefined);
-  if (scoped >= 0 && options.parent === undefined) {
-    throw new ConfigurationError(
-      `createSquad member ${String(scoped)} sets \`tools\` but no \`parent\` was given to scope them over`,
-      { code: "squad_definition_tools_need_parent" },
-    );
-  }
+  assertScopeHasParent(agents, options.parent);
 
   return {
     run: (input: unknown, runOptions?: SquadRunOptions): Promise<SquadRun> =>

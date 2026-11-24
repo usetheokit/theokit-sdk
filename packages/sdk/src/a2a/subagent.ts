@@ -722,7 +722,7 @@ function inheritedFromParent(parent: SubagentParent): InheritedCredentials {
  * definition's and those a whitelist leaves out (a child may tighten, never loosen — #580).
  * Without `parent.local.cwd` the agent's own cwd default applies.
  *
- * Limit: the whitelist narrows custom tools and builtins only. Tools a plugin supplies are not
+ * A sandboxed parent forces the child sandboxed. Limit: the whitelist narrows custom tools and builtins only. Tools a plugin supplies are not
  * filtered, and the parent's plugins are inherited whole.
  *
  * @public
@@ -732,6 +732,9 @@ export function agentOptionsFromDefinition(
   parent: SubagentParent,
 ): AgentOptions {
   const spec = specFromDefinition("subagent", def, parent.tools ?? []);
+  // A sandboxed parent stays sandboxed: a definition may tighten, never loosen (#580). Delegation
+  // keeps its documented M33 rule that a role's explicit `sandbox: false` wins.
+  if (parent.local?.sandboxOptions?.enabled === true) spec.sandbox = true;
   const options = buildChildCreateOptions(spec, inheritedFromParent(parent));
   if (parent.local?.cwd === undefined) return options;
   return { ...options, local: { ...options.local, cwd: parent.local.cwd } };

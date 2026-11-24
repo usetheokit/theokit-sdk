@@ -231,8 +231,12 @@ describe("#1552 — Squad members inherit from `parent`", () => {
     }) as unknown as CustomTool;
   const scoped: AgentDefinition = { description: "d", prompt: "p", tools: ["read"] };
 
-  it("refuses a definition with tools and no parent", () => {
-    expect(() => Squad.create({ agents: [scoped] })).toThrow(ConfigurationError);
+  it.each([
+    ["tools", scoped],
+    ["withheldBuiltinTools", { description: "d", prompt: "p", withheldBuiltinTools: [] }],
+    ["sandbox", { description: "d", prompt: "p", sandbox: false }],
+  ] as const)("refuses a definition with %s and no parent", (_f, def) => {
+    expect(() => Squad.create({ agents: [def as AgentDefinition] })).toThrow(ConfigurationError);
   });
 
   /** Runs a one-member squad with Agent.create stubbed, and returns the real options it was given. */

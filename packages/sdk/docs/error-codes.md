@@ -136,7 +136,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_retry_config` | domain | ConfigurationError | `packages/sdk/src/internal/retry/with-retry.ts:67` |
 | `invalid_sandbox_mode` | domain | ConfigurationError | `packages/sdk/src/sandbox/modes.ts:16` |
 | `invalid_skill_spec` | domain | ConfigurationError | `packages/sdk/src/create-skill.ts:44` +1 |
-| `invalid_squad` | domain | ConfigurationError | `packages/sdk/src/squad.ts:155` |
+| `invalid_squad` | domain | ConfigurationError | `packages/sdk/src/squad.ts:174` |
 | `invalid_task_id` | domain | — | `packages/sdk/src/task-errors.ts:33` +1 |
 | `invalid_timezone` | domain | ConfigurationError | `packages/sdk/src/internal/cron/validate.ts:135` |
 | `invalid_workflow_step` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:261` |
@@ -252,8 +252,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `sql_injection_blocked` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:367` +1 |
 | `sqlite_driver_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/sqlite-open.ts:195` |
 | `sqlite_vec_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/memory/sqlite-vec-loader.ts:22` |
-| `squad_definition_tools_need_parent` | domain | ConfigurationError | `packages/sdk/src/squad.ts:168` |
-| `squad_process_unsupported` | domain | ConfigurationError | `packages/sdk/src/squad.ts:160` |
+| `squad_definition_scope_needs_parent` | domain | ConfigurationError | `packages/sdk/src/squad.ts:159` |
+| `squad_process_unsupported` | domain | ConfigurationError | `packages/sdk/src/squad.ts:179` |
 | `sse_http_error` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:147` |
 | `sse_server_error` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:155` |
 | `ssrf_blocked` | domain | — | `packages/sdk-tools/src/internal/network-guard.ts:23` |

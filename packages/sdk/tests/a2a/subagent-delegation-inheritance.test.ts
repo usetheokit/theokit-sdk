@@ -227,6 +227,14 @@ describe("SubAgent inheritance", () => {
       );
     });
 
+    it("a sandboxed parent stays sandboxed even when the definition says sandbox: false", () => {
+      const o = agentOptionsFromDefinition(
+        { ...def, sandbox: false },
+        { local: { sandboxOptions: { enabled: true } } },
+      );
+      expect(o.local?.sandboxOptions?.enabled).toBe(true);
+    });
+
     it("forwards credential, cwd and setting sources from the parent", () => {
       const o = agentOptionsFromDefinition(def, {
         apiKey: "k",
