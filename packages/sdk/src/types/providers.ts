@@ -98,6 +98,12 @@ export interface ProviderRoutingSettings {
 export interface PluginsSettings {
   /** Plugin names to enable. Plugin discovery is plugin-provider specific. */
   enabled?: string[];
+  /**
+   * Code `Plugin` objects registered alongside the named ones. This lets one
+   * settings value carry both forms, as `mergeAgentOptions` produces when it
+   * combines an array layer with a settings layer.
+   */
+  code?: readonly import("./plugin.js").Plugin[];
 }
 
 /**

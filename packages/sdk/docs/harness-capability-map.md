@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1621 export(s) across 61 entry point(s).
+1622 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -310,6 +310,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `MemorySettings` | interface | Memory configuration accepted by `Agent.create()` via {@link AgentOptions.memory } .  |
 | `MemoryToolSchema` | interface | OpenAI-format function-calling schema exposed to the LLM. |
 | `MemoryTurnMessage` | interface | One assistant-turn message in the canonical `{role, content}` shape an adapter may receive instead of a flat string when writing a turn. |
+| `mergeAgentOptions` | function | Merge `AgentOptions` layers into one; later layers win.  |
 | `MessageOrigin` | type | SE3 — provenance of the turn that produced a run: WHO triggered it.  |
 | `MigrateOptions` | interface | Options for {@link migrateSqliteToLance } . |
 | `MigrateResult` | interface | Outcome of {@link migrateSqliteToLance } . |

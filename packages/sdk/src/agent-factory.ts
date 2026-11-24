@@ -1,6 +1,10 @@
 import { Agent } from "./agent.js";
 import { ConfigurationError } from "./errors.js";
+import { enabledPluginNames } from "./internal/plugins/enabled-names.js";
+import { extractCodePlugins } from "./internal/plugins/plugin-guards.js";
 import type { AgentOptions, SDKAgent } from "./types/agent.js";
+import type { CustomTool } from "./types/agent-prims.js";
+import type { Plugin } from "./types/plugin.js";
 
 /**
  * Handle returned by {@link createAgentFactory}. See ADR D23 for merge
@@ -58,7 +62,7 @@ function createAgentFactory(
   pinned?: Partial<AgentOptions>,
 ): AgentFactory {
   const build = (agentId: string, overrides?: Partial<AgentOptions>): AgentOptions => {
-    const merged = mergeAgentOptions(common, overrides, agentId);
+    const merged = mergeFactoryOptions(common, overrides, agentId);
     return pinned === undefined ? merged : applyPinned(merged, pinned, agentId);
   };
   return {
@@ -119,7 +123,7 @@ function isFactoryConfig(
  *
  * @internal
  */
-function mergeAgentOptions(
+function mergeFactoryOptions(
   common: Partial<AgentOptions>,
   overrides: Partial<AgentOptions> | undefined,
   agentId: string,
@@ -173,5 +177,77 @@ export class AgentFactory {
   static create(arg: Partial<AgentOptions> | AgentFactoryConfig): AgentFactory {
     if (isFactoryConfig(arg)) return createAgentFactory(arg.defaults ?? {}, arg.pinned ?? {});
     return createAgentFactory(arg as Partial<AgentOptions>);
+  }
+}
+
+type PluginsValue = AgentOptions["plugins"];
+
+function combinePlugins(layers: readonly PluginsValue[]): PluginsValue {
+  const present = layers.filter((p): p is NonNullable<PluginsValue> => p !== undefined);
+  if (present.every((p) => Array.isArray(p))) return present.flat() as Plugin[];
+  const code: Plugin[] = [];
+  let enabled: string[] | undefined;
+  for (const p of present) {
+    code.push(...extractCodePlugins(p));
+    const names = enabledPluginNames(p);
+    if (!Array.isArray(p) && (p as { enabled?: string[] }).enabled !== undefined) {
+      enabled = [...(enabled ?? []), ...names];
+    }
+  }
+  return {
+    ...(enabled !== undefined ? { enabled } : {}),
+    ...(code.length > 0 ? { code } : {}),
+  };
+}
+
+function combineTools(layers: readonly (CustomTool[] | undefined)[]): CustomTool[] {
+  const byName = new Map<string, CustomTool>();
+  for (const tool of layers.flatMap((t) => t ?? [])) byName.set(tool.name, tool);
+  return [...byName.values()];
+}
+
+/**
+ * Merge `AgentOptions` layers into one; later layers win. Unlike the
+ * `AgentFactory` merge, which replaces collections, this one combines them:
+ *
+ * - `local`, `memory`, `cloud`: merged key by key (a later layer's keys win;
+ *   nested objects are replaced, not recursed into).
+ * - `plugins`: concatenated in layer order. Arrays only gives an array; if any
+ *   layer is a `PluginsSettings` object the result is one, with `enabled` the
+ *   concatenated names (absent if no layer set it) and `code` the code plugins.
+ * - `tools`: concatenated by `name`; a later tool replaces the earlier one with
+ *   the same name and keeps its position.
+ * - every other field: the last layer that sets it.
+ *
+ * Inputs are not mutated; `undefined` layers are skipped.
+ *
+ * @public
+ */
+export function mergeAgentOptions(
+  ...layers: ReadonlyArray<Partial<AgentOptions> | undefined>
+): Partial<AgentOptions> {
+  const present = layers.filter((l): l is Partial<AgentOptions> => l !== undefined);
+  const merged: Partial<AgentOptions> = {};
+  for (const layer of present) assignDefined(merged, layer);
+  mergeConfigKeys(merged, present);
+  if (present.some((l) => l.plugins !== undefined)) {
+    merged.plugins = combinePlugins(present.map((l) => l.plugins));
+  }
+  if (present.some((l) => l.tools !== undefined)) {
+    merged.tools = combineTools(present.map((l) => l.tools));
+  }
+  return merged;
+}
+
+function assignDefined(target: Partial<AgentOptions>, layer: Partial<AgentOptions>): void {
+  for (const [k, v] of Object.entries(layer)) {
+    if (v !== undefined) (target as Record<string, unknown>)[k] = v;
+  }
+}
+
+function mergeConfigKeys(target: Partial<AgentOptions>, layers: Partial<AgentOptions>[]): void {
+  for (const key of ["local", "memory", "cloud"] as const) {
+    const parts = layers.map((l) => l[key]).filter((v) => v !== undefined);
+    if (parts.length > 0) (target as Record<string, unknown>)[key] = Object.assign({}, ...parts);
   }
 }

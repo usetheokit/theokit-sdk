@@ -5343,7 +5343,7 @@
       },
       "PluginsSettings": {
         "tier": "stable",
-        "declaration": "interface PluginsSettings {\n    enabled?: string[];\n}"
+        "declaration": "interface PluginsSettings {\n    enabled?: string[];\n    code?: readonly Plugin[];\n}"
       },
       "PostAssistantReplyContext": {
         "tier": "stable",
@@ -6320,6 +6320,10 @@
       "memoryPartitionId": {
         "tier": "stable",
         "declaration": "declare function memoryPartitionId(scope: string): string;"
+      },
+      "mergeAgentOptions": {
+        "tier": "stable",
+        "declaration": "declare function mergeAgentOptions(...layers: ReadonlyArray<Partial<AgentOptions> | undefined>): Partial<AgentOptions>;"
       },
       "migrateSqliteToLance": {
         "tier": "stable",
@@ -7382,7 +7386,7 @@
       },
       "PluginsSettings": {
         "tier": "stable",
-        "declaration": "interface PluginsSettings {\n    enabled?: string[];\n}"
+        "declaration": "interface PluginsSettings {\n    enabled?: string[];\n    code?: readonly Plugin[];\n}"
       },
       "PostAssistantReplyContext": {
         "tier": "stable",
@@ -8359,6 +8363,10 @@
       "memoryPartitionId": {
         "tier": "stable",
         "declaration": "declare function memoryPartitionId(scope: string): string;"
+      },
+      "mergeAgentOptions": {
+        "tier": "stable",
+        "declaration": "declare function mergeAgentOptions(...layers: ReadonlyArray<Partial<AgentOptions> | undefined>): Partial<AgentOptions>;"
       },
       "migrateSqliteToLance": {
         "tier": "stable",
