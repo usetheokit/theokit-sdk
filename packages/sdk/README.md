@@ -332,8 +332,6 @@ await agent.memory.reviewsIdle?.(); // wait for queued reviews, e.g. in tests or
 
 ## Builtin tool names
 
-The `shell` builtin is opt-in: pass `builtinTools: ["shell"]` to declare it (`Agent.create({ ..., builtinTools: ["shell"], local: { sandboxOptions: { enabled: true } } })`). Without it a local agent has no shell. It runs on the host, unsandboxed unless `local.sandboxOptions.enabled` is true, and with no approval unless a permission plugin is installed. `withheldBuiltinTools` wins when both name `shell`, and delegated subagents inherit the parent's opt-in.
-
 `BUILTIN_TOOL_NAMES` (`"shell"`, `"memory_search"`, `"memory_get"`) lists the tools the SDK declares itself; these are the names `withheldBuiltinTools` accepts and a custom tool may not claim. `isBuiltinToolName(name)` tests one, so an app that takes tool names from configuration can refuse a collision at load time. Withholding a builtin via `withheldBuiltinTools` releases its name, so a custom tool may then use it.
 
 `checkToolName(name, { withheldBuiltins })` applies the SDK's tool-name rules without throwing and returns `{ ok: true }` or `{ ok: false, code, message }`, where `code` is `tool_missing_name`, `tool_invalid_name` or `tool_reserved_name` (`ToolNameProblem`). A framework that compiles tools from configuration can reject a bad name with its own error before it constructs an `Agent`; `Agent.create` throws a `ConfigurationError` with the same code. Duplicate names are only detected across the whole tool list, by `Agent.create`.

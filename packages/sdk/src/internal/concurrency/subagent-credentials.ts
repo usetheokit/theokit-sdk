@@ -103,8 +103,8 @@ export interface InheritedCredentials {
    * had revoked — the inverse of #578 and materially worse, because there the child was merely
    * over-restricted.
    *
-   * It bites because of a documented default (`types/agent.ts` § LocalOptions): a child inherits the
-   * parent's `builtinTools` opt-in, so a parent that enabled `shell` hands one down. Withholding is the only
+   * It bites because of a documented default (`types/agent.ts` § LocalOptions): a `shell` tool is
+   * ALWAYS registered on a local agent, including when `tools: []` is passed. Withholding is the only
    * mechanism that removes it, so a withholding that does not survive delegation leaves no other way
    * for a child to be without a shell.
    *
@@ -116,8 +116,6 @@ export interface InheritedCredentials {
    * reintroduced by its own fix.
    */
   readonly withheldBuiltinTools?: readonly BuiltinToolName[];
-  /** #1117 — the parent's `builtinTools` opt-in, inherited so a delegated child keeps its shell. */
-  readonly builtinTools?: readonly "shell"[];
 }
 
 const credentialsStore = new AsyncLocalStorage<InheritedCredentials>();

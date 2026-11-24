@@ -334,13 +334,6 @@ function buildChildWithheldBuiltins(
   return [...new Set([...(parent ?? []), ...(own ?? [])])];
 }
 
-/** #1117 — the parent's builtin opt-in (`shell`), handed to the child; withholding is unioned separately and still wins. */
-function inheritedBuiltinOptIn(inherited: InheritedCredentials | undefined): {
-  builtinTools?: readonly "shell"[];
-} {
-  return inherited?.builtinTools !== undefined ? { builtinTools: inherited.builtinTools } : {};
-}
-
 /**
  * Build the child agent's `Agent.create` options: the child inherits the parent's
  * apiKey (else `Agent.create` throws "Missing API key"), its model (unless the spec
@@ -372,7 +365,6 @@ export function buildChildCreateOptions(
     ...(model !== undefined ? { model } : {}),
     ...(local !== undefined ? { local } : {}),
     ...(withheld !== undefined ? { withheldBuiltinTools: withheld } : {}),
-    ...inheritedBuiltinOptIn(inherited),
     ...(inherited?.plugins !== undefined ? { plugins: inherited.plugins } : {}),
     systemPrompt: spec.instructions,
     tools: spec.tools ?? [],

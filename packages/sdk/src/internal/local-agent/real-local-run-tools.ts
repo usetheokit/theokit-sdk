@@ -75,9 +75,6 @@ export function resolveInheritedCredentials(agentOptions: AgentOptions): Inherit
   // WIDENED authority the operator revoked. It is a restriction, so it is handed down like the
   // sandbox posture rather than like a capability.
   const parentWithheld = agentOptions.withheldBuiltinTools;
-  // #1117 — the shell opt-in travels down too, so a delegated child of a coding agent keeps the shell
-  // its parent was given. Withholding still wins in the child (it is unioned, never loosened).
-  const parentBuiltins = agentOptions.builtinTools;
   return {
     ...(agentOptions.apiKey !== undefined ? { apiKey: agentOptions.apiKey } : {}),
     ...(typeof agentOptions.model === "object" ? { model: agentOptions.model } : {}),
@@ -86,7 +83,6 @@ export function resolveInheritedCredentials(agentOptions: AgentOptions): Inherit
     ...(parentSettingSources !== undefined ? { settingSources: parentSettingSources } : {}),
     ...(parentCompatSources !== undefined ? { compatSources: parentCompatSources } : {}),
     ...(parentWithheld !== undefined ? { withheldBuiltinTools: parentWithheld } : {}),
-    ...(parentBuiltins !== undefined ? { builtinTools: parentBuiltins } : {}),
   };
 }
 
@@ -98,14 +94,10 @@ export function resolveInheritedCredentials(agentOptions: AgentOptions): Inherit
  */
 function withheldBuiltinsInput(agentOptions: AgentOptions): {
   withheldBuiltinTools?: ReadonlyArray<BuiltinToolName>;
-  builtinTools?: ReadonlyArray<"shell">;
 } {
   const withheld = agentOptions.withheldBuiltinTools;
-  const enabled = agentOptions.builtinTools;
-  return {
-    ...(withheld !== undefined && withheld.length > 0 ? { withheldBuiltinTools: withheld } : {}),
-    ...(enabled !== undefined && enabled.length > 0 ? { builtinTools: enabled } : {}),
-  };
+  if (withheld === undefined || withheld.length === 0) return {};
+  return { withheldBuiltinTools: withheld };
 }
 
 /**
@@ -156,7 +148,6 @@ export function buildRunToolCatalogInput({
 }: RunToolCatalogInputs): {
   customTools?: ReadonlyArray<CustomToolSpec>;
   withheldBuiltinTools?: ReadonlyArray<BuiltinToolName>;
-  builtinTools?: ReadonlyArray<"shell">;
 } {
   const builtins = withheldBuiltinsInput(agentOptions);
   const baseTools = sendOptions?.tools ?? agentOptions.tools ?? [];

@@ -15,22 +15,13 @@ const tool = (name: string) =>
   ({ name, description: "d", inputSchema: {}, handler: async () => "" }) as unknown as CustomTool;
 
 describe("effectiveToolNames", () => {
-  it("reports no shell by default (#1117)", () => {
-    expect(effectiveToolNames({ tools: [] } as AgentOptions).names).toEqual([]);
-  });
-
-  it("reports the shell an agent opted into despite declaring no tools", () => {
+  it("reports the shell an agent holds despite declaring no tools", () => {
     // The exact pair `describe()` cannot distinguish.
-    const opts = { tools: [], builtinTools: ["shell"] } as AgentOptions;
-    expect(effectiveToolNames(opts).names).toEqual(["shell"]);
+    expect(effectiveToolNames({ tools: [] } as AgentOptions).names).toEqual(["shell"]);
   });
 
-  it("reports its absence once withheld, even when opted in", () => {
-    const opts = {
-      tools: [],
-      builtinTools: ["shell"],
-      withheldBuiltinTools: ["shell"],
-    } as unknown as AgentOptions;
+  it("reports its absence once withheld", () => {
+    const opts = { tools: [], withheldBuiltinTools: ["shell"] } as unknown as AgentOptions;
 
     expect(effectiveToolNames(opts).names).toEqual([]);
     // And says so completely: nothing else was configured, so [] IS the whole catalog.
@@ -38,18 +29,14 @@ describe("effectiveToolNames", () => {
   });
 
   it("includes declared custom tools alongside the builtins", () => {
-    const opts = { tools: [tool("read_file")], builtinTools: ["shell"] } as AgentOptions;
+    const opts = { tools: [tool("read_file")] } as AgentOptions;
 
     expect([...effectiveToolNames(opts).names].sort()).toEqual(["read_file", "shell"]);
   });
 
   it("adds the memory builtins only when memory is enabled", () => {
     const off = { tools: [] } as AgentOptions;
-    const on = {
-      tools: [],
-      builtinTools: ["shell"],
-      memory: { enabled: true },
-    } as unknown as AgentOptions;
+    const on = { tools: [], memory: { enabled: true } } as unknown as AgentOptions;
 
     // The control that matters: reporting them unconditionally would overstate the catalog, which is
     // the same defect with the sign flipped.
@@ -64,7 +51,6 @@ describe("effectiveToolNames", () => {
   it("honours a withholding of a memory builtin", () => {
     const opts = {
       tools: [],
-      builtinTools: ["shell"],
       memory: { enabled: true },
       withheldBuiltinTools: ["memory_get"],
     } as unknown as AgentOptions;
@@ -107,11 +93,7 @@ describe("effectiveToolNames", () => {
     // The control: refusing on `handler` alone would reject an options object that happens to carry
     // some unrelated field, and the detection has to stay exact rather than become a heuristic.
     expect(
-      effectiveToolNames({
-        tools: [],
-        builtinTools: ["shell"],
-        handler: () => {},
-      } as unknown as AgentOptions).names,
+      effectiveToolNames({ tools: [], handler: () => {} } as unknown as AgentOptions).names,
     ).toEqual(["shell"]);
   });
 });

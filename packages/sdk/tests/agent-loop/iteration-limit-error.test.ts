@@ -72,7 +72,6 @@ describe("iteration-limit exhaustion explains itself (#338 item 4)", () => {
       hooks,
       shellCwd: cwd,
       shellSandbox: false,
-      builtinTools: ["shell"],
       maxIterations: 2,
     });
   }

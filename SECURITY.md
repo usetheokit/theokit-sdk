@@ -72,14 +72,6 @@ upgrade mechanical.
 The extension packages (`@theokit/sdk-*`, `@theokit/memory-*`, `@theokit/acp`,
 `@theokit/cli`) are supported at their latest published version.
 
-## Builtin shell tool
-
-The builtin `shell` tool is off by default. An app enables it with `builtinTools: ["shell"]`, and
-that grants command execution on the host to whoever can steer the agent's prompt. It is
-unsandboxed unless `local.sandboxOptions.enabled` is `true`, and no approval is asked unless a
-permission plugin is installed. An agent wired to a public channel should leave it off, or pair it
-with the sandbox and a permission plugin.
-
 ## What is in scope
 
 This is an SDK that runs agent code: it spawns processes, resolves paths supplied by

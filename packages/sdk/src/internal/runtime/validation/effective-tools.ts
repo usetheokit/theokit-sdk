@@ -7,7 +7,7 @@
  * `(agent.options.tools ?? [])` — literally the array the caller passed. The SDK's own builtins were
  * never in it. So the two states that matter most were indistinguishable:
  *
- *     Agent.create({ tools: [], builtinTools: ["shell"] }) describe().tools = []   (holds a shell)
+ *     Agent.create({ tools: [] })                       describe().tools = []   (holds a shell)
  *     the same, withheldBuiltinTools: ["shell"]         describe().tools = []   (holds nothing)
  *
  * A consumer trying to confirm that a role declared read-only really is one had no instrument. What
@@ -38,7 +38,7 @@ import { ConfigurationError } from "../../../errors.js";
 import type { AgentOptions, BuiltinToolName } from "../../../types/agent.js";
 
 /** The builtins this SDK registers, and the option that governs each. */
-const OPT_IN_BUILTINS: readonly BuiltinToolName[] = ["shell"];
+const ALWAYS_REGISTERED: readonly BuiltinToolName[] = ["shell"];
 const MEMORY_BUILTINS: readonly BuiltinToolName[] = ["memory_search", "memory_get"];
 
 /** A tool source that is configured but cannot be enumerated without running the agent. */
@@ -115,8 +115,8 @@ function resolvableNames(options: AgentOptions): readonly string[] {
   const withheld = new Set<BuiltinToolName>(options.withheldBuiltinTools ?? []);
   // Memory builtins are registered only when memory is on. Reporting them unconditionally would
   // overstate the catalog; omitting them when it IS on would understate it. Both are this defect.
-  const builtins: BuiltinToolName[] = [
-    ...(options.builtinTools?.includes("shell") === true ? OPT_IN_BUILTINS : []),
+  const builtins = [
+    ...ALWAYS_REGISTERED,
     ...(options.memory?.enabled === true ? MEMORY_BUILTINS : []),
   ];
   return [

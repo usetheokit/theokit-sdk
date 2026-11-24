@@ -107,12 +107,7 @@ export async function initLoopContext(inputs: AgentLoopInputs): Promise<LoopCont
   // and nowhere else. Filtering the finished catalog by name would also delete a consumer's own
   // tool named `shell`, which withholding is what makes legal in the first place.
   const withheld = new Set<string>(inputs.withheldBuiltinTools ?? []);
-  const tools = await collectTools(
-    inputs.mcp,
-    withheld,
-    inputs.runEventSink,
-    inputs.builtinTools?.includes("shell") === true,
-  );
+  const tools = await collectTools(inputs.mcp, withheld, inputs.runEventSink);
   for (const memTool of inputs.memoryTools ?? []) {
     if (withheld.has(memTool.name)) continue;
     tools.push({
@@ -296,8 +291,8 @@ export async function safeListTools(
  * it. Its own function so `collectTools` opens with one line that says whether the tool exists at
  * all, rather than a fifteen-line literal the reader has to get past to find the condition.
  */
-function shellToolDescriptor(withheld: ReadonlySet<string>, enabled: boolean): ResolvedTool[] {
-  if (!enabled || withheld.has("shell")) return [];
+function shellToolDescriptor(withheld: ReadonlySet<string>): ResolvedTool[] {
+  if (withheld.has("shell")) return [];
   return [
     {
       name: "shell",
@@ -317,9 +312,8 @@ export async function collectTools(
   mcp: Map<string, McpClient>,
   withheld: ReadonlySet<string>,
   sink?: RunEventSink,
-  shellEnabled = false,
 ): Promise<ResolvedTool[]> {
-  const tools: ResolvedTool[] = shellToolDescriptor(withheld, shellEnabled);
+  const tools: ResolvedTool[] = shellToolDescriptor(withheld);
   for (const [serverName, client] of mcp.entries()) {
     const mcpTools = await safeListTools(client, serverName, sink);
     for (const tool of mcpTools) {
