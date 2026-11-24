@@ -3960,6 +3960,10 @@
         "tier": "stable",
         "declaration": "interface ForeachStep {\n    readonly kind: \"foreach\";\n    readonly id: string;\n    readonly iterableFrom: string;\n    readonly step: Step;\n    readonly concurrency?: number;\n}"
       },
+      "LoadWorkflowDirOptions": {
+        "tier": "stable",
+        "declaration": "interface LoadWorkflowDirOptions extends WorkflowDefinitionOptions {\n    readonly onInvalid?: (file: string, error: WorkflowDefinitionError) => void;\n}"
+      },
       "ParallelStep": {
         "tier": "stable",
         "declaration": "interface ParallelStep {\n    readonly kind: \"parallel\";\n    readonly id: string;\n    readonly branches: ReadonlyArray<ReadonlyArray<Step>>;\n    readonly concurrency?: number;\n    readonly errorPolicy?: \"fail-fast\" | \"collect\";\n}"
@@ -3986,7 +3990,7 @@
       },
       "SuspendStep": {
         "tier": "stable",
-        "declaration": "interface SuspendStep {\n    readonly kind: \"suspend\";\n    readonly id: string;\n    readonly payloadSchema?: ZodType;\n}"
+        "declaration": "interface SuspendStep {\n    readonly kind: \"suspend\";\n    readonly id: string;\n    readonly payloadSchema?: ZodType;\n    readonly decision?: \"approved\";\n}"
       },
       "Workflow": {
         "tier": "stable",
@@ -3998,7 +4002,7 @@
       },
       "WorkflowApprovalStepDefinition": {
         "tier": "stable",
-        "declaration": "interface WorkflowApprovalStepDefinition {\n    readonly id: string;\n    readonly approve: true;\n}"
+        "declaration": "interface WorkflowApprovalStepDefinition {\n    readonly id: string;\n    readonly approve: true;\n    readonly decision?: \"payload\" | \"approved\";\n}"
       },
       "WorkflowAsToolSpec": {
         "tier": "stable",
@@ -4006,7 +4010,7 @@
       },
       "WorkflowBuilder": {
         "tier": "stable",
-        "declaration": "declare class WorkflowBuilder<TInput = unknown, TOutput = unknown> {\n    private readonly options;\n    private readonly _steps;\n    private _committed;\n    then<TO = unknown>(step: Step): WorkflowBuilder<TInput, TO>;\n    parallel(branches: ReadonlyArray<ReadonlyArray<Step>>, opts?: {\n        id?: string;\n        concurrency?: number;\n        errorPolicy?: \"fail-fast\" | \"collect\";\n    }): WorkflowBuilder<TInput, unknown[]>;\n    branch(predicates: BranchStep[\"predicates\"], opts?: {\n        id?: string;\n        fallback?: ReadonlyArray<Step>;\n    }): WorkflowBuilder<TInput, unknown>;\n    foreach(iterableFrom: string, step: Step, opts?: {\n        id?: string;\n        concurrency?: number;\n    }): WorkflowBuilder<TInput, unknown[]>;\n    dowhile(step: Step, condFn: DowhileStep[\"condFn\"], opts?: {\n        id?: string;\n        maxIterations?: number;\n    }): WorkflowBuilder<TInput, unknown>;\n    sleep(durationMs: number, id?: string): WorkflowBuilder<TInput, TOutput>;\n    suspend(opts?: {\n        id?: string;\n        payloadSchema?: ZodType;\n    }): WorkflowBuilder<TInput, unknown>;\n    commit(): Workflow<TInput, TOutput>;\n    private validateUniqueIds;\n    private assertNotCommitted;\n}"
+        "declaration": "declare class WorkflowBuilder<TInput = unknown, TOutput = unknown> {\n    private readonly options;\n    private readonly _steps;\n    private _committed;\n    then<TO = unknown>(step: Step): WorkflowBuilder<TInput, TO>;\n    parallel(branches: ReadonlyArray<ReadonlyArray<Step>>, opts?: {\n        id?: string;\n        concurrency?: number;\n        errorPolicy?: \"fail-fast\" | \"collect\";\n    }): WorkflowBuilder<TInput, unknown[]>;\n    branch(predicates: BranchStep[\"predicates\"], opts?: {\n        id?: string;\n        fallback?: ReadonlyArray<Step>;\n    }): WorkflowBuilder<TInput, unknown>;\n    foreach(iterableFrom: string, step: Step, opts?: {\n        id?: string;\n        concurrency?: number;\n    }): WorkflowBuilder<TInput, unknown[]>;\n    dowhile(step: Step, condFn: DowhileStep[\"condFn\"], opts?: {\n        id?: string;\n        maxIterations?: number;\n    }): WorkflowBuilder<TInput, unknown>;\n    sleep(durationMs: number, id?: string): WorkflowBuilder<TInput, TOutput>;\n    suspend(opts?: {\n        id?: string;\n        payloadSchema?: ZodType;\n        decision?: \"approved\";\n    }): WorkflowBuilder<TInput, unknown>;\n    commit(): Workflow<TInput, TOutput>;\n    private validateUniqueIds;\n    private assertNotCommitted;\n}"
       },
       "WorkflowCheckpoint": {
         "tier": "stable",
@@ -4018,7 +4022,7 @@
       },
       "WorkflowDefinition": {
         "tier": "stable",
-        "declaration": "interface WorkflowDefinition {\n    readonly name: string;\n    readonly steps: ReadonlyArray<WorkflowPromptStepDefinition | WorkflowApprovalStepDefinition>;\n}"
+        "declaration": "interface WorkflowDefinition {\n    readonly name: string;\n    readonly description?: string;\n    readonly steps: ReadonlyArray<WorkflowPromptStepDefinition | WorkflowApprovalStepDefinition>;\n}"
       },
       "WorkflowDefinitionError": {
         "tier": "stable",
@@ -4030,7 +4034,7 @@
       },
       "WorkflowDescription": {
         "tier": "stable",
-        "declaration": "interface WorkflowDescription {\n    readonly name: string;\n    readonly steps: readonly WorkflowStepDescription[];\n}"
+        "declaration": "interface WorkflowDescription {\n    readonly name: string;\n    readonly description?: string;\n    readonly steps: readonly WorkflowStepDescription[];\n}"
       },
       "WorkflowDuplicateStepIdError": {
         "tier": "stable",
@@ -4058,7 +4062,7 @@
       },
       "WorkflowOptions": {
         "tier": "stable",
-        "declaration": "interface WorkflowOptions {\n    readonly name: string;\n    readonly persistence?: WorkflowPersistenceOptions;\n    readonly inputSchema?: ZodType;\n    readonly outputSchema?: ZodType;\n    readonly stateSchema?: ZodType;\n    readonly initialState?: unknown;\n    readonly workflowId?: string;\n}"
+        "declaration": "interface WorkflowOptions {\n    readonly name: string;\n    readonly description?: string;\n    readonly persistence?: WorkflowPersistenceOptions;\n    readonly inputSchema?: ZodType;\n    readonly outputSchema?: ZodType;\n    readonly stateSchema?: ZodType;\n    readonly initialState?: unknown;\n    readonly workflowId?: string;\n}"
       },
       "WorkflowOutputError": {
         "tier": "stable",
@@ -4146,7 +4150,7 @@
       },
       "loadWorkflowDir": {
         "tier": "stable",
-        "declaration": "declare function loadWorkflowDir(dir: string, options: WorkflowDefinitionOptions): Promise<Workflow[]>;"
+        "declaration": "declare function loadWorkflowDir(dir: string, options: LoadWorkflowDirOptions): Promise<Workflow[]>;"
       },
       "parseWorkflowDefinition": {
         "tier": "stable",
@@ -4190,6 +4194,10 @@
         "tier": "stable",
         "declaration": "interface ForeachStep {\n    readonly kind: \"foreach\";\n    readonly id: string;\n    readonly iterableFrom: string;\n    readonly step: Step;\n    readonly concurrency?: number;\n}"
       },
+      "LoadWorkflowDirOptions": {
+        "tier": "stable",
+        "declaration": "interface LoadWorkflowDirOptions extends WorkflowDefinitionOptions {\n    readonly onInvalid?: (file: string, error: WorkflowDefinitionError) => void;\n}"
+      },
       "ParallelStep": {
         "tier": "stable",
         "declaration": "interface ParallelStep {\n    readonly kind: \"parallel\";\n    readonly id: string;\n    readonly branches: ReadonlyArray<ReadonlyArray<Step>>;\n    readonly concurrency?: number;\n    readonly errorPolicy?: \"fail-fast\" | \"collect\";\n}"
@@ -4216,7 +4224,7 @@
       },
       "SuspendStep": {
         "tier": "stable",
-        "declaration": "interface SuspendStep {\n    readonly kind: \"suspend\";\n    readonly id: string;\n    readonly payloadSchema?: ZodType;\n}"
+        "declaration": "interface SuspendStep {\n    readonly kind: \"suspend\";\n    readonly id: string;\n    readonly payloadSchema?: ZodType;\n    readonly decision?: \"approved\";\n}"
       },
       "Workflow": {
         "tier": "stable",
@@ -4228,7 +4236,7 @@
       },
       "WorkflowApprovalStepDefinition": {
         "tier": "stable",
-        "declaration": "interface WorkflowApprovalStepDefinition {\n    readonly id: string;\n    readonly approve: true;\n}"
+        "declaration": "interface WorkflowApprovalStepDefinition {\n    readonly id: string;\n    readonly approve: true;\n    readonly decision?: \"payload\" | \"approved\";\n}"
       },
       "WorkflowAsToolSpec": {
         "tier": "stable",
@@ -4236,7 +4244,7 @@
       },
       "WorkflowBuilder": {
         "tier": "stable",
-        "declaration": "declare class WorkflowBuilder<TInput = unknown, TOutput = unknown> {\n    private readonly options;\n    private readonly _steps;\n    private _committed;\n    then<TO = unknown>(step: Step): WorkflowBuilder<TInput, TO>;\n    parallel(branches: ReadonlyArray<ReadonlyArray<Step>>, opts?: {\n        id?: string;\n        concurrency?: number;\n        errorPolicy?: \"fail-fast\" | \"collect\";\n    }): WorkflowBuilder<TInput, unknown[]>;\n    branch(predicates: BranchStep[\"predicates\"], opts?: {\n        id?: string;\n        fallback?: ReadonlyArray<Step>;\n    }): WorkflowBuilder<TInput, unknown>;\n    foreach(iterableFrom: string, step: Step, opts?: {\n        id?: string;\n        concurrency?: number;\n    }): WorkflowBuilder<TInput, unknown[]>;\n    dowhile(step: Step, condFn: DowhileStep[\"condFn\"], opts?: {\n        id?: string;\n        maxIterations?: number;\n    }): WorkflowBuilder<TInput, unknown>;\n    sleep(durationMs: number, id?: string): WorkflowBuilder<TInput, TOutput>;\n    suspend(opts?: {\n        id?: string;\n        payloadSchema?: ZodType;\n    }): WorkflowBuilder<TInput, unknown>;\n    commit(): Workflow<TInput, TOutput>;\n    private validateUniqueIds;\n    private assertNotCommitted;\n}"
+        "declaration": "declare class WorkflowBuilder<TInput = unknown, TOutput = unknown> {\n    private readonly options;\n    private readonly _steps;\n    private _committed;\n    then<TO = unknown>(step: Step): WorkflowBuilder<TInput, TO>;\n    parallel(branches: ReadonlyArray<ReadonlyArray<Step>>, opts?: {\n        id?: string;\n        concurrency?: number;\n        errorPolicy?: \"fail-fast\" | \"collect\";\n    }): WorkflowBuilder<TInput, unknown[]>;\n    branch(predicates: BranchStep[\"predicates\"], opts?: {\n        id?: string;\n        fallback?: ReadonlyArray<Step>;\n    }): WorkflowBuilder<TInput, unknown>;\n    foreach(iterableFrom: string, step: Step, opts?: {\n        id?: string;\n        concurrency?: number;\n    }): WorkflowBuilder<TInput, unknown[]>;\n    dowhile(step: Step, condFn: DowhileStep[\"condFn\"], opts?: {\n        id?: string;\n        maxIterations?: number;\n    }): WorkflowBuilder<TInput, unknown>;\n    sleep(durationMs: number, id?: string): WorkflowBuilder<TInput, TOutput>;\n    suspend(opts?: {\n        id?: string;\n        payloadSchema?: ZodType;\n        decision?: \"approved\";\n    }): WorkflowBuilder<TInput, unknown>;\n    commit(): Workflow<TInput, TOutput>;\n    private validateUniqueIds;\n    private assertNotCommitted;\n}"
       },
       "WorkflowCheckpoint": {
         "tier": "stable",
@@ -4248,7 +4256,7 @@
       },
       "WorkflowDefinition": {
         "tier": "stable",
-        "declaration": "interface WorkflowDefinition {\n    readonly name: string;\n    readonly steps: ReadonlyArray<WorkflowPromptStepDefinition | WorkflowApprovalStepDefinition>;\n}"
+        "declaration": "interface WorkflowDefinition {\n    readonly name: string;\n    readonly description?: string;\n    readonly steps: ReadonlyArray<WorkflowPromptStepDefinition | WorkflowApprovalStepDefinition>;\n}"
       },
       "WorkflowDefinitionError": {
         "tier": "stable",
@@ -4260,7 +4268,7 @@
       },
       "WorkflowDescription": {
         "tier": "stable",
-        "declaration": "interface WorkflowDescription {\n    readonly name: string;\n    readonly steps: readonly WorkflowStepDescription[];\n}"
+        "declaration": "interface WorkflowDescription {\n    readonly name: string;\n    readonly description?: string;\n    readonly steps: readonly WorkflowStepDescription[];\n}"
       },
       "WorkflowDuplicateStepIdError": {
         "tier": "stable",
@@ -4288,7 +4296,7 @@
       },
       "WorkflowOptions": {
         "tier": "stable",
-        "declaration": "interface WorkflowOptions {\n    readonly name: string;\n    readonly persistence?: WorkflowPersistenceOptions;\n    readonly inputSchema?: ZodType;\n    readonly outputSchema?: ZodType;\n    readonly stateSchema?: ZodType;\n    readonly initialState?: unknown;\n    readonly workflowId?: string;\n}"
+        "declaration": "interface WorkflowOptions {\n    readonly name: string;\n    readonly description?: string;\n    readonly persistence?: WorkflowPersistenceOptions;\n    readonly inputSchema?: ZodType;\n    readonly outputSchema?: ZodType;\n    readonly stateSchema?: ZodType;\n    readonly initialState?: unknown;\n    readonly workflowId?: string;\n}"
       },
       "WorkflowOutputError": {
         "tier": "stable",
@@ -4376,7 +4384,7 @@
       },
       "loadWorkflowDir": {
         "tier": "stable",
-        "declaration": "declare function loadWorkflowDir(dir: string, options: WorkflowDefinitionOptions): Promise<Workflow[]>;"
+        "declaration": "declare function loadWorkflowDir(dir: string, options: LoadWorkflowDirOptions): Promise<Workflow[]>;"
       },
       "parseWorkflowDefinition": {
         "tier": "stable",

@@ -60,6 +60,7 @@ import {
   parseWorkflowDefinition,
   readDefinitionFile,
   type WorkflowDefinition,
+  WorkflowDefinitionError,
 } from "./workflow-definition.js";
 import { WorkflowDuplicateStepIdError, WorkflowNestedError } from "./workflow-errors.js";
 
@@ -82,6 +83,7 @@ const DurabilitySchema = z.enum(["suspend", "step"]).optional();
 
 const WorkflowOptionsSchema = z.object({
   name: z.string().min(1).max(128),
+  description: z.string().min(1).max(500).optional(),
   persistence: PersistenceSchema,
   // `durability` is workflow-only, so it is validated here rather than in the shared PersistenceSchema.
   // (PersistenceSchema strips unknown keys on parse; `create()` keeps the original options.)
@@ -267,7 +269,11 @@ export class WorkflowBuilder<TInput = unknown, TOutput = unknown> {
     return this;
   }
 
-  suspend(opts?: { id?: string; payloadSchema?: ZodType }): WorkflowBuilder<TInput, unknown> {
+  suspend(opts?: {
+    id?: string;
+    payloadSchema?: ZodType;
+    decision?: "approved";
+  }): WorkflowBuilder<TInput, unknown> {
     this.assertNotCommitted();
     const id = opts?.id ?? `suspend_${this._steps.length}`;
     validateStepId(id);
@@ -275,6 +281,7 @@ export class WorkflowBuilder<TInput = unknown, TOutput = unknown> {
       kind: "suspend",
       id,
       ...(opts?.payloadSchema !== undefined ? { payloadSchema: opts.payloadSchema } : {}),
+      ...(opts?.decision !== undefined ? { decision: opts.decision } : {}),
     };
     this._steps.push(step);
     return this as unknown as WorkflowBuilder<TInput, unknown>;
@@ -419,13 +426,17 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
     const def = parseWorkflowDefinition(definition);
     let builder = Workflow.create({
       name: def.name,
+      ...(def.description !== undefined ? { description: def.description } : {}),
       ...(options.persistence !== undefined ? { persistence: options.persistence } : {}),
     });
     for (const step of def.steps) {
       builder =
         "prompt" in step
           ? builder.then(fn(step.id, (input, ctx) => options.generate(step.prompt, input, ctx)))
-          : builder.suspend({ id: step.id });
+          : builder.suspend({
+              id: step.id,
+              ...(step.decision === "approved" ? { decision: "approved" as const } : {}),
+            });
     }
     return builder.commit();
   }
@@ -502,6 +513,9 @@ export class Workflow<TInput = unknown, TOutput = unknown> {
   describe(): WorkflowDescription {
     return {
       name: this._options.name,
+      ...(this._options.description !== undefined
+        ? { description: this._options.description }
+        : {}),
       steps: this._steps.map(describeStep),
     };
   }
@@ -764,18 +778,35 @@ export {
 /** Options for `Workflow.fromDefinition` and {@link loadWorkflowDir}. */
 export type { WorkflowDefinitionOptions };
 
+/** Options for {@link loadWorkflowDir}. */
+export interface LoadWorkflowDirOptions extends WorkflowDefinitionOptions {
+  /**
+   * Called with the file name and error for each file that is not valid JSON or not a valid
+   * definition; the file is skipped. Absent: the first such file throws.
+   */
+  readonly onInvalid?: (file: string, error: WorkflowDefinitionError) => void;
+}
+
 /**
  * Load every `*.json` file directly in `dir` (not recursive, filename order) and compile each with
  * `Workflow.fromDefinition`. A file that is not valid JSON or not a valid definition throws
- * `WorkflowDefinitionError` naming the file and field.
+ * `WorkflowDefinitionError` naming the file and field, unless `onInvalid` is given: then it is
+ * reported there and skipped.
  */
 export async function loadWorkflowDir(
   dir: string,
-  options: WorkflowDefinitionOptions,
+  options: LoadWorkflowDirOptions,
 ): Promise<Workflow[]> {
   const workflows: Workflow[] = [];
   for (const file of await listDefinitionFiles(dir)) {
-    workflows.push(Workflow.fromDefinition(await readDefinitionFile(dir, file), options));
+    try {
+      workflows.push(Workflow.fromDefinition(await readDefinitionFile(dir, file), options));
+    } catch (error) {
+      if (options.onInvalid === undefined || !(error instanceof WorkflowDefinitionError)) {
+        throw error;
+      }
+      options.onInvalid(file, error);
+    }
   }
   return workflows;
 }

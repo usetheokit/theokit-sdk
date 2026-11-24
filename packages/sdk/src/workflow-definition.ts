@@ -8,7 +8,8 @@
  * ```
  *
  * A step is `{ id, prompt }` (calls the `generate` callback of `Workflow.fromDefinition`) or
- * `{ id, approve: true }` (suspends until `Workflow.resume`). Ids use the step-id grammar
+ * `{ id, approve: true, decision? }` (suspends until `Workflow.resume`). An optional top-level
+ * `description` is kept on the compiled workflow. Ids use the step-id grammar
  * `^[a-z0-9][a-z0-9_-]*$` and are unique within the workflow.
  *
  * @public
@@ -25,11 +26,18 @@ const StepIdSchema = z
   .regex(/^[a-z0-9][a-z0-9_-]*$/, "must match ^[a-z0-9][a-z0-9_-]*$");
 
 const PromptStepSchema = z.object({ id: StepIdSchema, prompt: z.string().min(1) }).strict();
-const ApproveStepSchema = z.object({ id: StepIdSchema, approve: z.literal(true) }).strict();
+const ApproveStepSchema = z
+  .object({
+    id: StepIdSchema,
+    approve: z.literal(true),
+    decision: z.enum(["payload", "approved"]).optional(),
+  })
+  .strict();
 
 export const WorkflowDefinitionSchema = z
   .object({
     name: z.string().min(1).max(128),
+    description: z.string().min(1).max(500).optional(),
     steps: z.array(z.union([PromptStepSchema, ApproveStepSchema])).min(1),
   })
   .strict()
@@ -56,10 +64,18 @@ export interface WorkflowPromptStepDefinition {
 export interface WorkflowApprovalStepDefinition {
   readonly id: string;
   readonly approve: true;
+  /**
+   * `"payload"` (default): the resume payload becomes the next value. `"approved"`: the resume payload
+   * must be `{ approved: boolean }`; `true` continues with the value held before the approval, `false`
+   * completes the run with that value and skips the remaining steps.
+   */
+  readonly decision?: "payload" | "approved";
 }
 /** A linear workflow as data. @public */
 export interface WorkflowDefinition {
   readonly name: string;
+  /** Optional human description (1-500 chars), exposed by `Workflow.describe()`. */
+  readonly description?: string;
   readonly steps: ReadonlyArray<WorkflowPromptStepDefinition | WorkflowApprovalStepDefinition>;
 }
 

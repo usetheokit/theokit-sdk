@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1621 export(s) across 61 entry point(s).
+1622 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -1863,6 +1863,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `FnStep` | interface | A pure function step. |
 | `ForeachStep` | interface | Map a step over an upstream array output. |
 | `loadWorkflowDir` | function | Load every `*.json` file directly in `dir` (not recursive, filename order) and compile each with `Workflow.fromDefinition`.  |
+| `LoadWorkflowDirOptions` | interface | Options for {@link loadWorkflowDir } . |
 | `ParallelStep` | interface | N concurrent branches, each its own mini-step-list. |
 | `parseWorkflowDefinition` | function | Validate `input` as a {@link WorkflowDefinition } ; throws {@link WorkflowDefinitionError } . |
 | `RetryPolicy` | interface | D237 — retry policy applied per fn/agent step. |

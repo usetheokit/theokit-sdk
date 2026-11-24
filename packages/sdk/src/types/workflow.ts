@@ -130,6 +130,8 @@ export interface SuspendStep {
   readonly kind: "suspend";
   readonly id: string;
   readonly payloadSchema?: ZodType;
+  /** `"approved"`: resume takes `{ approved: boolean }`; `false` completes the run. */
+  readonly decision?: "approved";
 }
 
 /* ─── Reflection (theokit#161) ─── */
@@ -169,6 +171,8 @@ export interface WorkflowStepDescription {
  */
 export interface WorkflowDescription {
   readonly name: string;
+  /** Set when the workflow came from a definition with a `description`. */
+  readonly description?: string;
   readonly steps: readonly WorkflowStepDescription[];
 }
 
@@ -425,6 +429,8 @@ export interface WorkflowRerunOptions {
  */
 export interface WorkflowOptions {
   readonly name: string;
+  /** Optional human description, reported by `Workflow.describe()`. */
+  readonly description?: string;
   readonly persistence?: WorkflowPersistenceOptions;
   /**
    * SE27 — Zod schema for the WHOLE workflow's input. When set, `run(input)`
