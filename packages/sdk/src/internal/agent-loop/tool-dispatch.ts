@@ -1,3 +1,4 @@
+import { permissionFloorReason } from "../../permission-floors.js";
 import type { SDKMessage, SDKToolUseMessage } from "../../types/messages.js";
 import type { DeferredToolCall } from "../../types/run.js";
 import type { InteractionUpdate } from "../../types/updates.js";
@@ -147,6 +148,9 @@ async function dispatchSingleCall(
   const toolSpan = startToolCallSpan(dc, resolved, repairs);
   events.push(buildToolUseRunning(dc));
 
+  const floorVeto = vetoFromPermissionFloor(dc, toolSpan);
+  if (floorVeto !== undefined) return floorVeto;
+
   const pluginVeto = await vetoFromPluginPreHook(dc);
   if (pluginVeto !== undefined) {
     // T2.5 — end the span on veto so we don't leak open OTel spans.
@@ -288,6 +292,31 @@ function startToolCallSpan(
 }
 
 /**
+ * Step 3b — the permission floor. Runs for every call, before plugins and file hooks, in every
+ * permission mode, against the agent's workspace cwd. No plugin has to be installed.
+ */
+function vetoFromPermissionFloor(
+  dc: DispatchContext,
+  toolSpan: ToolSpan,
+): LlmContentPart | undefined {
+  const { inputs, call, callId, events } = dc;
+  const reason = permissionFloorReason(call.name, call.input, { cwd: inputs.shellCwd });
+  if (reason === undefined) return undefined;
+  emitRunEvent(inputs.runEventSink, {
+    type: "permission_denied",
+    toolName: call.name,
+    toolCallId: callId,
+    source: "floor",
+    message: reason,
+  });
+  events.push(buildToolUseCompleted(dc, { stdout: "", stderr: reason, exitCode: 126 }));
+  toolSpan?.setAttribute("tool.vetoed", true);
+  toolSpan?.setAttribute("tool.veto_source", "floor");
+  toolSpan?.end();
+  return { type: "tool_result", toolUseId: call.id, content: reason };
+}
+
+/**
  * Step 4 — D101 plugin `pre_tool_call` veto. Plugins are author-supplied
  * (code-level safety) and fire BEFORE file hooks (operator policy).
  */
@@ -300,6 +329,7 @@ async function vetoFromPluginPreHook(dc: DispatchContext): Promise<LlmContentPar
     runId: inputs.runId,
     toolUseId: call.id,
     ...approvalOnResume(inputs, call.id),
+    cwd: inputs.shellCwd,
     // SE1 — thread the run's permission mode so a PermissionPlugin gates per-run.
     ...(inputs.permissionMode !== undefined ? { permissionMode: inputs.permissionMode } : {}),
     ...(inputs.conversation !== undefined ? { conversation: inputs.conversation } : {}),
