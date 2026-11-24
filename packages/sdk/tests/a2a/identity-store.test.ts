@@ -1,4 +1,12 @@
-import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  fstatSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -17,9 +25,14 @@ describe("jsonIdentityStore", () => {
     const store = jsonIdentityStore(file);
     const [a, b] = await Promise.all([store.load(), store.load()]);
     expect(a.publicKey).toBe(b.publicKey);
-    expect(statSync(file).mode & 0o777).toBe(0o600);
+    const fd = openSync(file, "r");
+    try {
+      expect(fstatSync(fd).mode & 0o777).toBe(0o600);
+      expect(JSON.parse(readFileSync(fd, "utf8")).publicKey).toBe(a.publicKey);
+    } finally {
+      closeSync(fd);
+    }
     expect(statSync(join(file, "..")).mode & 0o777).toBe(0o700);
-    expect(JSON.parse(readFileSync(file, "utf8")).publicKey).toBe(a.publicKey);
     expect((await jsonIdentityStore(file).load()).publicKey).toBe(a.publicKey);
   });
 
