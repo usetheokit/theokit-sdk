@@ -4,7 +4,7 @@ Every public symbol the TheoKit workspace publishes, and the exact specifier to 
 
 A symbol listed under two specifiers is reachable from both, but that does NOT make the two interchangeable: a class emitted separately into a subpath entry is a distinct nominal type from the one in the root bundle, so passing one where the other is expected fails on a private field. When a symbol appears twice, import it and everything it is passed to from the SAME specifier.
 
-1622 export(s) across 61 entry point(s).
+1624 export(s) across 61 entry point(s).
 
 ## `@theokit/acp`
 
@@ -252,6 +252,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `InvalidTaskIdError` | class | Thrown when a user-supplied task ID violates the grammar `^[a-z0-9][a-z0-9_-]*$` (D368) OR starts with a reserved adapter prefix (`wf-` / `b-` / `cron-`, EC-5). |
 | `isBuiltinToolName` | function | True when `name` is the name of an SDK builtin tool. |
 | `isInside` | function | Whether `child` is inside `parent`.  |
+| `isSecretEnvName` | function | True when an environment variable of this name should be treated as holding a secret. |
 | `isTransientError` | function | Is this error transient (worth retrying)?  |
 | `isValidTaskId` | function | Validates a task ID against the public grammar + reserved prefixes.  |
 | `JobQueue` | class | An in-process queue of background jobs with status tracking, cancellation, and an optional concurrency bound.  |
@@ -448,6 +449,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SDKUser` | interface | Owner: `internal/catalog/` (2 of 3 importers).  |
 | `SDKUserMessage` | interface | Structured form of `agent.send()`'s message argument.  |
 | `SDKUserMessageEvent` | interface | Echo of the user prompt for this run. |
+| `secretEnvValues` | function | The trimmed values of every such variable in `env` that are at least `minLength` long. |
 | `Security` | class | Secret masking at consumer output boundaries: pattern-based `redact` / `addPattern` and exact-value `createMask`. |
 | `SecurityFloorInput` | interface | The vocabulary, the layer names, and the values to resolve.  |
 | `SendOptions` | interface | Per-send overrides and callbacks.  |
