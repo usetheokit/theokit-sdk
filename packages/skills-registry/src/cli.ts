@@ -2,6 +2,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { parseArgs } from "node:util";
 import { createSkillsRegistryHandler } from "./server.js";
 
@@ -46,10 +48,8 @@ async function send(res: ServerResponse, response: Response, head: boolean): Pro
     res.end();
     return;
   }
-  for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
-    res.write(chunk);
-  }
-  res.end();
+  // pipeline honours backpressure and stops reading when the client goes away
+  await pipeline(Readable.fromWeb(response.body as NodeReadableStream<Uint8Array>), res);
 }
 
 type Options = { dir?: string; port?: string; host?: string; help?: boolean };
