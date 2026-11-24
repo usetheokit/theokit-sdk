@@ -8,6 +8,8 @@
  */
 export type ProviderCapability = "chat" | "web_search" | "image" | "embedding";
 
+import type { Plugin } from "./plugin.js";
+
 /**
  * A single user-declared routing rule. Maps a capability to a provider, and
  * optionally pins a specific model.
@@ -103,7 +105,7 @@ export interface PluginsSettings {
    * settings value carry both forms, as `mergeAgentOptions` produces when it
    * combines an array layer with a settings layer.
    */
-  code?: readonly import("./plugin.js").Plugin[];
+  code?: readonly Plugin[];
 }
 
 /**
