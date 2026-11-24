@@ -3960,10 +3960,6 @@
         "tier": "stable",
         "declaration": "interface ForeachStep {\n    readonly kind: \"foreach\";\n    readonly id: string;\n    readonly iterableFrom: string;\n    readonly step: Step;\n    readonly concurrency?: number;\n}"
       },
-      "LoadWorkflowDirOptions": {
-        "tier": "stable",
-        "declaration": "interface LoadWorkflowDirOptions extends WorkflowDefinitionOptions {\n    readonly onInvalid?: (file: string, error: WorkflowDefinitionError) => void;\n}"
-      },
       "ParallelStep": {
         "tier": "stable",
         "declaration": "interface ParallelStep {\n    readonly kind: \"parallel\";\n    readonly id: string;\n    readonly branches: ReadonlyArray<ReadonlyArray<Step>>;\n    readonly concurrency?: number;\n    readonly errorPolicy?: \"fail-fast\" | \"collect\";\n}"
@@ -4030,7 +4026,7 @@
       },
       "WorkflowDefinitionOptions": {
         "tier": "stable",
-        "declaration": "interface WorkflowDefinitionOptions {\n    readonly generate: (prompt: string, input: unknown, ctx: StepContext) => Promise<unknown> | unknown;\n    readonly persistence?: WorkflowPersistenceOptions;\n}"
+        "declaration": "interface WorkflowDefinitionOptions {\n    readonly generate: (prompt: string, input: unknown, ctx: StepContext) => Promise<unknown> | unknown;\n    readonly persistence?: WorkflowPersistenceOptions;\n    readonly onInvalid?: (file: string, error: WorkflowDefinitionError) => void;\n}"
       },
       "WorkflowDescription": {
         "tier": "stable",
@@ -4150,7 +4146,7 @@
       },
       "loadWorkflowDir": {
         "tier": "stable",
-        "declaration": "declare function loadWorkflowDir(dir: string, options: LoadWorkflowDirOptions): Promise<Workflow[]>;"
+        "declaration": "declare function loadWorkflowDir(dir: string, options: WorkflowDefinitionOptions): Promise<Workflow[]>;"
       },
       "parseWorkflowDefinition": {
         "tier": "stable",
@@ -4194,10 +4190,6 @@
         "tier": "stable",
         "declaration": "interface ForeachStep {\n    readonly kind: \"foreach\";\n    readonly id: string;\n    readonly iterableFrom: string;\n    readonly step: Step;\n    readonly concurrency?: number;\n}"
       },
-      "LoadWorkflowDirOptions": {
-        "tier": "stable",
-        "declaration": "interface LoadWorkflowDirOptions extends WorkflowDefinitionOptions {\n    readonly onInvalid?: (file: string, error: WorkflowDefinitionError) => void;\n}"
-      },
       "ParallelStep": {
         "tier": "stable",
         "declaration": "interface ParallelStep {\n    readonly kind: \"parallel\";\n    readonly id: string;\n    readonly branches: ReadonlyArray<ReadonlyArray<Step>>;\n    readonly concurrency?: number;\n    readonly errorPolicy?: \"fail-fast\" | \"collect\";\n}"
@@ -4264,7 +4256,7 @@
       },
       "WorkflowDefinitionOptions": {
         "tier": "stable",
-        "declaration": "interface WorkflowDefinitionOptions {\n    readonly generate: (prompt: string, input: unknown, ctx: StepContext) => Promise<unknown> | unknown;\n    readonly persistence?: WorkflowPersistenceOptions;\n}"
+        "declaration": "interface WorkflowDefinitionOptions {\n    readonly generate: (prompt: string, input: unknown, ctx: StepContext) => Promise<unknown> | unknown;\n    readonly persistence?: WorkflowPersistenceOptions;\n    readonly onInvalid?: (file: string, error: WorkflowDefinitionError) => void;\n}"
       },
       "WorkflowDescription": {
         "tier": "stable",
@@ -4384,7 +4376,7 @@
       },
       "loadWorkflowDir": {
         "tier": "stable",
-        "declaration": "declare function loadWorkflowDir(dir: string, options: LoadWorkflowDirOptions): Promise<Workflow[]>;"
+        "declaration": "declare function loadWorkflowDir(dir: string, options: WorkflowDefinitionOptions): Promise<Workflow[]>;"
       },
       "parseWorkflowDefinition": {
         "tier": "stable",

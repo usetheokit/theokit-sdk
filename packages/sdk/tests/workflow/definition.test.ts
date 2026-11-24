@@ -2,6 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
+import { ZodError } from "zod";
 import { __resetSnapshotStoresForTests } from "../../src/internal/workflow/snapshot-store.js";
 import { loadWorkflowDir, Workflow, WorkflowDefinitionError } from "../../src/workflow.js";
 import { WorkflowDefinitionSchema } from "../../src/workflow-definition.js";
@@ -142,7 +143,7 @@ describe("approval decision", () => {
 
   it("rejects a payload that is not { approved: boolean }", async () => {
     const { workflow, runId } = await suspended();
-    await expect(Workflow.resume({ workflow, runId, payload: "yes" })).rejects.toThrow();
+    await expect(Workflow.resume({ workflow, runId, payload: "yes" })).rejects.toThrow(ZodError);
   });
 });
 

@@ -109,6 +109,11 @@ interface WorkflowDefinitionOptions {
     ctx: StepContext,
   ) => Promise<unknown> | unknown;
   readonly persistence?: WorkflowPersistenceOptions;
+  /**
+   * Used by {@link loadWorkflowDir} only: called with the file name and error for each file that is
+   * not a valid definition; the file is skipped. Absent: the first such file throws.
+   */
+  readonly onInvalid?: (file: string, error: WorkflowDefinitionError) => void;
 }
 
 /* ─── Builder ─── */
@@ -777,16 +782,6 @@ export {
 } from "./workflow-definition.js";
 /** Options for `Workflow.fromDefinition` and {@link loadWorkflowDir}. */
 export type { WorkflowDefinitionOptions };
-
-/** Options for {@link loadWorkflowDir}. */
-export interface LoadWorkflowDirOptions extends WorkflowDefinitionOptions {
-  /**
-   * Called with the file name and error for each file that is not valid JSON or not a valid
-   * definition; the file is skipped. Absent: the first such file throws.
-   */
-  readonly onInvalid?: (file: string, error: WorkflowDefinitionError) => void;
-}
-
 /**
  * Load every `*.json` file directly in `dir` (not recursive, filename order) and compile each with
  * `Workflow.fromDefinition`. A file that is not valid JSON or not a valid definition throws
@@ -795,7 +790,7 @@ export interface LoadWorkflowDirOptions extends WorkflowDefinitionOptions {
  */
 export async function loadWorkflowDir(
   dir: string,
-  options: LoadWorkflowDirOptions,
+  options: WorkflowDefinitionOptions,
 ): Promise<Workflow[]> {
   const workflows: Workflow[] = [];
   for (const file of await listDefinitionFiles(dir)) {
