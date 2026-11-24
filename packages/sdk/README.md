@@ -629,6 +629,10 @@ process.once("SIGTERM", async () => {
 
 Limit: liveness is `kill(pid, 0)`, so every process contending for the lock must share one pid namespace (not containers or hosts sharing a volume). The lock needs a filesystem with hard links; without one the call rejects with `InstanceLockedError`.
 
+## Permission floor
+
+The permission floor (protected paths such as `.claude/`, `.git/hooks`, shell rc files, and destructive commands against the working directory or its parents) applies with or without `PermissionPlugin`, in every permission mode. The agent loop checks it for every tool call before plugins and file hooks, against the agent's workspace cwd. A refused call returns exit code 126 and emits `permission_denied` with `source: "floor"`. Reads are not gated.
+
 ## Defer a tool call for approval
 
 A permission gate can hand a call to a person instead of waiting on a live Promise. Return `defer` from `canUseTool` (or `{ defer: true, reason }` from a `pre_tool_call` handler, which also receives `toolUseId`):

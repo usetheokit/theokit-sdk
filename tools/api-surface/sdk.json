@@ -5355,7 +5355,7 @@
       },
       "PreToolCallContext": {
         "tier": "stable",
-        "declaration": "interface PreToolCallContext {\n    name: string;\n    args: Record<string, unknown>;\n    agentId: string;\n    runId: string;\n    toolUseId?: string;\n    approvedOnResume?: boolean;\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n}"
+        "declaration": "interface PreToolCallContext {\n    name: string;\n    args: Record<string, unknown>;\n    agentId: string;\n    runId: string;\n    toolUseId?: string;\n    approvedOnResume?: boolean;\n    permissionMode?: PermissionMode;\n    cwd?: string;\n    conversation?: ConversationRef;\n}"
       },
       "PreToolCallDecision": {
         "tier": "stable",
@@ -5511,7 +5511,7 @@
       },
       "RunPermissionDeniedEvent": {
         "tier": "stable",
-        "declaration": "interface RunPermissionDeniedEvent {\n    readonly type: \"permission_denied\";\n    readonly toolName: string;\n    readonly toolCallId: string;\n    readonly source: \"plugin\" | \"file_hook\" | \"fork_whitelist\";\n    readonly message: string;\n}"
+        "declaration": "interface RunPermissionDeniedEvent {\n    readonly type: \"permission_denied\";\n    readonly toolName: string;\n    readonly toolCallId: string;\n    readonly source: \"plugin\" | \"file_hook\" | \"fork_whitelist\" | \"floor\";\n    readonly message: string;\n}"
       },
       "RunRateLimitEvent": {
         "tier": "stable",
@@ -7394,7 +7394,7 @@
       },
       "PreToolCallContext": {
         "tier": "stable",
-        "declaration": "interface PreToolCallContext {\n    name: string;\n    args: Record<string, unknown>;\n    agentId: string;\n    runId: string;\n    toolUseId?: string;\n    approvedOnResume?: boolean;\n    permissionMode?: PermissionMode;\n    conversation?: ConversationRef;\n}"
+        "declaration": "interface PreToolCallContext {\n    name: string;\n    args: Record<string, unknown>;\n    agentId: string;\n    runId: string;\n    toolUseId?: string;\n    approvedOnResume?: boolean;\n    permissionMode?: PermissionMode;\n    cwd?: string;\n    conversation?: ConversationRef;\n}"
       },
       "PreToolCallDecision": {
         "tier": "stable",
@@ -7550,7 +7550,7 @@
       },
       "RunPermissionDeniedEvent": {
         "tier": "stable",
-        "declaration": "interface RunPermissionDeniedEvent {\n    readonly type: \"permission_denied\";\n    readonly toolName: string;\n    readonly toolCallId: string;\n    readonly source: \"plugin\" | \"file_hook\" | \"fork_whitelist\";\n    readonly message: string;\n}"
+        "declaration": "interface RunPermissionDeniedEvent {\n    readonly type: \"permission_denied\";\n    readonly toolName: string;\n    readonly toolCallId: string;\n    readonly source: \"plugin\" | \"file_hook\" | \"fork_whitelist\" | \"floor\";\n    readonly message: string;\n}"
       },
       "RunRateLimitEvent": {
         "tier": "stable",

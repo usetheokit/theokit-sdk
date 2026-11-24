@@ -9,6 +9,7 @@ import { generateCallId } from "../ids.js";
 import type { LlmContentPart, LlmToolCallPart } from "../llm/types.js";
 import { HISTOGRAM_NAMES } from "../telemetry/span-names.js";
 import { type RepairableTool, repairToolCall } from "../tool-dispatch/repair-middleware.js";
+import { permissionFloorReason } from "../../permission-floors.js";
 import { executeTool, renderToolResult, type ToolResult } from "./tool-executors.js";
 import { raceToolExecution } from "./tool-timeout.js";
 import type { AgentLoopInputs, ResolvedTool } from "./types.js";
@@ -146,6 +147,14 @@ async function dispatchSingleCall(
   const resolved = tools.find((tool) => tool.name === workingCall.name);
   const toolSpan = startToolCallSpan(dc, resolved, repairs);
   events.push(buildToolUseRunning(dc));
+
+  const floorVeto = vetoFromPermissionFloor(dc);
+  if (floorVeto !== undefined) {
+    toolSpan?.setAttribute("tool.vetoed", true);
+    toolSpan?.setAttribute("tool.veto_source", "floor");
+    toolSpan?.end();
+    return floorVeto;
+  }
 
   const pluginVeto = await vetoFromPluginPreHook(dc);
   if (pluginVeto !== undefined) {
@@ -288,6 +297,25 @@ function startToolCallSpan(
 }
 
 /**
+ * Step 3b — the permission floor. Runs for every call, before plugins and file hooks, in every
+ * permission mode, against the agent's workspace cwd. No plugin has to be installed.
+ */
+function vetoFromPermissionFloor(dc: DispatchContext): LlmContentPart | undefined {
+  const { inputs, call, callId, events } = dc;
+  const reason = permissionFloorReason(call.name, call.input, { cwd: inputs.shellCwd });
+  if (reason === undefined) return undefined;
+  emitRunEvent(inputs.runEventSink, {
+    type: "permission_denied",
+    toolName: call.name,
+    toolCallId: callId,
+    source: "floor",
+    message: reason,
+  });
+  events.push(buildToolUseCompleted(dc, { stdout: "", stderr: reason, exitCode: 126 }));
+  return { type: "tool_result", toolUseId: call.id, content: reason };
+}
+
+/**
  * Step 4 — D101 plugin `pre_tool_call` veto. Plugins are author-supplied
  * (code-level safety) and fire BEFORE file hooks (operator policy).
  */
@@ -300,6 +328,7 @@ async function vetoFromPluginPreHook(dc: DispatchContext): Promise<LlmContentPar
     runId: inputs.runId,
     toolUseId: call.id,
     ...approvalOnResume(inputs, call.id),
+    cwd: inputs.shellCwd,
     // SE1 — thread the run's permission mode so a PermissionPlugin gates per-run.
     ...(inputs.permissionMode !== undefined ? { permissionMode: inputs.permissionMode } : {}),
     ...(inputs.conversation !== undefined ? { conversation: inputs.conversation } : {}),
