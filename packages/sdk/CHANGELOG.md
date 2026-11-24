@@ -1,5 +1,11 @@
 # Changelog
 
+## 13.0.1
+
+### Patch Changes
+
+- [#1562](https://github.com/usetheokit/theokit-sdk/pull/1562) [`3a67064`](https://github.com/usetheokit/theokit-sdk/commit/3a6706482494ad30a94510a982ecd259f437fecb) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `PermissionEngine` now throws `ConfigurationError` (`permission_rules_not_array` / `permission_rule_invalid`) at construction when given a non-array or a malformed rule, instead of failing later in `evaluate`.
+
 ## 13.0.0
 
 ### Major Changes

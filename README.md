@@ -104,6 +104,12 @@ real kernel in CI — `execute_blocks_write_outside_workspace`,
 `seccomp_blocks_socket_af_inet_but_allows_af_unix`, and six more. A mutation run proved the tests
 themselves: swap the seccomp filter for one that denies nothing and they go red.
 
+The builtin `shell` tool is **opt-in**: a local agent declares no `shell` unless you pass
+`builtinTools: ["shell"]`. Once enabled it runs on the host, and it is unsandboxed unless you set
+`local.sandboxOptions.enabled: true`; nothing asks for approval unless a permission plugin is
+installed. Migrating: if your agent runs shell commands, add `builtinTools: ["shell"]` (and a
+permission plugin that decides who may use it). `withheldBuiltinTools: ["shell"]` still wins over the opt-in.
+
 Permissions are fail-closed — a tool with no matching rule resolves to `ask`, never a silent
 `allow` — and an untrusted project directory switches off every declared capability at once, hooks
 and MCP servers included.
