@@ -14,6 +14,7 @@ import { join } from "node:path";
 
 import type { MemoryTool } from "./tools.js";
 
+/** Options of {@link sessionSearchTool}. */
 export interface SessionSearchToolOptions {
   /** Directory holding the transcripts; searched recursively for `.jsonl` files. */
   transcriptsDir: string;
@@ -25,6 +26,7 @@ export interface SessionSearchToolOptions {
   maxResults?: number;
 }
 
+/** One earlier turn returned by `session_search`. */
 export interface SessionSearchHit {
   sessionKey: string;
   /** ISO time the turn was recorded. */
@@ -122,6 +124,7 @@ function scoreTurn(t: IndexedTurn, q: ReadonlySet<string>): SessionSearchHit | u
   };
 }
 
+/** The `session_search` tool, plus a typed `search` for callers that skip the JSON string. */
 export interface SessionSearchTool extends MemoryTool {
   search(query: string, maxResults?: number): Promise<SessionSearchHit[]>;
 }

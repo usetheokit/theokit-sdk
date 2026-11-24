@@ -809,10 +809,10 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `SearchOptions` | interface | Search tuning.  |
 | `SessionFile` | interface | Session summary discovery (ADR D20).  |
 | `sessionsDir` | function | `<memory root>/sessions`.  |
-| `SessionSearchHit` | interface |  |
+| `SessionSearchHit` | interface | One earlier turn returned by `session_search`. |
 | `sessionSearchTool` | function | Build the `session_search` tool.  |
-| `SessionSearchTool` | interface |  |
-| `SessionSearchToolOptions` | interface |  |
+| `SessionSearchTool` | interface | The `session_search` tool, plus a typed `search` for callers that skip the JSON string. |
+| `SessionSearchToolOptions` | interface | Options of {@link sessionSearchTool } . |
 | `SessionSummaryInput` | interface | Per-run session summary writer (ADR D20).  |
 | `sessionSummaryPath` | function | The file one run's summary occupies: `<memory root>/sessions/<safe-id>.md`.  |
 | `SqliteFactRow` | interface | One row of the SQLite memory index, as the Lance migration reads it: the chunk plus the tenant columns the target table needs.  |
