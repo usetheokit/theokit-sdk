@@ -1052,6 +1052,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `A2ATransport` | interface | A2ATransport — the seam that lets a {@link MessageBus } reach agents in other processes.  |
 | `A2AUntrustedPeerError` | class | Sealing to a peer name that is not in `trustedPeers`. |
 | `AgentMailbox` | class | One agent's endpoint on a {@link MessageBus } : registers `agentId` on construction and forwards inbound messages to the handler installed by `onMessage`.  |
+| `agentOptionsFromDefinition` | function | Build the `Agent.create` options for a child running `def` under `parent`: the parent's credential, model (unless the definition sets its own), sandbox posture, plugins and setting sources; `tools`... |
 | `createHttpMailboxHandler` | function | Build a fetch-style handler serving `POST <prefix>/put` and `POST <prefix>/take`.  |
 | `DelegationCompleteContext` | interface | Context passed to {@link SubAgentSpec.onDelegationComplete } after the child settles. |
 | `DelegationCompleteDecision` | interface | Decision returned from {@link SubAgentSpec.onDelegationComplete } . |
@@ -1072,6 +1073,7 @@ A symbol listed under two specifiers is reachable from both, but that does NOT m
 | `sealedTransport` | function | Wraps `inner` so messages are end-to-end encrypted to, and authenticated as from, trusted peers.  |
 | `SequenceStore` | interface | Per-peer sequence counters.  |
 | `SubAgent` | class | SE36 — `SubAgent.create` replaces `defineSubAgent` (ADR 0015). |
+| `SubagentParent` | interface | What a subagent definition inherits from the agent that runs it. |
 | `SubAgentSpec` | interface | The declaration of a delegating child agent, handed to `SubAgent.create(spec)`.  |
 | `ToolContextMessage` | interface | SE12 — a read-only, text-only projection of one turn of the run's conversation, exposed to a tool handler via `ctx.messages`.  |
 | `TrustedPeers` | type | Trusted peers: name to base64url raw X25519 public key. |
