@@ -19,7 +19,13 @@ describe("isSecretEnvName", () => {
 });
 
 describe("secretEnvValues", () => {
-  const env = { API_KEY: "  abcd  ", X_TOKEN: "abc", EMPTY_SECRET: "  ", UNSET_KEY: undefined, HOME: "/home/x" };
+  const env = {
+    API_KEY: "  abcd  ",
+    X_TOKEN: "abc",
+    EMPTY_SECRET: "  ",
+    UNSET_KEY: undefined,
+    HOME: "/home/x",
+  };
   it("trims and drops empty/undefined/non-secret", () => {
     expect(secretEnvValues(env)).toEqual(["abcd", "abc"]);
   });

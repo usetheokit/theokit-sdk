@@ -285,6 +285,7 @@ export {
   effectiveToolNames,
   type UnresolvedToolSource,
 } from "./internal/runtime/validation/effective-tools.js";
+export { isSecretEnvName, secretEnvValues } from "./internal/security/secret-env.js";
 // The bundled root `.d.ts` has always declared these two as VALUES, because the
 // DTS rollup hoists them out of `types/task.ts` along with the task types. The
 // runtime bundle emitted neither, so `import { isValidTaskId } from "@theokit/sdk"`
@@ -396,7 +397,6 @@ export { type NormalizedJsonSchema, normalizeSchema } from "./schema-normalizer.
 // `Agent.usePersonality(...)` method, not direct construction.
 // Security namespace (secret redaction; ADR D68)
 export { type ExactValueMask, Security } from "./security.js";
-export { isSecretEnvName, secretEnvValues } from "./internal/security/secret-env.js";
 export { applySecurityFloor, type SecurityFloorInput } from "./security-floor.js";
 export {
   guardSessionDestruction,
