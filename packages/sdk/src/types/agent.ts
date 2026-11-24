@@ -164,8 +164,11 @@ export type BuiltinToolName = "shell" | "memory_search" | "memory_get";
  *
  * TWO THINGS A LOCAL AGENT DOES BY DEFAULT, both reported as surprises (#338):
  *
- * 1. **A `shell` tool is always registered**, including when you pass `tools: []`. Every local
- *    agent can therefore read any file reachable from {@link LocalOptions.cwd}. One report describes
+ * 1. **The `shell` tool is opt-in** (usetheokit/theokit-sdk#1117). A local agent declares no
+ *    `shell` unless you pass `builtinTools: ["shell"]` on {@link AgentOptions}; the shell runs on
+ *    the host, unsandboxed unless `local.sandboxOptions.enabled` is true, and nothing asks for
+ *    approval unless a permission plugin is installed. Once enabled it can read any file reachable
+ *    from {@link LocalOptions.cwd}. One report describes
  *    an evaluation invalidated this way: the working directory held the benchmark's answer key, and
  *    two transcripts show the model citing it. Deny it explicitly if that matters —
  *    `{ tool: "shell", action: "deny" }` on a {@link PermissionEngine} rule is terminal under every
@@ -825,6 +828,14 @@ export interface AgentOptions {
    * See {@link CustomTool}.
    */
   tools?: CustomTool[];
+  /**
+   * Builtin tools this agent opts into. Only `"shell"` is opt-in; absent or empty ⇒ no `shell`
+   * tool is declared (usetheokit/theokit-sdk#1117). The shell runs on the host with no sandbox
+   * unless `local.sandboxOptions.enabled` is true, and with no approval unless a permission plugin
+   * is installed. {@link AgentOptions.withheldBuiltinTools} wins when both name `shell`. Delegated
+   * subagents inherit the parent's opt-in.
+   */
+  builtinTools?: readonly "shell"[];
   /**
    * Builtin tools this agent must NOT declare to the model. Absent or empty ⇒ every builtin the
    * rest of the configuration would register is declared, exactly as before this option existed.
