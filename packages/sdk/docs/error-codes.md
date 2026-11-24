@@ -6,7 +6,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 
 **Transport codes vs the rest.** `ErrorCode` in `errors.ts` is the small canonical union a provider failure maps onto — the codes marked *transport* below. Everything else is raised by a specific subsystem at a specific place, and a `catch` that only handles the union will meet them anyway.
 
-318 distinct code(s).
+319 distinct code(s).
 
 | Code | Kind | Raised by | Sites |
 |---|---|---|---|
@@ -136,7 +136,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `invalid_retry_config` | domain | ConfigurationError | `packages/sdk/src/internal/retry/with-retry.ts:67` |
 | `invalid_sandbox_mode` | domain | ConfigurationError | `packages/sdk/src/sandbox/modes.ts:16` |
 | `invalid_skill_spec` | domain | ConfigurationError | `packages/sdk/src/create-skill.ts:44` +1 |
-| `invalid_squad` | domain | ConfigurationError | `packages/sdk/src/squad.ts:138` |
+| `invalid_squad` | domain | ConfigurationError | `packages/sdk/src/squad.ts:155` |
 | `invalid_task_id` | domain | — | `packages/sdk/src/task-errors.ts:33` +1 |
 | `invalid_timezone` | domain | ConfigurationError | `packages/sdk/src/internal/cron/validate.ts:135` |
 | `invalid_workflow_step` | domain | ConfigurationError | `packages/sdk/src/workflow.ts:261` |
@@ -150,7 +150,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `local_provider_http_error` | domain | ConfigurationError | `packages/sdk/src/internal/catalog/local-models.ts:61` |
 | `local_provider_unreachable` | domain | ConfigurationError | `packages/sdk/src/internal/catalog/local-models.ts:46` |
 | `malformed_api_key` | domain | AuthenticationError | `packages/sdk/src/internal/agent/helpers.ts:236` +1 |
-| `max_delegation_depth` | domain | MaxDelegationDepthError | `packages/sdk/src/a2a/subagent.ts:239` +1 |
+| `max_delegation_depth` | domain | MaxDelegationDepthError | `packages/sdk/src/a2a/subagent.ts:241` +1 |
 | `mcp_auth_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:156` +1 |
 | `mcp_buffer_overflow` | domain | NetworkError | `packages/sdk/src/internal/mcp/client.ts:354` |
 | `mcp_capability_missing` | domain | ConfigurationError | `packages/sdk/src/mcp.ts:97` |
@@ -252,7 +252,8 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `sql_injection_blocked` | domain | ConfigurationError | `packages/sdk/src/internal/memory/lance-index.ts:367` +1 |
 | `sqlite_driver_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/persistence/sqlite-open.ts:195` |
 | `sqlite_vec_unavailable` | domain | ConfigurationError | `packages/sdk/src/internal/memory/sqlite-vec-loader.ts:22` |
-| `squad_process_unsupported` | domain | ConfigurationError | `packages/sdk/src/squad.ts:143` |
+| `squad_definition_tools_need_parent` | domain | ConfigurationError | `packages/sdk/src/squad.ts:168` |
+| `squad_process_unsupported` | domain | ConfigurationError | `packages/sdk/src/squad.ts:160` |
 | `sse_http_error` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:147` |
 | `sse_server_error` | domain | SubscriptionError | `packages/sdk/src/subscription/theokit-subscribe.ts:155` |
 | `ssrf_blocked` | domain | — | `packages/sdk-tools/src/internal/network-guard.ts:23` |

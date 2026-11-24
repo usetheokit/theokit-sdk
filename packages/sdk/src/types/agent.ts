@@ -360,6 +360,11 @@ export interface AgentDefinition {
    * field here — it rides inside `model.params` (e.g. `[{ id: "thinking", value: "low" }]`).
    */
   sandbox?: boolean;
+  /**
+   * Builtin tools this subagent removes from its catalog, UNIONED with what its parent withheld:
+   * a subagent may tighten a restriction, never loosen it, so `[]` removes nothing.
+   */
+  withheldBuiltinTools?: readonly BuiltinToolName[];
 }
 
 /**

@@ -31,6 +31,7 @@ export {
   type TrustedPeers,
 } from "./sealed-transport.js";
 export {
+  agentOptionsFromDefinition,
   type DelegationCompleteContext,
   type DelegationCompleteDecision,
   type DelegationStartContext,
@@ -39,6 +40,7 @@ export {
   type MessageFilterArgs,
   SubAgent,
   type SubAgentSpec,
+  type SubagentParent,
 } from "./subagent.js";
 export { type A2ATransport, inMemoryTransport } from "./transport.js";
 export type { A2AMessage, MessageHandler } from "./types.js";

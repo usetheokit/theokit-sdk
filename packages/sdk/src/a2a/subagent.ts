@@ -25,12 +25,14 @@ import {
   currentInheritedSubAgentCredentials,
   type InheritedCredentials,
 } from "../internal/concurrency/subagent-credentials.js";
+import type { Plugin } from "../internal/plugins/types.js";
 import { getAgentFacade } from "../internal/runtime/registry/agent-factory-registry.js";
 import type {
   AgentDefinition,
   AgentOptions,
   BuiltinToolName,
   CustomTool,
+  LocalOptions,
   ToolContextMessage,
 } from "../types/agent.js";
 import type { ModelSelection } from "../types/agent-prims.js";
@@ -626,19 +628,105 @@ export function subAgentToolsFromDefinitions(
   agents: Record<string, AgentDefinition>,
   parentTools: readonly CustomTool[],
 ): CustomTool[] {
-  return Object.entries(agents).map(([name, def]) => {
-    const whitelist =
-      Array.isArray(def.tools) && def.tools.length > 0 ? new Set(def.tools) : undefined;
-    const childTools = whitelist ? parentTools.filter((t) => whitelist.has(t.name)) : parentTools;
-    return defineSubAgent({
-      name,
-      description: def.description,
-      instructions: def.prompt,
-      // Carry the FULL ModelSelection (id + reasoning params), not just the id, so
-      // per-subagent reasoning effort survives to buildChildCreateOptions.
-      ...(def.model !== undefined && def.model !== "inherit" ? { model: def.model } : {}),
-      ...(def.sandbox !== undefined ? { sandbox: def.sandbox } : {}),
-      tools: [...childTools],
-    });
-  });
+  return Object.entries(agents).map(([name, def]) =>
+    defineSubAgent(specFromDefinition(name, def, parentTools)),
+  );
+}
+
+/** A definition's `tools` whitelist; absent or empty means unscoped. */
+function definitionWhitelist(def: AgentDefinition): Set<string> | undefined {
+  return Array.isArray(def.tools) && def.tools.length > 0 ? new Set(def.tools) : undefined;
+}
+
+/** The {@link SubAgentSpec} an {@link AgentDefinition} describes over the parent's tools. */
+function specFromDefinition(
+  name: string,
+  def: AgentDefinition,
+  parentTools: readonly CustomTool[],
+): SubAgentSpec {
+  const whitelist = definitionWhitelist(def);
+  const childTools = whitelist ? parentTools.filter((t) => whitelist.has(t.name)) : parentTools;
+  return {
+    name,
+    description: def.description,
+    instructions: def.prompt,
+    // Carry the FULL ModelSelection (id + reasoning params), not just the id, so
+    // per-subagent reasoning effort survives to buildChildCreateOptions.
+    ...(def.model !== undefined && def.model !== "inherit" ? { model: def.model } : {}),
+    ...(def.sandbox !== undefined ? { sandbox: def.sandbox } : {}),
+    ...(def.withheldBuiltinTools !== undefined
+      ? { withheldBuiltinTools: def.withheldBuiltinTools }
+      : {}),
+    tools: [...childTools],
+  };
+}
+
+/**
+ * What a subagent definition inherits from the agent that runs it.
+ *
+ * @public
+ */
+export interface SubagentParent {
+  apiKey?: string;
+  model?: string | ModelSelection;
+  /** The parent's tools; a definition's `tools` whitelist selects from these. */
+  tools?: readonly CustomTool[];
+  /** Builtins the parent withheld; a definition may add to them, never remove. */
+  withheldBuiltinTools?: readonly BuiltinToolName[];
+  /** The parent's builtin opt-in (`shell`). */
+  builtinTools?: readonly "shell"[];
+  plugins?: readonly Plugin[];
+  local?: Pick<LocalOptions, "cwd" | "settingSources" | "compatSources" | "sandboxOptions">;
+}
+
+/** Builtins a scoped definition did not list: a whitelist also covers what the SDK registers itself. */
+function unlistedBuiltins(def: AgentDefinition): BuiltinToolName[] {
+  const whitelist = definitionWhitelist(def);
+  if (!whitelist) return [];
+  return (["shell", "memory_search", "memory_get"] as const).filter((b) => !whitelist.has(b));
+}
+
+/** The parent's inheritable fields, in the shape {@link buildChildCreateOptions} reads. */
+function inheritedFromParent(parent: SubagentParent): InheritedCredentials {
+  const model = typeof parent.model === "string" ? { id: parent.model } : parent.model;
+  const sandbox = parent.local?.sandboxOptions?.enabled;
+  return {
+    ...(parent.apiKey !== undefined ? { apiKey: parent.apiKey } : {}),
+    ...(model !== undefined ? { model } : {}),
+    ...(sandbox !== undefined ? { sandbox } : {}),
+    ...(parent.plugins !== undefined ? { plugins: parent.plugins } : {}),
+    ...(parent.local?.settingSources !== undefined
+      ? { settingSources: parent.local.settingSources }
+      : {}),
+    ...(parent.local?.compatSources !== undefined
+      ? { compatSources: parent.local.compatSources }
+      : {}),
+    ...(parent.withheldBuiltinTools !== undefined
+      ? { withheldBuiltinTools: parent.withheldBuiltinTools }
+      : {}),
+    ...(parent.builtinTools !== undefined ? { builtinTools: parent.builtinTools } : {}),
+  };
+}
+
+/**
+ * Build the `Agent.create` options for a child running `def` under `parent`: the parent's credential,
+ * model (unless the definition sets its own), sandbox posture, plugins and setting sources; `tools`
+ * narrowed to the definition's whitelist; builtins withheld as the UNION of the parent's, the
+ * definition's and those a whitelist leaves out (a child may tighten, never loosen — #580).
+ * Without `parent.local.cwd` the agent's own cwd default applies.
+ *
+ * @public
+ */
+export function agentOptionsFromDefinition(
+  def: AgentDefinition,
+  parent: SubagentParent,
+): AgentOptions {
+  const spec = specFromDefinition("subagent", def, parent.tools ?? []);
+  const unlisted = unlistedBuiltins(def);
+  if (unlisted.length > 0) {
+    spec.withheldBuiltinTools = [...new Set([...(spec.withheldBuiltinTools ?? []), ...unlisted])];
+  }
+  const options = buildChildCreateOptions(spec, inheritedFromParent(parent));
+  if (parent.local?.cwd === undefined) return options;
+  return { ...options, local: { ...options.local, cwd: parent.local.cwd } };
 }

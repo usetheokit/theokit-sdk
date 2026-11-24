@@ -13,6 +13,7 @@
  * @public
  */
 
+import type { SubagentParent } from "./a2a/subagent.js";
 import { ConfigurationError } from "./errors.js";
 import { diagFailure } from "./internal/diagnostics.js";
 import { redactSecrets } from "./internal/security/redact.js";
@@ -53,6 +54,12 @@ export interface SquadOptions {
   ownsMembers?: boolean;
   /** Receives a member disposal failure. Default: diagFailure. Disposal failures never fail the run. */
   onDisposeError?: (error: unknown, memberIndex: number) => void;
+  /**
+   * What `AgentDefinition` members inherit (credential, model, tools, withheld builtins, plugins,
+   * setting sources). A definition that sets `tools` needs it: without a parent there is nothing to
+   * scope, and the whitelist would be silently ignored, so `createSquad` refuses it.
+   */
+  parent?: SubagentParent;
 }
 
 /**
@@ -112,10 +119,20 @@ async function materialize(
   def: AgentDefinition,
   index: number,
   signal?: AbortSignal,
+  parent?: SubagentParent,
 ): Promise<SDKAgent> {
   const { Agent } = await import("./agent.js");
   // The import is asynchronous: re-check immediately before creating, so an abort during it creates nothing.
   if (signal?.aborted) throw new SquadAborted("aborted before member was created");
+  if (parent !== undefined) {
+    const { agentOptionsFromDefinition } = await import("./a2a/subagent.js");
+    const inherited = agentOptionsFromDefinition(def, parent);
+    return Agent.create({
+      ...inherited,
+      agentId: `squad-member-${String(index)}`,
+      local: { ...inherited.local },
+    });
+  }
   return Agent.create({
     // `AgentDefinition.model` admits the sentinel `'inherit'`, which is not a model id. Inheriting
     // here means "declare nothing and let the default apply" — forwarding the literal would create
@@ -143,6 +160,14 @@ function createSquad(options: SquadOptions): Squad {
     throw new ConfigurationError(
       `createSquad only supports process "sequential"; for manager→worker delegation use subagents or @theokit/sdk-handoff`,
       { code: "squad_process_unsupported" },
+    );
+  }
+
+  const scoped = agents.findIndex((m) => !isBuiltAgent(m) && m.tools !== undefined);
+  if (scoped >= 0 && options.parent === undefined) {
+    throw new ConfigurationError(
+      `createSquad member ${String(scoped)} sets \`tools\` but no \`parent\` was given to scope them over`,
+      { code: "squad_definition_tools_need_parent" },
     );
   }
 
@@ -226,6 +251,7 @@ async function runSquad(
       {
         owned,
         signal: timer.signal,
+        parent: options.parent,
         onLate: (agent, index) => {
           void disposeMembers([{ agent, index }], options.onDisposeError);
         },
@@ -260,6 +286,7 @@ class SquadAborted extends Error {}
 interface BuildContext {
   owned: Array<{ agent: SDKAgent; index: number }>;
   signal: AbortSignal | undefined;
+  parent: SubagentParent | undefined;
   onLate: (agent: SDKAgent, index: number) => void;
 }
 
@@ -270,7 +297,7 @@ async function resolveMember(
 ): Promise<SDKAgent> {
   const { owned, signal, onLate } = ctx;
   if (isBuiltAgent(member)) return member;
-  const creation = materialize(member, index, signal);
+  const creation = materialize(member, index, signal, ctx.parent);
   if (signal === undefined) {
     const agent = await creation;
     owned.push({ agent, index });
