@@ -1,5 +1,12 @@
 # Changelog
 
+## 4.2.7
+
+### Patch Changes
+
+- Updated dependencies [[`0f41d60`](https://github.com/usetheokit/theokit-sdk/commit/0f41d60bced7fea5b5fc96b0e2c0883b93d80e68)]:
+  - @theokit/sdk@15.0.0
+
 ## 4.2.6
 
 ### Patch Changes
