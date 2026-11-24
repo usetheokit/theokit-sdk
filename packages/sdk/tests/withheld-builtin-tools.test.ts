@@ -116,13 +116,13 @@ describe("withheldBuiltinTools — what the model is shown", () => {
     return first ?? [];
   }
 
-  it("test_shell_is_not_declared_without_the_opt_in", async () => {
+  it("does not declare shell without the opt-in", async () => {
     const tools = await declaredTools({ optIn: false });
 
     expect(tools, "#1117: the shell must be opt-in").not.toContain("shell");
   });
 
-  it("test_withholding_wins_over_the_opt_in", async () => {
+  it("lets withholding win over the opt-in", async () => {
     const tools = await declaredTools({ withheld: ["shell"] });
 
     expect(tools).not.toContain("shell");
