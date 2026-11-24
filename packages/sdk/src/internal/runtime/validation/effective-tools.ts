@@ -148,6 +148,7 @@ function unresolvableSources(options: AgentOptions): readonly UnresolvedToolSour
 function hasPlugins(plugins: AgentOptions["plugins"]): boolean {
   if (plugins === undefined) return false;
   if (Array.isArray(plugins)) return plugins.length > 0;
-  const enabled = (plugins as { enabled?: readonly string[] }).enabled;
+  const { enabled, code } = plugins as { enabled?: readonly string[]; code?: readonly unknown[] };
+  if (code !== undefined && code.length > 0) return true;
   return enabled === undefined || enabled.length > 0;
 }

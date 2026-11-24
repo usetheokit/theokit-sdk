@@ -36,6 +36,8 @@ export function asPluginsSettings(
  * Both the array (code-`Plugin`) form and the settings-without-`enabled` form
  * yield `[]`. Use this at count/iteration sites; use {@link asPluginsSettings}
  * where `undefined` must stay distinct from `[]`.
+ * Code plugins (the array form, or `PluginsSettings.code`) are never counted here, so
+ * `pluginCount` and the provider-route checks treat the combined form like the array form.
  *
  * @internal
  */
