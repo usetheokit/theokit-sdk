@@ -1,6 +1,6 @@
 {
   "name": "@theokit/skills-registry",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Skill package format, version resolution and verified, atomic install of SKILL.md folders from a skills registry.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/usetheokit/theokit-sdk#readme",
