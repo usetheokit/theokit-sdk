@@ -6281,6 +6281,10 @@
         "tier": "stable",
         "declaration": "declare function isInside(parent: string, child: string): boolean;"
       },
+      "isSecretEnvName": {
+        "tier": "stable",
+        "declaration": "declare function isSecretEnvName(name: string): boolean;"
+      },
       "isTransientError": {
         "tier": "stable",
         "declaration": "declare function isTransientError(err: unknown): boolean;"
@@ -6400,6 +6404,10 @@
       "scopedConversationId": {
         "tier": "stable",
         "declaration": "declare function scopedConversationId(scope: SessionScope, id: string): string;"
+      },
+      "secretEnvValues": {
+        "tier": "stable",
+        "declaration": "declare function secretEnvValues(env: Readonly<Record<string, string | undefined>>, options?: {\n    minLength?: number;\n}): string[];"
       },
       "sessionScopePrefix": {
         "tier": "stable",
@@ -8320,6 +8328,10 @@
         "tier": "stable",
         "declaration": "declare function isInside(parent: string, child: string): boolean;"
       },
+      "isSecretEnvName": {
+        "tier": "stable",
+        "declaration": "declare function isSecretEnvName(name: string): boolean;"
+      },
       "isTransientError": {
         "tier": "stable",
         "declaration": "declare function isTransientError(err: unknown): boolean;"
@@ -8439,6 +8451,10 @@
       "scopedConversationId": {
         "tier": "stable",
         "declaration": "declare function scopedConversationId(scope: SessionScope, id: string): string;"
+      },
+      "secretEnvValues": {
+        "tier": "stable",
+        "declaration": "declare function secretEnvValues(env: Readonly<Record<string, string | undefined>>, options?: {\n    minLength?: number;\n}): string[];"
       },
       "sessionScopePrefix": {
         "tier": "stable",

@@ -19,6 +19,7 @@
  */
 
 import type { EnvPolicy } from "../../../types/env-policy.js";
+import { isSecretEnvName } from "../../security/secret-env.js";
 
 // The `EnvPolicy` contract now lives in the domain `types/` layer (SE46 DIP
 // direction). Re-exported here so existing importers of this module keep
@@ -33,39 +34,6 @@ export interface ResolveChildEnvOptions {
   /** Explicit vars merged AFTER the policy — always win. */
   overrides?: Record<string, string>;
 }
-
-/**
- * Secret-like variable-name patterns (case-insensitive). A parent var whose
- * name matches any of these is dropped under `inherit-scrubbed`. Conservative
- * by design — see the EC-4 false-positive test. `[_-]PWD` (not bare `PWD`)
- * catches `DB_PWD` without dropping the shell's working-directory `PWD`.
- * `CREDENTIAL` catches `GOOGLE_APPLICATION_CREDENTIALS`. #54-a extends the list to
- * the highest-signal VALUE-embedded-secret conventions — connection strings that
- * carry `user:password@` (`DATABASE_URL`, `REDIS_URL`, `MONGODB_URI`, `DB_URL`, …),
- * `DSN`, `WEBHOOK`, `COOKIE`, and `CONNECTION_STRING` — while deliberately NOT
- * dropping generic non-secret URLs (`PUBLIC_BASE_URL`, `API_URL`, `PGHOST`). A
- * denylist still cannot catch EVERY value-embedded secret — for untrusted children
- * use policy `"core"` (allowlist), the only fail-closed mode.
- */
-const SECRET_PATTERNS: readonly RegExp[] = [
-  /KEY/i,
-  /SECRET/i,
-  /TOKEN/i,
-  /PASSWORD/i,
-  /PASSWD/i,
-  /PASSPHRASE/i,
-  /[_-]PWD/i,
-  /CREDENTIAL/i,
-  /PRIVATE/i,
-  /_AUTH/i,
-  // #54-a — value-embedded-secret conventions (no generic `*_URL` — see keep-list test).
-  /DSN/i,
-  /WEBHOOK/i,
-  /COOKIE/i,
-  /CONNECTION[_-]?STRING/i,
-  // Known DB / message-broker connection-string vars (carry `user:pass@`).
-  /(?:^|[_-])(?:DATABASE|DB|REDIS|MONGO(?:DB)?|POSTGRES(?:QL)?|MYSQL|MARIADB|AMQP|RABBITMQ|CLICKHOUSE|ELASTIC(?:SEARCH)?|CASSANDRA|COUCHDB|MEMCACHED|NATS|KAFKA)[_-]?(?:URL|URI|DSN|CONNECTION)/i,
-];
 
 /**
  * Safe base variables kept under the `core` policy. Process-hygiene vars a
@@ -85,15 +53,11 @@ const CORE_VARS: readonly string[] = [
   "LOGNAME",
 ];
 
-function isSecretName(name: string): boolean {
-  return SECRET_PATTERNS.some((re) => re.test(name));
-}
-
 /** Whether a parent var of the given name is inherited under `policy`. */
 function inheritsUnderPolicy(name: string, policy: EnvPolicy): boolean {
   if (policy === "all") return true;
   if (policy === "core") return CORE_VARS.includes(name);
-  return !isSecretName(name); // inherit-scrubbed
+  return !isSecretEnvName(name); // inherit-scrubbed
 }
 
 export function resolveChildEnv(options: ResolveChildEnvOptions = {}): Record<string, string> {
