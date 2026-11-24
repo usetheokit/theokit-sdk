@@ -7,12 +7,6 @@
 // CircuitBreaker lives in @theokit/sdk/retry; re-exported so both packages share one class.
 export { CircuitBreaker, type CircuitBreakerOptions } from "@theokit/sdk/retry";
 export {
-  type MemoryBackendChoice,
-  type MemoryBackendFromEnvOptions,
-  type MemoryBackendName,
-  memoryBackendFromEnv,
-} from "./memory-backend-from-env.js";
-export {
   createInMemoryMarkdownProvider,
   type InMemoryMarkdownProviderOptions,
 } from "./in-memory-provider.js";
@@ -29,13 +23,18 @@ export {
 // satisfy local type checking). **CLOSES Stage 3 source-move** —
 // all 38 files now canonical in @theokit/sdk-memory.
 export * from "./internal/active-memory/active-memory.js";
-
 // Iter 45: second Stage 3 file move — embedding-adapter types (61 LOC,
 // pure type-only file). Defines the contract that provider adapters
 // (openai-embedding, ollama-embedding, etc.) implement.
 // `MemoryEmbeddingProviderAdapter` + `CreateAdapterOptions` +
 // `EmbeddingRuntime` + `EmbeddingRuntimeStats` + `EmbeddingCache`.
 export * from "./internal/embedding/embedding-adapter.js";
+export {
+  type MemoryBackendChoice,
+  type MemoryBackendFromEnvOptions,
+  type MemoryBackendName,
+  memoryBackendFromEnv,
+} from "./memory-backend-from-env.js";
 
 // Iter 46: third Stage 3 file move — LruEmbeddingCache (36 LOC).
 // Concrete bounded-LRU impl of `EmbeddingCache` from iter 45's
