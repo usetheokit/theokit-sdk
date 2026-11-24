@@ -85,8 +85,8 @@ describe("builtin shell is opt-in (#1117)", () => {
     const agent = await Agent.create({
       apiKey: "user-shell-opt-in",
       model: { id: "claude-sonnet-4-6" },
-      local: { cwd, settingSources: [], ...(extra.local ?? {}) },
       ...extra,
+      local: { cwd, settingSources: [], ...(extra.local ?? {}) },
     } as AgentOptions);
     await (await agent.send("go")).wait();
     return stub.bodies;
