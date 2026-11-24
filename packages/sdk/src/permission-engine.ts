@@ -168,10 +168,9 @@ function validateRules(rules: unknown): void {
       !(typeof r?.tool === "string" || r?.tool instanceof RegExp) ||
       !ACTIONS.includes(r.action as string)
     ) {
-      throw new ConfigurationError(
-        `PermissionEngine rule at index ${i} is invalid`,
-        { code: "permission_rule_invalid" },
-      );
+      throw new ConfigurationError(`PermissionEngine rule at index ${i} is invalid`, {
+        code: "permission_rule_invalid",
+      });
     }
   }
 }
