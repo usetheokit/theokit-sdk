@@ -285,6 +285,7 @@ export {
   effectiveToolNames,
   type UnresolvedToolSource,
 } from "./internal/runtime/validation/effective-tools.js";
+export { isSecretEnvName, secretEnvValues } from "./internal/security/secret-env.js";
 // The bundled root `.d.ts` has always declared these two as VALUES, because the
 // DTS rollup hoists them out of `types/task.ts` along with the task types. The
 // runtime bundle emitted neither, so `import { isValidTaskId } from "@theokit/sdk"`
