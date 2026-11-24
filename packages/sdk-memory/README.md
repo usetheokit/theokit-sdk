@@ -126,3 +126,24 @@ rather than the version someone wrote a page about.
 ## License
 
 Apache-2.0 © useTheo
+
+## Choosing a backend from the environment
+
+`memoryBackendFromEnv(env, { variable?, importer? })` reads `THEOKIT_MEMORY_BACKEND` (override with
+`variable`) and returns `undefined` for unset, empty or `builtin`, otherwise a choice with `name`,
+`mirrored` and `agentOptions()`.
+
+| Name | Key variable | Install |
+| --- | --- | --- |
+| `mem0` | `MEM0_API_KEY` | `@theokit/memory-mem0` + `mem0ai` |
+| `honcho` | `HONCHO_API_KEY` | `@theokit/memory-honcho` + `@honcho-ai/sdk` |
+| `supermemory` | `SUPERMEMORY_API_KEY` | `@theokit/memory-supermemory` + `supermemory` |
+| `sdk-memory` | none | this package (in-process, not persisted across restarts) |
+
+```ts
+const choice = memoryBackendFromEnv(process.env);
+const agent = await Agent.create({ model, ...(await choice?.agentOptions()) });
+```
+
+An unknown name or a missing key throws a `ConfigurationError` when called; a missing adapter package
+or peer rejects `agentOptions()` with an error naming both. Hosted choices are `mirrored: true`.
