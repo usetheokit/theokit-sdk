@@ -8,6 +8,8 @@
  * the previous fail-open behavior with `{ defaultAction: "allow" }`.
  */
 
+import { ConfigurationError } from "./errors.js";
+
 export type PermissionAction = "allow" | "deny" | "ask";
 
 /**
@@ -151,6 +153,34 @@ function argMatches(matcher: ArgMatcher, value: unknown): boolean {
   return matcher === value;
 }
 
+function describeValue(value: unknown): string {
+  if (value === null) return "null";
+  if (value === undefined) return "undefined";
+  return typeof value;
+}
+
+function validateRules(rules: unknown): void {
+  if (!Array.isArray(rules)) {
+    throw new ConfigurationError(
+      `PermissionEngine expects an array of rules as its first argument, got ${describeValue(rules)}. Did you mean new PermissionEngine([...rules], options)?`,
+      { code: "permission_rules_not_array" },
+    );
+  }
+  for (let i = 0; i < rules.length; i++) {
+    const rule = rules[i] as Partial<PermissionRule> | null | undefined;
+    const toolOk =
+      rule != null && (typeof rule.tool === "string" || rule.tool instanceof RegExp);
+    const actionOk =
+      rule != null && (rule.action === "allow" || rule.action === "deny" || rule.action === "ask");
+    if (!toolOk || !actionOk) {
+      throw new ConfigurationError(
+        `PermissionEngine rule at index ${i} is invalid: "tool" must be a string or RegExp and "action" must be "allow", "deny" or "ask".`,
+        { code: "permission_rule_invalid" },
+      );
+    }
+  }
+}
+
 /**
  * Ordered first-match permission rules for tool invocations — the policy object you hand to
  * `PermissionPlugin.create()` to have it enforced.
@@ -179,6 +209,7 @@ export class PermissionEngine {
     private readonly rules: PermissionRule[],
     options: PermissionEngineOptions = {},
   ) {
+    validateRules(rules);
     // #55 — fail-closed by default.
     this.defaultAction = options.defaultAction ?? "ask";
   }
