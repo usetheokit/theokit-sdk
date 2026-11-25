@@ -250,8 +250,8 @@ if (CHECK) {
   }
   if (readFileSync(OUT, "utf8") !== rendered) {
     console.error(
-      "[error-codes] the committed reference has drifted from the source — run " +
-        "`pnpm run docs:error-codes` and commit the result.",
+      "[error-codes] the generated reference differs from the source — run " +
+        "`pnpm run docs:error-codes`.",
     );
     process.exit(1);
   }
