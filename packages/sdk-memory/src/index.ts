@@ -301,6 +301,12 @@ export * from "./internal/index/vec-index.js";
 // `storage/*`, `migration`, `chunk-markdown` moves target this as
 // sibling without re-importing from sdk-core.
 export * from "./internal/memory-types.js";
+export {
+  type SessionSearchHit,
+  type SessionSearchTool,
+  type SessionSearchToolOptions,
+  sessionSearchTool,
+} from "./internal/session-search-tool.js";
 // Iter 53: tenth Stage 3 file move — chunk-markdown (141 LOC).
 // `chunkMarkdown(text, options?): MemoryChunk[]` algorithm mirrors
 // peer-project's memory-host-sdk implementation per ADR D1 of the

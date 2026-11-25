@@ -34,7 +34,7 @@ import type { SessionMessage, SessionMessagePart } from "./types.js";
  */
 function seedTranscript(
   prior: readonly SessionRecord[],
-  opts: { cwd: string; sessionId: string; model: string },
+  opts: { cwd: string; sessionId: string; model: string; memoryPartition?: string },
 ): SessionTranscript {
   return SessionTranscript.fromRecords(prior, opts);
 }
@@ -136,6 +136,8 @@ export interface TranscriptLocation {
   cwd: string;
   agentId: string;
   model: string;
+  /** `memory.userId` of the agent; stamped on the records the turn writes. */
+  memoryPartition?: string | undefined;
 }
 
 /**
@@ -284,7 +286,12 @@ export async function persistTurn(
   turn: PersistTurnInput,
 ): Promise<void> {
   const prior = await store.readRecords(loc.agentId);
-  const transcript = seedTranscript(prior, { cwd: loc.cwd, sessionId, model: loc.model });
+  const transcript = seedTranscript(prior, {
+    cwd: loc.cwd,
+    sessionId,
+    model: loc.model,
+    ...(loc.memoryPartition !== undefined ? { memoryPartition: loc.memoryPartition } : {}),
+  });
   if (turn.resumed !== true) transcript.appendUserTurn(turn.userText);
   appendConversation(transcript, turn.conversation);
   if (turn.deferredToolCalls !== undefined && turn.deferredToolCalls.length > 0) {

@@ -58,6 +58,22 @@ describe("Agent session persistence (SE40 native transcript)", () => {
     await rm(baseDir, { recursive: true, force: true });
   });
 
+  it("persistTurn stamps loc.memoryPartition on the records it writes", async () => {
+    const agentId = "agent-test-partition";
+    await persistTurn(store(), { ...loc(agentId), memoryPartition: "u-1" }, agentId, {
+      userText: "partitioned",
+      conversation: [
+        {
+          type: "agentConversationTurn",
+          turn: { steps: [{ type: "assistantMessage", message: { text: "ok" } }] },
+        },
+      ],
+    });
+    const records = await store().readRecords(agentId);
+    expect(records.length).toBe(2);
+    expect(records.every((r) => r.memoryPartition === "u-1")).toBe(true);
+  });
+
   it("append-then-read-after-restart — persistTurn writes native records; readSessionMessages reconstructs the turn", async () => {
     const agentId = "agent-test-append-read";
     await persistTurn(store(), loc(agentId), agentId, {
