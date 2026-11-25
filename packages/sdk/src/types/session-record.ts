@@ -78,6 +78,11 @@ export interface SessionRecord {
   cwd?: string;
   version?: string;
   subtype?: string;
+  /**
+   * The memory partition (`memory.userId`) the agent ran under, stamped on conversation records.
+   * A record without it belongs to no known partition and is not returned by partition-scoped search.
+   */
+  memoryPartition?: string;
   compactMetadata?: { preTokens: number; trigger: string };
   /**
    * On a `deferred_tool_calls` system record: the tool calls the run ended on without answering,

@@ -68,7 +68,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `cron_workflow_message` | domain | ConfigurationError | `packages/sdk/src/cron.ts:263` |
 | `custom` | domain | — | `packages/sdk/src/workflow-definition.ts:48` |
 | `decision_checksum_mismatch` | domain | — | `packages/sdk/src/decide.ts:59` |
-| `deferred_schema_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:365` |
+| `deferred_schema_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:372` |
 | `discovery_list_pattern_globbed` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/context/context-discovery-runner.ts:144` |
 | `duplicate_skill_name` | domain | ConfigurationError | `packages/sdk/src/define-skill-read-tool.ts:166` |
 | `duplicate_tool_name` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:214` |
@@ -190,7 +190,7 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `network_error` | domain | NetworkError | `packages/sdk/src/internal/http.ts:99` |
 | `no_api_key` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-brave.ts:50` +1 |
 | `no_base_url` | domain | ConfigurationError | `packages/sdk-tools/src/web-search-searxng.ts:35` |
-| `no_deferred_tool_calls` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:411` |
+| `no_deferred_tool_calls` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:418` |
 | `no_memory_adapter` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-memory-direct.ts:181` +2 |
 | `no_provider_credential` | domain | ProviderCredentialError | `packages/sdk/src/internal/auth/resolve-provider-credential.ts:218` |
 | `no_such_session` | domain | NoSuchSessionError | `packages/sdk/src/interactive/types.ts:41` +1 |
@@ -285,10 +285,10 @@ Branch on `code`, never on the message: messages carry context (an id, a path, a
 | `telemetry_peer_missing` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:112` |
 | `telemetry_provider_registered` | domain | ConfigurationError | `packages/sdk/src/telemetry-node.ts:292` |
 | `timeout` | domain | — | `packages/sdk/src/internal/error-mappers/vertex.ts:55` |
-| `tool_decision_duplicate` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:424` |
-| `tool_decision_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:429` |
-| `tool_decision_missing` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:437` +1 |
-| `tool_decision_unknown` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:419` |
+| `tool_decision_duplicate` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:431` |
+| `tool_decision_invalid` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:436` |
+| `tool_decision_missing` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:444` +1 |
+| `tool_decision_unknown` | domain | ConfigurationError | `packages/sdk/src/internal/session/agent-session-store.ts:426` |
 | `tool_decision_unsupported` | domain | ConfigurationError | `packages/sdk/src/internal/local-agent/local-agent-send.ts:174` +1 |
 | `tool_invalid_name` | domain | — | `packages/sdk/src/tool-name.ts:28` |
 | `tool_invalid_schema_type` | domain | ConfigurationError | `packages/sdk/src/internal/runtime/validation/validate-agent-options.ts:272` |

@@ -24,6 +24,16 @@ import {
 const BASE = { cwd: "/home/u/proj", sessionId: "s1", model: "openai/gpt-4o-mini" };
 
 describe("SE40 — session transcript builders (SessionTranscript)", () => {
+  it("stamps the memory partition on conversation records only when one is set", () => {
+    const t = new SessionTranscript({ ...BASE, memoryPartition: "u-1" });
+    expect(t.appendUserTurn("hi").memoryPartition).toBe("u-1");
+    expect(t.appendAssistantTurn({ text: "yo" }).memoryPartition).toBe("u-1");
+    expect(t.appendCompactBoundary({ preTokens: 1, trigger: "auto" }).memoryPartition).toBe(
+      undefined,
+    );
+    expect(new SessionTranscript(BASE).appendUserTurn("hi").memoryPartition).toBeUndefined();
+  });
+
   it("appends a chained user→assistant(text+tool_use)→user(tool_result) transcript with a valid DAG", () => {
     const t = new SessionTranscript(BASE);
     const r0 = t.appendUserTurn("compute 17*23");
