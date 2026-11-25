@@ -1,5 +1,11 @@
 # Changelog
 
+## 15.2.1
+
+### Patch Changes
+
+- [#1607](https://github.com/usetheokit/theokit-sdk/pull/1607) [`de308eb`](https://github.com/usetheokit/theokit-sdk/commit/de308ebc4dc6829fff4b1dd9e0ec61f84c091083) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The capability map and error-code reference in `docs/` are now produced by the package build instead of being committed. The published package still ships both.
+
 ## 15.2.0
 
 ### Minor Changes
