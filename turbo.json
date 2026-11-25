@@ -28,17 +28,8 @@
     },
     "@theokit/sdk#build": {
       "dependsOn": [],
-      "inputs": [
-        "src/**",
-        "tsup.config.ts",
-        "tsconfig.json",
-        "package.json",
-        "$TURBO_ROOT$/tools/*.mjs",
-        "$TURBO_ROOT$/tools/lib/**",
-        "$TURBO_ROOT$/packages/*/src/**",
-        "$TURBO_ROOT$/packages/*/package.json"
-      ],
-      "outputs": ["dist/**", "docs/harness-capability-map.md", "docs/error-codes.md"],
+      "inputs": ["src/**", "tsup.config.ts", "tsconfig.json", "package.json"],
+      "outputs": ["dist/**"],
       "outputLogs": "errors-only"
     },
     "typecheck": {

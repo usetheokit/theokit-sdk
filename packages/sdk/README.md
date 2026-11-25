@@ -40,7 +40,7 @@ Members built from an `AgentDefinition` are always disposed after the run. Pass 
 New here? The exported TypeScript types are the discovery front-door and the canonical contract — every harness primitive with its import path, signature and JSDoc example (`compactTranscript`, `buildRepoMap`, `isTransientError`, `@theokit/sdk/persistence`, ...), surfaced by your editor.
 
 Two references ship inside the package — no network, pinned to the version you installed, and both
-produced by the package build (not committed), so they cannot drift from what you actually got:
+GENERATED from the built declarations so they cannot drift from what you actually got:
 
 ```
 node_modules/@theokit/sdk/docs/harness-capability-map.md   # every public symbol + its exact import specifier
