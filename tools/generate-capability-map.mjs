@@ -12,7 +12,7 @@
 //
 // GENERATED, never hand-written. The map's whole value is that it agrees with the package; a
 // hand-written one is a second copy of the export list, and the copy is the one that goes stale.
-// `--check` fails when the committed file has drifted, so the gate can say so.
+// `--check` fails when the built file has drifted, so the gate can say so.
 //
 // The oracle is the TypeScript compiler over each declared `types` entry — the same question a
 // consumer's editor asks — not a regex over the source.
@@ -160,8 +160,8 @@ if (CHECK) {
   }
   if (readFileSync(OUT, "utf8") !== rendered) {
     console.error(
-      "[capability-map] the committed map has drifted from the built declarations — run " +
-        "`pnpm run docs:capability-map` and commit the result.",
+      "[capability-map] the generated map differs from the built declarations — run " +
+        "`pnpm run docs:capability-map`.",
     );
     process.exit(1);
   }

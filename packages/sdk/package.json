@@ -1,6 +1,6 @@
 {
   "name": "@theokit/sdk",
-  "version": "15.1.0",
+  "version": "15.2.0",
   "description": "TypeScript SDK for the Theo agent harness — same surface, local or cloud.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/usetheokit/theokit-sdk#readme",
@@ -423,7 +423,7 @@
     "**/agent.cjs"
   ],
   "scripts": {
-    "build": "tsup && node ../../tools/repair-dts-imports.mjs .",
+    "build": "tsup && node ../../tools/repair-dts-imports.mjs . && node ../../tools/build-sdk-docs.mjs",
     "test": "vitest run --no-file-parallelism",
     "test:watch": "vitest",
     "eval": "vitest run --no-file-parallelism tests/eval/suites",

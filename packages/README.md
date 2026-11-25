@@ -14,7 +14,8 @@ This monorepo ships the Agent-AI **Harness**, organized in **3 families**. The f
 > `@theokit/sdk` and are the authority when any prose here disagrees with them:
 > `docs/harness-capability-map.md` (every public symbol and the exact specifier to import it from)
 > and `docs/error-codes.md` (every `code` an error can carry, and where it is raised). Both are
-> regenerated from the built declarations by `pnpm run docs`, so they cannot drift silently.
+> produced by `pnpm --filter @theokit/sdk build` (the capability map from the built declarations, the error
+> codes from the source), git-ignored and shipped in the package, so they cannot drift silently.
 
 ## Families
 

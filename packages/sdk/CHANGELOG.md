@@ -1,5 +1,11 @@
 # Changelog
 
+## 15.2.0
+
+### Minor Changes
+
+- [#1601](https://github.com/usetheokit/theokit-sdk/pull/1601) [`53ed7cb`](https://github.com/usetheokit/theokit-sdk/commit/53ed7cb4528b31cad1fdf8b1481c8c29819f28a8) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `sessionSearchTool({ transcriptsDir, partition })` is exported from `@theokit/sdk-memory`: a `session_search` tool that word-matches the turns of earlier sessions and returns each with its session key and time. Only turns of the given partition are returned. To make that possible, `SessionRecord` gains an optional `memoryPartition`, which the SDK stamps from `memory.userId` on the records it writes; records written before this change carry none and are not searchable.
+
 ## 15.1.0
 
 ### Minor Changes
