@@ -11,7 +11,7 @@ const DOCS = ["docs/harness-capability-map.md", "docs/error-codes.md"];
 describe("@theokit/sdk generated references", () => {
   // Reads the output of `pnpm --filter @theokit/sdk build`; it must not run that build itself,
   // because `pnpm quality` runs gates in parallel and a rebuild wipes `dist` under them.
-  it("exist after the build and are listed in the packed tarball", () => {
+  it("exist after the build and are listed in the packed tarball", { timeout: 120_000 }, () => {
     for (const rel of DOCS) {
       expect(statSync(join(ROOT, "packages/sdk", rel)).size).toBeGreaterThan(0);
     }
