@@ -1,5 +1,11 @@
 # @theokit/skills-registry
 
+## 0.2.0
+
+### Minor Changes
+
+- [#1577](https://github.com/usetheokit/theokit-sdk/pull/1577) [`f0a7881`](https://github.com/usetheokit/theokit-sdk/commit/f0a7881cc68f3daf52ff6f30a4ae787b9769dfdb) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Add a `theokit-skills-registry` command that serves the registry handler over `node:http` (`--dir`, `--port`, `--host`; token from `SKILLS_REGISTRY_TOKEN`).
+
 ## 0.1.0
 
 ### Minor Changes

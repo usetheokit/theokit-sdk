@@ -1,5 +1,37 @@
 # Changelog
 
+## 15.1.0
+
+### Minor Changes
+
+- [#1589](https://github.com/usetheokit/theokit-sdk/pull/1589) [`11686b0`](https://github.com/usetheokit/theokit-sdk/commit/11686b06e09b56587abe929c3b626cd386dc0f24) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `agentOptionsFromDefinition(def, parent)` and `SubagentParent` are exported from `@theokit/sdk/a2a`: they build `Agent.create` options for an `AgentDefinition` under a parent (credential, model, tools whitelist, withheld builtins, plugins, setting sources). `Squad.create` takes an optional `parent` and builds definition members through it; a definition that sets `tools`, `withheldBuiltinTools` or `sandbox` without a `parent` is refused (`squad_definition_scope_needs_parent`). `AgentDefinition` gains `withheldBuiltinTools`, unioned with the parent's.
+
+- [#1582](https://github.com/usetheokit/theokit-sdk/pull/1582) [`b9c5118`](https://github.com/usetheokit/theokit-sdk/commit/b9c511889ad11832427dd36a1c924400e2afe61f) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Export `mergeAgentOptions`, which merges AgentOptions layers (later wins; `local`/`memory`/`cloud` merge by key; `plugins` and `tools` combine). `PluginsSettings` gains `code` for code plugins next to named ones. `AgentFactory` still replaces collections.
+
+- [#1581](https://github.com/usetheokit/theokit-sdk/pull/1581) [`9cd5603`](https://github.com/usetheokit/theokit-sdk/commit/9cd560306d9744045c5bab6c7f3cacd8941465ff) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `@theokit/sdk/a2a` adds `jsonIdentityStore` (an identity created on first use and kept in a 0600 file) and `sealedMailboxTools` (send and receive tools over a sealed transport, with a reply guard: a turn that read a peer's message cannot send in the same turn).
+
+- [#1579](https://github.com/usetheokit/theokit-sdk/pull/1579) [`8ac4be1`](https://github.com/usetheokit/theokit-sdk/commit/8ac4be13ff1e72bc3201d325e10ed3c190076e82) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Export `isSecretEnvName` and `secretEnvValues` so apps can mask secret environment variables by the same name rule the SDK uses for child-process env scrubbing.
+
+- [#1583](https://github.com/usetheokit/theokit-sdk/pull/1583) [`c4f3b00`](https://github.com/usetheokit/theokit-sdk/commit/c4f3b006364bdc0a9184e8279270e67a048db65a) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `recordWiring` accepts `ungatedScopes`: scopes the trust posture does not govern, so one capability can mix a trust-gated project share with an ungated personal share in a single call.
+
+- [#1586](https://github.com/usetheokit/theokit-sdk/pull/1586) [`fc99a52`](https://github.com/usetheokit/theokit-sdk/commit/fc99a52360c836be6cf704b83003de6728cfb57e) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `WorkflowDefinition` takes an optional `description` (kept by `Workflow.describe()`), an approval step takes `decision: "approved"` (resume with `{ approved: boolean }`; `false` completes the run), and `loadWorkflowDir` takes `onInvalid` to skip and report bad files instead of throwing.
+
+### Patch Changes
+
+- [#1594](https://github.com/usetheokit/theokit-sdk/pull/1594) [`f6b3180`](https://github.com/usetheokit/theokit-sdk/commit/f6b3180dab8de13d35887484f11d0d8fc72875f3) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The README's experimental export list for `@theokit/sdk/a2a` now includes `SealedMailboxToolsOptions`, `jsonIdentityStore` and `sealedMailboxTools`, matching the surface baseline.
+
+- [#1592](https://github.com/usetheokit/theokit-sdk/pull/1592) [`5b1dfe9`](https://github.com/usetheokit/theokit-sdk/commit/5b1dfe97406dfb27423df3007be876d13367c265) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The identity-store test reads the identity file through one descriptor instead of checking its mode by path and then reading it by path.
+
+- [#1585](https://github.com/usetheokit/theokit-sdk/pull/1585) [`030d622`](https://github.com/usetheokit/theokit-sdk/commit/030d6224b0c447958d4eec066910f746628020fc) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Regenerate the harness capability map for the new `readImageFile` and `ReadImageResult` exports in `@theokit/sdk-tools`. No runtime change.
+
+- [#1584](https://github.com/usetheokit/theokit-sdk/pull/1584) [`975b0bb`](https://github.com/usetheokit/theokit-sdk/commit/975b0bbb3f23e69948b3b4e6e431c0a6c19605b6) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - Regenerate the committed error-code and capability-map docs for the new `memoryBackendFromEnv` error codes and export in `@theokit/sdk-memory`. No change to the SDK's runtime behaviour.
+
+## 15.0.0
+
+### Major Changes
+
+- [#1569](https://github.com/usetheokit/theokit-sdk/pull/1569) [`0f41d60`](https://github.com/usetheokit/theokit-sdk/commit/0f41d60bced7fea5b5fc96b0e2c0883b93d80e68) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - The permission floor (protected paths, critical paths, destructive commands) now applies to every agent, with or without `PermissionPlugin`, in every permission mode. The agent loop checks it before plugins and file hooks, against the agent's workspace cwd, and a refusal is an exit-code-126 tool result plus a `permission_denied` event with `source: "floor"`. `RunPermissionDeniedEvent.source` gains `"floor"` (a widened union, so exhaustive switches must handle it). `PreToolCallContext` gains an optional `cwd`. Hypothesis to check: an app whose own tool (name matching `write*`, `edit*`, `apply_patch`, `multi_edit`, `notebook_edit` or `create*`) writes under `.theokit/` or `.claude/` will now be refused.
+
 ## 14.0.0
 
 ### Major Changes

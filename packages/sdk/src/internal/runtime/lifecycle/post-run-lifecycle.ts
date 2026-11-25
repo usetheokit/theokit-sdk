@@ -155,6 +155,12 @@ export async function runPostRunLifecycle(inputs: PostRunLifecycleInputs): Promi
     hooksExecutor,
     memoryProvider,
   } = inputs;
+  const transcriptLoc = {
+    cwd: workspaceCwd,
+    agentId,
+    model,
+    memoryPartition: inputs.memory?.userId,
+  };
   let result: Awaited<ReturnType<Run["wait"]>>;
   try {
     result = await readRunResolving(run);
@@ -174,7 +180,7 @@ export async function runPostRunLifecycle(inputs: PostRunLifecycleInputs): Promi
     try {
       const partial = await safeConversation(run);
       if (partial !== undefined) {
-        persistTurnToTranscript(sessionStore, { cwd: workspaceCwd, agentId, model }, agentId, {
+        persistTurnToTranscript(sessionStore, transcriptLoc, agentId, {
           userText,
           conversation: partial,
           ...(inputs.resumed === true ? { resumed: true } : {}),
@@ -221,7 +227,7 @@ export async function runPostRunLifecycle(inputs: PostRunLifecycleInputs): Promi
   const usageForTrigger = lastRequestUsage ?? result.usage?.totalTokens;
   persistTurnToTranscript(
     sessionStore,
-    { cwd: workspaceCwd, agentId, model },
+    transcriptLoc,
     agentId,
     {
       userText,
