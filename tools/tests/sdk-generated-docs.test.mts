@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { rmSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -9,9 +9,9 @@ const DOCS = ["docs/harness-capability-map.md", "docs/error-codes.md"];
 
 // The two references are produced by the SDK build and shipped in the package; nothing commits them.
 describe("@theokit/sdk generated references", () => {
-  it("are written by the build and listed in the packed tarball", { timeout: 590_000 }, () => {
-    for (const rel of DOCS) rmSync(join(ROOT, "packages/sdk", rel), { force: true });
-    execFileSync("pnpm", ["--filter", "@theokit/sdk", "build"], { cwd: ROOT, stdio: "pipe" });
+  // Reads the output of `pnpm --filter @theokit/sdk build`; it must not run that build itself,
+  // because `pnpm quality` runs gates in parallel and a rebuild wipes `dist` under them.
+  it("exist after the build and are listed in the packed tarball", () => {
     for (const rel of DOCS) {
       expect(statSync(join(ROOT, "packages/sdk", rel)).size).toBeGreaterThan(0);
     }
