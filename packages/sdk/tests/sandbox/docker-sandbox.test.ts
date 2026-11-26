@@ -121,12 +121,17 @@ describe.skipIf(!dockerUsable() && process.env.THEOKIT_REQUIRE_DOCKER !== "1")(
 
     describe("openTerminal", () => {
       const text = (chunks: Uint8Array[]) => Buffer.concat(chunks).toString("utf-8");
+      const openTerm = async (cmd: string, o: { cols: number; rows: number }) => {
+        const t = await new DockerSandbox().openTerminal?.(cmd, o);
+        if (!t) throw new Error("DockerSandbox has no openTerminal");
+        return t;
+      };
       const until = async (f: () => boolean) => {
         for (let i = 0; i < 100 && !f(); i++) await new Promise((r) => setTimeout(r, 100));
       };
 
       it("streams both ways and reports the exit code", async () => {
-        const term = await new DockerSandbox().openTerminal("sh", { cols: 80, rows: 24 });
+        const term = await openTerm("sh", { cols: 80, rows: 24 });
         const got: Uint8Array[] = [];
         term.onData((d) => got.push(d));
         await term.write("echo ready\n");
@@ -137,7 +142,7 @@ describe.skipIf(!dockerUsable() && process.env.THEOKIT_REQUIRE_DOCKER !== "1")(
       }, 60_000);
 
       it("resize changes stty size", async () => {
-        const term = await new DockerSandbox().openTerminal("sh", { cols: 80, rows: 24 });
+        const term = await openTerm("sh", { cols: 80, rows: 24 });
         const got: Uint8Array[] = [];
         term.onData((d) => got.push(d));
         await term.resize(100, 40);
@@ -149,13 +154,13 @@ describe.skipIf(!dockerUsable() && process.env.THEOKIT_REQUIRE_DOCKER !== "1")(
       }, 60_000);
 
       it("kill ends a running command", async () => {
-        const term = await new DockerSandbox().openTerminal("sleep 600", { cols: 80, rows: 24 });
+        const term = await openTerm("sleep 600", { cols: 80, rows: 24 });
         await term.kill();
         await term.wait();
       }, 60_000);
 
       it("the unsubscribe function stops further calls", async () => {
-        const term = await new DockerSandbox().openTerminal("sh", { cols: 80, rows: 24 });
+        const term = await openTerm("sh", { cols: 80, rows: 24 });
         let calls = 0;
         const off = term.onData(() => calls++);
         await term.write("echo one\n");

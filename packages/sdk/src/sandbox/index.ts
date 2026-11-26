@@ -91,4 +91,5 @@ export {
   type SandboxProvider,
   SandboxSecurityError,
   type SandboxTerminal,
+  type SandboxTerminalOptions,
 } from "./types.js";

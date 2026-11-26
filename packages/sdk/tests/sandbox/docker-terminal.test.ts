@@ -25,6 +25,6 @@ describe("openDockerTerminal", () => {
         rows: 24,
         onEnd: async () => undefined,
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/ENOENT/);
   });
 });

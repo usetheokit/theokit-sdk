@@ -27,6 +27,7 @@ import {
   type SandboxNetworkPolicy,
   SandboxNotAvailableError,
   type SandboxTerminal,
+  type SandboxTerminalOptions,
 } from "./types.js";
 
 /** System CA bundle that includes the certificate of E2B's egress proxy. */
@@ -91,7 +92,9 @@ export class E2BSandbox extends SandboxBackend {
     this.envs = { NODE_EXTRA_CA_CERTS: E2B_CA_BUNDLE, ...config.envs };
     if (config.networkPolicy) this.networkPolicy = config.networkPolicy;
     const pty = config.sandbox.pty;
-    if (pty) this.openTerminal = (command, opts) => this.openPty(pty, command, opts);
+    if (pty)
+      this.openTerminal = (command, opts) =>
+        openPty(pty, { envs: this.envs, workDir: this.config.workDir }, command, opts);
   }
 
   async execute(command: string, opts?: { timeoutMs?: number }): Promise<ExecuteResult> {
@@ -115,61 +118,8 @@ export class E2BSandbox extends SandboxBackend {
    */
   override openTerminal?: (
     command: string,
-    opts: { cols: number; rows: number; cwd?: string },
-  ) => Promise<SandboxTerminal>;
-
-  private async openPty(
-    pty: E2BPty,
-    command: string,
-    opts: { cols: number; rows: number; cwd?: string },
-  ): Promise<SandboxTerminal> {
-    const listeners = new Set<(data: Uint8Array) => void>();
-    let pending: Uint8Array[] = [];
-    const handle = await pty.create({
-      cols: opts.cols,
-      rows: opts.rows,
-      cwd: opts.cwd ?? this.config.workDir,
-      envs: this.envs,
-      timeoutMs: 0,
-      onData: (data) => {
-        if (listeners.size === 0) pending.push(data);
-        else for (const l of [...listeners]) l(data);
-      },
-    });
-    const encoder = new TextEncoder();
-    const send = async (data: Uint8Array | string) => {
-      await pty.sendInput(handle.pid, typeof data === "string" ? encoder.encode(data) : data);
-    };
-    await send(`exec sh -c ${shellEscapePosix(command)}\n`);
-    const done = handle.wait().then(
-      (r) => ({ exitCode: r.exitCode }),
-      (e: RunFailure) => {
-        if (e?.name === "CommandExitError" && typeof e.exitCode === "number") {
-          return { exitCode: e.exitCode };
-        }
-        throw e;
-      },
-    );
-    return {
-      write: send,
-      resize: async (cols, rows) => {
-        await pty.resize(handle.pid, { cols, rows });
-      },
-      onData(listener) {
-        listeners.add(listener);
-        const buffered = pending;
-        pending = [];
-        for (const b of buffered) listener(b);
-        return () => {
-          listeners.delete(listener);
-        };
-      },
-      wait: () => done,
-      kill: async () => {
-        await pty.kill(handle.pid);
-      },
-    };
-  }
+    opts: SandboxTerminalOptions,
+  ) => Promise<SandboxTerminal> = undefined;
 
   private fromError(e: unknown): ExecuteResult {
     const err = (e ?? {}) as RunFailure;
@@ -209,4 +159,58 @@ export class E2BSandbox extends SandboxBackend {
       timedOut,
     };
   }
+}
+
+async function openPty(
+  pty: E2BPty,
+  ctx: { envs: Record<string, string>; workDir: string | undefined },
+  command: string,
+  opts: SandboxTerminalOptions,
+): Promise<SandboxTerminal> {
+  const listeners = new Set<(data: Uint8Array) => void>();
+  let pending: Uint8Array[] = [];
+  const handle = await pty.create({
+    cols: opts.cols,
+    rows: opts.rows,
+    cwd: opts.cwd ?? ctx.workDir,
+    envs: ctx.envs,
+    timeoutMs: 0,
+    onData: (data) => {
+      if (listeners.size === 0) pending.push(data);
+      else for (const l of [...listeners]) l(data);
+    },
+  });
+  const encoder = new TextEncoder();
+  const send = async (data: Uint8Array | string) => {
+    await pty.sendInput(handle.pid, typeof data === "string" ? encoder.encode(data) : data);
+  };
+  await send(`exec sh -c ${shellEscapePosix(command)}\n`);
+  const done = handle.wait().then(
+    (r) => ({ exitCode: r.exitCode }),
+    (e: RunFailure) => {
+      if (e?.name === "CommandExitError" && typeof e.exitCode === "number") {
+        return { exitCode: e.exitCode };
+      }
+      throw e;
+    },
+  );
+  return {
+    write: send,
+    resize: async (cols, rows) => {
+      await pty.resize(handle.pid, { cols, rows });
+    },
+    onData(listener) {
+      listeners.add(listener);
+      const buffered = pending;
+      pending = [];
+      for (const b of buffered) listener(b);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    wait: () => done,
+    kill: async () => {
+      await pty.kill(handle.pid);
+    },
+  };
 }

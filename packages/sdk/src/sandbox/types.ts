@@ -114,6 +114,13 @@ export class SandboxNotAvailableError extends TheokitAgentError {
   }
 }
 
+/** Size and working directory for {@link SandboxBackend.openTerminal}. */
+export interface SandboxTerminalOptions {
+  cols: number;
+  rows: number;
+  cwd?: string;
+}
+
 /**
  * An interactive command running under a pseudo-terminal, returned by
  * {@link SandboxBackend.openTerminal}.
@@ -203,10 +210,7 @@ export abstract class SandboxBackend {
    * Optional: runs `command` under a pseudo-terminal and streams bytes both ways while it runs. A
    * backend that cannot offer a terminal leaves it undefined.
    */
-  openTerminal?(
-    command: string,
-    opts: { cols: number; rows: number; cwd?: string },
-  ): Promise<SandboxTerminal>;
+  openTerminal?: (command: string, opts: SandboxTerminalOptions) => Promise<SandboxTerminal>;
 
   /**
    * Writes several files. The default awaits `uploadFile` for each entry in order and stops at the

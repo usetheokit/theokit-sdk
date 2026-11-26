@@ -2838,7 +2838,7 @@
       },
       "DockerSandbox": {
         "tier": "stable",
-        "declaration": "export declare class DockerSandbox extends SandboxBackend {\n    readonly networkPolicy: SandboxNetworkPolicy;\n    private readonly image;\n    private readonly network;\n    private readonly runner;\n    private readonly hostDir;\n    private readonly user;\n    private readonly readOnlyWorkspace;\n    private readonly labels;\n    private readonly keepKey;\n    constructor(config?: DockerSandboxConfig);\n    private runArgs;\n    private run;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    openTerminal(command: string, opts: {\n        cols: number;\n        rows: number;\n        cwd?: string;\n    }): Promise<SandboxTerminal>;\n}"
+        "declaration": "export declare class DockerSandbox extends SandboxBackend {\n    readonly networkPolicy: SandboxNetworkPolicy;\n    private readonly image;\n    private readonly network;\n    private readonly runner;\n    private readonly hostDir;\n    private readonly user;\n    private readonly readOnlyWorkspace;\n    private readonly labels;\n    private readonly keepKey;\n    openTerminal?: (command: string, opts: SandboxTerminalOptions) => Promise<SandboxTerminal>;\n    constructor(config?: DockerSandboxConfig);\n    private runArgs;\n    private run;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n}"
       },
       "DockerSandboxConfig": {
         "tier": "stable",
@@ -2850,7 +2850,7 @@
       },
       "E2BSandbox": {
         "tier": "stable",
-        "declaration": "export declare class E2BSandbox extends SandboxBackend {\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    private readonly sandbox;\n    private readonly envs;\n    constructor(config: E2BSandboxConfig);\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    openTerminal?: (command: string, opts: {\n        cols: number;\n        rows: number;\n        cwd?: string;\n    }) => Promise<SandboxTerminal>;\n    private openPty;\n    private fromError;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    dispose(): Promise<void>;\n    private result;\n}"
+        "declaration": "export declare class E2BSandbox extends SandboxBackend {\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    private readonly sandbox;\n    private readonly envs;\n    constructor(config: E2BSandboxConfig);\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    openTerminal?: (command: string, opts: SandboxTerminalOptions) => Promise<SandboxTerminal>;\n    private fromError;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    dispose(): Promise<void>;\n    private result;\n}"
       },
       "E2BSandboxConfig": {
         "tier": "stable",
@@ -2902,7 +2902,7 @@
       },
       "SandboxBackend": {
         "tier": "stable",
-        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    executeStreaming?(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    openTerminal?(command: string, opts: {\n        cols: number;\n        rows: number;\n        cwd?: string;\n    }): Promise<SandboxTerminal>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
+        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    executeStreaming?(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    openTerminal?: (command: string, opts: SandboxTerminalOptions) => Promise<SandboxTerminal>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
       },
       "SandboxConfig": {
         "tier": "stable",
@@ -2943,6 +2943,10 @@
       "SandboxTerminal": {
         "tier": "stable",
         "declaration": "export interface SandboxTerminal {\n    write(data: Uint8Array | string): Promise<void>;\n    resize(cols: number, rows: number): Promise<void>;\n    onData(listener: (data: Uint8Array) => void): () => void;\n    wait(): Promise<{\n        exitCode: number;\n    }>;\n    kill(): Promise<void>;\n}"
+      },
+      "SandboxTerminalOptions": {
+        "tier": "stable",
+        "declaration": "export interface SandboxTerminalOptions {\n    cols: number;\n    rows: number;\n    cwd?: string;\n}"
       },
       "SeccompOptions": {
         "tier": "stable",
@@ -3082,7 +3086,7 @@
       },
       "DockerSandbox": {
         "tier": "stable",
-        "declaration": "export declare class DockerSandbox extends SandboxBackend {\n    readonly networkPolicy: SandboxNetworkPolicy;\n    private readonly image;\n    private readonly network;\n    private readonly runner;\n    private readonly hostDir;\n    private readonly user;\n    private readonly readOnlyWorkspace;\n    private readonly labels;\n    private readonly keepKey;\n    constructor(config?: DockerSandboxConfig);\n    private runArgs;\n    private run;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    openTerminal(command: string, opts: {\n        cols: number;\n        rows: number;\n        cwd?: string;\n    }): Promise<SandboxTerminal>;\n}"
+        "declaration": "export declare class DockerSandbox extends SandboxBackend {\n    readonly networkPolicy: SandboxNetworkPolicy;\n    private readonly image;\n    private readonly network;\n    private readonly runner;\n    private readonly hostDir;\n    private readonly user;\n    private readonly readOnlyWorkspace;\n    private readonly labels;\n    private readonly keepKey;\n    openTerminal?: (command: string, opts: SandboxTerminalOptions) => Promise<SandboxTerminal>;\n    constructor(config?: DockerSandboxConfig);\n    private runArgs;\n    private run;\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n}"
       },
       "DockerSandboxConfig": {
         "tier": "stable",
@@ -3094,7 +3098,7 @@
       },
       "E2BSandbox": {
         "tier": "stable",
-        "declaration": "export declare class E2BSandbox extends SandboxBackend {\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    private readonly sandbox;\n    private readonly envs;\n    constructor(config: E2BSandboxConfig);\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    openTerminal?: (command: string, opts: {\n        cols: number;\n        rows: number;\n        cwd?: string;\n    }) => Promise<SandboxTerminal>;\n    private openPty;\n    private fromError;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    dispose(): Promise<void>;\n    private result;\n}"
+        "declaration": "export declare class E2BSandbox extends SandboxBackend {\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    private readonly sandbox;\n    private readonly envs;\n    constructor(config: E2BSandboxConfig);\n    execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    openTerminal?: (command: string, opts: SandboxTerminalOptions) => Promise<SandboxTerminal>;\n    private fromError;\n    uploadFile(path: string, content: string | Buffer): Promise<void>;\n    dispose(): Promise<void>;\n    private result;\n}"
       },
       "E2BSandboxConfig": {
         "tier": "stable",
@@ -3146,7 +3150,7 @@
       },
       "SandboxBackend": {
         "tier": "stable",
-        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    executeStreaming?(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    openTerminal?(command: string, opts: {\n        cols: number;\n        rows: number;\n        cwd?: string;\n    }): Promise<SandboxTerminal>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
+        "declaration": "export declare abstract class SandboxBackend {\n    protected config: SandboxConfig;\n    readonly networkPolicy?: SandboxNetworkPolicy;\n    constructor(config?: SandboxConfig);\n    abstract execute(command: string, opts?: {\n        timeoutMs?: number;\n    }): Promise<ExecuteResult>;\n    abstract uploadFile(path: string, content: string | Buffer): Promise<void>;\n    executeStreaming?(command: string, opts?: {\n        timeoutMs?: number;\n        onStdoutLine?: (line: string) => void;\n        signal?: AbortSignal;\n    }): Promise<ExecuteResult>;\n    openTerminal?: (command: string, opts: SandboxTerminalOptions) => Promise<SandboxTerminal>;\n    uploadFiles(files: {\n        path: string;\n        content: string | Buffer;\n    }[]): Promise<void>;\n    dispose(): Promise<void>;\n    readFile(path: string): Promise<string>;\n    writeFile(path: string, content: string): Promise<void>;\n    glob(pattern: string, cwd?: string): Promise<string[]>;\n    grep(pattern: string, path?: string): Promise<string[]>;\n    listDir(path: string): Promise<string[]>;\n    private assertCommandRan;\n    protected truncateOutput(output: string): string;\n    private shellEscape;\n}"
       },
       "SandboxConfig": {
         "tier": "stable",
@@ -3187,6 +3191,10 @@
       "SandboxTerminal": {
         "tier": "stable",
         "declaration": "export interface SandboxTerminal {\n    write(data: Uint8Array | string): Promise<void>;\n    resize(cols: number, rows: number): Promise<void>;\n    onData(listener: (data: Uint8Array) => void): () => void;\n    wait(): Promise<{\n        exitCode: number;\n    }>;\n    kill(): Promise<void>;\n}"
+      },
+      "SandboxTerminalOptions": {
+        "tier": "stable",
+        "declaration": "export interface SandboxTerminalOptions {\n    cols: number;\n    rows: number;\n    cwd?: string;\n}"
       },
       "SeccompOptions": {
         "tier": "stable",
