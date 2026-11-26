@@ -19,6 +19,7 @@
 import { posix } from "node:path";
 
 import { shellEscapePosix } from "./shell-escape.js";
+import { createOutputHub } from "./terminal-output.js";
 
 import {
   type ExecuteResult,
@@ -167,18 +168,14 @@ async function openPty(
   command: string,
   opts: SandboxTerminalOptions,
 ): Promise<SandboxTerminal> {
-  const listeners = new Set<(data: Uint8Array) => void>();
-  let pending: Uint8Array[] = [];
+  const hub = createOutputHub();
   const handle = await pty.create({
     cols: opts.cols,
     rows: opts.rows,
     cwd: opts.cwd ?? ctx.workDir,
     envs: ctx.envs,
     timeoutMs: 0,
-    onData: (data) => {
-      if (listeners.size === 0) pending.push(data);
-      else for (const l of [...listeners]) l(data);
-    },
+    onData: hub.emit,
   });
   const encoder = new TextEncoder();
   const send = async (data: Uint8Array | string) => {
@@ -199,15 +196,7 @@ async function openPty(
     resize: async (cols, rows) => {
       await pty.resize(handle.pid, { cols, rows });
     },
-    onData(listener) {
-      listeners.add(listener);
-      const buffered = pending;
-      pending = [];
-      for (const b of buffered) listener(b);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
+    onData: hub.onData,
     wait: () => done,
     kill: async () => {
       await pty.kill(handle.pid);

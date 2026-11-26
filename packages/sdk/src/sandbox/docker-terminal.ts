@@ -9,6 +9,7 @@
 import { type IncomingMessage, request } from "node:http";
 import type { Duplex } from "node:stream";
 
+import { createOutputHub } from "./terminal-output.js";
 import type { SandboxTerminal } from "./types.js";
 
 /** Where the Docker daemon listens, as `http.request` options. */
@@ -129,12 +130,8 @@ export async function openDockerTerminal(o: DockerTerminalOptions): Promise<Sand
   };
   await resize(o.cols, o.rows);
 
-  const listeners = new Set<(data: Uint8Array) => void>();
-  let pending: Uint8Array[] = [];
-  socket.on("data", (c: Buffer) => {
-    if (listeners.size === 0) pending.push(c);
-    else for (const l of [...listeners]) l(c);
-  });
+  const hub = createOutputHub();
+  socket.on("data", (c: Buffer) => hub.emit(c));
   const closed = new Promise<void>((res) => {
     socket.once("close", () => res());
     socket.once("error", () => res());
@@ -150,15 +147,7 @@ export async function openDockerTerminal(o: DockerTerminalOptions): Promise<Sand
       await new Promise<void>((res, rej) => socket.write(data, (e) => (e ? rej(e) : res())));
     },
     resize,
-    onData(listener) {
-      listeners.add(listener);
-      const buffered = pending;
-      pending = [];
-      for (const b of buffered) listener(b);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
+    onData: hub.onData,
     wait: () => done,
     async kill() {
       await o.onEnd().catch(() => undefined);

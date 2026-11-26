@@ -135,7 +135,7 @@ export class DockerSandbox extends SandboxBackend {
     this.openTerminal = (command, opts) => {
       const name = `theokit-sbx-${randomBytes(6).toString("hex")}`;
       const args = this.runArgs(name, false, ["tail", "-f", "/dev/null"]);
-      return openContainerTerminal(this.runner, args, name, command, opts);
+      return openContainerTerminal(this.runner, { name, args }, command, opts);
     };
     this.networkPolicy = { mode: this.network ? "unrestricted" : "none" };
     this.runner = config.runner ?? defaultDockerRunner(config.dockerBin);
@@ -251,11 +251,11 @@ export class DockerSandbox extends SandboxBackend {
  */
 async function openContainerTerminal(
   runner: DockerRunner,
-  args: string[],
-  name: string,
+  container: { name: string; args: string[] },
   command: string,
   opts: SandboxTerminalOptions,
 ): Promise<SandboxTerminal> {
+  const { name, args } = container;
   args.splice(1, 0, "-d");
   const remove = once(async () => {
     await runner(["rm", "-f", name], { timeoutMs: 10_000, maxOutputBytes: 4096 });
