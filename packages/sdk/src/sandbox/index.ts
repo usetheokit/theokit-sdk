@@ -33,6 +33,7 @@ export {
 } from "./docker-sandbox.js";
 export {
   E2B_CA_BUNDLE,
+  type E2BPty,
   E2BSandbox,
   type E2BSandboxConfig,
   type E2BSandboxHandle,
@@ -89,4 +90,5 @@ export {
   SandboxNotAvailableError,
   type SandboxProvider,
   SandboxSecurityError,
+  type SandboxTerminal,
 } from "./types.js";

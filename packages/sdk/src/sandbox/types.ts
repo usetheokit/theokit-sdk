@@ -115,6 +115,26 @@ export class SandboxNotAvailableError extends TheokitAgentError {
 }
 
 /**
+ * An interactive command running under a pseudo-terminal, returned by
+ * {@link SandboxBackend.openTerminal}.
+ *
+ * Output is merged (a terminal has one stream). Data that arrives before the first `onData`
+ * listener is held and delivered to it.
+ */
+export interface SandboxTerminal {
+  /** Sends input (keystrokes) to the terminal. */
+  write(data: Uint8Array | string): Promise<void>;
+  /** Changes the terminal size, as seen by `stty size` inside it. */
+  resize(cols: number, rows: number): Promise<void>;
+  /** Subscribes to output. The returned function unsubscribes; after it, the listener is not called. */
+  onData(listener: (data: Uint8Array) => void): () => void;
+  /** Resolves when the command ends. */
+  wait(): Promise<{ exitCode: number }>;
+  /** Ends the command. `wait()` then resolves. */
+  kill(): Promise<void>;
+}
+
+/**
  * The execution capability handed to an agent tool, and the extension point for new environments.
  *
  * A backend implements exactly two methods, `execute` and `uploadFile`. Everything else here —
@@ -178,6 +198,15 @@ export abstract class SandboxBackend {
     command: string,
     opts?: { timeoutMs?: number; onStdoutLine?: (line: string) => void; signal?: AbortSignal },
   ): Promise<ExecuteResult>;
+
+  /**
+   * Optional: runs `command` under a pseudo-terminal and streams bytes both ways while it runs. A
+   * backend that cannot offer a terminal leaves it undefined.
+   */
+  openTerminal?(
+    command: string,
+    opts: { cols: number; rows: number; cwd?: string },
+  ): Promise<SandboxTerminal>;
 
   /**
    * Writes several files. The default awaits `uploadFile` for each entry in order and stops at the

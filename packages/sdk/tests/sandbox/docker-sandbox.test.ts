@@ -118,6 +118,57 @@ describe.skipIf(!dockerUsable() && process.env.THEOKIT_REQUIRE_DOCKER !== "1")(
         rmSync(outside, { recursive: true, force: true });
       }
     }, 60_000);
+
+    describe("openTerminal", () => {
+      const text = (chunks: Uint8Array[]) => Buffer.concat(chunks).toString("utf-8");
+      const until = async (f: () => boolean) => {
+        for (let i = 0; i < 100 && !f(); i++) await new Promise((r) => setTimeout(r, 100));
+      };
+
+      it("streams both ways and reports the exit code", async () => {
+        const term = await new DockerSandbox().openTerminal("sh", { cols: 80, rows: 24 });
+        const got: Uint8Array[] = [];
+        term.onData((d) => got.push(d));
+        await term.write("echo ready\n");
+        await until(() => text(got).includes("ready"));
+        expect(text(got)).toContain("ready");
+        await term.write("exit\n");
+        expect(await term.wait()).toEqual({ exitCode: 0 });
+      }, 60_000);
+
+      it("resize changes stty size", async () => {
+        const term = await new DockerSandbox().openTerminal("sh", { cols: 80, rows: 24 });
+        const got: Uint8Array[] = [];
+        term.onData((d) => got.push(d));
+        await term.resize(100, 40);
+        await term.write("stty size\n");
+        await until(() => text(got).includes("40 100"));
+        expect(text(got)).toContain("40 100");
+        await term.kill();
+        await term.wait();
+      }, 60_000);
+
+      it("kill ends a running command", async () => {
+        const term = await new DockerSandbox().openTerminal("sleep 600", { cols: 80, rows: 24 });
+        await term.kill();
+        await term.wait();
+      }, 60_000);
+
+      it("the unsubscribe function stops further calls", async () => {
+        const term = await new DockerSandbox().openTerminal("sh", { cols: 80, rows: 24 });
+        let calls = 0;
+        const off = term.onData(() => calls++);
+        await term.write("echo one\n");
+        await until(() => calls > 0);
+        off();
+        const seen = calls;
+        await term.write("echo two\n");
+        await new Promise((r) => setTimeout(r, 500));
+        expect(calls).toBe(seen);
+        await term.kill();
+        await term.wait();
+      }, 60_000);
+    });
   },
 );
 

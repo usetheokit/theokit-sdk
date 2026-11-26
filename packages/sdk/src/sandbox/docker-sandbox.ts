@@ -22,6 +22,7 @@ import { ConfigurationError } from "../errors.js";
 import { diag } from "../internal/diagnostics.js";
 import { KEEP_LABEL, removeEarlierKept } from "./docker-containers.js";
 import { type DockerRunner, type DockerRunResult, defaultDockerRunner } from "./docker-runner.js";
+import { dockerEndpoint, openDockerTerminal } from "./docker-terminal.js";
 
 export { type DockerRunner, type DockerRunResult, defaultDockerRunner };
 
@@ -32,6 +33,7 @@ import {
   type SandboxNetworkPolicy,
   SandboxNotAvailableError,
   SandboxSecurityError,
+  type SandboxTerminal,
 } from "./types.js";
 
 /** Where the host `workDir` appears inside the container. */
@@ -228,4 +230,53 @@ export class DockerSandbox extends SandboxBackend {
     );
     if (r.code !== 0) throw new Error(`uploadFile failed: ${r.stderr.trim() || "docker error"}`);
   }
+
+  /**
+   * Opens `command` under a TTY in a dedicated container, attached through the Docker Engine API
+   * (`DOCKER_HOST` `unix://` or `tcp://`; `dockerBin` and a custom `runner` apply only to creating
+   * and removing the container). The container has the same confinement as `execute`, is removed when
+   * the terminal ends, and is removed even with `keepLast`.
+   */
+  override async openTerminal(
+    command: string,
+    opts: { cols: number; rows: number; cwd?: string },
+  ): Promise<SandboxTerminal> {
+    const name = `theokit-sbx-${randomBytes(6).toString("hex")}`;
+    const args = this.runArgs(name, false, ["tail", "-f", "/dev/null"]);
+    args.splice(1, 0, "-d");
+    const remove = once(async () => {
+      await this.runner(["rm", "-f", name], { timeoutMs: 10_000, maxOutputBytes: 4096 });
+    });
+    try {
+      const r = await this.runner(args, { timeoutMs: 60_000, maxOutputBytes: 65_536 });
+      if (r.code !== 0 || r.timedOut) throw new Error(r.stderr.trim() || "docker run failed");
+    } catch (e) {
+      await remove().catch(() => undefined);
+      throw new SandboxNotAvailableError(
+        `docker could not be started: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    try {
+      return await openDockerTerminal({
+        endpoint: dockerEndpoint(),
+        container: name,
+        command,
+        cols: opts.cols,
+        rows: opts.rows,
+        cwd: opts.cwd ?? CONTAINER_WORKDIR,
+        onEnd: remove,
+      });
+    } catch (e) {
+      await remove().catch(() => undefined);
+      throw e;
+    }
+  }
+}
+
+function once(fn: () => Promise<void>): () => Promise<void> {
+  let p: Promise<void> | undefined;
+  return () => {
+    p ??= fn();
+    return p;
+  };
 }
