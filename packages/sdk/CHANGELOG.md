@@ -1,5 +1,11 @@
 # Changelog
 
+## 15.3.0
+
+### Minor Changes
+
+- [#1615](https://github.com/usetheokit/theokit-sdk/pull/1615) [`2eed785`](https://github.com/usetheokit/theokit-sdk/commit/2eed78537312c9e5db7ca65c120689d5388a591d) Thanks [@aifactory-paulohenriquevn](https://github.com/apps/aifactory-paulohenriquevn)! - `SandboxBackend` gains an optional `openTerminal(command, { cols, rows, cwd })` that runs a command under a pseudo-terminal and returns a `SandboxTerminal` (`write`, `resize`, `onData`, `wait`, `kill`). `E2BSandbox` offers it when the handle has `pty`, and `DockerSandbox` offers it through a TTY exec. Other backends are unchanged.
+
 ## 15.2.1
 
 ### Patch Changes
