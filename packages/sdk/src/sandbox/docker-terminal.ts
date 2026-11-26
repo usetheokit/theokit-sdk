@@ -124,6 +124,25 @@ export async function openDockerTerminal(o: DockerTerminalOptions): Promise<Sand
   }
   const execId = (JSON.parse(created.body) as { Id: string }).Id;
   const socket = await attach(ep, execId);
+  try {
+    return await buildTerminal(o, execId, socket);
+  } catch (e) {
+    socket.destroy();
+    throw e;
+  }
+}
+
+async function buildTerminal(
+  o: DockerTerminalOptions,
+  execId: string,
+  socket: Duplex,
+): Promise<SandboxTerminal> {
+  const ep = o.endpoint;
+  let ended: Promise<void> | undefined;
+  const end = () => {
+    ended ??= o.onEnd().catch(() => undefined);
+    return ended;
+  };
   const resize = async (cols: number, rows: number): Promise<void> => {
     const r = await api(ep, "POST", `/exec/${execId}/resize?h=${rows}&w=${cols}`);
     if (r.status >= 300) throw new Error(`docker exec resize failed: HTTP ${r.status}`);
@@ -138,7 +157,7 @@ export async function openDockerTerminal(o: DockerTerminalOptions): Promise<Sand
   });
   const done = closed.then(async () => {
     const exitCode = await exitCodeOf(ep, execId);
-    await o.onEnd().catch(() => undefined);
+    await end();
     return { exitCode };
   });
 
@@ -150,7 +169,7 @@ export async function openDockerTerminal(o: DockerTerminalOptions): Promise<Sand
     onData: hub.onData,
     wait: () => done,
     async kill() {
-      await o.onEnd().catch(() => undefined);
+      await end();
       socket.destroy();
     },
   };

@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ConfigurationError } from "../../src/errors.js";
 import {
   type DockerRunner,
@@ -216,5 +216,32 @@ describe("DockerSandbox read-only workspace and labels", () => {
 
   it("exports the default runner", () => {
     expect(typeof defaultDockerRunner()).toBe("function");
+  });
+});
+
+describe("DockerSandbox.openTerminal (fake docker)", () => {
+  it("keeps its container out of the keepLast set and builds argv with -d and --rm", async () => {
+    vi.stubEnv("DOCKER_HOST", "unix:///nonexistent/docker.sock");
+    const { calls, runner } = recorder();
+    const sb = new DockerSandbox({ runner, user: "1:1", keepLast: { key: "k1" } });
+    await expect(sb.openTerminal?.("sh", { cols: 80, rows: 24 })).rejects.toBeInstanceOf(Error);
+    const run = calls[0]?.args ?? [];
+    expect(run.slice(0, 3)).toEqual(["run", "--rm", "-d"]);
+    expect(run.join(" ")).not.toContain("theokit.sandbox.keep");
+    // the failed exec (no daemon socket) removes the container it created
+    expect(calls.some((c) => c.args[0] === "rm" && c.args[1] === "-f")).toBe(true);
+    // a later execute on the keepLast sandbox still labels its own container
+    await sb.execute("true");
+    expect(calls.some((c) => c.args.join(" ").includes("theokit.sandbox.keep=k1"))).toBe(true);
+    vi.unstubAllEnvs();
+  });
+
+  it("removes the container and reports SandboxNotAvailableError when docker run fails", async () => {
+    const { calls, runner } = recorder(125);
+    const sb = new DockerSandbox({ runner });
+    await expect(sb.openTerminal?.("sh", { cols: 1, rows: 1 })).rejects.toBeInstanceOf(
+      SandboxNotAvailableError,
+    );
+    expect(calls.at(-1)?.args.slice(0, 2)).toEqual(["rm", "-f"]);
   });
 });

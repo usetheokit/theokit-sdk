@@ -60,6 +60,8 @@ export interface DockerSandboxConfig extends SandboxConfig {
   keepLast?: { key: string };
 }
 
+type RunMode = "batch" | "stdin" | "terminal";
+
 const LABEL_KEY = /^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/;
 
 /** Validates labels and returns a private copy, so later mutation cannot bypass the check. */
@@ -134,7 +136,7 @@ export class DockerSandbox extends SandboxBackend {
     this.network = config.network ?? false;
     this.openTerminal = (command, opts) => {
       const name = `theokit-sbx-${randomBytes(6).toString("hex")}`;
-      const args = this.runArgs(name, false, ["tail", "-f", "/dev/null"]);
+      const args = this.runArgs(name, "terminal", ["tail", "-f", "/dev/null"]);
       return openContainerTerminal(this.runner, { name, args }, command, opts);
     };
     this.networkPolicy = { mode: this.network ? "unrestricted" : "none" };
@@ -148,11 +150,17 @@ export class DockerSandbox extends SandboxBackend {
   }
 
   /** The `docker run` argv for one command; exposed shape is covered by tests. */
-  private runArgs(name: string, interactive: boolean, argv: readonly string[]): string[] {
+  private runArgs(name: string, mode: RunMode, argv: readonly string[]): string[] {
+    // A terminal container is its own lifetime: no keep label (a later `execute` would remove it
+    // as an "earlier kept" container) and always `--rm`.
+    const terminal = mode === "terminal";
+    const keep = this.keepKey !== undefined && !terminal;
+    const labels = keep ? this.labels : this.labels.filter(([k]) => k !== KEEP_LABEL);
     return [
       "run",
-      ...(this.keepKey === undefined ? ["--rm"] : []),
-      ...(interactive ? ["-i"] : []),
+      ...(keep ? [] : ["--rm"]),
+      ...(terminal ? ["-d"] : []),
+      ...(mode === "stdin" ? ["-i"] : []),
       "--name",
       name,
       "--read-only",
@@ -167,7 +175,7 @@ export class DockerSandbox extends SandboxBackend {
       "--network",
       this.network ? "bridge" : "none",
       ...(this.user ? ["--user", this.user] : []),
-      ...this.labels.flatMap(([k, v]) => ["--label", `${k}=${v}`]),
+      ...labels.flatMap(([k, v]) => ["--label", `${k}=${v}`]),
       "-v",
       `${this.hostDir}:${CONTAINER_WORKDIR}:${this.readOnlyWorkspace ? "ro" : "rw"}`,
       "-w",
@@ -189,7 +197,7 @@ export class DockerSandbox extends SandboxBackend {
     const max = this.config.maxOutputBytes ?? 5 * 1024 * 1024;
     let r: DockerRunResult;
     try {
-      r = await this.runner(this.runArgs(name, interactive, argv), {
+      r = await this.runner(this.runArgs(name, interactive ? "stdin" : "batch", argv), {
         input,
         timeoutMs,
         maxOutputBytes: max,
@@ -251,14 +259,17 @@ export class DockerSandbox extends SandboxBackend {
  */
 async function openContainerTerminal(
   runner: DockerRunner,
-  container: { name: string; args: string[] },
+  container: { name: string; args: readonly string[] },
   command: string,
   opts: SandboxTerminalOptions,
 ): Promise<SandboxTerminal> {
   const { name, args } = container;
-  args.splice(1, 0, "-d");
   const remove = once(async () => {
-    await runner(["rm", "-f", name], { timeoutMs: 10_000, maxOutputBytes: 4096 });
+    await runner(["rm", "-f", name], { timeoutMs: 10_000, maxOutputBytes: 4096 }).catch((e) =>
+      diag(
+        `DockerSandbox terminal cleanup of ${name} failed: ${e instanceof Error ? e.message : String(e)}\n`,
+      ),
+    );
   });
   try {
     const r = await runner(args, { timeoutMs: 60_000, maxOutputBytes: 65_536 });
