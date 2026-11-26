@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ConfigurationError } from "../../src/errors.js";
 import {
   type DockerRunner,
@@ -118,6 +118,62 @@ describe.skipIf(!dockerUsable() && process.env.THEOKIT_REQUIRE_DOCKER !== "1")(
         rmSync(outside, { recursive: true, force: true });
       }
     }, 60_000);
+
+    describe("openTerminal", () => {
+      const text = (chunks: Uint8Array[]) => Buffer.concat(chunks).toString("utf-8");
+      const openTerm = async (cmd: string, o: { cols: number; rows: number }) => {
+        const t = await new DockerSandbox().openTerminal?.(cmd, o);
+        if (!t) throw new Error("DockerSandbox has no openTerminal");
+        return t;
+      };
+      const until = async (f: () => boolean) => {
+        for (let i = 0; i < 100 && !f(); i++) await new Promise((r) => setTimeout(r, 100));
+      };
+
+      it("streams both ways and reports the exit code", async () => {
+        const term = await openTerm("sh", { cols: 80, rows: 24 });
+        const got: Uint8Array[] = [];
+        term.onData((d) => got.push(d));
+        await term.write("echo ready\n");
+        await until(() => text(got).includes("ready"));
+        expect(text(got)).toContain("ready");
+        await term.write("exit\n");
+        expect(await term.wait()).toEqual({ exitCode: 0 });
+      }, 60_000);
+
+      it("resize changes stty size", async () => {
+        const term = await openTerm("sh", { cols: 80, rows: 24 });
+        const got: Uint8Array[] = [];
+        term.onData((d) => got.push(d));
+        await term.resize(100, 40);
+        await term.write("stty size\n");
+        await until(() => text(got).includes("40 100"));
+        expect(text(got)).toContain("40 100");
+        await term.kill();
+        await term.wait();
+      }, 60_000);
+
+      it("kill ends a running command", async () => {
+        const term = await openTerm("sleep 600", { cols: 80, rows: 24 });
+        await term.kill();
+        await term.wait();
+      }, 60_000);
+
+      it("the unsubscribe function stops further calls", async () => {
+        const term = await openTerm("sh", { cols: 80, rows: 24 });
+        let calls = 0;
+        const off = term.onData(() => calls++);
+        await term.write("echo one\n");
+        await until(() => calls > 0);
+        off();
+        const seen = calls;
+        await term.write("echo two\n");
+        await new Promise((r) => setTimeout(r, 500));
+        expect(calls).toBe(seen);
+        await term.kill();
+        await term.wait();
+      }, 60_000);
+    });
   },
 );
 
@@ -160,5 +216,32 @@ describe("DockerSandbox read-only workspace and labels", () => {
 
   it("exports the default runner", () => {
     expect(typeof defaultDockerRunner()).toBe("function");
+  });
+});
+
+describe("DockerSandbox.openTerminal (fake docker)", () => {
+  it("keeps its container out of the keepLast set and builds argv with -d and --rm", async () => {
+    vi.stubEnv("DOCKER_HOST", "unix:///nonexistent/docker.sock");
+    const { calls, runner } = recorder();
+    const sb = new DockerSandbox({ runner, user: "1:1", keepLast: { key: "k1" } });
+    await expect(sb.openTerminal?.("sh", { cols: 80, rows: 24 })).rejects.toBeInstanceOf(Error);
+    const run = calls[0]?.args ?? [];
+    expect(run.slice(0, 3)).toEqual(["run", "--rm", "-d"]);
+    expect(run.join(" ")).not.toContain("theokit.sandbox.keep");
+    // the failed exec (no daemon socket) removes the container it created
+    expect(calls.some((c) => c.args[0] === "rm" && c.args[1] === "-f")).toBe(true);
+    // a later execute on the keepLast sandbox still labels its own container
+    await sb.execute("true");
+    expect(calls.some((c) => c.args.join(" ").includes("theokit.sandbox.keep=k1"))).toBe(true);
+    vi.unstubAllEnvs();
+  });
+
+  it("removes the container and reports SandboxNotAvailableError when docker run fails", async () => {
+    const { calls, runner } = recorder(125);
+    const sb = new DockerSandbox({ runner });
+    await expect(sb.openTerminal?.("sh", { cols: 1, rows: 1 })).rejects.toBeInstanceOf(
+      SandboxNotAvailableError,
+    );
+    expect(calls.at(-1)?.args.slice(0, 2)).toEqual(["rm", "-f"]);
   });
 });

@@ -99,3 +99,16 @@ describe("optional executeStreaming", () => {
     expect(new Plain().executeStreaming).toBeUndefined();
   });
 });
+
+describe("SandboxBackend openTerminal is optional", () => {
+  it("a backend that omits it still compiles as a SandboxBackend", () => {
+    class NoTerminal extends SandboxBackend {
+      async execute() {
+        return { stdout: "", stderr: "", exitCode: 0, timedOut: false };
+      }
+      async uploadFile() {}
+    }
+    const backend: SandboxBackend = new NoTerminal();
+    expect(backend.openTerminal).toBeUndefined();
+  });
+});

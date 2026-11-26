@@ -18,16 +18,36 @@
 
 import { posix } from "node:path";
 
+import { shellEscapePosix } from "./shell-escape.js";
+import { createOutputHub } from "./terminal-output.js";
+
 import {
   type ExecuteResult,
   SandboxBackend,
   type SandboxConfig,
   type SandboxNetworkPolicy,
   SandboxNotAvailableError,
+  type SandboxTerminal,
+  type SandboxTerminalOptions,
 } from "./types.js";
 
 /** System CA bundle that includes the certificate of E2B's egress proxy. */
 export const E2B_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt";
+
+/** The slice of `sandbox.pty` (e2b 2.63.0) that {@link E2BSandbox.openTerminal} uses. */
+export interface E2BPty {
+  create(opts: {
+    cols: number;
+    rows: number;
+    onData: (data: Uint8Array) => void | Promise<void>;
+    cwd?: string;
+    envs?: Record<string, string>;
+    timeoutMs?: number;
+  }): Promise<{ pid: number; wait(): Promise<{ exitCode: number }> }>;
+  sendInput(pid: number, data: Uint8Array): Promise<unknown>;
+  resize(pid: number, size: { cols: number; rows: number }): Promise<unknown>;
+  kill(pid: number): Promise<unknown>;
+}
 
 /** The slice of an `e2b` `Sandbox` that {@link E2BSandbox} uses. */
 export interface E2BSandboxHandle {
@@ -37,6 +57,8 @@ export interface E2BSandboxHandle {
       opts?: { cwd?: string; envs?: Record<string, string>; timeoutMs?: number },
     ): Promise<{ stdout: string; stderr: string; exitCode: number }>;
   };
+  /** The e2b PTY API. Optional: a handle without it still works, minus `openTerminal`. */
+  pty?: E2BPty;
   files: { write(path: string, data: string | ArrayBuffer | Blob): Promise<unknown> };
   kill(): Promise<unknown>;
 }
@@ -70,6 +92,10 @@ export class E2BSandbox extends SandboxBackend {
     this.sandbox = config.sandbox;
     this.envs = { NODE_EXTRA_CA_CERTS: E2B_CA_BUNDLE, ...config.envs };
     if (config.networkPolicy) this.networkPolicy = config.networkPolicy;
+    const pty = config.sandbox.pty;
+    if (pty)
+      this.openTerminal = (command, opts) =>
+        openPty(pty, { envs: this.envs, workDir: this.config.workDir }, command, opts);
   }
 
   async execute(command: string, opts?: { timeoutMs?: number }): Promise<ExecuteResult> {
@@ -85,6 +111,16 @@ export class E2BSandbox extends SandboxBackend {
       return this.fromError(e);
     }
   }
+
+  /**
+   * Opens `command` under an e2b PTY. e2b's PTY always starts a login shell, so the command is typed
+   * into it as `exec sh -c '<command>'` and the terminal ends when the command does; that line shows
+   * up in the output as the shell's echo. Defined only when the handle has `pty`.
+   */
+  override openTerminal?: (
+    command: string,
+    opts: SandboxTerminalOptions,
+  ) => Promise<SandboxTerminal> = undefined;
 
   private fromError(e: unknown): ExecuteResult {
     const err = (e ?? {}) as RunFailure;
@@ -124,4 +160,46 @@ export class E2BSandbox extends SandboxBackend {
       timedOut,
     };
   }
+}
+
+async function openPty(
+  pty: E2BPty,
+  ctx: { envs: Record<string, string>; workDir: string | undefined },
+  command: string,
+  opts: SandboxTerminalOptions,
+): Promise<SandboxTerminal> {
+  const hub = createOutputHub();
+  const handle = await pty.create({
+    cols: opts.cols,
+    rows: opts.rows,
+    cwd: opts.cwd ?? ctx.workDir,
+    envs: ctx.envs,
+    timeoutMs: 0,
+    onData: hub.emit,
+  });
+  const encoder = new TextEncoder();
+  const send = async (data: Uint8Array | string) => {
+    await pty.sendInput(handle.pid, typeof data === "string" ? encoder.encode(data) : data);
+  };
+  await send(`exec sh -c ${shellEscapePosix(command)}\n`);
+  const done = handle.wait().then(
+    (r) => ({ exitCode: r.exitCode }),
+    (e: RunFailure) => {
+      if (e?.name === "CommandExitError" && typeof e.exitCode === "number") {
+        return { exitCode: e.exitCode };
+      }
+      throw e;
+    },
+  );
+  return {
+    write: send,
+    resize: async (cols, rows) => {
+      await pty.resize(handle.pid, { cols, rows });
+    },
+    onData: hub.onData,
+    wait: () => done,
+    kill: async () => {
+      await pty.kill(handle.pid);
+    },
+  };
 }

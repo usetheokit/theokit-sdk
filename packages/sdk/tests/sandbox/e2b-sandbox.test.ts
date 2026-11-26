@@ -90,3 +90,74 @@ describe("E2BSandbox", () => {
     expect(f.killed()).toBe(1);
   });
 });
+
+describe("E2BSandbox openTerminal", () => {
+  const idle = async () => ({ stdout: "", stderr: "", exitCode: 0 });
+
+  it("is absent when the handle has no pty", () => {
+    const { sandbox } = fake(idle);
+    expect(new E2BSandbox({ sandbox }).openTerminal).toBeUndefined();
+  });
+
+  it("adapts the pty: command, input, resize, unsubscribe, kill, exit", async () => {
+    const sent: string[] = [];
+    const calls: string[] = [];
+    let emit: (d: Uint8Array) => void = () => {};
+    let finish: (r: { exitCode: number }) => void = () => {};
+    const { sandbox } = fake(idle);
+    sandbox.pty = {
+      create: async (o) => {
+        emit = o.onData as (d: Uint8Array) => void;
+        calls.push(`create ${o.cols}x${o.rows} ${o.cwd}`);
+        emit(new TextEncoder().encode("early"));
+        return { pid: 7, wait: () => new Promise((r) => (finish = r)) };
+      },
+      sendInput: async (_pid, d) => {
+        sent.push(new TextDecoder().decode(d));
+      },
+      resize: async (pid, s) => {
+        calls.push(`resize ${pid} ${s.cols}x${s.rows}`);
+      },
+      kill: async (pid) => {
+        calls.push(`kill ${pid}`);
+      },
+    };
+    const term = await new E2BSandbox({ sandbox, workDir: "/w" }).openTerminal?.("echo hi", {
+      cols: 80,
+      rows: 24,
+    });
+    if (!term) throw new Error("no terminal");
+    expect(sent[0]).toBe("exec sh -c 'echo hi'\n");
+    const got: string[] = [];
+    const off = term.onData((d) => got.push(new TextDecoder().decode(d)));
+    expect(got).toEqual(["early"]);
+    emit(new TextEncoder().encode("more"));
+    off();
+    emit(new TextEncoder().encode("ignored"));
+    expect(got).toEqual(["early", "more"]);
+    await term.write("x");
+    expect(sent[1]).toBe("x");
+    await term.resize(100, 40);
+    await term.kill();
+    expect(calls).toEqual(["create 80x24 /w", "resize 7 100x40", "kill 7"]);
+    finish({ exitCode: 3 });
+    expect(await term.wait()).toEqual({ exitCode: 3 });
+  });
+
+  it("maps CommandExitError from wait to its exit code", async () => {
+    const { sandbox } = fake(idle);
+    sandbox.pty = {
+      create: async () => ({
+        pid: 1,
+        wait: async () => {
+          throw named("CommandExitError", { exitCode: 2 });
+        },
+      }),
+      sendInput: async () => undefined,
+      resize: async () => undefined,
+      kill: async () => undefined,
+    };
+    const term = await new E2BSandbox({ sandbox }).openTerminal?.("false", { cols: 1, rows: 1 });
+    expect(await term?.wait()).toEqual({ exitCode: 2 });
+  });
+});
