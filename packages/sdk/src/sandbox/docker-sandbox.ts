@@ -22,6 +22,7 @@ import { ConfigurationError } from "../errors.js";
 import { diag } from "../internal/diagnostics.js";
 import { KEEP_LABEL, removeEarlierKept } from "./docker-containers.js";
 import { type DockerRunner, type DockerRunResult, defaultDockerRunner } from "./docker-runner.js";
+import { dockerEndpoint, openDockerTerminal } from "./docker-terminal.js";
 
 export { type DockerRunner, type DockerRunResult, defaultDockerRunner };
 
@@ -32,6 +33,8 @@ import {
   type SandboxNetworkPolicy,
   SandboxNotAvailableError,
   SandboxSecurityError,
+  type SandboxTerminal,
+  type SandboxTerminalOptions,
 } from "./types.js";
 
 /** Where the host `workDir` appears inside the container. */
@@ -56,6 +59,8 @@ export interface DockerSandboxConfig extends SandboxConfig {
   /** Keep the most recent container of this key after it exits (no --rm); earlier exited ones with the same key are removed. */
   keepLast?: { key: string };
 }
+
+type RunMode = "batch" | "stdin" | "terminal";
 
 const LABEL_KEY = /^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/;
 
@@ -111,6 +116,11 @@ export class DockerSandbox extends SandboxBackend {
   private readonly readOnlyWorkspace: boolean;
   private readonly labels: readonly [string, string][];
   private readonly keepKey: string | undefined;
+  /** Opens a TTY exec in a dedicated container; see `openContainerTerminal`. */
+  override openTerminal?: (
+    command: string,
+    opts: SandboxTerminalOptions,
+  ) => Promise<SandboxTerminal>;
 
   constructor(config: DockerSandboxConfig = {}) {
     // No workDir ⇒ a fresh private directory, never the host /tmp.
@@ -124,6 +134,11 @@ export class DockerSandbox extends SandboxBackend {
     this.readOnlyWorkspace = config.readOnlyWorkspace ?? false;
     this.image = config.image ?? "alpine:3";
     this.network = config.network ?? false;
+    this.openTerminal = (command, opts) => {
+      const name = `theokit-sbx-${randomBytes(6).toString("hex")}`;
+      const args = this.runArgs(name, "terminal", ["tail", "-f", "/dev/null"]);
+      return openContainerTerminal(this.runner, { name, args }, command, opts);
+    };
     this.networkPolicy = { mode: this.network ? "unrestricted" : "none" };
     this.runner = config.runner ?? defaultDockerRunner(config.dockerBin);
     this.hostDir = resolveHost(this.config.workDir ?? "/tmp");
@@ -135,11 +150,17 @@ export class DockerSandbox extends SandboxBackend {
   }
 
   /** The `docker run` argv for one command; exposed shape is covered by tests. */
-  private runArgs(name: string, interactive: boolean, argv: readonly string[]): string[] {
+  private runArgs(name: string, mode: RunMode, argv: readonly string[]): string[] {
+    // A terminal container is its own lifetime: no keep label (a later `execute` would remove it
+    // as an "earlier kept" container) and always `--rm`.
+    const terminal = mode === "terminal";
+    const keep = this.keepKey !== undefined && !terminal;
+    const labels = keep ? this.labels : this.labels.filter(([k]) => k !== KEEP_LABEL);
     return [
       "run",
-      ...(this.keepKey === undefined ? ["--rm"] : []),
-      ...(interactive ? ["-i"] : []),
+      ...(keep ? [] : ["--rm"]),
+      ...(terminal ? ["-d"] : []),
+      ...(mode === "stdin" ? ["-i"] : []),
       "--name",
       name,
       "--read-only",
@@ -154,7 +175,7 @@ export class DockerSandbox extends SandboxBackend {
       "--network",
       this.network ? "bridge" : "none",
       ...(this.user ? ["--user", this.user] : []),
-      ...this.labels.flatMap(([k, v]) => ["--label", `${k}=${v}`]),
+      ...labels.flatMap(([k, v]) => ["--label", `${k}=${v}`]),
       "-v",
       `${this.hostDir}:${CONTAINER_WORKDIR}:${this.readOnlyWorkspace ? "ro" : "rw"}`,
       "-w",
@@ -176,7 +197,7 @@ export class DockerSandbox extends SandboxBackend {
     const max = this.config.maxOutputBytes ?? 5 * 1024 * 1024;
     let r: DockerRunResult;
     try {
-      r = await this.runner(this.runArgs(name, interactive, argv), {
+      r = await this.runner(this.runArgs(name, interactive ? "stdin" : "batch", argv), {
         input,
         timeoutMs,
         maxOutputBytes: max,
@@ -228,4 +249,57 @@ export class DockerSandbox extends SandboxBackend {
     );
     if (r.code !== 0) throw new Error(`uploadFile failed: ${r.stderr.trim() || "docker error"}`);
   }
+}
+
+/**
+ * Opens `command` under a TTY in a dedicated container, attached through the Docker Engine API
+ * (`DOCKER_HOST` `unix://` or `tcp://`; `dockerBin` and a custom `runner` apply only to creating
+ * and removing the container). The container has the same confinement as `execute` and is removed
+ * when the terminal ends, even with `keepLast`.
+ */
+async function openContainerTerminal(
+  runner: DockerRunner,
+  container: { name: string; args: readonly string[] },
+  command: string,
+  opts: SandboxTerminalOptions,
+): Promise<SandboxTerminal> {
+  const { name, args } = container;
+  const remove = once(async () => {
+    await runner(["rm", "-f", name], { timeoutMs: 10_000, maxOutputBytes: 4096 }).catch((e) =>
+      diag(
+        `DockerSandbox terminal cleanup of ${name} failed: ${e instanceof Error ? e.message : String(e)}\n`,
+      ),
+    );
+  });
+  try {
+    const r = await runner(args, { timeoutMs: 60_000, maxOutputBytes: 65_536 });
+    if (r.code !== 0 || r.timedOut) throw new Error(r.stderr.trim() || "docker run failed");
+  } catch (e) {
+    await remove().catch(() => undefined);
+    throw new SandboxNotAvailableError(
+      `docker could not be started: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+  try {
+    return await openDockerTerminal({
+      endpoint: dockerEndpoint(),
+      container: name,
+      command,
+      cols: opts.cols,
+      rows: opts.rows,
+      cwd: opts.cwd ?? CONTAINER_WORKDIR,
+      onEnd: remove,
+    });
+  } catch (e) {
+    await remove().catch(() => undefined);
+    throw e;
+  }
+}
+
+function once(fn: () => Promise<void>): () => Promise<void> {
+  let p: Promise<void> | undefined;
+  return () => {
+    p ??= fn();
+    return p;
+  };
 }
